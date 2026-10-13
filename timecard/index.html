@@ -228,8 +228,10 @@ async function rtReload(){
 
 // ---------- staff ----------
 async function loadStaff(){
-  const { data, error } = await sb.from('staff')
-    .select('id,display_name,kind,is_trial,kakari_only,no_timecard,created_at').eq('is_active', true).order('sort_order');
+  // SQL 085：スタッフの名前は関数 tc_staff から（タイムカード専用の ID は表を直接読めない）。関数が無い時は今までどおり表から
+  let { data, error } = await sb.rpc('tc_staff');
+  if (error || !Array.isArray(data)) ({ data, error } = await sb.from('staff')
+    .select('id,display_name,kind,is_trial,kakari_only,no_timecard,created_at').eq('is_active', true).order('sort_order'));
   const grid = document.getElementById('grid'); grid.innerHTML = '';
   if (error) { grid.textContent = 'スタッフ取得エラー：' + error.message; return; }
   // 体験キャストは1日限り：登録した営業日（朝8時区切り）の翌営業日からは表示しない
@@ -330,6 +332,9 @@ function showToast(main, sub, ms){
 // ---------- 同伴の準備時間チェック（同伴は会計の伝票で付ける。伝票の立ち上げ〜出勤打刻が設定分数を超えたら本人に警告。打刻は止めない） ----------
 async function checkDouhanLate(staff){
   try {
+    // SQL 085：関数 tc_douhan（決めた分数と、同伴の伝票を立ち上げてからの分数）。関数が無い時は今までどおり表から
+    const rd = await sb.rpc('tc_douhan', { p_staff: staff.id });
+    if (!rd.error) { const lim = Number(rd.data?.limit ?? 10); if (lim > 0 && rd.data?.mins != null && rd.data.mins > lim) await fxLate(lim); return; }
     let q = sb.from('pos_settings').select('douhan_punch_limit_min');
     if (store?.id) q = q.eq('store_id', store.id);
     const st = await q.limit(1);
