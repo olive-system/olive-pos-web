@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.67 -->
+<title>OLIVE 管理</title><!-- admin v0.68 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1565,18 +1565,19 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
   $('main').querySelectorAll('[data-big]').forEach(im=>im.onclick=()=>{ const m=modal(`<img src="${esc(im.dataset.big)}" alt="" style="width:100%;border-radius:10px"><div class="bar"><button class="primary" data-k="ok">閉じる</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>m.remove(); }); };
 
 // ---------- タイムカードの端末 v0.23・SQL 063（オーナーだけ）：登録した端末だけ打刻できる ----------
+let tcHasId=false; /* v0.68：タイムカード専用の ID がもうある時は「作る」を出さない（1つの店に1つで足りる） */
 async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId;
   const r=await sb.rpc('admin_tc_list',{p_store:st}); if(page!=='pw'||storeId!==st||!$('tcBox')) return;
   if(r.error){ box.innerHTML=`<h2>タイムカードの端末</h2><div class="err">${esc(/admin_tc_list/.test(r.error.message)?'SQL 063 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const L=r.data||[];
-  box.innerHTML=`<h2>タイムカードの端末</h2><div class="muted hint" style="font-size:14px;margin-bottom:8px">ここで登録した端末だけ打刻できます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">「登録コードを出す」で出た6けたを、その端末のタイムカードで入れます（30分有効）</div></div>
+  box.innerHTML=`<h2>タイムカードの端末</h2><div class="muted hint" style="font-size:14px;margin-bottom:8px">端末の準備：① タイムカード専用のIDでログイン　② 登録コードを入力<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">「登録コードを出す」で出た6けたを、その端末のタイムカードで入れます（30分有効）</div></div>
     <table class="t"><tr><th>端末</th><th>状態</th><th>最後の打刻</th><th></th></tr>
     ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済み</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>
       <td>${x.last_used_at?esc(fmtDT(x.last_used_at)):'—'}</td><td style="text-align:right;white-space:nowrap"><button class="ghost sm" data-tcre="${x.id}" data-l="${esc(x.label)}">登録し直す</button> <button class="ghost sm" data-tcdel="${x.id}" data-l="${esc(x.label)}">削除</button></td></tr>`).join('')||'<tr><td class="muted" colspan="4">まだありません</td></tr>'}</table>
-    <div class="grid2" style="margin-top:10px"><label>端末の名前<input id="tcLabel" placeholder="例：入口の iPad" maxlength="30"></label><div><button class="primary" id="tcAdd" style="width:100%">登録コードを出す</button></div></div>
-    <div class="row" style="margin-top:12px;justify-content:space-between;gap:8px"><span>タイムカード専用のID <small class="muted">このIDでは、POS は開けません</small></span><button class="ghost sm" id="tcIdAdd">作る</button></div>`;
+    <div class="grid2" style="margin-top:10px"><label>端末の名前<input id="tcLabel" placeholder="例：入口の iPad" maxlength="30"></label><div><button class="primary" id="tcAdd" style="width:100%">登録コードを出す</button></div></div>${tcHasId?'':`
+    <div class="row" style="margin-top:12px;justify-content:space-between;gap:8px"><span>タイムカード専用のID <small class="muted">このIDでは、POS は開けません</small></span><button class="ghost sm" id="tcIdAdd">作る</button></div>`}`;
   /* v0.66・SQL 084：タイムカードの端末でログインするための ID（POS のデータは読めない・書けない）。作った ID とパスワードは上の「今のパスワード」に出る */
-  const ia=$('tcIdAdd'); ia.onclick=guard(ia,async()=>{ if(!await uiConfirm('タイムカード専用のIDを作りますか？','作る')) return;
+  const ia=$('tcIdAdd'); if(ia) ia.onclick=guard(ia,async()=>{ if(!await uiConfirm('タイムカード専用のIDを作りますか？','作る')) return;
     const x=await sb.rpc('admin_tc_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_tc_account_create/.test(x.error.message)?'SQL 084 が未実行です':x.error.message); return; }
     await uiAlert(`IDを作りました\n\nログイン用メール：${x.data.email}\nパスワード：${x.data.pw}`); if(page==='pw') PAGES.pw(); });
   const show=(label,code)=>new Promise(res=>{ const m=modal(`<h2 style="margin:0">登録コード</h2><div>${esc(label)}</div><div class="tccode">${esc(code)}</div><div class="muted" style="font-size:14px">この端末のタイムカードを開いて入れてください（30分有効・1回だけ使えます）</div><div class="bar"><button class="primary" data-k="ok">閉じる</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(); }; });
@@ -1674,7 +1675,7 @@ PAGES.pw=async()=>{
   $('main').innerHTML=`<h1>パスワード <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>${own}<div class="card muted">読み込み中…</div>`; bindOwn();
   const r=await sb.rpc('admin_credentials',{p_store:storeId}); if(page!=='pw') return;
   if(r.error){ $('main').lastElementChild.outerHTML=`<div class="card err">${esc(r.error.message)}</div>`; return; }
-  const d=r.data||{};
+  const d=r.data||{}; tcHasId=(d.devices||[]).some(x=>x.label==='タイムカード専用');
   const pwCell=pw=>pw?`<span class="pwv" data-pwv="${esc(pw)}">••••••••</span> <button class="ghost sm" data-show>見る</button>`:'<small class="muted">管理サイトで変えると、ここに出ます</small>';
   const O=true; // v0.21：この画面はオーナーだけ（SQL 061 で関数もオーナーだけにする）
   const row=(label,sub,key,pw)=>`<tr><td>${label}${sub?`<br><small class="muted">${sub}</small>`:''}</td><td>${pwCell(pw)}</td><td style="text-align:right">${O?`<button class="ghost sm" data-pw="${esc(key)}" data-label="${esc(label.replace(/<[^>]*>/g,''))}">変える</button>`:''}</td></tr>`;
