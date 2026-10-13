@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.64 -->
+<title>OLIVE 管理</title><!-- admin v0.65 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -576,11 +576,13 @@ const regHead=()=>`<h1>現金管理 <small class="muted" style="font-weight:400"
 function regTabs(){ $('main').querySelectorAll('[data-rt]').forEach(b=>b.onclick=()=>{ if(b.dataset.rt==='month'&&regTab==='day'&&regDate) regMonth=regDate.slice(0,7); /* v0.08：日次で見ている日の月を開く */ regTab=b.dataset.rt; PAGES.register(); }); }
 PAGES.register=()=>regTab==='month'?regMonthPage():regDayPage();
 // 期間（from〈含まない〉〜to〈含まない〉）の日ごとの 現金売上・入金・出金（日払い含む）
+// v0.65：1000行で切れないように分けて読む（精算の間が空いた時に「未精算分」が少なく出た）
+async function sbAll(mk){ let all=[]; for(let from=0;;from+=1000){ const r=await mk().range(from,from+999); if(r.error) return {data:all.length?all:null,error:r.error}; all=all.concat(r.data||[]); if((r.data||[]).length<1000) return {data:all,error:null}; } }
 async function regMoves(fromEx,toEx){
   const [mv,adv,pay]=await Promise.all([
-    sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx),
-    sb.from('daily_advances').select('business_date,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx),
-    sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',storeId).gte('paid_at',bdStart(fromEx)).lt('paid_at',bdStart(toEx)) ]);
+    sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx).order('id')),
+    sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx).order('id')),
+    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',storeId).gte('paid_at',bdStart(fromEx)).lt('paid_at',bdStart(toEx)).order('id')) ]);
   const er=mv.error||adv.error||pay.error; if(er) return {error:er};
   const sum={}; const add=(dd,k,v)=>{ if(dd<=fromEx||dd>=toEx) return; (sum[dd]=sum[dd]||{sales:0,cin:0,cout:0})[k]+=Number(v)||0; };
   (mv.data||[]).forEach(x=>add(x.business_date,x.kind==='in'?'cin':'cout',x.amount)); (adv.data||[]).filter(x=>x.amount>0).forEach(x=>add(x.business_date,'cout',x.amount));
