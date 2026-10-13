@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.29 -->
+<title>OLIVE 会計</title><!-- v11.30 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -532,7 +532,8 @@ function gDefault(){ const [y,m]=businessDate().split('-').map(Number); const d=
 async function monthPoints(only){ const bd=businessDate(), m1=bd.slice(0,7)+'-01'; const sp=Number(settings.set_point||0), ep=Number(settings.ext_point||0); const r=await sb.from('bills').select('id,guest_count,set_guest_count,bill_casts(staff_id,is_kakari),bill_extensions(qty),bill_items(is_void,bill_item_splits(staff_id,back_points))').eq('store_id',store.id).eq('status','closed').gte('business_date',m1).lte('business_date',bd); if(r.error) return null; const m={}; const add=(id,v)=>{ if(only&&!only.has(id)) return; m[id]=Math.round(((m[id]||0)+v)*10)/10; };
   (r.data||[]).forEach(b=>{ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id); const base=sp*(b.set_guest_count??b.guest_count??0)+ep*(b.bill_extensions||[]).reduce((a,e)=>a+Number(e.qty||0),0); if(ks.length&&base) ks.forEach(id=>add(id,base/ks.length)); (b.bill_items||[]).filter(x=>!x.is_void).forEach(x=>(x.bill_item_splits||[]).forEach(z=>{ const v=Number(z.back_points||0); if(v) add(z.staff_id,v); })); });
   return m; }
-async function monthKakari(only){ const bd=businessDate(), m1=bd.slice(0,7)+'-01'; const r=await sb.from('bills').select('id,bill_casts(staff_id,is_kakari),bill_items(cast_subtotal_price,qty,is_void)').eq('store_id',store.id).eq('status','closed').gte('business_date',m1).lte('business_date',bd); if(r.error) return null;
+async function monthKakari(only){ { const q=await sb.rpc('pos_month_kakari'); if(!q.error&&q.data&&typeof q.data==='object'){ const m={}; Object.entries(q.data).forEach(([id,v])=>{ if(!only||only.has(id)) m[id]=Number(v||0); }); return m; } } /* v11.30・SQL 082：前は伝票を1枚ずつ計算していた（月末に数百回の通信）。関数が無い時は下の前の読み方 */
+  const bd=businessDate(), m1=bd.slice(0,7)+'-01'; const r=await sb.from('bills').select('id,bill_casts(staff_id,is_kakari),bill_items(cast_subtotal_price,qty,is_void)').eq('store_id',store.id).eq('status','closed').gte('business_date',m1).lte('business_date',bd); if(r.error) return null;
   const bs=(r.data||[]).filter(b=>(b.bill_casts||[]).some(c=>c.is_kakari&&(!only||only.has(c.staff_id)))); const m={};
   for(let i=0;i<bs.length;i+=8){ const part=bs.slice(i,i+8); const ts=await Promise.all(part.map(b=>sb.rpc('calc_bill',{p_bill:b.id}))); part.forEach((b,j)=>{ const T=ts[j].data||{}; const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id); const total=(T.set||0)+(T.vip_set||0)+(T.extension||0)+(T.vip_ext||0)+(b.bill_items||[]).filter(x=>!x.is_void).reduce((a,x)=>a+x.cast_subtotal_price*x.qty,0); const each=Math.floor(total/ks.length); ks.forEach(id=>{ m[id]=(m[id]||0)+each; }); }); }
   return m; }
@@ -1098,7 +1099,7 @@ const SET = [
   { key:'closing', name:'閉店作業', closing:true },
   { key:'audit', name:'操作ログ', audit:true },
 ];
-let setCur='tables', setSel=null, setEditMode=false, setCatFilter=null;
+let setCur='tables', setSel=null, setEditMode=false, setCatFilter=null, auDate=null;
 $('navSettings').onclick=()=>{ renderSettings(setCur); show('v-settings'); };
 
 // ---------- ボトル（全ボトルの一覧・ご来店のないお客様の抽出・期限切れ） ----------
@@ -1151,7 +1152,8 @@ function btCutoff(n){ const [y,m,d]=businessDate().split('-').map(Number); const
 function bnLine(names,n){ names=names||[]; if(!names.length) return n?`ボトル${n}本`:''; return names.slice(0,3).join('、')+(names.length>3?` ほか${names.length-3}本`:''); }
 let cuInfo={last:{},cnt:{},first:{},kn:{},req:{},bn:{}}, cuMode='all';
 async function loadCuInfo(){ const info={last:{},cnt:{},first:{},kn:{},req:{},bn:{}}; const rq=await sb.from('customer_note_requests').select('customer_id').eq('store_id',store.id).eq('status','pending'); (rq.data||[]).forEach(x=>{ info.req[x.customer_id]=(info.req[x.customer_id]||0)+1; }); const bt=await sbAll(()=>sb.from('customer_bottles').select('*').eq('is_finished',false).order('opened_on',{ascending:false}).order('id')); (bt.data||[]).filter(b=>!b.expired_on).forEach(b=>{ const c=b.customer_id; info.cnt[c]=(info.cnt[c]||0)+1; (info.bn[c]||(info.bn[c]=[])).push(b.name); const d=b.opened_on||String(b.created_at||'').slice(0,10); if(d&&(!info.first[c]||d<info.first[c])) info.first[c]=d; if(b.keep_name) (info.kn[c]||(info.kn[c]=[])).push(b.keep_name); });
-  for(let from=0;;from+=1000){ const v=await sb.from('bill_customers').select('customer_id,bills(business_date,status)').order('bill_id').order('customer_id').range(from,from+999); if(v.error) break; (v.data||[]).forEach(x=>{ const bl=x.bills; if(!bl||bl.status==='void') return; if(!info.last[x.customer_id]||bl.business_date>info.last[x.customer_id]) info.last[x.customer_id]=bl.business_date; }); if((v.data||[]).length<1000) break; } /* v11.01：最終は共有の店舗での来店も入れる（SQL 048） */ const sl=await sb.rpc('cust_share_last'); Object.entries(sl.data||{}).forEach(([id,d])=>{ if(!info.last[id]||d>info.last[id]) info.last[id]=d; }); cuInfo=info; }
+  const lv=await sb.rpc('pos_cust_last'); /* v11.30・SQL 082：前は来店の記録を全部読んでいた。関数が無い時だけ前の読み方 */ if(!lv.error&&lv.data&&typeof lv.data==='object') Object.entries(lv.data).forEach(([id,d])=>{ info.last[id]=d; });
+  else for(let from=0;;from+=1000){ const v=await sb.from('bill_customers').select('customer_id,bills(business_date,status)').order('bill_id').order('customer_id').range(from,from+999); if(v.error) break; (v.data||[]).forEach(x=>{ const bl=x.bills; if(!bl||bl.status==='void') return; if(!info.last[x.customer_id]||bl.business_date>info.last[x.customer_id]) info.last[x.customer_id]=bl.business_date; }); if((v.data||[]).length<1000) break; } /* v11.01：最終は共有の店舗での来店も入れる（SQL 048） */ const sl=await sb.rpc('cust_share_last'); Object.entries(sl.data||{}).forEach(([id,d])=>{ if(!info.last[id]||d>info.last[id]) info.last[id]=d; }); cuInfo=info; }
 function cuBase(id){ return cuInfo.last[id]||cuInfo.first[id]||String(customers.find(c=>c.id===id)?.created_at||'').slice(0,10)||''; }
 let cuMonthsSel=null;
 
@@ -1370,9 +1372,9 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
 // 領収書メール：端末のメールアプリを開く（写真はメールアプリ側で添付する）
 function clMailUrl(who){ const to=String(settings?.receipt_mail_to||'').trim(); const subject=`【${store?.name||''}】現金払い（名前→${who}）`; const body='📎→書類をスキャン→フィルタ→白黒　で送信'; return `mailto:${encodeURIComponent(to).replace(/%40/g,'@')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
 // v10.43：前回の精算の翌日〜前日のうち、未精算の日の現金の動き（現金売上＋入金−出金−日払い）の合計
-async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d),
-    sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d),
-    sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').gte('paid_at',new Date(`${after}T08:00:00`).toISOString()).lt('paid_at',new Date(`${d}T08:00:00`).toISOString()),
+async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')), /* v11.30：1000行で切れないように分けて読む */
+    sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')),
+    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').gte('paid_at',new Date(`${after}T08:00:00+09:00`).toISOString()).lt('paid_at',new Date(`${d}T08:00:00+09:00`).toISOString()).order('id')),
     sb.from('register_closings').select('business_date').eq('store_id',store.id).gt('business_date',after).lt('business_date',d) ]);
   const done=new Set((cl.data||[]).map(r=>r.business_date)); const net={}; const add=(k,v)=>{ if(!done.has(k)) net[k]=(net[k]||0)+v; };
   (mv.data||[]).forEach(r=>add(r.business_date,r.kind==='in'?Number(r.amount):-Number(r.amount))); (adv.data||[]).filter(r=>r.amount>0).forEach(r=>add(r.business_date,-Number(r.amount)));
@@ -1435,7 +1437,7 @@ async function renderSettings(key, keepSel){ if(key!==setCur){ setSel=null; setE
     // 置き：未入金の間はどの日の一覧にも載せない。全額の入金を受けた日の伝票として載せる
     const data=[...(q1.data||[]),...(q2.data||[])].filter(b=>{ if(b.status!=='closed') return b.business_date===today; if((b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)) return false; return billDay(b)===today; });
     const tot={}; await Promise.all((data||[]).map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); tot[b.id]=r.data?.amount_due??null; }));
-    const SJ={open:'<span class="badge">来店中</span>',closed:'<span class="badge k">会計済み</span>',void:'<span class="badge gray">取消</span>'};
+    const SJ={open:'<span class="badge">来店中</span>',closed:'<span class="badge k">会計済み</span>',void:'<span class="badge gray">削除</span>'};
     const grl=data.length?await sb.from('good_reactions').select('bill_id,staff_id').in('bill_id',data.map(b=>b.id)):{data:[]}; const grm={}; (grl.data||[]).forEach(g=>(grm[g.bill_id]=grm[g.bill_id]||[]).push(g.staff_id)); if(!staffAll.length) await loadStaffAll();
     const live=(data||[]).filter(b=>b.status==='closed'); const sum=live.reduce((a,b)=>a+(tot[b.id]||0),0);
     $('setList').innerHTML=`<div class="muted" style="margin-bottom:6px">本日（${businessDate()}）　会計済み ${live.length}件・${yen(sum)}</div>`+((data||[]).map(b=>{ const cn=(b.bill_customers||[]).map(c=>customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・'); const pm=[...new Set((b.payments||[]).filter(p=>p.amount>0).map(p=>METHOD[p.method]+(p.method==='oki'&&!p.received_at?'(未入金)':'')))].join('・');
@@ -1443,13 +1445,15 @@ async function renderSettings(key, keepSel){ if(key!==setCur){ setSel=null; setE
     $('setList').querySelectorAll('[data-bill]').forEach(r=>r.onclick=()=>{ billFrom='bills'; openBill(r.dataset.bill); });
     $('setList').querySelectorAll('[data-bpe]').forEach(x=>x.onclick=async e=>{ e.stopPropagation(); await billPeopleEdit(x.dataset.bpe); renderSettings('bills'); }); return; }
   if (def.audit) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML='';
-    const { data, error } = await sb.from('pos_audit_log').select('*').eq('store_id',store.id).order('created_at',{ascending:false}).limit(300);
+    const ad=auDate||(auDate=businessDate()), an=new Date(ad+'T00:00:00'); an.setDate(an.getDate()+1); const ad2=`${an.getFullYear()}-${String(an.getMonth()+1).padStart(2,'0')}-${String(an.getDate()).padStart(2,'0')}`; // v11.30：営業日（朝8時で区切る）を選んで、その日の分を全部
+    const { data, error } = await sbAll(()=>sb.from('pos_audit_log').select('*').eq('store_id',store.id).gte('created_at',ad+'T08:00:00+09:00').lt('created_at',ad2+'T08:00:00+09:00').order('created_at',{ascending:false}).order('id'));
     if(error){ $('setList').innerHTML=`<div class="muted">操作ログを読めません（SQL 010 が未適用の可能性）：${esc(error.message)}</div>`; return; }
     const f=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; };
     const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作した人'}; // v11.08：管理サイトの現金管理から入れた操作は「操作した人：管理サイト：名前」
     const vj=v=>v===true?'はい':v===false?'いいえ':Array.isArray(v)?v.join('、'):(typeof v==='number'?v.toLocaleString():v);
     const dt=o=>Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&k!=='table').map(([k,v])=>`${KJ[k]||k}：${vj(v)}`).join(' ／ ');
-    $('setList').innerHTML=(data||[]).map(l=>`<div class="item" style="display:block"><b>${esc(actL(l.action))}</b> <small>${f(l.created_at)}　${esc(l.detail?.table||'')}</small><br><small>${esc(dt(l.detail))}</small>${l.reason?`<br><small>理由：${esc(l.reason)}</small>`:''}</div>`).join('')||'<div class="muted">まだ記録はありません</div>'; return; }
+    $('setList').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="auD" value="${ad}" style="width:auto"><small class="muted">${(data||[]).length}件</small></div>`+((data||[]).map(l=>`<div class="item" style="display:block"><b>${esc(actL(l.action))}</b> <small>${f(l.created_at)}　${esc(l.detail?.table||'')}</small><br><small>${esc(dt(l.detail))}</small>${l.reason?`<br><small>理由：${esc(l.reason)}</small>`:''}</div>`).join('')||'<div class="muted">この日の記録はありません</div>');
+    $('auD').onchange=()=>{ if($('auD').value){ auDate=$('auD').value; renderSettings('audit'); } }; return; }
   if (def.single) { $('setList').innerHTML=''; setSel=settings; renderForm(def); return; }
   const rows=setRows(def);
   if(setSel) setSel=rows.find(r=>r.id===setSel.id)||null; // 保存後は読み直した最新の行を表示する（古い値が残らないように）
