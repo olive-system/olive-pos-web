@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.65 -->
+<title>OLIVE 管理</title><!-- admin v0.66 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1573,7 +1573,12 @@ async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId
     <table class="t"><tr><th>端末</th><th>状態</th><th>最後の打刻</th><th></th></tr>
     ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済み</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>
       <td>${x.last_used_at?esc(fmtDT(x.last_used_at)):'—'}</td><td style="text-align:right;white-space:nowrap"><button class="ghost sm" data-tcre="${x.id}" data-l="${esc(x.label)}">登録し直す</button> <button class="ghost sm" data-tcdel="${x.id}" data-l="${esc(x.label)}">削除</button></td></tr>`).join('')||'<tr><td class="muted" colspan="4">まだありません</td></tr>'}</table>
-    <div class="grid2" style="margin-top:10px"><label>端末の名前<input id="tcLabel" placeholder="例：入口の iPad" maxlength="30"></label><div><button class="primary" id="tcAdd" style="width:100%">登録コードを出す</button></div></div>`;
+    <div class="grid2" style="margin-top:10px"><label>端末の名前<input id="tcLabel" placeholder="例：入口の iPad" maxlength="30"></label><div><button class="primary" id="tcAdd" style="width:100%">登録コードを出す</button></div></div>
+    <div class="row" style="margin-top:12px;justify-content:space-between;gap:8px"><span>タイムカード専用のID <small class="muted">このIDでは、POS は開けません</small></span><button class="ghost sm" id="tcIdAdd">作る</button></div>`;
+  /* v0.66・SQL 084：タイムカードの端末でログインするための ID（POS のデータは読めない・書けない）。作った ID とパスワードは上の「今のパスワード」に出る */
+  const ia=$('tcIdAdd'); ia.onclick=guard(ia,async()=>{ if(!await uiConfirm('タイムカード専用のIDを作りますか？','作る')) return;
+    const x=await sb.rpc('admin_tc_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_tc_account_create/.test(x.error.message)?'SQL 084 が未実行です':x.error.message); return; }
+    await uiAlert(`IDを作りました\n\nログイン用メール：${x.data.email}\nパスワード：${x.data.pw}`); if(page==='pw') PAGES.pw(); });
   const show=(label,code)=>new Promise(res=>{ const m=modal(`<h2 style="margin:0">登録コード</h2><div>${esc(label)}</div><div class="tccode">${esc(code)}</div><div class="muted" style="font-size:14px">この端末のタイムカードを開いて入れてください（30分有効・1回だけ使えます）</div><div class="bar"><button class="primary" data-k="ok">閉じる</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(); }; });
   const add=$('tcAdd'); add.onclick=guard(add,async()=>{ const lb=$('tcLabel').value.trim(); if(!lb){ await uiAlert('端末の名前を入れてください'); return; }
     const x=await rpc('admin_tc_code',{p_store:st,p_id:null,p_label:lb}); if(!x.ok) return; await show(lb,x.data.code); tcCard(); });
@@ -1677,7 +1682,7 @@ PAGES.pw=async()=>{
   <div class="card"><h2>全部まとめて新しくする</h2><div class="muted hint" style="font-size:14px;margin-bottom:10px">黒服が辞めた時に使ってください<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">POS・タイムカードの端末と顧客サイトのパスワードを、自動で作った新しいものに一度に変えます</div></div><button class="danger" id="rotAll">全部のパスワードを新しくする</button></div>`:'')+`
   <div class="card"><h2>今のパスワード</h2><div class="muted" style="font-size:14px;margin-bottom:6px">「変える」で、好きなパスワードを入れて変えられます（自動で作ることもできます）</div><table class="t">
     <tr><th>どこの</th><th>パスワード</th><th></th></tr>
-    ${(d.devices||[]).map(x=>row(`POS・タイムカード：${esc(x.label||'端末')}`,`ログイン用メール ${esc(x.email||'')}`,`dev:${x.user_id}`,x.pw)).join('')||'<tr><td class="muted" colspan="3">POS・タイムカードの端末がありません</td></tr>'}
+    ${(d.devices||[]).map(x=>row(x.label==='タイムカード専用'?'タイムカード専用のID':`POS・タイムカード：${esc(x.label||'端末')}`,`ログイン用メール ${esc(x.email||'')}`,`dev:${x.user_id}`,x.pw)).join('')||'<tr><td class="muted" colspan="3">POS・タイムカードの端末がありません</td></tr>'}
     ${(d.cs||[]).map(x=>row(esc(CS_KIND[x.kind]||x.kind),'',`cs:${x.kind}`,x.pw)).join('')}
     ${(d.accounts||[]).map(x=>row(`管理サイト：${esc(x.login_id)}`,esc(x.name)+(x.is_owner&&x.name!=='オーナー'?'（オーナー）':'')+(x.is_active?'':'（止めている）'),x.login_id===me.login_id?'own:':`acc:${x.id}`,x.pw)).join('')}
   </table></div>`;
