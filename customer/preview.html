@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.36 -->
+<title>OLIVE 顧客</title><!-- customer v1.37 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--edit:#7b61c9}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -236,7 +236,7 @@ function visYears(list,dt,row){ const cy=bd().slice(0,4), g={}; const head=list.
 // 一覧のボトル：キープ中の銘柄を3本まで、4本以上は「ほか○本」。銘柄が届かない時は本数だけ。POSと同じ
 function bnLine(names,n){ names=names||[]; if(!names.length) return n?`ボトル${n}本`:''; return names.slice(0,3).join('、')+(names.length>3?` ほか${names.length-3}本`:''); }
 function md(d){ const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]===bd().slice(0,4)?'':m[1]+'/'}${+m[2]}/${+m[3]}`:''; }
-function cutoff(n){ const [y,m,d]=bd().split('-').map(Number); const x=new Date(y,m-1-n,d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function cutoff(n){ const [y,m,d]=bd().split('-').map(Number); const x=new Date(y,m-1-n,1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* v1.37：月末のずれを直す */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 function base(c){ return c.last||c.first_bottle||String(c.created_at||'').slice(0,10)||''; }
 const staffBy=id=>(boot&&boot.staff||[]).find(s=>s.id===id);
 const sname=id=>{ const s=staffBy(id); return s?s.name+(s.active?'':'（退店）'):''; };

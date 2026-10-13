@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.31 -->
+<title>OLIVE 会計</title><!-- v11.32 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1150,7 +1150,7 @@ async function sbAll(mk){ let all=[]; for(let from=0;;from+=1000){ const r=await
 /* v10.99：並び順を顧客サイトとそろえる（名前・卓名は日本語順、数字は数の順） */
 function jaCmp(a,b){ return (jaCmp.c||(jaCmp.c=new Intl.Collator('ja',{numeric:true}))).compare(String(a??''),String(b??'')); }
 function btSort(list){ return list.sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); }
-function btCutoff(n){ const [y,m,d]=businessDate().split('-').map(Number); const x=new Date(y,m-1-(n||btMonths()),d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function btCutoff(n){ const [y,m,d]=businessDate().split('-').map(Number); const x=new Date(y,m-1-(n||btMonths()),1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* v11.32：月末のずれを直す（8/31 の6か月前は 2/28。前は 3/3 になった） */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 // 顧客一覧に出す情報：最終来店日・キープ中のボトル本数と銘柄・キープ名（検索用）
 // v10.94：一覧は「最終 日付・係の名前・キープ中の銘柄（3本まで、4本以上は「ほか○本」）」。顧客サイトと同じ
 function bnLine(names,n){ names=names||[]; if(!names.length) return n?`ボトル${n}本`:''; return names.slice(0,3).join('、')+(names.length>3?` ほか${names.length-3}本`:''); }

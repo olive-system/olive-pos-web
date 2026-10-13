@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.66 -->
+<title>OLIVE 管理</title><!-- admin v0.67 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -770,7 +770,7 @@ PAGES.set_pay=async()=>{
     sb.from('hall_bonus_slides').select('*').eq('store_id',st).order('sales_man'), sb.from('pos_settings').select('*').eq('store_id',st).maybeSingle(),
     sb.from('fine_types').select('name,target,calc,value,per_unit,sort_order').eq('store_id',st).order('sort_order'), sb.rpc('admin_get_after_ext',{p_store:st}),
     sb.from('slide_tables').select('*').eq('store_id',st).eq('is_active',true).order('sort_order'), sb.from('slide_rows').select('table_id,threshold,amount').eq('store_id',st).order('threshold'),
-    sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).lte('month',csNowMonth()) ]);
+    sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).lte('month',csNowMonth()).order('id')) ]);
   if(page!=='set_pay'||storeId!==st) return;
   const er=ps.error||hb.error||pos.error; if(er){ $('main').innerHTML=`<h1>給与項目</h1><div class="card err">${esc(/hall_bonus_slides/.test(er.message)&&/does not exist|schema cache/.test(er.message)?'SQL 050 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
   $('main').innerHTML=`<h1>給与項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
@@ -880,8 +880,8 @@ PAGES.set_cast=async()=>{
   $('csM').onchange=()=>{ csMonth=$('csM').value; PAGES.set_cast(); };
   await Promise.all([csCastPart($('csCastBox'),st,ed,m), csHallPart($('csHallBox'),st,ed,m)]); };
 async function csCastPart(box,st,ed,m){
-  const [sf,tm,ft,nt,stb]=await Promise.all([csList(st), sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m),
-    sb.from('fine_types').select('name').eq('store_id',st).order('sort_order'), sb.from('cast_notes').select('staff_id').eq('store_id',st).eq('is_void',false),
+  const [sf,tm,ft,nt,stb]=await Promise.all([csList(st), sbAll(()=>sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m).order('id')),
+    sb.from('fine_types').select('name').eq('store_id',st).order('sort_order'), sbAll(()=>sb.from('cast_notes').select('staff_id').eq('store_id',st).eq('is_void',false).order('id')), /* v0.67：1000行で切れないように分けて読む */
     sb.from('slide_tables').select('id,name,unit,sort_order').eq('store_id',st).eq('is_active',true).order('sort_order')]);
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   const er=sf.error||tm.error||nt.error;
@@ -987,7 +987,7 @@ function csHallTerms(s,rows,m){ const t=rows.filter(r=>r.staff_id===s.id&&r.mont
   const amt=!pt?null:t?.pay_type?(pt==='monthly'?t.monthly_wage:pt==='hourly'?t.hourly_wage:t.daily_wage):(pt==='daily'?s.daily_wage:null);
   return {month:t?.month??null,only_month:!!t?.only_month,pay_type:pt,amount:amt==null?null:Number(amt),withhold:t?.withhold??null,ctax_pct:t?.ctax_pct==null?null:Number(t.ctax_pct),welfare_mode:t?.welfare_mode||'std',welfare_amount:t?.welfare_mode==='amount'?(t.welfare_amount??null):null}; }
 async function csHallPart(box,st,ed,m){
-  const [sf,tm]=await Promise.all([csList(st), sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m)]);
+  const [sf,tm]=await Promise.all([csList(st), sbAll(()=>sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m).order('id'))]);
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   const er=sf.error||tm.error;
   if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">黒服</h2><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
