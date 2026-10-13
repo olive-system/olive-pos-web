@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.32 -->
+<title>OLIVE 会計</title><!-- v11.33 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -761,7 +761,7 @@ function renderBill(){ const b=cur, t=tables.find(x=>x.id===b.table_id);
   $('bSet').innerHTML=`<div class="item"><span class="n">1セット ${b.set_minutes}分<br><small>${yen(b.set_unit_price)}×${b.set_guest_count??b.guest_count}</small></span><span class="amt">${yen(b.set_unit_price*(b.set_guest_count??b.guest_count))}</span></div>`+
     (t?.vip_set_fee>0?`<div class="item"><span class="n"><span class="badge warnb">VIP</span> VIP代</span><span class="amt">${yen(t.vip_set_fee)}</span></div>`:'')+
     (()=>{ const ex=b.bill_extensions||[]; if(!ex.length) return ''; const tot=ex.reduce((a,e)=>a+e.unit_price*e.qty,0), mins=ex.reduce((a,e)=>a+e.minutes,0);
-      return `<div class="item" id="extSum" style="cursor:pointer"><span class="n">延長 ×${ex.length}<br><small>計${mins}分 ${extOpen?'▲ 閉じる':'▼ 内訳'}</small></span><span class="amt">${yen(tot)}</span></div>`+
+      return `<div class="item" id="extSum" style="cursor:pointer"><span class="n">${settings.ext_minutes}分延長 ×${ex.length}<br><small>計${mins}分 ${extOpen?'▲ 閉じる':'▼ 内訳'}</small></span><span class="amt">${yen(tot)}</span></div>`+
         (extOpen?ex.map(e=>`<div class="item" style="margin-left:16px"><span class="n">延長 ${e.minutes}分 <small>${e.is_auto?'自動':'手動'} ${yen(e.unit_price)}×${e.qty}</small></span><span class="amt">${yen(e.unit_price*e.qty)}</span><button class="ghost sm" data-ext="${e.id}">×</button></div>`).join(''):'')+
         (t?.vip_ext_fee>0?`<div class="item"><span class="n">VIP${settings.ext_minutes}分延長 ×${ex.length}</span><span class="amt">${yen(t.vip_ext_fee*ex.length)}</span></div>`:''); })()+
     (b.ext_waived_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した延長 ${b.ext_waived_minutes}分（料金なし）</div>`:'');
