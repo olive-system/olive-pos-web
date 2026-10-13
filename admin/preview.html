@@ -201,6 +201,7 @@ async function loadMe(){ const r=await sb.rpc('admin_me'); if(r.error||!r.data) 
 async function start(){
   const { data:{ session } }=await sb.auth.getSession(); if(!session){ showLogin(); return; }
   me=await loadMe();
+  if(me&&!me.is_owner){ const ms=await sb.rpc('admin_my_staff'); me.staff_id=ms.error?undefined:ms.data; } /* v0.68・SQL 087：結びつけた黒服。黒服の給料は自分の分だけ出す（関数が無い時は undefined＝今までどおり） */
   if(!me){ await sb.auth.signOut(); showLogin('このIDでは管理サイトに入れません（止められたか、パスワードが変わりました）'); return; }
   const saved=(()=>{ try{ return localStorage.getItem('olive_admin_store'); }catch(e){ return null; } })();
   storeId=me.is_owner ? (stores().some(s=>s.id===saved)?saved:stores()[0]?.id) : me.store_id;
@@ -991,7 +992,8 @@ async function csHallPart(box,st,ed,m){
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   const er=sf.error||tm.error;
   if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">黒服</h2><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
-  const halls=(sf.data||[]).filter(x=>x.kind==='hall'), tr0=tm.data||[];
+  if(!me?.is_owner&&me?.staff_id!==undefined) ed=false; /* v0.68・SQL 087：黒服の条件を変えられるのはオーナーだけ。オーナー以外は自分の行だけ見る */
+  const halls=(sf.data||[]).filter(x=>x.kind==='hall'&&(me?.is_owner||me?.staff_id===undefined||x.id===me.staff_id)), tr0=tm.data||[];
   const sql064=!tr0.length||'monthly_wage' in tr0[0];
   const rows=halls.map(s=>({s,t:csHallTerms(s,tr0,m)}));
   const E=csEdit==='hall', lock=csEdit==='cast';
@@ -1220,6 +1222,7 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
   const sl=D.slide, RK={within:'目標以内',plus2:'＋2%まで',plus5:'＋5%まで',over:'5%超'};
   // v0.61：担当キャスト売上・売上シェア（POS の黒服の詳細と同じ）。担当キャスト売上＝その黒服が担当黒服になっているキャストの係小計の合計。売上シェア＝担当キャスト売上÷（担当黒服のいるキャスト全員の分）
   const hid=new Set(rows.map(x=>x.id)), ms={}, mn={}; let mall=0; (casts||[]).forEach(c=>{ const h=c.manager_id; if(!h||!hid.has(h)) return; ms[h]=(ms[h]||0)+N(c.sales); mall+=N(c.sales); if(c.active) mn[h]=(mn[h]||0)+1; });
+  if(!own&&D.kakari_all!=null) mall=N(D.kakari_all); /* v0.68・SQL 087：オーナー以外は自分の行だけ返るので、全体は関数の値を使う */
   const share=x=>mall>0?(Math.round(N(ms[x.id])/mall*1000)/10).toFixed(1)+'%':'—';
   box.innerHTML=`<h2 style="margin:0 0 8px">黒服</h2>
     <div class="card" style="font-size:14px;line-height:1.7">ボーナス総額 <b>${yen(N(D.pool))}</b>　<span class="muted">売上計 ${yen(N(D.sales))}・人件費比率 ${N(D.ratio).toFixed(2)}%${sl?`（目標 ${N(sl.target).toFixed(2)}%・${RK[sl.rank]||''}・「${N(sl.sales_man)}万円以上」の行）`:'（黒服ボーナススライドに当てはまる行がありません）'}</span></div>
@@ -1570,12 +1573,11 @@ async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId
   const r=await sb.rpc('admin_tc_list',{p_store:st}); if(page!=='pw'||storeId!==st||!$('tcBox')) return;
   if(r.error){ box.innerHTML=`<h2>タイムカードの端末</h2><div class="err">${esc(/admin_tc_list/.test(r.error.message)?'SQL 063 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const L=r.data||[];
-  box.innerHTML=`<h2>タイムカードの端末</h2><div class="muted hint" style="font-size:14px;margin-bottom:8px">端末の準備：① タイムカード専用のIDでログイン　② 登録コードを入力<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">「登録コードを出す」で出た6けたを、その端末のタイムカードで入れます（30分有効）</div></div>
-    <table class="t"><tr><th>端末</th><th>状態</th><th>最後の打刻</th><th></th></tr>
+  box.innerHTML=`<h2>タイムカードの端末</h2>    <table class="t"><tr><th>端末</th><th>状態</th><th>最後の打刻</th><th></th></tr>
     ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済み</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>
       <td>${x.last_used_at?esc(fmtDT(x.last_used_at)):'—'}</td><td style="text-align:right;white-space:nowrap"><button class="ghost sm" data-tcre="${x.id}" data-l="${esc(x.label)}">登録し直す</button> <button class="ghost sm" data-tcdel="${x.id}" data-l="${esc(x.label)}">削除</button></td></tr>`).join('')||'<tr><td class="muted" colspan="4">まだありません</td></tr>'}</table>
-    <div class="grid2" style="margin-top:10px"><label>端末の名前<input id="tcLabel" placeholder="例：入口の iPad" maxlength="30"></label><div><button class="primary" id="tcAdd" style="width:100%">登録コードを出す</button></div></div>${tcHasId?'':`
-    <div class="row" style="margin-top:12px;justify-content:space-between;gap:8px"><span>タイムカード専用のID <small class="muted">このIDでは、POS は開けません</small></span><button class="ghost sm" id="tcIdAdd">作る</button></div>`}`;
+    <div class="row" style="margin-top:10px;gap:10px;align-items:flex-end;flex-wrap:wrap"><label style="flex:none">① タイムカード専用のID<br>${tcHasId?'<span class="badge k" style="display:inline-block;margin:10px 0">作成済み</span>':'<button class="ghost" id="tcIdAdd">作る</button>'}</label>
+      <label style="flex:1;min-width:180px">② 端末の名前<input id="tcLabel" placeholder="例：入口の iPad" maxlength="30"></label><button class="primary" id="tcAdd" style="flex:none">登録コードを出す</button></div>`;
   /* v0.66・SQL 084：タイムカードの端末でログインするための ID（POS のデータは読めない・書けない）。作った ID とパスワードは上の「今のパスワード」に出る */
   const ia=$('tcIdAdd'); if(ia) ia.onclick=guard(ia,async()=>{ if(!await uiConfirm('タイムカード専用のIDを作りますか？','作る')) return;
     const x=await sb.rpc('admin_tc_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_tc_account_create/.test(x.error.message)?'SQL 084 が未実行です':x.error.message); return; }
