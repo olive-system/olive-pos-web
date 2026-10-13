@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.28 -->
+<title>OLIVE 会計</title><!-- v11.29 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -421,8 +421,12 @@ function openHand(t){ const tg=handTags[t.id]||[]; if(!tg.length) return; const 
   const ok=m.querySelector('[data-h=ok]'); ok.onclick=async()=>{ ok.disabled=true; const { error } = await sb.from('bill_tags').update({returned_at:new Date().toISOString()}).in('id',tg.map(x=>x.id)); if(error){ toast(error.message); ok.disabled=false; return; }
     try{ await sb.from('pos_audit_log').insert({store_id:store.id,bill_id:tg[0].bill_id,action:'お預かり返却（会計後）',detail:{table:t.name,items:tg.map(x=>TAGK[x.kind]+(x.tag_no?'#'+x.tag_no:''))},reason:null}); }catch(e){ console.warn('audit',e); }
     m.remove(); toast('お渡ししました'); loadHall(); }; }
-async function loadOki(){ const { data } = await sb.from('bills').select('id,memo,guest_count,set_start,business_date,bill_casts(staff_id,is_kakari),bill_customers(customer_id),payments(method,amount,received_at)').eq('status','closed').or('method.eq.oki,method.eq.invoice',{foreignTable:'payments'});
-  okiBills=(data||[]).filter(b=>(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)); }
+// v11.29：未入金の置きだけをデータベースで絞って読む（前は会計済みの伝票を全部読んでから絞っていて、1000枚を超えると欠けた）。新しい順に100件まで（オーナーの指示）
+const OKI_MAX=100;
+async function loadOki(){ const SEL='id,memo,guest_count,set_start,business_date,bill_casts(staff_id,is_kakari),bill_customers(customer_id),payments!inner(method,amount,received_at)';
+  let r=await sb.from('bills').select(SEL).eq('store_id',store.id).eq('status','closed').eq('payments.method','oki').gt('payments.amount',0).is('payments.received_at',null).order('business_date',{ascending:false}).order('id').limit(OKI_MAX);
+  if(r.error){ console.warn('oki',r.error.message); return; } // 読めない時は、前に読んだ一覧のまま
+  okiBills=(r.data||[]).filter(b=>(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)); }
 function renderHall(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
   const al=openBills.filter(b=>(billEnd(b)-now)<10*60000);
   $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(tables.find(t=>t.id===b.table_id)?.name||'?')).join('、')}</div>` : '';

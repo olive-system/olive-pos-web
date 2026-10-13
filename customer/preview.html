@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.35 -->
+<title>OLIVE 顧客</title><!-- customer v1.36 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--edit:#7b61c9}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -149,7 +149,7 @@ const SS0={ get(k){ try{ return sessionStorage.getItem(k); }catch(e){ return nul
 const MEMS={ get(k){ return MEM[k]??null; }, set(k,v){ if(v==null) delete MEM[k]; else MEM[k]=String(v); } }, LS=EMB?MEMS:LS0, SS=EMB?MEMS:SS0;
 let embWait=null, embEdit=null, embEditExp=0; // 管理サイトに入場券をたのむ（返事が来るまで待つ）
 function embAsk(){ if(!embWait) embWait=new Promise(res=>{ const on=e=>{ if(e.origin!==location.origin||e.source!==window.parent||!e.data||e.data.type!=='olive-cs-auth') return;
-    window.removeEventListener('message',on); embWait=null; const d=e.data; token=d.token||null; embEdit=d.edit_token||null; embEditExp=d.edit_expires_at?new Date(d.edit_expires_at).getTime():0; res(d); };
+    window.removeEventListener('message',on); embWait=null; const d=e.data; token=d.token||null; embEdit=d.edit_token||null; embEditExp=d.edit_expires_at?new Date(d.edit_expires_at).getTime():0; editTok=embEdit; editExp=embEditExp; /* v1.36：管理サイトの中では、編集の入場券があれば最初から編集できる */ try{ paintEdit(); }catch(e){} res(d); };
   window.addEventListener('message',on); window.parent.postMessage({type:'olive-cs-need'},location.origin); }); return embWait; }
 let token=LS.get('olive_cs_token'), editTok=SS.get('olive_cs_edit'), editExp=Number(SS.get('olive_cs_edit_exp')||0);
 let boot=null, custs=[], mode='all', monthsSel=null, curId=null, cur=null;
@@ -211,19 +211,20 @@ async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot
 function editing(){ return !!editTok&&editExp>Date.now(); }
 function endEdit(silent){ editTok=null; editExp=0; SS.set('olive_cs_edit',null); SS.set('olive_cs_edit_exp',null); paintEdit(); if(!silent&&cur) renderDetail(); }
 let editTimer=0;
-function paintEdit(){ const on=editing(); ['editBar1','editBar2'].forEach(id=>$(id).classList.toggle('hide',!on));
+function paintEdit(){ const on=editing(); ['editBar1','editBar2'].forEach(id=>$(id).classList.toggle('hide',!on||EMB));
+  if(EMB){ clearTimeout(editTimer); if(embEdit) editTimer=setTimeout(async()=>{ if(embEditExp<Date.now()+120000){ try{ await embAsk(); }catch(e){} } paintEdit(); },30000); return; } // 管理サイトの中：帯は出さず、期限が近づいたら入場券を取り直す
   const left=on?Math.max(0,Math.ceil((editExp-Date.now())/60000)):0; document.querySelectorAll('.editLeft').forEach(x=>x.textContent=on?`（あと${left}分）`:'');
   clearTimeout(editTimer); if(on) editTimer=setTimeout(()=>{ if(!editing()){ endEdit(); toast('編集モードを終了しました'); } else paintEdit(); },30000); }
 document.querySelectorAll('.editEnd').forEach(b=>b.onclick=()=>{ endEdit(); toast('編集モードを終了しました'); });
 async function needEdit(){ if(editing()) return true;
-  if(EMB){ let d=null; if(!embEdit||embEditExp<Date.now()+60000) d=await embAsk(); if(embEdit&&embEditExp>Date.now()){ editTok=embEdit; editExp=Math.min(embEditExp,Date.now()+30*60000); paintEdit(); toast('編集モードにしました（30分）'); return true; }
+  if(EMB){ let d=null; if(!embEdit||embEditExp<Date.now()+60000) d=await embAsk(); if(embEdit&&embEditExp>Date.now()){ editTok=embEdit; editExp=embEditExp; paintEdit(); return true; }
     await uiAlert(d&&d.error||'顧客サイトを編集する権限がありません'); return false; } // 編集モードは普通の時と同じ30分
   const pw=await uiPrompt('編集パスワード','',{pw:true,ok:'編集する'}); if(pw==null) return false; if(!pw){ toast('パスワードを入力してください'); return false; }
   try{ const r=await rpc('cs_edit_login',{p_token:token,p_pw:pw}); if(r&&r.error){ await uiAlert('編集パスワードが違います'); return false; }
     editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); paintEdit(); toast('編集モードにしました（30分）'); return true; }
   catch(e){ await fail(e); return false; } }
 
-$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${editing()?'<button class="ghost" data-a="end">編集モードを終了</button>':`<button class="edit" data-a="edit">${EMB?'編集モードにする':'編集パスワードを入力'}</button>`}<button class="ghost" data-a="reload">最新に更新</button>${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
+$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':editing()?'<button class="ghost" data-a="end">編集モードを終了</button>':'<button class="edit" data-a="edit">編集パスワードを入力</button>'}<button class="ghost" data-a="reload">最新に更新</button>${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
   s.querySelector('[data-x]').onclick=()=>done(); s.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; done();
     if(a==='edit') await needEdit(); else if(a==='end'){ endEdit(); toast('編集モードを終了しました'); } else if(a==='reload') await loadList();
     else if(a==='out'){ if(!await uiConfirm('ログアウトしますか？\n次に開く時はパスワードが必要です。','ログアウト','danger')) return; try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(); } }); });
