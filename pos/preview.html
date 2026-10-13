@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.30 -->
+<title>OLIVE 会計</title><!-- v11.31 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -311,6 +311,9 @@ $('loginForm').addEventListener('submit', async e => { e.preventDefault();
   const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('pw').value });
   if (error) { $('loginErr').textContent='ログインできません：'+error.message; return; } start(); });
 async function start(){ const { data:{ session } } = await sb.auth.getSession(); if (!session) return;
+  /* v11.31・SQL 084：タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
+  try{ const tc=await sb.rpc('is_timecard_user'); if(tc.data===true){ await sb.auth.signOut(); $('loginErr').textContent='タイムカード専用のIDでは、POS は開けません'; return; }
+    const dl=await sb.rpc('db_logs_on'); DBLOG=dl.data===true; }catch(e){}
   $('login').classList.add('hidden'); checkVersion(); await loadMasters(); rtSub(); await loadHall(); setInterval(loadHall,60000); show('v-hall'); }
 
 async function loadMasters(){
@@ -387,6 +390,7 @@ function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map
   if(!ks.length) return `<span style="font-size:14px">${KL}小計 <small class="muted">${KL}が未設定</small></span><span class="right" style="font-size:14px">${yen(total)}</span>`;
   return ks.map(id=>`<span style="font-size:14px">${KL}小計 ${esc(nm(id))}</span><span class="right" style="font-size:14px">${yen(Math.floor(total/ks.length))}</span>`).join(''); }
 // ---------- 操作ログ（不正予防）：pos_audit_log に追記のみ。画面から消せない ----------
+let DBLOG=false;
 async function logOp(action, detail, reason, noBill){ try{ const t=noBill?null:tables.find(x=>x.id===cur?.table_id); const { error } = await sb.from('pos_audit_log').insert({store_id:store.id,bill_id:noBill?null:(cur?.id||null),action,detail:{table:t?.name||null,...detail},reason:reason||null}); if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
 // ブラウザ標準の確認・入力ダイアログ（サイト名が出る）を使わず、画面内のダイアログで聞く
 function uiDlg(msg, withInput, def){ return new Promise(res=>{ $('uiDlgMsg').textContent=msg; const inp=$('uiDlgIn'); inp.style.display=withInput?'':'none'; inp.value=def??''; inp.inputMode=(withInput&&/^\d+$/.test(String(def??'')))?'numeric':'text'; $('uiDlg').classList.add('on'); if(withInput) setTimeout(()=>{ inp.focus(); inp.select(); },50);
@@ -696,7 +700,7 @@ async function fineDlg(id){ const st=staffAll.find(x=>x.id===id); const nm=st?.d
     m.querySelector('[data-fc]').onclick=close;
     m.querySelector('[data-fa]').onclick=pickView;
     m.querySelectorAll('[data-fe]').forEach(b=>b.onclick=async()=>{ const x=L.find(z=>z.id===b.dataset.fe); const q=await ask(x.reason,x.amount); if(!q||(q.a===Number(x.amount)&&q.rs===x.reason)) return; const e=(await sb.from('staff_fines').update({amount:q.a,reason:q.rs,updated_at:new Date().toISOString()}).eq('id',x.id)).error; if(e){ toast('保存エラー：'+e.message); return; } await logOp('罰金の変更',{name:nm,before:{amount:x.amount,reason:x.reason},amount:q.a,reason:q.rs},null,true); toast('変更しました'); draw(); });
-    m.querySelectorAll('[data-fv]').forEach(b=>b.onclick=async()=>{ const x=L.find(z=>z.id===b.dataset.fv); if(!await uiConfirm('この罰金を取り消しますか？')) return; const e=(await sb.from('staff_fines').update({is_void:true,updated_at:new Date().toISOString()}).eq('id',x.id)).error; if(e){ toast('保存エラー：'+e.message); return; } await logOp('罰金の取消',{name:nm,amount:x.amount,reason:x.reason,...(x.wage_pct?{wage_pct:x.wage_pct}:{})},null,true); toast('取り消しました'); draw(); });
+    m.querySelectorAll('[data-fv]').forEach(b=>b.onclick=async()=>{ const x=L.find(z=>z.id===b.dataset.fv); if(!await uiConfirm('この罰金を取り消しますか？')) return; const e=(await sb.from('staff_fines').update({is_void:true,updated_at:new Date().toISOString()}).eq('id',x.id)).error; if(e){ toast('保存エラー：'+e.message); return; } if(!DBLOG) await logOp('罰金の取消',{name:nm,amount:x.amount,reason:x.reason,...(x.wage_pct?{wage_pct:x.wage_pct}:{})},null,true); toast('取り消しました'); draw(); });
   }; await draw(); }
 // v10.66：罰金の一覧（日付・理由・金額）。在籍キャストの詳細で今月／累計をタップして開く
 async function fineList(title,rows){ let box=$('uiDlgList'); if(!box){ box=document.createElement('div'); box.id='uiDlgList'; box.style.cssText='max-height:55vh;overflow:auto;margin:10px 0;font-size:15px'; $('uiDlgMsg').after(box); } const md=d=>{ const m=String(d).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]===businessDate().slice(0,4)?'':m[1]+'/'}${+m[2]}/${+m[3]}`:''; };
@@ -940,9 +944,9 @@ $('extAdd').onclick=guard($('extAdd'),async()=>{ const { error } = await sb.from
 $('bBack').onclick=()=>{ if(billFrom==='bills'){ renderSettings('bills'); show('v-settings'); return; } loadHall(); show('v-hall'); };
 // v11.12：先に「削除しますか？」を出す（やめられる）。続けて理由（必須）
 $('bVoid').onclick=async()=>{ const tn=tables.find(t=>t.id===cur.table_id)?.name||''; if(!await uiConfirm(`卓${tn}の伝票を削除しますか？\n履歴は残ります`))return; const why=await askReason(`卓${tn}の伝票を削除します。`); if(!why)return; const vb=$('bVoid'); if(vb.disabled) return; vb.disabled=true; /* v11.27：取消できたのを確かめてから操作ログに書く（前はログが先で、失敗しても「取消」が残った） */
-  try{ const u=await sb.from('bills').update({status:'void',closed_at:new Date().toISOString()}).eq('id',cur.id).neq('status','void').select('id');
+  try{ const u=await sb.from('bills').update({status:'void',closed_at:new Date().toISOString(),...(DBLOG?{void_reason:why}:{})}).eq('id',cur.id).neq('status','void').select('id');
     if(u.error||!(u.data||[]).length){ await uiAlert(u.error?'伝票を削除できませんでした：'+u.error.message:'伝票を削除できませんでした（ほかの端末で変更されています）'); }
-    else await logOp('伝票取消',{total:cur.totals?.amount_due??null,guest_count:cur.guest_count,items:(cur.bill_items||[]).filter(i=>!i.is_void).map(i=>`${i.name}×${i.qty}`)},why);
+    else if(!DBLOG) await logOp('伝票取消',{total:cur.totals?.amount_due??null,guest_count:cur.guest_count,items:(cur.bill_items||[]).filter(i=>!i.is_void).map(i=>`${i.name}×${i.qty}`)},why);
   } finally{ vb.disabled=false; } loadHall(); show('v-hall'); };
 $('bOrder').onclick=()=>openOrder();
 $('bPay').onclick=async()=>{ if(cur&&cur.status==='open'){ const miss=[]; if(!(cur.bill_customers||[]).length) miss.push('お客様が登録されていません'); if(!(cur.bill_casts||[]).some(c=>c.is_kakari)) miss.push(''+KL+'が登録されていません'); if(miss.length){ await uiAlert(miss.join('\n')); return; } } renderPay(); show('v-pay'); };
@@ -1060,7 +1064,7 @@ function renderPay(){ const b=cur,T=b.totals; $('pTable').textContent=tables.fin
   $('payAmount').value=isOki(b)?okiRemain(b):(T.unpaid>0?T.unpaid:'');
   $('payList').innerHTML=[...(b.payments||[]).filter(p=>p.amount>0).map(p=>`<div class="item"><span class="n">${METHOD[p.method]}${p.method==='oki'?(p.received_at?` <small>入金済 ${new Date(p.received_at).getMonth()+1}/${new Date(p.received_at).getDate()}</small>`:' <small>未入金</small>'):''}${invTag(p)}</span><span class="amt">${yen(p.amount)}</span>${(isOki(b)&&p.method==='oki')||b.depPays?.has(p.id)?'':`<button class="ghost sm" data-pay="${p.id}">×</button>`}</div>`),...(b.bill_adjustments||[]).map(a=>`<div class="item"><span class="n">${a.kind==='discount'?'値引':'値増'} <small>${esc(a.reason||'')}</small></span><span class="amt">${yen(a.amount)}</span><button class="ghost sm" data-adj="${a.id}">×</button></div>`)].join('');
   const okiP=isOki(b); const ro=b.status!=='open'&&!okiP; ['payAdd','payAdjDiscount','payAdjSurcharge','payClose'].forEach(i=>$(i).disabled=ro); $('payClose').style.display=okiP?'none':''; $('prReceipt').style.display=hasReceived(b)?'':'none'; $('payList').querySelectorAll('[data-adj],[data-pay]').forEach(x=>x.disabled=ro);
-  $('payList').querySelectorAll('[data-pay]').forEach(x=>x.onclick=async()=>{ const p=(cur.payments||[]).find(z=>z.id===x.dataset.pay); if(!p||cur.depPays?.has(p.id))return; if(!await uiConfirm(`${METHOD[p.method]} ${yen(p.amount)} の入金を取り消しますか？`))return; const wasOki=isOki(cur); const r=await sb.from('payments').delete().eq('id',p.id); if(r.error){ toast('取り消せません：'+r.error.message); return; } await logOp('入金取消',{method:METHOD[p.method],amount:p.amount,table:tables.find(t=>t.id===cur.table_id)?.name||null}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
+  $('payList').querySelectorAll('[data-pay]').forEach(x=>x.onclick=async()=>{ const p=(cur.payments||[]).find(z=>z.id===x.dataset.pay); if(!p||cur.depPays?.has(p.id))return; if(!await uiConfirm(`${METHOD[p.method]} ${yen(p.amount)} の入金を取り消しますか？`))return; const wasOki=isOki(cur); const r=await sb.from('payments').delete().eq('id',p.id); if(r.error){ toast('取り消せません：'+r.error.message); return; } if(!DBLOG) await logOp('入金取消',{method:METHOD[p.method],amount:p.amount,table:tables.find(t=>t.id===cur.table_id)?.name||null}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
   $('payList').querySelectorAll('[data-adj]').forEach(x=>x.onclick=async()=>{ const a=(cur.bill_adjustments||[]).find(z=>z.id===x.dataset.adj); await logOp('値引・値増の削除',{kind:a?.kind,amount:a?.amount,reason:a?.reason}); const wasOki=isOki(cur); await sb.from('bill_adjustments').delete().eq('id',x.dataset.adj); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); }); }
 // v11.18・SQL 067：もう1台で会計・入金されていた時は登録しないで、伝票を最新にする（データベースでも止める）
 const isStale=e=>/もう1台/.test(e?.message||'');
@@ -1359,7 +1363,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
     const fill=()=>{ const k=$('clKind').value; $('clMemoSel').innerHTML=items(k).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__other">その他</option>'; };
     const mv=()=>{ const out=$('clKind').value==='out'; $('clMemo').style.display=$('clMemoSel').value==='__other'?'':'none'; $('clMemo').placeholder=out?'内容を入力':'内容（例：両替、釣銭補充）'; }; fill(); $('clKind').onchange=()=>{ fill(); mv(); }; $('clMemoSel').onchange=()=>{ mv(); if($('clMemoSel').value==='__other') $('clMemo').focus(); }; mv(); }
   if($('clAdd')) $('clAdd').onclick=async()=>{ const amount=clNum($('clAmt').value), kind=$('clKind').value, memo=$('clMemoSel').value!=='__other'?$('clMemoSel').value:$('clMemo').value.trim(); if(!amount){ toast('金額を入力してください'); return; } if(!memo){ toast('内容を入力してください'); return; } $('clAdd').disabled=true; const r=await sb.from('cash_movements').insert({store_id:store.id,business_date:d,kind,amount,memo}); if(r.error){ toast(r.error.message); $('clAdd').disabled=false; return; } await logOp(kind==='out'?'レジ出金の登録':'レジ入金の登録',{date:d,amount,memo},null,true); renderClosing(); };
-  box.querySelectorAll('[data-mvdel]').forEach(x=>x.onclick=async()=>{ const m=moves.find(z=>z.id===x.dataset.mvdel); if(!m||!await uiConfirm(`${m.kind==='out'?'出金':'入金'} ${yen(m.amount)}（${m.memo}）を削除しますか？`))return; const r=await sb.from('cash_movements').delete().eq('id',m.id); if(r.error){ toast(r.error.message); return; } await logOp('レジ入出金の削除',{date:d,kind:m.kind,amount:m.amount,memo:m.memo},null,true); renderClosing(); });
+  box.querySelectorAll('[data-mvdel]').forEach(x=>x.onclick=async()=>{ const m=moves.find(z=>z.id===x.dataset.mvdel); if(!m||!await uiConfirm(`${m.kind==='out'?'出金':'入金'} ${yen(m.amount)}（${m.memo}）を削除しますか？`))return; const r=await sb.from('cash_movements').delete().eq('id',m.id); if(r.error){ toast(r.error.message); return; } if(!DBLOG) await logOp('レジ入出金の削除',{date:d,kind:m.kind,amount:m.amount,memo:m.memo},null,true); renderClosing(); });
   box.querySelectorAll('[data-clrem]').forEach(x=>x.onchange=async()=>{ const b=bottles.find(z=>z.id===x.dataset.clrem); const v=Number(x.value); const r=await sb.from('customer_bottles').update({remaining:v,updated_at:new Date().toISOString()}).eq('id',b.id); if(r.error){ toast(r.error.message); return; } await logOp('ボトル残量変更',{customer:cn(b.customer_id),bottle:b.name,before:b.remaining,after:v},null,true); b.remaining=v; toast('残量を保存しました'); });
   clChkRender(d); // v10.61
   // v11.22・SQL 073：その日のメモ（店・営業日ごとに1つ。管理サイトの収支の Excel の日次「メモ」に入る）
@@ -1449,7 +1453,7 @@ async function renderSettings(key, keepSel){ if(key!==setCur){ setSel=null; setE
     const { data, error } = await sbAll(()=>sb.from('pos_audit_log').select('*').eq('store_id',store.id).gte('created_at',ad+'T08:00:00+09:00').lt('created_at',ad2+'T08:00:00+09:00').order('created_at',{ascending:false}).order('id'));
     if(error){ $('setList').innerHTML=`<div class="muted">操作ログを読めません（SQL 010 が未適用の可能性）：${esc(error.message)}</div>`; return; }
     const f=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; };
-    const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作した人'}; // v11.08：管理サイトの現金管理から入れた操作は「操作した人：管理サイト：名前」
+    const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作した人',date:'営業日',memo:'摘要'}; // v11.08：管理サイトの現金管理から入れた操作は「操作した人：管理サイト：名前」
     const vj=v=>v===true?'はい':v===false?'いいえ':Array.isArray(v)?v.join('、'):(typeof v==='number'?v.toLocaleString():v);
     const dt=o=>Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&k!=='table').map(([k,v])=>`${KJ[k]||k}：${vj(v)}`).join(' ／ ');
     $('setList').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="auD" value="${ad}" style="width:auto"><small class="muted">${(data||[]).length}件</small></div>`+((data||[]).map(l=>`<div class="item" style="display:block"><b>${esc(actL(l.action))}</b> <small>${f(l.created_at)}　${esc(l.detail?.table||'')}</small><br><small>${esc(dt(l.detail))}</small>${l.reason?`<br><small>理由：${esc(l.reason)}</small>`:''}</div>`).join('')||'<div class="muted">この日の記録はありません</div>');
