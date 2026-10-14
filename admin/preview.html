@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.81 -->
+<title>OLIVE 管理</title><!-- admin v0.82 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1240,7 +1240,7 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
       <td>${neg(x.late_deduct)}${N(x.late_min)+N(x.early_min)?`<br><small class="muted">遅刻${N(x.late_min)}分・早退${N(x.early_min)}分</small>`:''}${x.late_fixed?' <span class="badge">修正済</span>':''}</td>
       <td>${y0(x.bonus)}${x.bonus_fixed!=null?' <span class="badge">修正済</span>':''}</td><td>${y0(x.allowance)}</td><td>${y0(x.special_pay)}</td><td>${y0(x.taxable)}</td><td>${neg(x.fines)}</td><td>${neg(x.ctax)}</td><td>${neg(x.welfare)}</td><td>${neg(x.special_deduct)}</td><td>${neg(x.advance)}</td><td>${neg(x.withholding)}</td>
       <td>${N(x.net)<0?`<b style="color:var(--warn)">${yen(N(x.net))}</b>`:`<b>${yen(N(x.net))}</b>`}</td>${own?`<td><button class="ghost sm" data-hpfix="${x.id}">修正</button></td>`:''}</tr>`).join('')||`<tr><td colspan="20" class="muted">この月の黒服はいません</td></tr>`}</tbody></table></div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに時給分を引きます。月給の人の時給＝月給÷（稼働日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。時給の人は働いた時間で払うので引きません。出勤・退勤の時刻が両方入っていないと引けません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（キャスト報酬＋キャスト日払い＋黒服の給与〈ボーナスの前〉）÷売上計<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーだけ。遅刻・早退で引く額とボーナスを修正できます（空にすると自動の計算に戻ります。操作ログに残ります）</div></div>`;
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに時給分を引きます。月給の人の時給＝月給÷（稼働日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。時給の人は働いた時間で払うので引きません。出勤・退勤の時刻が両方入っていないと引けません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（キャスト報酬＋キャスト日払い＋体験の報酬＋黒服の給与〈ボーナスの前〉）÷売上計。係専用（店・ママ）は入りません<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーだけ。遅刻・早退で引く額とボーナスを修正できます（空にすると自動の計算に戻ります。操作ログに残ります）</div></div>`;
   box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return;
     const md=modal(`<h2 style="margin:0">${esc(x.name)}　${csMLabel(m)}の給料の修正</h2><div class="muted" style="font-size:14px">空にすると自動の計算に戻ります（自動：ボーナス ${yen(N(x.bonus_auto))}）</div>
       <label>遅刻・早退で引く額<input id="hfL" inputmode="numeric" value="${x.late_fixed?N(x.late_deduct):''}" placeholder="自動（${yen(N(x.late_deduct))}）"></label>
