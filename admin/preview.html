@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.78 -->
+<title>OLIVE 管理</title><!-- admin v0.79 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -314,7 +314,7 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
   const okiOf=f=>OK==null?null:Object.entries(OK).filter(([k])=>f(k)).reduce((a,[,v])=>a+N(v),0);
   const one=(ttl,x,fPay,mPay,uq,oki)=>`<div class="smb"><h2 style="background:var(--head);color:#fff">${ttl}</h2><table>${[
     ['売上',yen(x.sales),1],['現金',yen(x.cash),2],['置き',oki==null?'—':yen(oki),2],['請求',yen(x.invoice),2],['カード',yen(x.card),2],
-    ['来店人数',N(x.guests)+'人',3],['来店組数',N(x.groups)+'組'],['ユニーク数',uq==null?'—':uq+'人'],['客単価',per(x.sales,x.guests)],['組単価',per(x.sales,x.groups)],
+    ['来店人数',N(x.guests)+'名',3],['来店組数',N(x.groups)+'組'],['ユニーク数',uq==null?'—':uq+'名'],['客単価',per(x.sales,x.guests)],['組単価',per(x.sales,x.groups)],
     ['経費',yen(fPay+mPay+N(x.cash_out)),1],['人件費-キャスト',yen(fPay),2],['人件費-黒服',yen(mPay),2],['諸経費',yen(x.cash_out),2],
     ['入金',yen(x.cash_in),1]].map(([l,v,k])=>`<tr class="${k===1?'sum':k===2?'sub':k===3?'grp':''}"><td>${l}</td><td>${v}</td></tr>`).join('')}</table></div>`;
   const bdNow=businessDate(), t=D.find(x=>x.date===bdNow)||{}, jd=x=>{ const [y,mo,dd]=x.split('-').map(Number); return `${y}年${mo}月${dd}日`; };
@@ -734,7 +734,7 @@ function slideRead(card,kind){ const d=SLIDE_DEF[kind]; const out=[];
   return {rows:out}; }
 // v0.18・SQL 058：スライド表（店ごとにいくつでも）。何で決まるか（係小計・ポイント・同伴数・稼働日数）と時給／日給を表ごとに決める。キャストごとに使う表は「キャスト設定」で選ぶ
 // v0.19・SQL 059：反応数（反応◎の回数）・組数（係の伝票の数）・人数（係の伝票の客数の合計）を追加。何で決まるかは作る時だけ選べて、作ったあとは変えられない
-const ST_BASIS=[['sales',''+KL+'小計',''+KL+'小計（万円以上）',10000],['points','ポイント','ポイント（以上）',1],['douhan','同伴数','同伴（回以上）',1],['days','稼働日数','稼働日数（日以上）',1],['reactions','反応数','反応◎（回以上）',1],['groups','組数',''+KL+'の組数（組以上）',1],['guests','人数',''+KL+'の人数（人以上）',1]];
+const ST_BASIS=[['sales',''+KL+'小計',''+KL+'小計（万円以上）',10000],['points','ポイント','ポイント（以上）',1],['douhan','同伴数','同伴（回以上）',1],['days','稼働日数','稼働日数（日以上）',1],['reactions','反応数','反応◎（回以上）',1],['groups','組数',''+KL+'の組数（組以上）',1],['guests','人数',''+KL+'の人数（名以上）',1]];
 const stB=k=>ST_BASIS.find(x=>x[0]===k)||ST_BASIS[0];
 function stCard(t,rows,users,ed){ const dis=ed?'':'disabled', b=stB(t.basis||'sales'), un=t.unit||'hourly';
   const body=rows.map(r=>`<tr data-i><td><input inputmode="decimal" data-c="th" value="${esc(slShow(r.threshold,b[3]))}" ${dis}></td><td><input inputmode="numeric" data-c="am" value="${esc(r.amount??'')}" ${dis}></td>${ed?'<td class="x"><button class="ghost sm" data-del aria-label="行を削除">✕</button></td>':''}</tr>`).join('');
@@ -1358,9 +1358,9 @@ PAGES.hist_print=async()=>{ const st=storeId; hiPeriod('hist_print','','。領�
 // 削除履歴：操作ログ（pos_audit_log）のうち、名前に 削除・取消・取り消し・外す が入る操作。営業日は朝8時で区切る
 const HI_KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作した人',date:'営業日',business_date:'営業日',memo:'摘要'};
 const hiVal=v=>v===true?'はい':v===false?'いいえ':Array.isArray(v)?v.map(hiVal).join('、'):v&&typeof v==='object'?Object.entries(v).map(([k,z])=>`${HI_KJ[k]||k}：${hiVal(z)}`).join('・'):typeof v==='number'?v.toLocaleString('ja-JP'):String(v);
-const HI_UNIT={amount:'円',total:'円',total_before:'円',minutes:'分',guest_count:'人'}; // 数字には単位
+const HI_UNIT={amount:'円',total:'円',total_before:'円',minutes:'分',guest_count:'名'}; // 数字には単位
 const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&v!==''&&!(Array.isArray(v)&&!v.length)&&k!=='table'&&k!=='reason'); e.sort((a,b)=>(a[0]==='by'?-1:0)-(b[0]==='by'?-1:0));
-  const md=v=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v)); return m?`${+m[2]}/${+m[3]}`:String(v); }, U={amount:'円',total:'円',total_before:'円',minutes:'分',guest_count:'人'};
+  const md=v=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v)); return m?`${+m[2]}/${+m[3]}`:String(v); }, U={amount:'円',total:'円',total_before:'円',minutes:'分',guest_count:'名'};
   return e.map(([k,v])=>{ const n=typeof v==='number'?v.toLocaleString('ja-JP')+(U[k]||''):null;
     if(k==='by') return '操作者：'+String(v).replace(/^管理サイト：/,'');
     if(k==='date'||k==='business_date') return md(v);
