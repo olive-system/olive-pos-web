@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.37 -->
+<title>OLIVE 会計</title><!-- v11.38 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -391,7 +391,7 @@ function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map
   return ks.map(id=>`<span style="font-size:14px">${KL}小計 ${esc(nm(id))}</span><span class="right" style="font-size:14px">${yen(Math.floor(total/ks.length))}</span>`).join(''); }
 // ---------- 操作ログ（不正予防）：pos_audit_log に追記のみ。画面から消せない ----------
 let DBLOG=false;
-const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&v!==''&&k!=='table'&&k!=='reason'); e.sort((a,b)=>(a[0]==='by'?-1:0)-(b[0]==='by'?-1:0));
+const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&v!==''&&!(Array.isArray(v)&&!v.length)&&k!=='table'&&k!=='reason'); e.sort((a,b)=>(a[0]==='by'?-1:0)-(b[0]==='by'?-1:0));
   const md=v=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v)); return m?`${+m[2]}/${+m[3]}`:String(v); }, U={amount:'円',total:'円',total_before:'円',minutes:'分',guest_count:'人'};
   return e.map(([k,v])=>{ const n=typeof v==='number'?v.toLocaleString('ja-JP')+(U[k]||''):null;
     if(k==='by') return '操作者：'+String(v).replace(/^管理サイト：/,'');
