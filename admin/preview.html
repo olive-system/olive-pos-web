@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.89 -->
+<title>OLIVE 管理</title><!-- admin v0.90 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -60,7 +60,13 @@
   table.fn{border-collapse:collapse}table.fn th{font-size:12px;color:var(--muted);font-weight:400;padding:4px 4px;text-align:left;white-space:nowrap}
   table.fn td{padding:3px 4px;white-space:nowrap}table.fn input,table.fn select{height:38px}table.fn input[data-f=name]{width:260px}table.fn select{width:auto}table.fn input[data-f=hv],table.fn input[data-f=dv]{width:80px;text-align:right}table.fn th.gh{text-align:center;color:var(--ink);font-weight:700;border-bottom:1px solid var(--line)}table.fn .sep{width:10px;border-left:1px solid var(--line)}table.fn .u{display:inline-block;width:1.4em;color:var(--muted);font-size:13px}
   table.fn label.pu{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--ink);height:38px}table.fn label.pu input{width:auto;height:auto;margin:0}table.fn td.x{width:40px}
-  .slw{overflow-x:auto}.slgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;align-items:start}
+  .slw{overflow-x:auto}
+  .psec{font-size:17px;font-weight:700;margin:22px 2px 10px;padding-bottom:4px;border-bottom:2px solid var(--head)}.psec:first-of-type{margin-top:6px}
+  .fold{margin-bottom:8px;padding:14px 16px}.fold>.fh{display:flex;align-items:center;gap:8px;cursor:pointer;flex-wrap:wrap}.fold>.fh .ar{color:var(--muted);width:14px;flex:none;transition:transform .15s}.fold.open>.fh .ar{transform:rotate(90deg)}
+  .fold>.fh .tg{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}.fold>.fh .sm2{margin-left:auto;color:var(--muted);font-size:13px;text-align:right}
+  .fold>.fb{display:none;margin-top:12px}.fold.open>.fb{display:block}.fold .fend{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}.fold .fend .sp{flex:1}
+  .slb,.slhd{display:grid;grid-template-columns:repeat(var(--slc,3),minmax(0,1fr));column-gap:18px;row-gap:6px}.slb{grid-auto-flow:column}.slhd{margin-bottom:4px}
+  .sr{display:grid;grid-template-columns:1fr 1fr 34px;gap:6px;align-items:center}.sr input{height:38px;text-align:right;font-variant-numeric:tabular-nums}.sr button{width:34px;padding:0}.slhd .sr span{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
   .kv2{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center}
   .pwbox{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:.05em}
   .pwv{font-family:ui-monospace,Menlo,monospace;font-size:17px;font-weight:700;letter-spacing:.05em;white-space:nowrap}
@@ -730,11 +736,15 @@ const SLIDE_DEF={
 };
 const slNum=v=>{ const t=String(v??'').replace(/[０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[,，\s]/g,''); return t===''?null:Number(t); };
 const slShow=(v,sc)=>v==null?'':String(Math.round(Number(v)/(sc||1)*10000)/10000);
+// v0.90：給与項目の箱は、タイトルだけ並べて押すと開く（payOpen：開いている箱。保存して描き直しても開いたまま）
+const payOpen=new Set();
+const foldCard=(key,title,extra,sum,body,attr='')=>`<div class="card fold${payOpen.has(key)?' open':''}" data-fold="${esc(key)}" ${attr}><div class="fh"><span class="ar">▸</span><b>${title}</b>${extra||''}<span class="sm2">${sum||''}</span></div><div class="fb">${body}</div></div>`;
+const foldWire=root=>root.querySelectorAll('.fold>.fh').forEach(h=>{ if(h.dataset.w) return; h.dataset.w=1; h.onclick=()=>{ const f=h.parentElement, k=f.dataset.fold; f.classList.toggle('open'); f.classList.contains('open')?payOpen.add(k):payOpen.delete(k); }; });
 function slideCard(kind,rows,ed,note){ const d=SLIDE_DEF[kind];
   const body=rows.map((r,i)=>`<tr data-i="${i}">${d.cols.map(c=>`<td><input inputmode="decimal" data-c="${c.k}" value="${esc(slShow(r[c.k],c.sc))}" ${ed?'':'disabled'}></td>`).join('')}${ed?`<td class="x"><button class="ghost sm" data-del="${i}" aria-label="行を削除">✕</button></td>`:''}</tr>`).join('');
-  return `<div class="card" data-sl="${kind}"><h2>${d.t}${d.sub?`<br><small class="muted" style="font-weight:400">${esc(d.sub)}</small>`:''}</h2>${note||''}
+  return foldCard('sl:'+kind,d.t,'',`${rows.length}行`,`${note||''}
     <div class="slw"><table class="sl"><tr>${d.cols.map(c=>`<th>${c.l}</th>`).join('')}${ed?'<th></th>':''}</tr>${body||`<tr><td colspan="${d.cols.length}" class="muted" style="padding:8px 4px">まだ入っていません</td></tr>`}</table></div>
-    ${ed?`<div class="row" style="margin-top:10px"><button class="ghost sm" data-add>＋ 行を追加</button><button class="primary sm" data-save>保存</button></div>`:''}</div>`; }
+    ${ed?`<div class="fend"><button class="ghost sm" data-add>＋ 行を追加</button><span class="sp"></span><button class="primary sm" data-save>保存</button></div>`:''}`,`data-sl="${kind}"`); }
 function slideRead(card,kind){ const d=SLIDE_DEF[kind]; const out=[];
   for(const tr of card.querySelectorAll('tr[data-i]')){ const r={}; let empty=true;
     for(const c of d.cols){ const v=slNum(tr.querySelector(`[data-c="${c.k}"]`).value); if(v!=null) empty=false; if(v!=null&&!Number.isFinite(v)) return {err:`「${c.l}」に数字でないものがあります`}; r[c.k]=v==null?null:Math.round(v*(c.sc||1)*10000)/10000; }
@@ -745,29 +755,35 @@ function slideRead(card,kind){ const d=SLIDE_DEF[kind]; const out=[];
 // v0.19・SQL 059：反応数（反応◎の回数）・組数（係の伝票の数）・人数（係の伝票の客数の合計）を追加。何で決まるかは作る時だけ選べて、作ったあとは変えられない
 const ST_BASIS=[['sales',''+KL+'小計',''+KL+'小計（万円以上）',10000],['points','ポイント','ポイント（以上）',1],['douhan','同伴数','同伴（回以上）',1],['days','稼働日数','稼働日数（日以上）',1],['reactions','反応数','反応◎（回以上）',1],['groups','組数',''+KL+'の組数（組以上）',1],['guests','人数',''+KL+'の人数（名以上）',1]];
 const stB=k=>ST_BASIS.find(x=>x[0]===k)||ST_BASIS[0];
+const SL_COLS=()=>matchMedia('(max-width:640px)').matches?1:3;
+const srHtml=(th,am,ed)=>`<div class="sr" data-i><input inputmode="decimal" data-c="th" value="${esc(th)}" ${ed?'':'disabled'}><input inputmode="numeric" data-c="am" value="${esc(am)}" ${ed?'':'disabled'}>${ed?'<button class="ghost sm" data-del aria-label="行を削除">✕</button>':'<span></span>'}</div>`;
+// 行の数に合わせて、上から下へ3列に流す（見出しは使っている列だけ）
+function slFlow(card){ const bx=card.querySelector('.slb'); if(!bx) return; const c=SL_COLS(), n=bx.querySelectorAll('[data-i]').length;
+  card.querySelectorAll('.slb,.slhd').forEach(x=>x.style.setProperty('--slc',c)); bx.style.gridTemplateRows=`repeat(${Math.max(1,Math.ceil(n/c))},auto)`;
+  card.querySelectorAll('.slhd>.sr').forEach((h,i)=>h.style.visibility=i<Math.max(1,Math.min(c,n))?'':'hidden'); }
 function stCard(t,rows,users,ed){ const dis=ed?'':'disabled', b=stB(t.basis||'sales'), un=t.unit||'hourly';
-  const body=rows.map(r=>`<tr data-i><td><input inputmode="decimal" data-c="th" value="${esc(slShow(r.threshold,b[3]))}" ${dis}></td><td><input inputmode="numeric" data-c="am" value="${esc(r.amount??'')}" ${dis}></td>${ed?'<td class="x"><button class="ghost sm" data-del aria-label="行を削除">✕</button></td>':''}</tr>`).join('');
-  return `<div class="card" data-st="${t.id||''}"><div class="row" style="margin-bottom:8px"><input data-k="name" value="${esc(t.name||'')}" placeholder="表の名前" maxlength="20" ${dis} style="flex:1;min-width:140px;font-weight:700">
+  const body=rows.map(r=>srHtml(slShow(r.threshold,b[3]),r.amount??'',ed)).join('');
+  const hd=`<div class="sr"><span data-k="thl">${b[2]}</span><span data-k="aml">${un==='daily'?'日給':'時給'}（円）</span><span></span></div>`;
+  return foldCard('st:'+(t.id||'new'),t.id?esc(t.name||''):'新しい表',t.id?`<span class="tg">${b[1]}</span><span class="tg">${un==='daily'?'日給':'時給'}</span>`:'',t.id?`使っているキャスト ${users}人`:'',
+    `<div class="row" style="margin-bottom:10px"><input data-k="name" value="${esc(t.name||'')}" placeholder="表の名前" maxlength="20" ${dis} style="flex:1;min-width:140px;font-weight:700">
     ${t.id?`<span data-k="basis" data-v="${b[0]}" class="stb">${b[1]}</span>`:`<select data-k="basis" style="width:auto" ${dis}>${ST_BASIS.map(x=>`<option value="${x[0]}" ${x[0]===b[0]?'selected':''}>${x[1]}</option>`).join('')}</select>`}
     <span class="seg" data-k="unit">${[['hourly','時給'],['daily','日給']].map(([v,n])=>`<button data-v="${v}" class="${un===v?'on':''}" ${dis}>${n}</button>`).join('')}</span></div>
-    <div class="muted" style="font-size:13px;margin-bottom:6px">${t.id?`今月この表を使っているキャスト：${users}人`:'新しい表'}</div>
-    <div class="slw"><table class="sl"><tr><th data-k="thl">${b[2]}</th><th data-k="aml">${un==='daily'?'日給':'時給'}（円）</th>${ed?'<th></th>':''}</tr>${body}</table>${rows.length?'':'<div class="muted" data-empty style="padding:8px 4px">まだ入っていません</div>'}</div>
-    ${ed?`<div class="row" style="margin-top:10px"><button class="ghost sm" data-add>＋ 行を追加</button><button class="primary sm" data-save>保存</button>${t.id?'<span style="flex:1"></span><button class="ghost sm" data-delt>この表を削除</button>':''}</div>`:''}</div>`; }
+    <div class="slhd">${hd}${hd}${hd}</div><div class="slb">${body}</div>${rows.length?'':'<div class="muted" data-empty style="padding:8px 4px">まだ入っていません</div>'}
+    ${ed?`<div class="fend"><button class="ghost sm" data-add>＋ 行を追加</button><span class="sp"></span>${t.id?'<button class="ghost sm" data-delt>この表を削除</button>':''}<button class="primary sm" data-save>保存</button></div>`:''}`,`data-st="${t.id||''}"`); }
 function stSection(tbls,rows,terms,ed){ const cur=csNowMonth(), by={};
   terms.forEach(x=>{ if(x.month<=cur&&(x.month===cur||!x.only_month)){ const p=by[x.staff_id]; if(!p||x.month>p.month) by[x.staff_id]=x; } });
   const users=id=>Object.values(by).filter(x=>(x.slide_ids||[]).includes(id)).length;
-  return `<div class="card"><h2>スライド表<br><small class="muted" style="font-weight:400">キャストごとに使う表は「スタッフ設定」で選びます</small></h2>
-    <div class="muted hint" style="font-size:13px;line-height:1.6">その人が選んだ表と保証時給のうち、一番高い金額になります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">時給の人は時給の表、日給の人は日給の表だけ選べます<br>表の行は「○○以上 → 金額」。今月の数字が、その行の数字以上になっている行のうち一番下の行を使います</div></div>
-    ${ed?'<div class="row" style="margin-top:10px"><button class="ghost" id="stAdd">＋ スライド表を追加</button></div>':''}</div>
-  <div class="slgrid" id="stGrid">${tbls.map(t=>stCard(t,rows.filter(r=>r.table_id===t.id),users(t.id),ed)).join('')||'<div class="card muted">スライド表がありません</div>'}</div>`; }
+  return `<div id="stGrid">${tbls.map(t=>stCard(t,rows.filter(r=>r.table_id===t.id),users(t.id),ed)).join('')||'<div class="card muted">スライド表がありません</div>'}</div>
+    <div class="row" style="margin:2px 0 10px">${ed?'<button class="ghost sm" id="stAdd">＋ スライド表を追加</button>':''}<div class="muted hint" style="font-size:13px;line-height:1.6">キャストごとに使う表は「スタッフ設定」で選びます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">その人が選んだ表と保証時給のうち、一番高い金額になります<br>時給の人は時給の表、日給の人は日給の表だけ選べます<br>表の行は「○○以上 → 金額」。今月の数字が、その行の数字以上になっている行のうち一番下の行を使います</div></div></div>`; }
 function stWire(st){ const grid=$('stGrid'); if(!grid) return;
   const wire=card=>{ const q=k=>card.querySelector(`[data-k=${k}]`); let unit=card.querySelector('[data-k=unit] button.on')?.dataset.v||'hourly';
-    const bs=()=>q('basis').dataset.v||q('basis').value; if(q('basis').tagName==='SELECT') q('basis').onchange=()=>{ q('thl').textContent=stB(bs())[2]; };
-    card.querySelectorAll('[data-k=unit] button').forEach(b=>b.onclick=()=>{ unit=b.dataset.v; card.querySelectorAll('[data-k=unit] button').forEach(x=>x.classList.toggle('on',x===b)); q('aml').textContent=(unit==='daily'?'日給':'時給')+'（円）'; });
-    const delRow=x=>x.onclick=()=>x.closest('tr').remove(); card.querySelectorAll('[data-del]').forEach(delRow);
-    card.querySelector('[data-add]').onclick=()=>{ card.querySelector('[data-empty]')?.remove(); const tb=card.querySelector('table.sl'); tb.insertAdjacentHTML('beforeend','<tr data-i><td><input inputmode="decimal" data-c="th"></td><td><input inputmode="numeric" data-c="am"></td><td class="x"><button class="ghost sm" data-del aria-label="行を削除">✕</button></td></tr>'); const tr=[...tb.querySelectorAll('tr[data-i]')].pop(); delRow(tr.querySelector('[data-del]')); tr.querySelector('input').focus(); };
+    const setAll=(k,v)=>card.querySelectorAll(`[data-k=${k}]`).forEach(x=>x.textContent=v); slFlow(card);
+    const bs=()=>q('basis').dataset.v||q('basis').value; if(q('basis').tagName==='SELECT') q('basis').onchange=()=>setAll('thl',stB(bs())[2]);
+    card.querySelectorAll('[data-k=unit] button').forEach(b=>b.onclick=()=>{ unit=b.dataset.v; card.querySelectorAll('[data-k=unit] button').forEach(x=>x.classList.toggle('on',x===b)); setAll('aml',(unit==='daily'?'日給':'時給')+'（円）'); });
+    const delRow=x=>x.onclick=()=>{ x.closest('[data-i]').remove(); slFlow(card); }; card.querySelectorAll('[data-del]').forEach(delRow);
+    card.querySelector('[data-add]').onclick=()=>{ card.querySelector('[data-empty]')?.remove(); const bx=card.querySelector('.slb'); bx.insertAdjacentHTML('beforeend',srHtml('','',true)); const tr=[...bx.querySelectorAll('[data-i]')].pop(); delRow(tr.querySelector('[data-del]')); slFlow(card); tr.querySelector('input').focus(); };
     const sv=card.querySelector('[data-save]'); sv.onclick=guard(sv,async()=>{ const name=q('name').value.trim(), basis=bs(), sc=stB(basis)[3]; if(!name){ await uiAlert('表の名前を入力してください'); return; }
-      const out=[]; for(const tr of card.querySelectorAll('tr[data-i]')){ const th=slNum(tr.querySelector('[data-c=th]').value), am=slNum(tr.querySelector('[data-c=am]').value); if(th==null&&am==null) continue;
+      const out=[]; for(const tr of card.querySelectorAll('.slb [data-i]')){ const th=slNum(tr.querySelector('[data-c=th]').value), am=slNum(tr.querySelector('[data-c=am]').value); if(th==null&&am==null) continue;
         if(th==null||am==null){ await uiAlert('「以上」と金額は必ず入力してください'); return; } if(!Number.isFinite(th)||th<0){ await uiAlert('「以上」は0以上の数にしてください'); return; } if(!Number.isInteger(am)||am<=0){ await uiAlert('金額は1以上の整数にしてください'); return; }
         out.push({threshold:Math.round(th*sc*10000)/10000,amount:am}); }
       out.sort((a,b)=>a.threshold-b.threshold); for(let i=1;i<out.length;i++) if(out[i].threshold===out[i-1].threshold){ await uiAlert('「以上」が同じ行が2つあります'); return; }
@@ -776,7 +792,7 @@ function stWire(st){ const grid=$('stGrid'); if(!grid) return;
     const dl=card.querySelector('[data-delt]'); if(dl) dl.onclick=guard(dl,async()=>{ if(!await uiConfirm(`スライド表「${q('name').value.trim()}」を削除しますか？\nこの表を選んでいたキャストからは外れます（ほかに表がなければ「未選択」になります）`,'削除','danger')) return;
       const r=await rpc('admin_delete_slide_table',{p_id:card.dataset.st}); if(!r.ok) return; toast('削除しました'); PAGES.set_pay(); }); };
   grid.querySelectorAll('[data-st]').forEach(wire);
-  const ad=$('stAdd'); if(ad) ad.onclick=()=>{ grid.querySelector(':scope > .card.muted')?.remove(); grid.insertAdjacentHTML('afterbegin',stCard({},[],0,true)); const c=grid.querySelector('[data-st]'); wire(c); c.querySelector('[data-k=name]').focus(); }; }
+  const ad=$('stAdd'); if(ad) ad.onclick=()=>{ if(grid.querySelector('[data-st=""]')){ grid.querySelector('[data-st=""] [data-k=name]').focus(); return; } grid.querySelector(':scope > .card.muted')?.remove(); grid.insertAdjacentHTML('beforeend',stCard({},[],0,true)); const c=grid.querySelector('[data-st=""]'); c.classList.add('open'); foldWire(grid); wire(c); c.querySelector('[data-k=name]').focus(); }; }
 PAGES.set_pay=async()=>{
   const st=storeId, ed=perm('set_pay')==='edit';
   $('main').innerHTML=`<h1>給与項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
@@ -789,11 +805,17 @@ PAGES.set_pay=async()=>{
   const er=ps.error||hb.error||pos.error; if(er){ $('main').innerHTML=`<h1>給与項目</h1><div class="card err">${esc(/hall_bonus_slides/.test(er.message)&&/does not exist|schema cache/.test(er.message)?'SQL 050 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
   $('main').innerHTML=`<h1>給与項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
   ${ed?'':'<div class="muted" style="margin-bottom:10px">閲覧のみ</div>'}
+  <div class="psec">勤怠・日払</div>
   ${afterCard(ax,ed)}
-  ${payNumCard(pos,ed)}
+  ${payAdvCard(pos,ed)}
+  <div class="psec">罰金</div>
+  ${ft.error?`<div class="card err">${esc(/fine_types/.test(ft.error.message)&&/does not exist|schema cache/.test(ft.error.message)?'SQL 052 が未実行です：':'罰金の種類を読み込めません：')}${esc(ft.error.message)}</div>`:fineCard(ft.data||[],ed,pos.data?.daily_hours)}
+  <div class="psec">キャスト</div>
   ${stb.error?`<div class="card err">${esc(/slide_tables/.test(stb.error.message)&&/does not exist|schema cache/.test(stb.error.message)?'SQL 058 が未実行です：':'スライド表を読み込めません：')}${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed)}
-  ${slideCard('hall',hb.data||[],ed,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">単位は万円。月の総売上が、その行の売上以上になっている行のうち、一番下の行を使います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">一番上の行より売上が少ない月は0円です。<br>人件費比率（キャストの給与＋黒服の月給＋体験の報酬 ÷ 総売上）が 目標比率以内／＋2%まで／＋5%まで／5%超 で金額が決まり、売上ボーナスを加算した総額を、黒服の売上シェアで分けます</div></div>`)}
-  ${ft.error?`<div class="card err">${esc(/fine_types/.test(ft.error.message)&&/does not exist|schema cache/.test(ft.error.message)?'SQL 052 が未実行です：':'罰金の種類を読み込めません：')}${esc(ft.error.message)}</div>`:fineCard(ft.data||[],ed,pos.data?.daily_hours)}`;
+  ${payPtCard(pos,ed)}
+  <div class="psec">黒服</div>
+  ${slideCard('hall',hb.data||[],ed,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">単位は万円。月の総売上が、その行の売上以上になっている行のうち、一番下の行を使います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">一番上の行より売上が少ない月は0円です。<br>人件費比率（キャストの給与＋黒服の月給＋体験の報酬 ÷ 総売上）が 目標比率以内／＋2%まで／＋5%まで／5%超 で金額が決まり、売上ボーナスを加算した総額を、黒服の売上シェアで分けます</div></div>`)}`;
+  foldWire($('main'));
   $('main').querySelectorAll('tr[data-fr]').forEach(tr=>fineRowWire(tr,ed));
   if(!ed) return;
   payNumWire(st);
@@ -832,12 +854,12 @@ function fineRowHtml(r,ed){ return `<tr data-fr><td><input data-f="name" value="
 function fineRowWire(tr,ed){ for(const k of ['h','d']){ const q=f=>tr.querySelector(`[data-f=${k}${f}]`), cl=q('c'), v=q('v'), pu=q('p'), u=q('u');
     const upd=()=>{ const c=cl.value; u.textContent=c==='yen'?'円':(c===''||c==='input')?'':'%'; v.disabled=!ed||c===''||c==='input'; if(c===''||c==='input') v.value=''; v.placeholder=FINE_TIME(c)?'加算（%）':''; pu.disabled=!ed||c!=='yen'; if(c!=='yen') pu.checked=false; }; cl.onchange=upd; upd(); }
   const d=tr.querySelector('[data-fdel]'); if(d) d.onclick=()=>tr.remove(); }
-function fineCard(rows,ed,hours){ const gs=fineGroup(rows); return `<div class="card" data-fines><h2>罰金の種類<br><small class="muted" style="font-weight:400">POS の在籍リストの「＋罰金」で選びます</small></h2>
+function fineCard(rows,ed,hours){ const gs=fineGroup(rows); return foldCard('fines','罰金の種類','',`${gs.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:6px">POS の在籍リストの「＋罰金」で選びます</div>
   <div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">時給の人・日給の人のそれぞれで決め方を選びます（かからない方は「なし」）<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">％：時給は月末に決まった時給の％、日給はその人の日給の％<br>円：選ぶとその金額で登録します（「個数」にすると 金額×個数）<br>その都度：選んだ時に金額を入れます<br>遅刻・早上がり（時間分）：決まった時刻と打刻（15分丸め）の差 × 時間給（日給 ÷ 下の所定時間）。「加算（%）」を入れると日給のその％を加算します（無断の時など）<br>時給と日給が同じ「円」か「その都度」の罰金は、黒服にもかかります<br>一覧にないものは、POS で「その他」を選んで理由と金額を入れられます</div></div>
   <div class="row" style="margin-bottom:10px;font-size:14px">日給の人の所定時間<input id="dHours" inputmode="decimal" value="${hours??''}" ${ed&&hours!=null?'':'disabled'} style="width:80px;text-align:right">時間${ed&&hours!=null?'<button class="ghost sm" id="dHoursSave">保存</button>':''}${hours==null?'<span class="muted" style="font-size:13px">SQL 053 が未実行です</span>':''}</div>
   <div class="slw"><table class="fn"><tr><th rowspan="2" style="vertical-align:bottom">名前</th><th colspan="3" class="gh">時給</th><th class="sep"></th><th colspan="3" class="gh">日給</th>${ed?'<th></th>':''}</tr>
   <tr><th>決め方</th><th>金額・％</th><th></th><th class="sep"></th><th>決め方</th><th>金額・％</th><th></th>${ed?'<th></th>':''}</tr>${gs.map(r=>fineRowHtml(r,ed)).join('')}</table>${gs.length?'':'<div class="muted" data-fempty style="padding:8px 4px">まだ入っていません</div>'}</div>
-  ${ed?'<div class="row" style="margin-top:10px"><button class="ghost sm" data-fadd>＋ 行を追加</button><button class="primary sm" data-fsave>保存</button></div>':''}</div>`; }
+  ${ed?'<div class="fend"><button class="ghost sm" data-fadd>＋ 行を追加</button><span class="sp"></span><button class="primary sm" data-fsave>保存</button></div>':''}`,'data-fines'); }
 function fineRead(card){ const out=[]; let i=0, n=0; const names=new Set();
   for(const tr of card.querySelectorAll('tr[data-fr]')){ i++; const g=k=>tr.querySelector(`[data-f=${k}]`); const name=g('name').value.trim();
     const side=k=>{ const calc=g(k+'c').value; if(!calc) return {}; const vs=g(k+'v').value; let value=null, lb=k==='h'?'時給':'日給';
@@ -853,13 +875,14 @@ function fineRead(card){ const out=[]; let i=0, n=0; const names=new Set();
 
 // v0.14・SQL 055：アフターの延長（attendance_rules。タイムカードの打刻の時に round_punch が使う）。閉店の○分前を過ぎたアフターは、閉店まで働いたことにする。閉店時間は店舗設定で決める
 const closeTxt=c=>{ const m=String(c||'01:00').match(/^(\d{1,2}):(\d{2})/); return m?`${+m[1]<12?'翌':''}${+m[1]}:${m[2]}`:String(c); };
-function afterCard(ax,ed){ const h='<h2>アフターの延長<br><small class="muted" style="font-weight:400">アフターの打刻（退勤の代わり）で、時給を付ける時間を延ばします</small></h2>';
-  if(ax.error) return `<div class="card">${h}<div class="err">${esc(/after_ext|minutes|close/.test(ax.error.message)||/find|exist|schema cache/.test(ax.error.message)?'SQL 055 が未実行です：':'読み込めません：')}${esc(ax.error.message)}</div></div>`;
-  const a=ax.data||{}; if(a.minutes==null) return `<div class="card">${h}<div class="err">SQL 055 が未実行です</div></div>`;
+function afterCard(ax,ed){ const T='アフターの延長', h='<div class="muted" style="font-size:13px;margin-bottom:10px">アフターの打刻（退勤の代わり）で、時給を付ける時間を延ばします</div>';
+  if(ax.error) return foldCard('after',T,'','',`<div class="err">${esc(/after_ext|minutes|close/.test(ax.error.message)||/find|exist|schema cache/.test(ax.error.message)?'SQL 055 が未実行です：':'読み込めません：')}${esc(ax.error.message)}</div>`);
+  const a=ax.data||{}; if(a.minutes==null) return foldCard('after',T,'','','<div class="err">SQL 055 が未実行です</div>');
   const on=!!a.on, dis=ed?'':'disabled', cl=closeTxt(a.close);
-  return `<div class="card" data-after>${h}<div class="row"><span class="seg" id="afOn">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${on===v?'on':''}" ${dis}>${n}</button>`).join('')}</span></div>
-    <div class="row" style="margin-top:10px;font-size:14px">閉店（${esc(cl)}）の<input id="afM" inputmode="numeric" value="${esc(String(a.minutes))}" ${dis} style="width:80px;text-align:right">分前を過ぎたアフターは、閉店（${esc(cl)}）まで働いたことにする${ed?'<button class="primary sm" id="afSave">保存</button>':''}</div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">時給の人・日給の人の両方。タイムカードで打刻した時に決まります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">（変更しても、前の打刻はそのまま）<br>閉店時間は「POS設定」で設定します。退勤・アフターの打刻は閉店より後になりません</div></div></div>`; }
+  return foldCard('after',T,'',on?`する・閉店の${esc(String(a.minutes))}分前から`:'しない',`${h}<div class="row"><span class="seg" id="afOn">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${on===v?'on':''}" ${dis}>${n}</button>`).join('')}</span></div>
+    <div class="row" style="margin-top:10px;font-size:14px">閉店（${esc(cl)}）の<input id="afM" inputmode="numeric" value="${esc(String(a.minutes))}" ${dis} style="width:80px;text-align:right">分前を過ぎたアフターは、閉店（${esc(cl)}）まで働いたことにする</div>
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">時給の人・日給の人の両方。タイムカードで打刻した時に決まります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">（変更しても、前の打刻はそのまま）<br>閉店時間は「POS設定」で設定します。退勤・アフターの打刻は閉店より後になりません</div></div>
+    ${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="afSave">保存</button></div>':''}`,'data-after'); }
 
 // ---------- キャスト設定 v0.15・SQL 056：一人ずつの給与条件（月ごと。その月以降／その月のみ）・その人だけの条件・メモ ----------
 // 担当・給与（時給／日給）・日給・日払い・契約書は staff に入れる（月で変わらない。POS と同じ欄）
@@ -1560,20 +1583,26 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     const r=await rpc('admin_save_pos_settings',{p_store:st,p_vals:v,p_vip:vip}); if(!r.ok) return; toast('保存しました'); PAGES.set_pos(); }); };
 
 // v0.22・SQL 062：給与で使う数（日払の上限・体験の源泉・ポイント・同伴の準備時間）。前は POS の料金設定にあった
-function payNumCard(pos,ed){ const d=pos.data||{}, dis=ed?'':'disabled'; const num=(id,label,v)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${dis}></label>`;
-  return `<div class="card" data-paynum><h2>日払（立替）・体験・ポイント・同伴</h2><div class="grid2">
-    ${num('pnCapC','日払（立替）の上限・キャスト（円）',d.advance_cap_cast)}${num('pnCapH','日払（立替）の上限・黒服（円）',d.advance_cap_hall)}
-    ${num('pnTw','体験入店の源泉（%）',d.trial_withholding_rate)}
-    ${num('pnSp','セット1名のポイント',d.set_point)}${num('pnEp','延長1回1名のポイント',d.ext_point)}
-    ${num('pnDh','同伴の準備時間（分・0＝警告なし）',d.douhan_punch_limit_min)}
-    ${ed?'<div><button class="primary" id="pnSave" style="width:100%">保存</button></div>':''}</div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">ポイントは人数分かけて、${KL}で同じに分けます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">同伴の準備時間：伝票の立ち上げから出勤の打刻までがこれを超えると、タイムカードで本人に警告します</div></div></div>`; }
-function payNumWire(st){ const sv=$('pnSave'); if(!sv) return; sv.onclick=guard(sv,async()=>{
+// v0.90：給与項目の並びに合わせて2つの箱に分けた（保存は同じ admin_save_pay_settings。どちらの保存も6つ全部を送る）
+const pnNum=(id,label,v,ed)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${ed?'':'disabled'}></label>`;
+const pnSaveBtn=ed=>ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pnsave>保存</button></div>':'';
+const pnYen=v=>v==null?'—':Number(v).toLocaleString('ja-JP')+'円';
+function payAdvCard(pos,ed){ const d=pos.data||{};
+  return foldCard('payadv','日払（立替）の上限・同伴の準備時間','',`キャスト ${pnYen(d.advance_cap_cast)}・黒服 ${pnYen(d.advance_cap_hall)}・${d.douhan_punch_limit_min??'—'}分`,`<div class="grid2">
+    ${pnNum('pnCapC','日払（立替）の上限・キャスト（円）',d.advance_cap_cast,ed)}${pnNum('pnCapH','日払（立替）の上限・黒服（円）',d.advance_cap_hall,ed)}
+    ${pnNum('pnDh','同伴の準備時間（分・0＝警告なし）',d.douhan_punch_limit_min,ed)}</div>
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">同伴の準備時間：伝票の立ち上げから出勤の打刻まで<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">これを超えると、タイムカードで本人に警告します</div></div>${pnSaveBtn(ed)}`,'data-paynum'); }
+function payPtCard(pos,ed){ const d=pos.data||{};
+  return foldCard('paypt','ポイント・体験入店','',`セット ${d.set_point??'—'}・延長 ${d.ext_point??'—'}・源泉 ${d.trial_withholding_rate??'—'}%`,`<div class="grid2">
+    ${pnNum('pnSp','セット1名のポイント',d.set_point,ed)}${pnNum('pnEp','延長1回1名のポイント',d.ext_point,ed)}
+    ${pnNum('pnTw','体験入店の源泉（%）',d.trial_withholding_rate,ed)}</div>
+    <div class="muted" style="font-size:13px;margin-top:8px;line-height:1.6">ポイントは人数分かけて、${KL}で同じに分けます</div>${pnSaveBtn(ed)}`,'data-paynum'); }
+function payNumWire(st){ $('main').querySelectorAll('[data-pnsave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
   const g=id=>slNum($(id).value), v={advance_cap_cast:g('pnCapC'),advance_cap_hall:g('pnCapH'),trial_withholding_rate:g('pnTw'),set_point:g('pnSp'),ext_point:g('pnEp'),douhan_punch_limit_min:g('pnDh')};
   if(Object.values(v).some(x=>x==null||!Number.isFinite(x)||x<0)){ await uiAlert('全部の欄に0以上の数を入力してください'); return; }
   if(v.trial_withholding_rate>100){ await uiAlert('体験入店の源泉は100%までです'); return; }
-  if(!await uiConfirm('日払（立替）・体験・ポイント・同伴の設定を保存しますか？')) return;
-  const r=await rpc('admin_save_pay_settings',{p_store:st,p_vals:v}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
+  if(!await uiConfirm(sv.closest('[data-fold]').dataset.fold==='paypt'?'ポイント・体験入店の設定を保存しますか？':'日払（立替）の上限・同伴の準備時間を保存しますか？')) return;
+  const r=await rpc('admin_save_pay_settings',{p_store:st,p_vals:v}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); })); }
 
 // ---------- 打刻一覧 v0.23・SQL 063：日ごとの打刻と写真（見るだけ。打刻の修正は POS） ----------
 let pcDate=null;
