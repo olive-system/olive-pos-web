@@ -1679,19 +1679,21 @@ PAGES.o_ids=async()=>{
   <div class="card"><h2>IDの作成</h2>
     <div class="grid2">
       <label>ID（半角の小文字・数字 3〜20文字）<input id="nId" autocapitalize="off" spellcheck="false"></label>
-      <label>名前<input id="nName"></label>
       <label>黒服と結びつける<select id="nStaff"><option value="">結びつけない</option>${halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select></label>
+      <label id="nNameBox">名前<input id="nName"></label>
       <label>最初のパスワード（8文字以上）<input id="nPw" autocapitalize="off" spellcheck="false"></label>
     </div>
     <div class="row" style="margin-top:10px"><button class="ghost" id="nGen">パスワードを自動作成</button><button class="primary" id="nSave">作成</button></div>
     <div class="muted hint" style="font-size:14px;margin-top:8px">黒服と結びつけると、POSでその黒服を削除した時に、このIDも自動で使えなくなります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">店舗は上で選んでいる「${esc(curStore()?.name||'')}」になります</div></div>
   </div>`;
   $('nGen').onclick=()=>{ $('nPw').value=genPw(10); };
+  /* v0.89：黒服を選んだら、名前はその黒服の名前（名前の枠は「結びつけない」の時だけ。オーナー 2026-10-14） */
+  const nSync=()=>{ $('nNameBox').style.display=$('nStaff').value?'none':''; }; $('nStaff').onchange=nSync; nSync();
   $('nSave').onclick=guard($('nSave'),async()=>{
     const id=$('nId').value.trim().toLowerCase(), pw=$('nPw').value;
     if(!/^[a-z0-9_-]{3,20}$/.test(id)){ await uiAlert('IDは半角の小文字・数字で3〜20文字にしてください'); return; }
     if(pw.length<8){ await uiAlert('パスワードは8文字以上にしてください'); return; }
-    const r=await rpc('admin_account_create',{p_login:id,p_pw:pw,p_name:$('nName').value.trim(),p_store:storeId,p_staff:$('nStaff').value||null}); if(!r.ok) return;
+    const r=await rpc('admin_account_create',{p_login:id,p_pw:pw,p_name:$('nStaff').value?(halls.find(h=>h.id===$('nStaff').value)?.name||''):$('nName').value.trim(),p_store:storeId,p_staff:$('nStaff').value||null}); if(!r.ok) return;
     await uiAlert(`IDを作成しました\n\nID：${id}\nパスワード：${pw}\n\n本人に伝えてください`); PAGES.o_ids(); });
   $('main').querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>editAccount(list.find(a=>a.id===b.dataset.ed),halls));
 };
