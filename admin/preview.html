@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.80 -->
+<title>OLIVE 管理</title><!-- admin v0.81 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1130,7 +1130,12 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>'; let data=null, hall=null;
   const wire=()=>{ const e=$('ksM'); if(e) e.onchange=()=>{ ksMonth=e.value; PAGES.cast_sales(); }; const x=$('ksXls'), pd=$('ksPdf'); if(x&&data){ x.disabled=pd.disabled=!(data.rows||[]).length&&!(hall?.rows||[]).length; x.onclick=guard(x,()=>ksExcel(data,hall)); pd.onclick=guard(pd,()=>ksPdf(data,hall)); } }; wire();
   // v0.35：黒服も同じ画面に（キャストの下）。Excel・PDF にも黒服を入れる
-  const [r,hr]=await Promise.all([sb.rpc('admin_cast_month',{p_store:st,p_month:m}), sb.rpc('admin_hall_month',{p_store:st,p_month:m})]); if(page!=='cast_sales'||storeId!==st||ksMonth!==m) return;
+  /* v0.81・SQL 090：キャストと黒服を1回で（キャストの計算を2回しない）。関数が無い時は今までどおり2つ */
+  let r, hr; const sm=await sb.rpc('admin_staff_month',{p_store:st,p_month:m});
+  if(!sm.error){ r={data:sm.data.cast}; hr=sm.data.hall?{data:sm.data.hall}:{error:{message:sm.data.hall_error||''}}; }
+  else if(/admin_staff_month/.test(sm.error.message)) [r,hr]=await Promise.all([sb.rpc('admin_cast_month',{p_store:st,p_month:m}), sb.rpc('admin_hall_month',{p_store:st,p_month:m})]);
+  else { r={error:sm.error}; hr={error:sm.error}; }
+  if(page!=='cast_sales'||storeId!==st||ksMonth!==m) return;
   hall=hr.error?null:(hr.data||{});
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_cast_month/.test(r.error.message)?'SQL 068・069 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; wire(); return; }
   data=r.data; const rows=r.data?.rows||[], n=v=>Number(v||0), yen0=v=>v?yen(v):'—', neg=v=>v?`<span style="color:var(--warn)">−${yen(v).replace(/^-/,'')}</span>`:'—';
