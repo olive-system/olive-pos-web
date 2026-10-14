@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.83 -->
+<title>OLIVE 管理</title><!-- admin v0.84 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1255,8 +1255,10 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
 // ---------- 伝票一覧 v0.49・SQL 078：期間（31日まで）の伝票。No で中身、オーナーは直す・まとめて削除。Excel ----------
 let blFrom=null, blTo=null, blFilt='all', blQ='';
 const BL_F=[['all','全部'],['discount','値引あり'],['invoice','請求あり'],['oki','置きあり'],['open','来店中'],['void','削除']];
-const BL_COLS=[['status','状態'],['date','営業日'],['in','入店'],['out','退店'],['dur','時間'],['table','卓'],['guests','客数'],['customers','お客様'],['kakari',''+KL+''],['douhan','同伴'],['items','注文'],['ext','延長'],
-  ['sub',''+KL+'小計'],['service','サービス料'],['discount','値引'],['surcharge','値増'],['due','合計'],['cash','現金'],['card','カード'],['invoice','請求'],['oki','置き'],['receipt','領収書']];
+/* v0.84：重要な順（だれが・どの係で・いくら）。注文は最後（オーナー 2026-10-14） */
+const BL_COLS=[['date','営業日'],['customers','お客様'],['kakari',''+KL+''],['due','合計'],['cash','現金'],['card','カード'],['invoice','請求'],['oki','置き'],
+  ['guests','客数'],['table','卓'],['douhan','同伴'],['sub',''+KL+'小計'],['service','サービス料'],['discount','値引'],['surcharge','値増'],['ext','延長'],
+  ['in','入店'],['out','退店'],['dur','時間'],['status','状態'],['receipt','領収書'],['items','注文']];
 const BL_TXT=['customers','kakari','douhan'];
 // v0.51：延長の列は回数。見出しに POS設定の延長単位を出す（例：30分延長（回））。POS設定を読めない時は「延長（回）」
 let blExtL='延長（回）'; const blLab=(k,l)=>k==='ext'?blExtL:l;
