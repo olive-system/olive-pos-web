@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.37 -->
+<title>OLIVE 顧客</title><!-- customer v1.38 -->
 <style>
-  :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--edit:#7b61c9}
+  :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px}
   body{padding-bottom:env(safe-area-inset-bottom)}
-  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 14px;background:#eee;color:var(--ink)}
+  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 14px;background:var(--soft);color:var(--ink)}
   button.primary{background:var(--blue);color:#fff}button.ok{background:var(--acc);color:#fff}button.danger{background:var(--warn);color:#fff}
   button.edit{background:var(--edit);color:#fff}
   button.ghost{background:transparent;border:1px solid var(--line)}button.sm{padding:6px 10px;font-size:14px}
@@ -30,7 +30,8 @@
   .err{color:var(--warn);font-size:14px;min-height:20px;margin-top:8px}
 
   /* 共通の上部バー */
-  .top{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
+  .top{position:sticky;top:0;z-index:5;background:var(--head);color:#fff;border-bottom:1px solid var(--head);padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
+  .top button.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)} /* v1.38：ヘッダーは3つのサイトで同じ色（色の決まり） */
   .top .ttl{font-weight:700;font-size:17px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .editbar{background:var(--edit);color:#fff;font-size:14px;padding:6px 16px;display:flex;align-items:center;gap:8px}
   .editbar button{margin-left:auto;background:rgba(255,255,255,.2);color:#fff;padding:4px 10px;font-size:13px}
@@ -43,7 +44,7 @@
   .row{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
   .row{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 14px}.row .nm{font-weight:700}.row .sub{font-size:13px;color:var(--muted)} /* v1.34：名前と来店日・係・キープ名を1行に（入りきらない幅の時だけ折り返す） */
   .badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--gold);color:#fff;white-space:nowrap;vertical-align:1px;font-weight:400}
-  .badge.gray{background:#9a9a9a}.badge.k{background:var(--ink)}.badge.warnb{background:var(--warn)}
+  .badge.gray{background:var(--muted)}.badge.k{background:var(--ink)}.badge.warnb{background:var(--warn)}
 
   /* 詳細 */
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
@@ -53,15 +54,15 @@
   .kv.info{margin:0}.kv.info dd:first-of-type{padding-right:84px}
   .kv dt{color:var(--muted);font-size:13px;padding-top:2px}.kv dd{margin:0;overflow-wrap:anywhere}
   .memo{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:15px}
-  .req{background:#fff8e6;border:1px solid #f0dca8;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px}
+  .req{background:var(--gold-soft);border:1px solid var(--brand);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px}
   .req .who{font-size:12px;color:var(--muted)}
-  .bt{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#fafafa}
+  .bt{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:var(--soft)}
   .bt .nm{font-weight:700;font-size:16px}.bt .sub{font-size:12px;color:var(--muted);margin:2px 0 8px}
   .bt .ops{display:flex;gap:6px;align-items:center}
   .bt .ops select{width:auto;flex:1;padding:8px}
-  .vis{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #f0eee9;font-size:14px}
+  .vis{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
   .vis:last-child{border-bottom:none}.vis .amt{font-variant-numeric:tabular-nums;white-space:nowrap}
-  .vyr{border-top:1px solid #f0eee9}.vyr>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;padding:9px 0;font-size:14px;font-weight:600}.vyr>summary::-webkit-details-marker{display:none}.vyr>summary::after{content:'▾';color:var(--muted)}.vyr[open]>summary::after{content:'▴'}.vyr>div{padding-left:12px}
+  .vyr{border-top:1px solid var(--line)}.vyr>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;padding:9px 0;font-size:14px;font-weight:600}.vyr>summary::-webkit-details-marker{display:none}.vyr>summary::after{content:'▾';color:var(--muted)}.vyr[open]>summary::after{content:'▴'}.vyr>div{padding-left:12px}
   label.f{display:block;margin-bottom:10px;font-size:13px;color:var(--muted)}label.f input,label.f select,label.f textarea{margin-top:4px;color:var(--ink)}
 
   /* ダイアログ・トースト */
@@ -71,7 +72,7 @@
   @media (min-width:600px){.modal{align-items:center}.sheet{border-radius:16px}}
   .sheet h3{margin:0 0 12px;font-size:17px}.sheet .msg{white-space:pre-wrap;margin-bottom:14px;line-height:1.5}
   .sheet .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}.sheet .btns button{min-width:88px}
-  #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:60;display:none;max-width:90vw;text-align:center}
+  #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:60;display:none;max-width:90vw;text-align:center}
   #toast.on{display:block}
   .loading{padding:30px 0;text-align:center;color:var(--muted)}
 /* v1.9：ボトル欄の枠の高さをそろえる */
@@ -158,15 +159,15 @@ let boot=null, custs=[], mode='all', monthsSel=null, curId=null, cur=null;
 class CsError extends Error{ constructor(code,msg){ super(msg||code); this.code=code; } }
 async function rpc(fn,args){
   let r; try{ r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},body:JSON.stringify(args||{})}); }
-  catch(e){ throw new CsError('NET','通信できませんでした。電波の良い所でもう一度お試しください'); }
+  catch(e){ throw new CsError('NET','通信できませんでした。電波の良い所で再度お試しください'); }
   const t=await r.text(); let d=null; try{ d=t?JSON.parse(t):null; }catch(e){}
   if(!r.ok){ const m=String(d&&d.message||t||''); const c=(m.match(/^(CS_[A-Z]+)/)||[])[1];
-    if(c==='CS_AUTH'){ logoutLocal(); throw new CsError(c,'もう一度パスワードを入力してください'); }
-    if(c==='CS_EDIT'){ endEdit(true); throw new CsError(c,'編集パスワードの有効時間が切れました。もう一度入力してください'); }
+    if(c==='CS_AUTH'){ logoutLocal(); throw new CsError(c,'再度パスワードを入力してください'); }
+    if(c==='CS_EDIT'){ endEdit(true); throw new CsError(c,'編集パスワードの有効時間が切れました。再度入力してください'); }
     if(c==='CS_INPUT') throw new CsError(c,m.replace(/^CS_INPUT:/,''));
     if(c==='CS_CONFLICT') throw new CsError(c,'ほかの人が先にこのお客様を変更しました。最新の内容を読み込み直します');
     if(c==='CS_NOTFOUND') throw new CsError(c,'見つかりません（削除された可能性があります）');
-    if(c==='CS_LOCKED') throw new CsError(c,'パスワードの間違いが続いたため、15分間止めています');
+    if(c==='CS_LOCKED') throw new CsError(c,'パスワードの間違いが続いたため、15分間停止しています');
     if(c==='CS_NOEDITPW') throw new CsError(c,'編集パスワードがまだ設定されていません');
     if(/Could not find the function|does not exist/.test(m)) throw new CsError('SQL','準備中です（SQL 043 が未適用）');
     throw new CsError('ERR',m||('エラー '+r.status)); }
@@ -254,7 +255,7 @@ function renderList(){ const q=$('q').value.trim();
   if(mode==='old') list=list.filter(c=>base(c)&&base(c)<=cut).sort((a,b)=>base(a).localeCompare(base(b)));
   $('count').textContent=`${list.length}名`+(mode==='old'?`（${md(cut)} 以前）`:'');
   const show=list.slice(0,300);
-  $('rows').innerHTML=show.map(c=>`<button class="row" data-id="${c.id}"><div class="nm">${esc(c.name)}${c.company?` <small class="muted" style="font-weight:400">${esc(c.company)}</small>`:''}${c.is_industry?' <span class="badge k">同業</span>':''}${c.req?` <span class="badge warnb">申請 ${c.req}件</span>`:''}</div><div class="sub" style="${mode==='old'?'color:#c0392b':''}">${[c.last?md(c.last):'来店なし',c.kakari_staff_id?esc(sname(c.kakari_staff_id)):'',esc(bnLine(c.bottle_names,c.bottles))].filter(Boolean).join('・')}</div></button>`).join('')+(list.length>show.length?`<div class="muted" style="font-size:13px;padding:8px 0">ほか ${list.length-show.length}名（検索で絞り込んでください）</div>`:'')||'<div class="muted" style="padding:20px 0">該当なし</div>';
+  $('rows').innerHTML=show.map(c=>`<button class="row" data-id="${c.id}"><div class="nm">${esc(c.name)}${c.company?` <small class="muted" style="font-weight:400">${esc(c.company)}</small>`:''}${c.is_industry?' <span class="badge k">同業</span>':''}${c.req?` <span class="badge warnb">申請 ${c.req}件</span>`:''}</div><div class="sub" style="${mode==='old'?'color:var(--warn)':''}">${[c.last?md(c.last):'来店なし',c.kakari_staff_id?esc(sname(c.kakari_staff_id)):'',esc(bnLine(c.bottle_names,c.bottles))].filter(Boolean).join('・')}</div></button>`).join('')+(list.length>show.length?`<div class="muted" style="font-size:13px;padding:8px 0">ほか ${list.length-show.length}名（検索で絞り込んでください）</div>`:'')||'<div class="muted" style="padding:20px 0">該当なし</div>';
   $('rows').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(b.dataset.id)); }
 
 $('newBtn').onclick=async()=>{ const name=await uiPrompt('新しいお客様のお名前',$('q').value.trim(),{ok:'登録'}); if(name==null) return; const nm=name.trim(); if(!nm){ toast('お名前を入力してください'); return; }
@@ -287,7 +288,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
   <div class="card"><h2>キープボトル ${open.length}本</h2>
     ${open.map(b=>`<div class="bt"><div class="b1"><span class="nm">${esc(b.name)}<small>${md(b.opened_on)}〜</small></span><select data-rem="${b.id}" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>
       <div class="b2"><div class="kn"><span class="muted">キープ名</span><input data-kn="${b.id}" value="${esc(b.keep_name||c.name)}" aria-label="キープ名"></div><div class="b3"><button class="ghost sm" data-fin="${b.id}">飲切</button><button class="ghost sm" data-exp="${b.id}">期限切</button><button class="ghost sm" data-mv="${b.id}">移動</button></div></div></div>`).join('')||'<div class="muted" style="margin-bottom:8px">なし</div>'}
-    ${(cur.other_bottles||[]).length?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">ほかの店舗のキープ（見るだけ）</div>${cur.other_bottles.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.store+'：'+b.name+'　'+(b.remaining??0)+'/10　'+md(b.opened_on)+'〜')}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
+    ${(cur.other_bottles||[]).length?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">ほかの店舗のキープ（閲覧のみ）</div>${cur.other_bottles.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.store+'：'+b.name+'　'+(b.remaining??0)+'/10　'+md(b.opened_on)+'〜')}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
     <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px"><div class="muted" style="font-size:13px;margin-bottom:6px">新しくボトルを登録</div><div style="display:flex;gap:6px;align-items:center"><select id="btSel" style="flex:1;min-width:0;padding:10px 6px"><option value="">銘柄を選ぶ</option>${keep.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}<option value="__free">＋ リストに無い銘柄</option></select><select id="btRem" style="width:auto;flex:none;padding:10px 6px" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}">${n}/10</option>`).join('')}</select><button class="ok" id="btAdd" style="flex:none">登録</button></div></div>
     ${exp.length?`<div style="margin-top:4px">${exp.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((b.moved?'ボトル移動':'期限切れ')+'：'+b.name+'　'+(b.remaining??0)+'/10　'+(d=>d?String(d).slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on))}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
     ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済み：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>
@@ -361,12 +362,12 @@ async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; 
     catch(err){ if(err.code==='CS_CONFLICT'){ await reloadDetail(); return csClash(true,c0,{memo},{memo:c.memo??null},{memo}); } if(err.code==='CS_EDIT'){ await uiAlert(err.message); if(!await needEdit()) return; return editForm(true,{memo}); } await fail(err); }
     return; }
   const lb=Object.fromEntries(EF.concat([['is_industry','同業']])); const d={...dr}; clash.forEach(k=>{ d[k]=c[k]; });
-  await uiAlert(`ほかの人が先に「${clash.map(k=>lb[k]||k).join('・')}」を変えていました。そこは最新にして、ほかの欄は書いた内容を残したので、確かめて保存してください`);
+  await uiAlert(`ほかの人が先に「${clash.map(k=>lb[k]||k).join('・')}」を変更していました。そこは最新にして、ほかの欄は書いた内容を残したので、確かめて保存してください`);
   return editForm(memoOnly,d); }
-function pickClash(x){ return sheet(`<h3>同じ所をほかの人も直していました</h3><div class="muted" style="font-size:13px">どちらを残しますか？</div>
-  <div class="f" style="margin-top:8px">あなた<div class="memo" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">${esc(x.mine.join('\n'))||'<span class="muted">（消した）</span>'}</div></div>
-  <div class="f">ほかの人<div class="memo" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">${esc(x.theirs.join('\n'))||'<span class="muted">（消した）</span>'}</div></div>
-  <div class="btns"><button class="ghost" data-v="x">やめる</button><button class="ghost" data-v="b">両方残す</button><button class="ghost" data-v="t">ほかの人</button><button class="edit" data-v="m">あなた</button></div>`,(s,done)=>{ s.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>done(b.dataset.v==='x'?null:b.dataset.v)); }); }
+function pickClash(x){ return sheet(`<h3>同じ箇所をほかの人も修正していました</h3><div class="muted" style="font-size:13px">どちらを残しますか？</div>
+  <div class="f" style="margin-top:8px">あなた<div class="memo" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">${esc(x.mine.join('\n'))||'<span class="muted">（削除）</span>'}</div></div>
+  <div class="f">ほかの人<div class="memo" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">${esc(x.theirs.join('\n'))||'<span class="muted">（削除）</span>'}</div></div>
+  <div class="btns"><button class="ghost" data-v="x">キャンセル</button><button class="ghost" data-v="b">両方残す</button><button class="ghost" data-v="t">ほかの人</button><button class="edit" data-v="m">あなた</button></div>`,(s,done)=>{ s.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>done(b.dataset.v==='x'?null:b.dataset.v)); }); }
 /* メモを行ごとに合わせる（3者マージ）。base＝書き始めた時のメモ、mine＝自分の入力、theirs＝ほかで変わった今のメモ。同じ所を両方が別々に直した時だけ conflicts に入る */
 function memoMerge(base,mine,theirs){ const L=s=>s?String(s).replace(/\r/g,'').split('\n'):[]; const b=L(base), m=L(mine), t=L(theirs), J=a=>a.join('\n');
   if(J(m)===J(t)||J(t)===J(b)) return {lines:m,conflicts:[]}; if(J(m)===J(b)) return {lines:t,conflicts:[]};
