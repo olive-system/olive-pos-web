@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.88 -->
+<title>OLIVE 管理</title><!-- admin v0.89 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -436,9 +436,9 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
   $('main').querySelectorAll('[data-bed]').forEach(bn=>bn.onclick=guard(bn,()=>billEdit(bn.dataset.bed)));
   $('main').querySelectorAll('[data-bvw]').forEach(a=>a.onclick=()=>billView(a.dataset.bvw,own&&!!bills.find(b=>b.id===a.dataset.bvw&&b.closed_at&&b.status==='closed')));
   $('main').querySelectorAll('[data-pfx]').forEach(bn=>bn.onclick=guard(bn,async()=>{ const e=(X.events||[]).find(z=>z.id===bn.dataset.pfx); if(!e) return;
-    const mdl=modal(`<h2 style="margin:0">${esc(e.name)}　${EV[e.type]||''}の時刻の修正</h2><div class="muted">今：${hm(e.at)}</div><label>時刻<input type="time" id="pfT" value="${hm(e.at)}"></label><label>理由（必須・操作ログに残ります）<input id="pfR" maxlength="100"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">修正</button></div>`);
-    const v=await new Promise(res=>{ mdl.querySelector('[data-k=no]').onclick=()=>{ mdl.remove(); res(null); }; mdl.querySelector('[data-k=ok]').onclick=()=>{ const t=mdl.querySelector('#pfT').value, rs=mdl.querySelector('#pfR').value.trim(); mdl.remove(); res({t,rs}); }; });
-    if(!v) return; if(!v.t){ await uiAlert('時刻を入力してください'); return; } if(!v.rs){ await uiAlert('理由を入力してください'); return; }
+    const mdl=modal(`<h2 style="margin:0">${esc(e.name)}　${EV[e.type]||''}の時刻の修正</h2><div class="muted">今：${hm(e.at)}</div><label>時刻<input type="time" id="pfT" value="${hm(e.at)}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">修正</button></div>`);
+    const v=await new Promise(res=>{ mdl.querySelector('[data-k=no]').onclick=()=>{ mdl.remove(); res(null); }; mdl.querySelector('[data-k=ok]').onclick=()=>{ const t=mdl.querySelector('#pfT').value; mdl.remove(); res({t,rs:null}); }; });
+    if(!v) return; if(!v.t){ await uiAlert('時刻を入力してください'); return; }
     const day=v.t<'08:00'?dayAdd(d,1):d; const z=await rpc('admin_punch_fix',{p_event:e.id,p_at:`${day}T${v.t}:00+09:00`,p_reason:v.rs}); if(!z.ok) return; toast('修正しました'); PAGES.pl(); })); }
 
 // ---------- 伝票の修正 v0.31・SQL 071：収支（日次）の伝票一覧から、会計済の伝票をオーナーが直す（いつの日でも）----------
@@ -1583,7 +1583,7 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
   <div class="row" style="margin-bottom:12px"><button class="ghost" id="pcPrev">◀</button><input type="date" id="pcDate" value="${d}" style="width:auto"><button class="ghost" id="pcNext">▶</button><button class="ghost" id="pcToday">今日</button></div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const wire=()=>{ $('pcDate').onchange=()=>{ if($('pcDate').value){ pcDate=$('pcDate').value; PAGES.punches(); } }; $('pcPrev').onclick=()=>{ pcDate=dayAdd(d,-1); PAGES.punches(); }; $('pcNext').onclick=()=>{ pcDate=dayAdd(d,1); PAGES.punches(); }; $('pcToday').onclick=()=>{ pcDate=businessDate(); PAGES.punches(); }; };
-  const [ev,sf]=await Promise.all([ sb.from('attendance_events').select('staff_id,event_type,event_at,photo_path,is_corrected').eq('store_id',st).eq('business_date',d).order('event_at'),
+  const [ev,sf]=await Promise.all([ sb.from('attendance_events').select('id,staff_id,event_type,event_at,photo_path,is_corrected').eq('store_id',st).eq('business_date',d).order('event_at'),
     sb.from('staff').select('id,display_name,kind,sort_order').eq('store_id',st).order('sort_order').order('id') ]);
   if(page!=='punches'||storeId!==st||pcDate!==d) return;
   const er=ev.error||sf.error; if(er){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(er.message)}</div>`; wire(); return; }
@@ -1592,11 +1592,20 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
   const paths=(ev.data||[]).map(e=>e.photo_path).filter(Boolean); let urls={};
   if(paths.length){ const r=await sb.storage.from('selfies').createSignedUrls(paths,3600); (r.data||[]).forEach(x=>{ if(x.signedUrl) urls[x.path]=x.signedUrl; }); if(page!=='punches'||pcDate!==d) return; }
   const hm=t=>{ const x=new Date(t); return `${x.getHours()}:${String(x.getMinutes()).padStart(2,'0')}`; };
-  const cell=e=>!e?'<span class="muted">—</span>':`<div class="pc-c"><span>${hm(e.event_at)}${e.is_corrected?' <small class="badge warnb">修正</small>':''}</span>${e.photo_path?(urls[e.photo_path]?`<img src="${esc(urls[e.photo_path])}" data-big="${esc(urls[e.photo_path])}" alt="">`:'<small class="muted">写真を出せません</small>'):'<small class="muted">写真なし</small>'}</div>`;
+  const ed=perm('punches')==='edit'; /* v0.89・SQL 093：打刻一覧で修正・追加（表示設定の「編集」の人） */
+  const cell=(e,pid,k)=>!e?(ed?`<button class="ghost sm" data-pcadd="${pid}" data-k="${k}">追加</button>`:'<span class="muted">—</span>'):`<div class="pc-c"><span>${hm(e.event_at)}${e.is_corrected?' <small class="badge warnb">修正済</small>':''}${ed?` <button class="ghost sm" data-pcfix="${e.id}" data-k="${e.event_type}" data-t="${hm(e.event_at)}" data-n="${pid}">修正</button>`:''}</span>${e.photo_path?(urls[e.photo_path]?`<img src="${esc(urls[e.photo_path])}" data-big="${esc(urls[e.photo_path])}" alt="">`:'<small class="muted">写真を出せません</small>'):'<small class="muted">写真なし</small>'}</div>`;
   $('main').innerHTML=head+(people.length?`<div class="cs-w"><table class="reg pc"><tr><th class="nm">名前</th>${PC_TYPES.map(([,n])=>`<th>${n}</th>`).join('')}</tr>
-    ${people.map(p=>`<tr><td class="nm">${esc(p.display_name)}${p.kind==='hall'?' <small class="muted">黒服</small>':''}</td>${PC_TYPES.map(([k])=>`<td>${cell(by[p.id][k])}</td>`).join('')}</tr>`).join('')}</table></div>`
-    :'<div class="card muted">この日の打刻はありません</div>')+`<div class="muted" style="font-size:13px;margin-top:10px">写真を押すと大きく出ます。打刻の修正は POS の在籍リストで行います</div>`;
+    ${people.map(p=>`<tr><td class="nm">${esc(p.display_name)}${p.kind==='hall'?' <small class="muted">黒服</small>':''}</td>${PC_TYPES.map(([k])=>`<td>${cell(by[p.id][k],p.id,k)}</td>`).join('')}</tr>`).join('')}</table></div>`
+    :'<div class="card muted">この日の打刻はありません</div>')+`<div class="muted" style="font-size:13px;margin-top:10px">写真を押すと大きく出ます</div>`;
   wire();
+  const nameOf=id=>(sf.data||[]).find(x=>x.id===id)?.display_name||'', typeOf=k=>(PC_TYPES.find(x=>x[0]===k)||[])[1]||'';
+  const askTime=(title,def)=>new Promise(res=>{ const m=modal(`<h2 style="margin:0">${esc(title)}</h2><label>時刻<input type="time" id="pcT" value="${esc(def||'')}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
+    m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(null); }; m.querySelector('[data-k=ok]').onclick=()=>{ const v=m.querySelector('#pcT').value; m.remove(); res(v||''); }; });
+  const at=t=>`${t<'08:00'?dayAdd(d,1):d}T${t}:00+09:00`; /* 朝8時より前は次の日の時刻 */
+  $('main').querySelectorAll('[data-pcfix]').forEach(b=>b.onclick=guard(b,async()=>{ const t=await askTime(`${nameOf(b.dataset.n)}　${typeOf(b.dataset.k)}の修正`,b.dataset.t.padStart(5,'0')); if(t===null) return; if(!t){ await uiAlert('時刻を入力してください'); return; }
+    const z=await rpc('admin_punch_fix',{p_event:b.dataset.pcfix,p_at:at(t),p_reason:null}); if(!z.ok) return; toast('修正しました'); PAGES.punches(); }));
+  $('main').querySelectorAll('[data-pcadd]').forEach(b=>b.onclick=guard(b,async()=>{ const t=await askTime(`${nameOf(b.dataset.pcadd)}　${typeOf(b.dataset.k)}の追加`,''); if(t===null) return; if(!t){ await uiAlert('時刻を入力してください'); return; }
+    const z=await rpc('admin_punch_add',{p_store:st,p_staff:b.dataset.pcadd,p_type:b.dataset.k,p_date:d,p_at:at(t)}); if(!z.ok) return; toast('追加しました'); PAGES.punches(); }));
   $('main').querySelectorAll('[data-big]').forEach(im=>im.onclick=()=>{ const m=modal(`<img src="${esc(im.dataset.big)}" alt="" style="width:100%;border-radius:10px"><div class="bar"><button class="primary" data-k="ok">閉じる</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>m.remove(); }); };
 
 // ---------- タイムカードの端末 v0.23・SQL 063（オーナーだけ）：登録した端末だけ打刻できる ----------
