@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.87 -->
+<title>OLIVE 管理</title><!-- admin v0.88 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1272,7 +1272,7 @@ const BL_XLS_COLS=[['date','営業日'],['status','状態'],['customers','お客
   ['guests','客数'],['table','卓'],['douhan','同伴'],['sub',''+KL+'小計'],['service','サービス料'],['discount','値引'],['surcharge','値増'],['in','入店'],['out','退店'],['dur','時間'],['receipt','領収書'],['ext','延長'],['items','注文']]; /* 入店・退店は注文の前（オーナー） */
 const BL_TXT=['customers','kakari','douhan'];
 // v0.51：延長の列は回数。見出しに POS設定の延長単位を出す（例：30分延長（回））。POS設定を読めない時は「延長（回）」
-let blExtL='延長（回）'; const blLab=(k,l)=>k==='ext'?blExtL:l;
+let blExtL='延長'; /* v0.88：（回）はいらない（オーナー） */ const blLab=(k,l)=>k==='ext'?blExtL:l;
 const BL_SUM=['guests','ext','sub','service','discount','surcharge','due','cash','card','invoice','oki'];
 const blDur=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
 const blSt=x=>x.status==='void'?'削除':x.status==='open'?'来店中':'会計済';
@@ -1293,7 +1293,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
     $('blFl').onchange=()=>{ blFilt=$('blFl').value; draw(); }; $('blQ').oninput=()=>{ blQ=$('blQ').value; draw(); }; };
   wire();
   const [r,ps]=await Promise.all([sb.rpc('admin_bill_list',{p_store:st,p_from:f,p_to:t}), sb.from('pos_settings').select('ext_minutes').eq('store_id',st).maybeSingle()]); if(page!=='bills'||storeId!==st||blFrom!==f||blTo!==t) return;
-  const em=Number(ps?.data?.ext_minutes||0); blExtL=em>0?`${em}分延長（回）`:'延長（回）';
+  const em=Number(ps?.data?.ext_minutes||0); blExtL=em>0?`${em}分延長`:'延長';
   if(r.error){ $('blBox').innerHTML=`<div class="card err">${esc(/admin_bill_list/.test(r.error.message)?'SQL 078 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const all=r.data||[]; let rows=[];
   const pick=()=>{ const q=blQ.trim().toLowerCase(); return all.filter(x=>blFilt==='void'?x.status==='void':x.status!=='void'&&(blFilt==='all'||(blFilt==='open'?x.status==='open':Number(x[blFilt]||0)>0)))
