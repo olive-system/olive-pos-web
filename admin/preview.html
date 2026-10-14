@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.72 -->
+<title>OLIVE 管理</title><!-- admin v0.73 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -295,7 +295,7 @@ const PAGES={};
 PAGES.none=()=>{ $('main').innerHTML=`<div class="card muted">見られる画面がありません。オーナーに「表示設定」で選んでもらってください</div>`; };
 
 // ---------- まとめ v0.50：月間と本日（v0.71 から箱は2つだけ）、売上推移のグラフ。数字は収支と同じ（admin_pl_month） ----------
-// 経費＝人件費（女子＝女子給与＋日払い、男子＝黒服の給与。日ごとは男子日払い）＋諸経費（出金）。粗利＝売上＋入金−人件費−諸経費
+// 経費＝人件費（キャスト＝キャスト報酬＋日払い、黒服＝黒服の給与。日ごとは黒服日払い）＋諸経費（出金）。粗利＝売上＋入金−人件費−諸経費
 let smMonth=null, smChart=null;
 PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMonth=now; const m=smMonth, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
   if(smChart){ smChart.destroy(); smChart=null; }
@@ -315,12 +315,12 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
   const one=(ttl,x,fPay,mPay,uq,oki)=>`<div class="smb"><h2 style="background:var(--head);color:#fff">${ttl}</h2><table>${[
     ['売上',yen(x.sales),1],['現金',yen(x.cash),2],['置き',oki==null?'—':yen(oki),2],['請求',yen(x.invoice),2],['カード',yen(x.card),2],
     ['来店人数',N(x.guests)+'人',3],['来店組数',N(x.groups)+'組'],['ユニーク数',uq==null?'—':uq+'人'],['客単価',per(x.sales,x.guests)],['組単価',per(x.sales,x.groups)],
-    ['経費',yen(fPay+mPay+N(x.cash_out)),1],['人件費-女子',yen(fPay),2],['人件費-男子',yen(mPay),2],['諸経費',yen(x.cash_out),2],
+    ['経費',yen(fPay+mPay+N(x.cash_out)),1],['人件費-キャスト',yen(fPay),2],['人件費-黒服',yen(mPay),2],['諸経費',yen(x.cash_out),2],
     ['入金',yen(x.cash_in),1]].map(([l,v,k])=>`<tr class="${k===1?'sum':k===2?'sub':k===3?'grp':''}"><td>${l}</td><td>${v}</td></tr>`).join('')}</table></div>`;
   const bdNow=businessDate(), t=D.find(x=>x.date===bdNow)||{}, jd=x=>{ const [y,mo,dd]=x.split('-').map(Number); return `${y}年${mo}月${dd}日`; };
   $('main').innerHTML=head+`<div class="smg">${one('月間',T,N(T.cast_pay)+N(T.cast_adv),hallM,U?U.month:null,okiOf(()=>true))}${m===now?one(`本日 <small>${jd(bdNow)}</small>`,t,castD(t),N(t.hall_adv),U?U.day(bdNow):null,okiOf(k=>k===bdNow)):''}</div>`
     +`<div class="smb" style="margin-bottom:14px"><h2 style="background:var(--head);color:#fff">売上推移</h2><div style="padding:12px;height:420px"><canvas id="smCv"></canvas></div>
-      <div class="muted" style="font-size:13px;line-height:1.7;padding:0 14px 12px">・粗利＝売上＋入金−人件費−経費<br>・グラフの人件費は日ごとの分です（女子給与＋日払（立替））。小計バック・罰金・控除・黒服の給与など月で決まるものは、「月間」の経費だけに入ります</div></div>`;
+      <div class="muted" style="font-size:13px;line-height:1.7;padding:0 14px 12px">・粗利＝売上＋入金−人件費−経費<br>・グラフの人件費は日ごとの分です（キャスト報酬＋日払（立替））。小計バック・罰金・控除・黒服の給与など月で決まるものは、「月間」の経費だけに入ります</div></div>`;
   wire();
   try{ await ksLoad('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'); }catch(e){ return; }
   if(page!=='summary'||storeId!==st||smMonth!==m||!$('smCv')) return;
@@ -333,16 +333,16 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
       scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{callback:v=>Number(v).toLocaleString('ja-JP')}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>Number(v).toLocaleString('ja-JP')}}}}}); };
 
 // ---------- 収支 v0.30・SQL 070：月次（1日1行）→ 日付を押すと日次（営業日報・現金管理・入出金・伝票一覧・勤怠）。d-system の収支と同じ形 ----------
-// 売上は会計済みの伝票の入金を売上日で（置きは入金した日、売掛＝請求書）。女子給与は日ごと＝その日の時間報酬＋商品バック＋手当−日払。月で決まるものは合計の行だけ（合計＝集計「キャスト」の残り支給額）
-// v0.32・SQL 072：総人件費＝女子給与＋日払い（女子・男子）。合計の行は 黒服の給与（月給・日給・時給）も入る（男子日払いは黒服の給与の先払いなので二重にしない）。人件費比率＝総人件費÷売上計。経費＝出金。勤怠の時刻は「収支」を変えられる人が直せる（理由は必須・操作ログ）
+// 売上は会計済みの伝票の入金を売上日で（置きは入金した日、売掛＝請求書）。キャスト報酬は日ごと＝その日の時間報酬＋商品バック＋手当−日払。月で決まるものは合計の行だけ（合計＝集計「キャスト」の残り支給額）
+// v0.32・SQL 072：総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の給与（月給・日給・時給）も入る（黒服日払いは黒服の給与の先払いなので二重にしない）。人件費比率＝総人件費÷売上計。経費＝出金。勤怠の時刻は「収支」を変えられる人が直せる（理由は必須・操作ログ）
 let plMonth=null, plDate=null;
 const plYen=v=>Number(v||0)?yen(v).replace(/^-/,'−'):'—';
 const plRate=(a,b)=>Number(b||0)?(Math.round(Number(a||0)/Number(b)*10000)/100).toFixed(2)+'%':'—%';
 const plLabor=x=>Number(x.cast_pay||0)+Number(x.cast_adv||0)+(x.hall_pay==null?Number(x.hall_adv||0):Math.max(Number(x.hall_pay||0),Number(x.hall_adv||0))); // 総人件費
 function plTotals(d){ const D=d.days||[], S=k=>D.reduce((a,x)=>a+Number(x[k]||0),0); const t={date:'合計',cash:S('cash'),invoice:S('invoice'),card:S('card'),sales:S('sales'),kakari_sub:S('kakari_sub'),douhan_sub:S('douhan_sub'),groups:S('groups'),guests:S('guests'),
   cast_pay:Number(d.cast_net||0),cast_adv:S('cast_adv'),hall_adv:S('hall_adv'),hall_pay:Number(d.hall_pay||0),cash_in:S('cash_in'),cash_out:S('cash_out')}; t.cast_gross=t.cast_pay+t.cast_adv; return t; }
-const PL_COLS=[['売上',[['cash','現金'],['invoice','売掛'],['card','カード'],['sales','売上計']]],['女子売上',[['kakari_sub',''+KL+'小計']]],
-  ['経費',[['cast_pay','女子給与'],['adv','日払い'],['labor','総人件費'],['rate','人件費比率'],['cash_in','入金'],['cash_out','出金']]]];
+const PL_COLS=[['売上',[['cash','現金'],['invoice','売掛'],['card','カード'],['sales','売上計']]],['キャスト売上',[['kakari_sub',''+KL+'小計']]],
+  ['経費',[['cast_pay','キャスト報酬'],['adv','日払い'],['labor','総人件費'],['rate','人件費比率'],['cash_in','入金'],['cash_out','出金']]]];
 const plCell=(k,x)=>k==='rate'?plRate(plLabor(x),x.sales):k==='labor'?plYen(plLabor(x)):k==='adv'?plYen(Number(x.cast_adv||0)+Number(x.hall_adv||0)):plYen(x[k]);
 PAGES.pl=()=>plDate?plDayPage():plMonthPage();
 async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) plMonth=now; const m=plMonth, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
@@ -359,7 +359,7 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     <tr class="kst"><td class="nm"><b>合計</b></td>${cols.map(([k])=>`<td>${plCell(k,T)}</td>`).join('')}</tr>
     ${(data.days||[]).map(x=>{ const wd=new Date(x.date+'T00:00:00').getDay(); return `<tr><td class="nm"><a data-pld="${x.date}" style="color:var(--blue);cursor:pointer">${md(x.date)}</a> <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WJ[wd]}</span></td>${cols.map(([k])=>`<td>${plCell(k,x)}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済みの伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金した日に、入金した方法（現金・カード）で入ります。売掛は請求書です<br>女子給与：日ごとは その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は集計「キャスト」の残り支給額の合計）<br>総人件費＝女子給与＋日払い（女子・男子）。合計の行は 黒服の給与（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の給料」と同じ）も入ります。男子日払いは黒服の給与の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`;
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済みの伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金した日に、入金した方法（現金・カード）で入ります。売掛は請求書です<br>キャスト報酬：日ごとは その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は集計「キャスト」の残り支給額の合計）<br>総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の給与（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の給料」と同じ）も入ります。黒服日払いは黒服の給与の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`;
   wire(); invRender(st); }
 async function plExcel(d){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const T=plTotals(d), cols=PL_COLS.flatMap(([g,cs])=>cs.map(c=>[g,...c])), [y,mo]=String(d.month).split('-').map(Number);
@@ -397,14 +397,14 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
   const [rm,rd]=await Promise.all([sb.rpc('admin_pl_month',{p_store:st,p_month:m}), sb.rpc('admin_pl_day',{p_store:st,p_date:d})]); if(page!=='pl'||storeId!==st||plDate!==d) return;
   const er=rm.error||rd.error; if(er){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_pl_|cast_month_calc/.test(er.message)?'SQL 070 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; wire(); return; }
   const D=(rm.data.days||[]).filter(x=>x.date<=d), today=D.find(x=>x.date===d)||{}, S=k=>D.reduce((a,x)=>a+Number(x[k]||0),0), open=D.filter(x=>Number(x.sales||0)>0||Number(x.groups||0)>0).length||1, X=rd.data;
-  const rep=[['総売上','sales'],['現金売上','cash'],['カード売上','card'],['売掛','invoice'],null,['女子売上','kakari_sub'],['女子給料','cast_gross'],null];
+  const rep=[['総売上','sales'],['現金売上','cash'],['カード売上','card'],['売掛','invoice'],null,['キャスト売上','kakari_sub'],['キャスト報酬','cast_gross'],null];
   const repRows=rep.map(r=>r?`<tr><td>${r[0]}</td><td>${plYen(today[r[1]])}</td><td>${plYen(S(r[1]))}</td><td>${plYen(Math.round(S(r[1])/open))}</td></tr>`:'<tr class="sep"><td colspan="4"></td></tr>').join('')
     +`<tr><td>客組人数</td><td>${Number(today.groups||0)}組 ${Number(today.guests||0)}名</td><td>${S('groups')}組 ${S('guests')}名</td><td>${Math.round(S('groups')/open*10)/10}組 ${Math.round(S('guests')/open*10)/10}名</td></tr>
      <tr><td>客単価</td><td>${Number(today.guests||0)?plYen(Math.round(Number(today.sales||0)/Number(today.guests))):'—'}</td><td>${S('guests')?plYen(Math.round(S('sales')/S('guests'))):'—'}</td><td>—</td></tr>`;
   const adv=X.advances||[], fAdv=adv.filter(a=>a.kind!=='hall').reduce((a,x)=>a+Number(x.amount||0),0), mAdv=adv.filter(a=>a.kind==='hall').reduce((a,x)=>a+Number(x.amount||0),0);
   const mv=X.moves||[], inS=mv.filter(x=>x.kind==='in').reduce((a,x)=>a+Number(x.amount||0),0), outS=mv.filter(x=>x.kind==='out').reduce((a,x)=>a+Number(x.amount||0),0);
   const cl=X.closing, opening=cl?cl.opening_float:X.prev_float, recv=Number(today.cash||0)+inS, paid=fAdv+mAdv+outS;
-  const cashRows=[['本日釣銭',plYen(opening),'',''],['現金売上',plYen(today.cash),'',''],['入金',plYen(inS),'',''],['日払報酬（女子）','',plYen(fAdv),''],['日払報酬（男子）','',plYen(mAdv),''],['出金','',plYen(outS),''],['合計',plYen(recv),plYen(paid),plYen(recv-paid)],
+  const cashRows=[['本日釣銭',plYen(opening),'',''],['現金売上',plYen(today.cash),'',''],['入金',plYen(inS),'',''],['日払報酬（キャスト）','',plYen(fAdv),''],['日払報酬（黒服）','',plYen(mAdv),''],['出金','',plYen(outS),''],['合計',plYen(recv),plYen(paid),plYen(recv-paid)],
     ['現金過不足','','',cl?plYen(cl.diff):'<span class="badge warnb">未精算</span>'],['預金額','','',cl?plYen(cl.deposit):'—'],['翌日釣銭','','',cl?plYen(cl.next_float):'—'],['現金過不足 当月累計','','',plYen(X.month_closings?.diff)],['預金額 当月累計','','',plYen(X.month_closings?.deposit)]];
   const list=(k,l)=>{ const rows=mv.filter(x=>x.kind===k); return `<div class="card"><h2>${l} - ${jd(d)}</h2><table class="t pl"><tr><th>摘要</th><th class="r">金額</th></tr>${rows.map(x=>`<tr><td>${esc(x.memo||'')}</td><td class="r">${plYen(x.amount)}</td></tr>`).join('')}<tr class="kst"><td>合計</td><td class="r">${plYen(rows.reduce((a,x)=>a+Number(x.amount||0),0))}</td></tr></table></div>`; };
   const hm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):''; // 時刻は日本時間で出す（直す時も日本時間で送る）
@@ -1235,7 +1235,7 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
       <td>${neg(x.late_deduct)}${N(x.late_min)+N(x.early_min)?`<br><small class="muted">遅刻${N(x.late_min)}分・早退${N(x.early_min)}分</small>`:''}${x.late_fixed?' <span class="badge">修正済み</span>':''}</td>
       <td>${y0(x.bonus)}${x.bonus_fixed!=null?' <span class="badge">修正済み</span>':''}</td><td>${y0(x.allowance)}</td><td>${y0(x.special_pay)}</td><td>${y0(x.taxable)}</td><td>${neg(x.fines)}</td><td>${neg(x.ctax)}</td><td>${neg(x.welfare)}</td><td>${neg(x.special_deduct)}</td><td>${neg(x.advance)}</td><td>${neg(x.withholding)}</td>
       <td>${N(x.net)<0?`<b style="color:var(--warn)">${yen(N(x.net))}</b>`:`<b>${yen(N(x.net))}</b>`}</td>${own?`<td><button class="ghost sm" data-hpfix="${x.id}">修正</button></td>`:''}</tr>`).join('')||`<tr><td colspan="20" class="muted">この月の黒服はいません</td></tr>`}</tbody></table></div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに時給分を引きます。月給の人の時給＝月給÷（稼働日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。時給の人は働いた時間で払うので引きません。出勤・退勤の時刻が両方入っていないと引けません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（女子給与＋女子日払い＋黒服の給与〈ボーナスの前〉）÷売上計<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーだけ。遅刻・早退で引く額とボーナスを修正できます（空にすると自動の計算に戻ります。操作ログに残ります）</div></div>`;
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに時給分を引きます。月給の人の時給＝月給÷（稼働日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。時給の人は働いた時間で払うので引きません。出勤・退勤の時刻が両方入っていないと引けません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（キャスト報酬＋キャスト日払い＋黒服の給与〈ボーナスの前〉）÷売上計<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーだけ。遅刻・早退で引く額とボーナスを修正できます（空にすると自動の計算に戻ります。操作ログに残ります）</div></div>`;
   box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return;
     const md=modal(`<h2 style="margin:0">${esc(x.name)}　${csMLabel(m)}の給料の修正</h2><div class="muted" style="font-size:14px">空にすると自動の計算に戻ります（自動：ボーナス ${yen(N(x.bonus_auto))}）</div>
       <label>遅刻・早退で引く額<input id="hfL" inputmode="numeric" value="${x.late_fixed?N(x.late_deduct):''}" placeholder="自動（${yen(N(x.late_deduct))}）"></label>
@@ -1679,20 +1679,23 @@ PAGES.pw=async()=>{
     <div class="grid2"><label>新しいパスワード（8文字以上）<input id="myPw1" type="password" autocomplete="new-password"></label><label>再入力<input id="myPw2" type="password" autocomplete="new-password"></label><div><button class="primary" id="mySave" style="width:100%">変更</button></div></div>
     <div class="muted" style="font-size:14px;margin-top:8px">変更すると、ほかの端末でこのIDでログインしている分はログアウトされます</div></div>`;
   $('main').innerHTML=`<h1>パスワード <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>${own}<div class="card muted">読み込み中…</div>`; bindOwn();
-  const r=await sb.rpc('admin_credentials',{p_store:storeId}); if(page!=='pw') return;
+  const [r,ta]=await Promise.all([sb.rpc('admin_credentials',{p_store:storeId}), sb.rpc('admin_tc_accounts',{p_store:storeId})]); if(page!=='pw') return;
+  const TA={}; if(!ta.error) (ta.data||[]).forEach(x=>{ TA[x.user_id]=x; }); /* v0.73・SQL 089：タイムカード専用ID は、ログインした日時と「削除」を出す */
   if(r.error){ $('main').lastElementChild.outerHTML=`<div class="card err">${esc(r.error.message)}</div>`; return; }
   const d=r.data||{}; tcHasId=(d.devices||[]).some(x=>x.label==='タイムカード専用');
   const pwCell=pw=>pw?`<span class="pwv" data-pwv="${esc(pw)}">••••••••</span> <button class="ghost sm eye" data-show aria-label="表示"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>`:'<small class="muted">管理サイトで変更すると、ここに表示されます</small>';
   const O=true; // v0.21：この画面はオーナーだけ（SQL 061 で関数もオーナーだけにする）
-  const row=(label,sub,key,pw)=>`<tr><td>${label}${sub?`<br><small class="muted">${sub}</small>`:''}</td><td>${pwCell(pw)}</td><td style="text-align:right">${O?`<button class="ghost sm" data-pw="${esc(key)}" data-label="${esc(label.replace(/<[^>]*>/g,''))}">変更</button>`:''}</td></tr>`;
+  const row=(label,sub,key,pw,extra)=>`<tr><td>${label}${sub?`<br><small class="muted">${sub}</small>`:''}</td><td>${pwCell(pw)}</td><td style="text-align:right;white-space:nowrap">${extra||''}${O?`<button class="ghost sm" data-pw="${esc(key)}" data-label="${esc(label.replace(/<[^>]*>/g,''))}">変更</button>`:''}</td></tr>`;
   $('main').lastElementChild.outerHTML=(O?`
   <div class="card"><div class="row" style="justify-content:space-between;gap:10px;align-items:center"><div style="font-size:14px;line-height:1.7">更新されるもの：POS・タイムカードの端末／タイムカード専用ID／顧客サイト（閲覧用・編集用）<br><span class="muted">黒服が辞めた時に使います。管理サイトのIDは変わりません</span></div><button class="danger" id="rotAll" style="flex:none">全パスワード更新</button></div></div>`:'')+`
   <div class="card"><h2>今のパスワード</h2><div class="muted" style="font-size:14px;margin-bottom:6px">「変更」で、任意のパスワードに変更できます（自動作成も可）</div><table class="t">
     <tr><th>どこの</th><th>パスワード</th><th></th></tr>
-    ${(d.devices||[]).map(x=>row(x.label==='タイムカード専用'?'タイムカード専用ID':`POS・タイムカード：${esc(x.label||'端末')}`,`ログイン用メール ${esc(x.email||'')}`,`dev:${x.user_id}`,x.pw)).join('')||'<tr><td class="muted" colspan="3">POS・タイムカードの端末がありません</td></tr>'}
+    ${(d.devices||[]).map(x=>{ const t=TA[x.user_id]; return row(x.label==='タイムカード専用'?'タイムカード専用ID':`POS・タイムカード：${esc(x.label||'端末')}`,`ログイン用メール ${esc(x.email||'')}`+(t?`／ログイン：${t.last_sign_in_at?esc(fmtDT(t.last_sign_in_at)):'なし'}`:''),`dev:${x.user_id}`,x.pw,t?`<button class="ghost sm" data-tcid="${esc(x.user_id)}" data-em="${esc(x.email||'')}">削除</button> `:''); }).join('')||'<tr><td class="muted" colspan="3">POS・タイムカードの端末がありません</td></tr>'}
     ${(d.cs||[]).map(x=>row(esc(CS_KIND[x.kind]||x.kind),'',`cs:${x.kind}`,x.pw)).join('')}
     ${(d.accounts||[]).map(x=>row(`管理サイト：${esc(x.login_id)}`,esc(x.name)+(x.is_owner&&x.name!=='オーナー'?'（オーナー）':'')+(x.is_active?'':'（停止中）'),x.login_id===me.login_id?'own:':`acc:${x.id}`,x.pw)).join('')}
   </table></div>`;
+  $('main').querySelectorAll('[data-tcid]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm(`タイムカード専用ID（${b.dataset.em}）を削除しますか？\nこのIDでログインしている端末は使えなくなります`,'削除','danger')) return;
+    const x=await rpc('admin_tc_account_delete',{p_user:b.dataset.tcid}); if(!x.ok) return; toast('削除しました'); PAGES.pw(); }));
   $('main').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{ const v=b.previousElementSibling; const on=!b.classList.contains('on'); v.textContent=on?v.dataset.pwv:'••••••••'; b.classList.toggle('on',on); b.innerHTML=on?EYEOFF:EYE; b.setAttribute('aria-label',on?'非表示':'表示'); });
   $('main').insertAdjacentHTML('beforeend','<div class="card" id="tcBox"><h2>タイムカードの端末</h2><div class="muted">読み込み中…</div></div>'); tcCard();
   if(O) $('rotAll').onclick=guard($('rotAll'),()=>rotateAll());
