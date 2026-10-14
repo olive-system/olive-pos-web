@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.77 -->
+<title>OLIVE 管理</title><!-- admin v0.78 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -560,9 +560,9 @@ async function billEdit(id){
     qa('[data-bprm]').forEach(x=>x.onclick=()=>{ S.pays=S.pays.filter(z=>z.id!==x.dataset.bprm); redo(); });
     q('#bePayAdd').onclick=()=>{ const v=parseInt(q('#bePA').value,10), m=q('#bePM').value; if(!(v>0)){ uiAlert('金額を入力してください'); return; } S.pays.push({id:beUid(),method:m,amount:v,paid_at:B.closed_at,revenue_date:bd,received_at:recv(m)}); redo(); };
     q('#beNo').onclick=async()=>{ if(diff().ops.length&&!await uiConfirm('修正した内容を保存せずに閉じますか？','閉じる','danger')) return; close(); };
-    q('#beDel').onclick=guard(q('#beDel'),async()=>{ if(!await uiConfirm(`${md(bd)} 卓${B.table||''}　${yen(O.calc.amount_due)} の伝票を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除する','danger')) return; const z=await rpc('admin_bill_void',{p_bill:id}); if(!z.ok) return; close(); toast('削除しました'); (PAGES[page]||PAGES.pl)(); });
+    q('#beDel').onclick=guard(q('#beDel'),async()=>{ if(!await uiConfirm(`${md(bd)} 卓${B.table||''}　${yen(O.calc.amount_due)} の伝票を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除','danger')) return; const z=await rpc('admin_bill_void',{p_bill:id}); if(!z.ok) return; close(); toast('削除しました'); (PAGES[page]||PAGES.pl)(); });
     q('#beOk').onclick=guard(q('#beOk'),async()=>{ const {ops,note}=diff(); if(!ops.length){ close(); return; } await check(); if(!last) { await uiAlert('修正した内容に問題があります。赤い文字を確かめてください'); return; }
-      const pd=S.pays.reduce((a,p)=>a+Number(p.amount||0),0); if(pd!==Number(last.due)&&!await uiConfirm(`支払いの合計（${yen(pd)}）が請求額（${yen(last.due)}）と合いません。このまま保存しますか？`,'保存する')) return;
+      const pd=S.pays.reduce((a,p)=>a+Number(p.amount||0),0); if(pd!==Number(last.due)&&!await uiConfirm(`支払いの合計（${yen(pd)}）が請求額（${yen(last.due)}）と合いません。このまま保存しますか？`,'保存')) return;
       const z=await rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:note,p_reason:q('#beR').value.trim(),p_dry:false}); if(!z.ok) return; close(); toast('修正しました'); (PAGES[page]||PAGES.pl)(); });
     check(); }
   draw(); }
@@ -1293,7 +1293,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
     if(del){ const ck=()=>[...$('main').querySelectorAll('[data-blck]:checked')].map(x=>x.dataset.blck), upd=()=>{ $('blDel').disabled=!ck().length; };
       $('main').querySelectorAll('[data-blck]').forEach(c=>c.onchange=upd); $('blAll').onchange=()=>{ $('main').querySelectorAll('[data-blck]').forEach(c=>c.checked=$('blAll').checked); upd(); };
       $('blDel').onclick=guard($('blDel'),async()=>{ const ids=ck(); if(!ids.length) return; const sum=ids.reduce((a,id)=>a+Number(all.find(x=>x.id===id)?.due||0),0);
-        if(!await uiConfirm(`${ids.length}件の伝票（合計 ${yen(sum)}）を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除する','danger')) return;
+        if(!await uiConfirm(`${ids.length}件の伝票（合計 ${yen(sum)}）を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除','danger')) return;
         let n=0; for(const id of ids){ const z=await rpc('admin_bill_void',{p_bill:id}); if(!z.ok) break; n++; }
         toast(`${n}件 削除しました`); PAGES.bills(); }); } }
   draw(); };
