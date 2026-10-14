@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.69 -->
+<title>OLIVE 管理</title><!-- admin v0.70 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -308,7 +308,7 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
   const hallM=Math.max(N(T.hall_pay),N(T.hall_adv)), castD=x=>N(x.cast_pay)+N(x.cast_adv);
   const box=(ttl,bg,fg,big,rows)=>`<div class="smb"><h2 style="background:${bg};color:${fg}">${ttl}</h2>${big==null?'':`<div class="big">${yen(big)}</div>`}<table>${rows.map(([l,v])=>`<tr><td>${l}</td><td>${v}</td></tr>`).join('')}</table></div>`;
   const set=(x,sfx,fPay,mPay,uq,sfx0=sfx)=>`<div class="smg">
-    ${box('店舗状況'+sfx0,'#2f6fb5','#fff',null,[['来店人数',N(x.guests)+'人'],['来店組数',N(x.groups)+'組'],['ユニーク数',uq==null?'—':uq+'人'],['客単価',per(x.sales,x.guests)],['組単価',per(x.sales,x.groups)],[''+KL+'小計',yen(x.kakari_sub)]])}
+    ${box('店舗状況'+sfx0,'#2f6fb5','#fff',null,[['来店人数',N(x.guests)+'人'],['来店組数',N(x.groups)+'組'],['ユニーク数',uq==null?'—':uq+'人'],['客単価',per(x.sales,x.guests)],['組単価',per(x.sales,x.groups)]])}
     ${box('売上'+sfx,'#dcecf7','#2f6fb5',N(x.sales),[['現金',yen(x.cash)],['売掛',yen(x.invoice)],['カード',yen(x.card)]])}
     ${box('経費'+sfx,'#f7dede','#c0392b',fPay+mPay+N(x.cash_out),[['人件費-女子',yen(fPay)],['人件費-男子',yen(mPay)],['諸経費',yen(x.cash_out)]])}
     ${box('入金'+sfx,'#fbf1dc','#a67c1a',N(x.cash_in),[])}</div>`;
