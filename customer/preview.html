@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.39 -->
+<title>OLIVE 顧客</title><!-- customer v1.40 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -83,7 +83,7 @@
 .bt .b1 select{flex:none;width:auto;padding-left:8px;padding-right:4px}
 .bt .b1 select,.bt .b2 input,.bt .b3 button{height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}.bt .b2 input{padding-left:8px;padding-right:8px;font-size:15px}
 /* v1.11：期限切れ・ボトル移動の行は1行に収まるまで文字を小さくする（fitLine） */
-/* v1.14：v1.13 の枠・［戻す］をやめ、期限切れ・移動は飲み切り済みと同じ小さな文字で1本1行（［戻す］なし） */
+/* v1.14：v1.13 の枠・［戻す］をやめ、期限切れ・移動は飲み切り済と同じ小さな文字で1本1行（［戻す］なし） */
 .vis .fit1{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #btSel,#btRem,#btAdd{height:40px;box-sizing:border-box;padding-top:0;padding-bottom:0}
   /* 15番：入力欄の高さは全部 44px */
@@ -291,7 +291,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
     ${(cur.other_bottles||[]).length?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">ほかの店舗のキープ（閲覧のみ）</div>${cur.other_bottles.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.store+'：'+b.name+'　'+(b.remaining??0)+'/10　'+md(b.opened_on)+'〜')}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
     <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px"><div class="muted" style="font-size:13px;margin-bottom:6px">新しくボトルを登録</div><div style="display:flex;gap:6px;align-items:center"><select id="btSel" style="flex:1;min-width:0;padding:10px 6px"><option value="">銘柄を選ぶ</option>${keep.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}<option value="__free">＋ リストに無い銘柄</option></select><select id="btRem" style="width:auto;flex:none;padding:10px 6px" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}">${n}/10</option>`).join('')}</select><button class="ok" id="btAdd" style="flex:none">登録</button></div></div>
     ${exp.length?`<div style="margin-top:4px">${exp.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((b.moved?'ボトル移動':'期限切れ')+'：'+b.name+'　'+(b.remaining??0)+'/10　'+(d=>d?String(d).slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on))}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
-    ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済み：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>
+    ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>
   <div class="card"><h2>メモ<button class="${ed?'edit':'ghost'} sm" id="editMemo">${ed?'編集する':'編集'}</button></h2>
     <div class="memo">${c.memo?esc(c.memo):'<span class="muted">なし</span>'}</div>${reqs}
     <button class="ok" id="reqBtn" style="width:100%;margin-top:12px">＋ 気づきを申請</button></div>

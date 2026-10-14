@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.79 -->
+<title>OLIVE 管理</title><!-- admin v0.80 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -302,7 +302,7 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
   const head=`<h1>まとめ <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px"><select id="smM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select></div>`;
   const wire=()=>{ $('smM').onchange=()=>{ smMonth=$('smM').value; PAGES.summary(); }; };
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>'; wire();
-  // v0.59：ユニーク数＝その期間に来店した、登録のあるお客様の人数（同じお客様は何回来ても1人。会計済みの伝票）。読めない時は「—」
+  // v0.59：ユニーク数＝その期間に来店した、登録のあるお客様の人数（同じお客様は何回来ても1人。会計済の伝票）。読めない時は「—」
   const uniq=(async()=>{ try{ const all=[]; for(let i=0;i<20;i++){ const q=await sb.from('bills').select('business_date,bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').range(i*1000,i*1000+999); if(q.error) return null; all.push(...(q.data||[])); if((q.data||[]).length<1000) break; }
       const cnt=f=>new Set(all.filter(f).flatMap(b=>(b.bill_customers||[]).map(c=>c.customer_id)).filter(Boolean)).size; return {month:cnt(()=>true),day:d=>cnt(b=>b.business_date===d)}; }catch(e){ return null; } })();
   const okiP=sb.rpc('admin_oki_month',{p_store:st,p_month:m}); const r=await sb.rpc('admin_pl_month',{p_store:st,p_month:m}); const U=await uniq; const okR=await okiP, OK=okR.error?null:(okR.data||{}); if(page!=='summary'||storeId!==st||smMonth!==m) return;
@@ -333,7 +333,7 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
       scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{callback:v=>Number(v).toLocaleString('ja-JP')}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>Number(v).toLocaleString('ja-JP')}}}}}); };
 
 // ---------- 収支 v0.30・SQL 070：月次（1日1行）→ 日付を押すと日次（営業日報・現金管理・入出金・伝票一覧・勤怠）。d-system の収支と同じ形 ----------
-// 売上は会計済みの伝票の入金を売上日で（置きは入金した日、売掛＝請求書）。キャスト報酬は日ごと＝その日の時間報酬＋商品バック＋手当−日払。月で決まるものは合計の行だけ（合計＝集計「キャスト」の残り支給額）
+// 売上は会計済の伝票の入金を売上日で（置きは入金した日、売掛＝請求書）。キャスト報酬は日ごと＝その日の時間報酬＋商品バック＋手当−日払。月で決まるものは合計の行だけ（合計＝集計「キャスト」の残り支給額）
 // v0.32・SQL 072：総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の給与（月給・日給・時給）も入る（黒服日払いは黒服の給与の先払いなので二重にしない）。人件費比率＝総人件費÷売上計。経費＝出金。勤怠の時刻は「収支」を変えられる人が直せる（理由は必須・操作ログ）
 let plMonth=null, plDate=null;
 const plYen=v=>Number(v||0)?yen(v).replace(/^-/,'−'):'—';
@@ -359,7 +359,7 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     <tr class="kst"><td class="nm"><b>合計</b></td>${cols.map(([k])=>`<td>${plCell(k,T)}</td>`).join('')}</tr>
     ${(data.days||[]).map(x=>{ const wd=new Date(x.date+'T00:00:00').getDay(); return `<tr><td class="nm"><a data-pld="${x.date}" style="color:var(--blue);cursor:pointer">${md(x.date)}</a> <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WJ[wd]}</span></td>${cols.map(([k])=>`<td>${plCell(k,x)}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済みの伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金した日に、入金した方法（現金・カード）で入ります。売掛は請求書です<br>キャスト報酬：日ごとは その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は集計「キャスト」の残り支給額の合計）<br>総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の給与（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の給料」と同じ）も入ります。黒服日払いは黒服の給与の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`;
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済の伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金した日に、入金した方法（現金・カード）で入ります。売掛は請求書です<br>キャスト報酬：日ごとは その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は集計「キャスト」の残り支給額の合計）<br>総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の給与（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の給料」と同じ）も入ります。黒服日払いは黒服の給与の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`;
   wire(); invRender(st); }
 async function plExcel(d){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const T=plTotals(d), cols=PL_COLS.flatMap(([g,cs])=>cs.map(c=>[g,...c])), [y,mo]=String(d.month).split('-').map(Number);
@@ -432,7 +432,7 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
     if(!v) return; if(!v.t){ await uiAlert('時刻を入力してください'); return; } if(!v.rs){ await uiAlert('理由を入力してください'); return; }
     const day=v.t<'08:00'?dayAdd(d,1):d; const z=await rpc('admin_punch_fix',{p_event:e.id,p_at:`${day}T${v.t}:00+09:00`,p_reason:v.rs}); if(!z.ok) return; toast('修正しました'); PAGES.pl(); })); }
 
-// ---------- 伝票の修正 v0.31・SQL 071：収支（日次）の伝票一覧から、会計済みの伝票をオーナーが直す（いつの日でも）----------
+// ---------- 伝票の修正 v0.31・SQL 071：収支（日次）の伝票一覧から、会計済の伝票をオーナーが直す（いつの日でも）----------
 // 直せるもの：削除／係・同伴・反応◎／注文（数量・取消・追加・バックの人）／支払い（方法・金額）／人数・来店と退店の時刻（自動延長も付け直す）・値引と値増
 // 画面の中で直してから［保存］でまとめて送る。保存の前に直した後の請求額を確かめる（SQL で計算して元に戻す）。削除以外は操作ログに「何を直したか」を残す
 const BE_M={cash:'現金',card:'カード',invoice:'請求書',oki:'置き'}, BE_ROLE={douhan:'同伴',douhan1:'同伴①',douhan2:'同伴②'};
@@ -448,7 +448,7 @@ async function billView(id,canEdit){ // v0.49・SQL 078：見るだけの人も 
   const N=v=>Number(v||0), items=(O.items||[]).filter(i=>!i.is_void), voids=(O.items||[]).filter(i=>i.is_void), exts=O.exts||[], adjs=O.adjs||[], pays=O.pays||[];
   const dur=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}時間${String(m%60).padStart(2,'0')}分`; };
   const ks=(O.casts||[]).filter(c=>c.is_kakari).map(c=>sn(c.staff_id)), ds=(O.casts||[]).filter(c=>beDh(c.role)).map(c=>sn(c.staff_id)), gd=(O.goods||[]).map(g=>sn(g.staff_id));
-  // POS の会計済みの伝票（明細書）と同じ形
+  // POS の会計済の伝票（明細書）と同じ形
   const L=(l,v,c)=>`<div class="bv-ln ${c||''}"><span>${l}</span><span style="white-space:nowrap">${v}</span></div>`, extMin=exts.reduce((t,e)=>t+N(e.minutes),0);
   const its=items.map(i=>{ const bk=(i.splits||[]).filter(z=>N(z.back_amount)||N(z.back_points)).map(z=>sn(z.staff_id)); return L(`${esc(i.name||pn(i.product_id))} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`,yen(N(i.unit_price)*N(i.qty))); }).join('');
   const box=modal(`<style>.bv-ln{display:flex;justify-content:space-between;gap:12px;padding:6px 2px;font-size:16px}.bv-ln small{color:var(--muted);font-size:13px}.bv-ln.sm,.bv-sm{font-size:14px;color:var(--muted)}.bv hr{border:0;border-top:1px solid var(--line);margin:8px 0}</style>
@@ -524,7 +524,7 @@ async function billEdit(id){
       <div class="row" style="margin-top:8px"><select id="beP" style="flex:1"><option value="">メニューを選ぶ</option>${prods.map(p=>`<option value="${p.id}">${esc(p.name)}　${yen(p.price)}</option>`).join('')}</select><input type="number" inputmode="numeric" id="beQ" value="1" min="1" style="width:80px;text-align:right"><button class="ok" id="bePAdd">追加</button></div></div>
     <div class="card" style="margin:0"><h2>値引・値増</h2>${S.adjs.map(a=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${a.kind==='discount'?'値引':'値増'} ${yen(a.amount)}</span><button class="ghost sm" data-barm="${a.id}">×</button></div>`).join('')||'<div class="muted">なし</div>'}
       <div class="row" style="margin-top:8px"><select id="beAK" style="width:auto"><option value="discount">値引</option><option value="surcharge">値増</option></select><input type="number" inputmode="numeric" id="beAA" placeholder="金額" style="flex:1;text-align:right"><button class="ok" id="beAAdd">追加</button></div></div>
-    <div class="card" style="margin:0"><h2>支払い</h2><table class="t">${S.pays.map(p=>{ const lock=!!p.invoice_paid_on||p.method==='oki'; return `<tr><td>${lock?`${BE_M[p.method]||esc(p.method)} <small class="muted">${p.invoice_paid_on?'入金済み（「請求書の未入金」で戻すと修正できます）':'置きは POS で'}</small>`:`<select data-bpm="${p.id}">${['cash','card','invoice'].map(m=>`<option value="${m}" ${p.method===m?'selected':''}>${BE_M[m]}</option>`).join('')}</select>`}</td><td style="width:150px">${lock?`<div class="r">${yen(p.amount)}</div>`:`<input type="number" inputmode="numeric" data-bpa="${p.id}" value="${p.amount}" style="text-align:right">`}</td><td>${lock?'':`<button class="ghost sm" data-bprm="${p.id}">×</button>`}</td></tr>`; }).join('')||'<tr><td class="muted">支払いはありません</td></tr>'}</table>
+    <div class="card" style="margin:0"><h2>支払い</h2><table class="t">${S.pays.map(p=>{ const lock=!!p.invoice_paid_on||p.method==='oki'; return `<tr><td>${lock?`${BE_M[p.method]||esc(p.method)} <small class="muted">${p.invoice_paid_on?'入金済（「請求書の未入金」で戻すと修正できます）':'置きは POS で'}</small>`:`<select data-bpm="${p.id}">${['cash','card','invoice'].map(m=>`<option value="${m}" ${p.method===m?'selected':''}>${BE_M[m]}</option>`).join('')}</select>`}</td><td style="width:150px">${lock?`<div class="r">${yen(p.amount)}</div>`:`<input type="number" inputmode="numeric" data-bpa="${p.id}" value="${p.amount}" style="text-align:right">`}</td><td>${lock?'':`<button class="ghost sm" data-bprm="${p.id}">×</button>`}</td></tr>`; }).join('')||'<tr><td class="muted">支払いはありません</td></tr>'}</table>
       <div class="row" style="margin-top:8px"><select id="bePM" style="width:auto">${['cash','card','invoice'].map(m=>`<option value="${m}">${BE_M[m]}</option>`).join('')}</select><input type="number" inputmode="numeric" id="bePA" placeholder="金額" style="flex:1;text-align:right"><button class="ok" id="bePayAdd">追加</button></div></div>
     <div id="beSum" style="font-size:15px"></div>
     <label>理由（任意・操作ログに残ります）<input id="beR" maxlength="100" value="${esc(S._reason||'')}"></label>
@@ -623,9 +623,9 @@ async function regDayPage(){
   const cnt=saved?(saved.counts||{}):regCounts;
   $('main').innerHTML=regHead()+`<div id="regWarn"></div>
   <div class="row" style="margin-bottom:14px"><button class="ghost sm" id="regPrev">◀ 前の日</button><input type="date" id="regDateIn" value="${d}" style="width:auto"><button class="ghost sm" id="regNext">次の日 ▶</button>
-    <span class="badge ${saved||idle?'k':future?'gray':'warnb'}">${saved?'精算済み':idle?'（変動なし自動繰越）':future?'これから':'未精算'}</span>${ed?'':'<span class="muted" style="font-size:13px">閲覧のみ</span>'}</div>
+    <span class="badge ${saved||idle?'k':future?'gray':'warnb'}">${saved?'精算済':idle?'（変動なし自動繰越）':future?'これから':'未精算'}</span>${ed?'':'<span class="muted" style="font-size:13px">閲覧のみ</span>'}</div>
   <div class="card"><h2>入出金</h2>
-    ${canMove?`<div class="row" style="margin-bottom:10px"><select id="rgKind" style="width:auto"><option value="out">出金</option><option value="in">入金</option></select><input id="rgAmt" inputmode="numeric" placeholder="金額" style="width:130px;text-align:right"><select id="rgMemoSel" style="width:auto"><option value="領収書精算">領収書精算</option><option value="支払い">支払い</option><option value="__other">その他</option></select><input id="rgMemo" placeholder="内容を入力" style="flex:1;min-width:160px;display:none"><button class="ok" id="rgAdd">追加</button></div>`:saved&&ed?'<div class="muted" style="margin-bottom:6px;font-size:14px">精算済みのため変更できません</div>':''}
+    ${canMove?`<div class="row" style="margin-bottom:10px"><select id="rgKind" style="width:auto"><option value="out">出金</option><option value="in">入金</option></select><input id="rgAmt" inputmode="numeric" placeholder="金額" style="width:130px;text-align:right"><select id="rgMemoSel" style="width:auto"><option value="領収書精算">領収書精算</option><option value="支払い">支払い</option><option value="__other">その他</option></select><input id="rgMemo" placeholder="内容を入力" style="flex:1;min-width:160px;display:none"><button class="ok" id="rgAdd">追加</button></div>`:saved&&ed?'<div class="muted" style="margin-bottom:6px;font-size:14px">精算済のため変更できません</div>':''}
     <table class="t">${moves.map(m=>`<tr><td style="width:60px"><span class="badge ${m.kind==='out'?'gray':''}">${m.kind==='out'?'出金':'入金'}</span></td><td style="width:100%">${esc(m.memo||'')}</td><td class="num">${yen(m.amount)}</td>${canMove?`<td><button class="ghost sm" data-mvdel="${m.id}">削除</button></td>`:''}</tr>`).join('')}
     <tr><td><span class="badge gray">出金</span></td><td style="width:100%">日払（立替）合計 <small class="muted">${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('、')):'なし'}（POS の在籍リストで入力）</small></td><td class="num">${yen(advSum)}</td>${canMove?'<td></td>':''}</tr></table></div>
   <div class="card"><h2>レジ金合わせ</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start">
@@ -700,7 +700,7 @@ async function regMonthPage(){
   let carry=Number((pv.data||[])[0]?.next_float)||0; const rows=[]; const C=v=>`<td>${v}</td>`; const CS=v=>`<td style="text-align:left;font-size:12px;line-height:1.3">${v}</td>`;
   const tot={sales:0,cin:0,cout:0,diff:0,deposit:0};
   for(let i=1;i<=last;i++){ const dd=`${mo}-${String(i).padStart(2,'0')}`; const dl=`${dd.slice(5).replace('-','/')}（${WJ[new Date(dd+'T00:00:00').getDay()]}）`; const x=byD[dd];
-    if(x){ rows.push(`<tr data-rd="${dd}">${C(dl)}${C(yen(x.opening_float))}${C(yen(x.cash_sales))}${C(yen(x.cash_in))}${C(yen(x.cash_out))}${C(yen(x.expected))}${C(yen(x.counted))}<td style="${x.diff?'color:var(--warn)':''}">${sgnYen(x.diff)}</td>${C(yen(x.deposit))}${CS('精算済み')}</tr>`);
+    if(x){ rows.push(`<tr data-rd="${dd}">${C(dl)}${C(yen(x.opening_float))}${C(yen(x.cash_sales))}${C(yen(x.cash_in))}${C(yen(x.cash_out))}${C(yen(x.expected))}${C(yen(x.counted))}<td style="${x.diff?'color:var(--warn)':''}">${sgnYen(x.diff)}</td>${C(yen(x.deposit))}${CS('精算済')}</tr>`);
       tot.sales+=x.cash_sales; tot.cin+=x.cash_in; tot.cout+=x.cash_out; tot.diff+=x.diff; tot.deposit+=x.deposit; carry=Number(x.next_float??(x.counted-x.deposit))||0; continue; }
     if(dd>today){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
     const t=sum[dd]||{sales:0,cin:0,cout:0}; const exp=carry+t.sales+t.cin-t.cout; const idle=!t.sales&&!t.cin&&!t.cout; tot.sales+=t.sales; tot.cin+=t.cin; tot.cout+=t.cout;
@@ -1092,7 +1092,7 @@ async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast
     $('coM').onchange=()=>{ csOrdM=$('coM').value; csDetailPage(); };
     const r=await sb.rpc('admin_cast_orders',{p_staff:s.id,p_month:om}); if(page!=='set_cast'||csDetail?.s!==s||csTab!==t||csOrdM!==om) return;
     if(r.error){ $('coBox').innerHTML=`<span class="err">${esc(/admin_cast_orders/.test(r.error.message)?'SQL 073 が未実行です：':'読み込めません：')}${esc(r.error.message)}</span>`; return; }
-    const L=r.data||[]; $('coBox').className=''; $('coBox').innerHTML=L.length?`<table class="t"><tr><th>商品</th><th style="text-align:right">数</th><th style="text-align:right">注文額</th></tr>${L.map(x=>`<tr><td>${esc(x.name)}</td><td style="text-align:right">${Number(x.qty)}</td><td style="text-align:right">${yen(x.amount)}</td></tr>`).join('')}<tr class="kst"><td>合計</td><td style="text-align:right">${L.reduce((a,x)=>a+Number(x.qty),0)}</td><td style="text-align:right">${yen(L.reduce((a,x)=>a+Number(x.amount),0))}</td></tr></table><div class="muted" style="font-size:13px;margin-top:6px">この人にバックが付いた注文（会計済み）。何人かで分けた注文も、それぞれの人に全部の数が入ります</div>`:'<div class="muted">この月の注文はありません</div>';
+    const L=r.data||[]; $('coBox').className=''; $('coBox').innerHTML=L.length?`<table class="t"><tr><th>商品</th><th style="text-align:right">数</th><th style="text-align:right">注文額</th></tr>${L.map(x=>`<tr><td>${esc(x.name)}</td><td style="text-align:right">${Number(x.qty)}</td><td style="text-align:right">${yen(x.amount)}</td></tr>`).join('')}<tr class="kst"><td>合計</td><td style="text-align:right">${L.reduce((a,x)=>a+Number(x.qty),0)}</td><td style="text-align:right">${yen(L.reduce((a,x)=>a+Number(x.amount),0))}</td></tr></table><div class="muted" style="font-size:13px;margin-top:6px">この人にバックが付いた注文（会計済）。何人かで分けた注文も、それぞれの人に全部の数が入ります</div>`:'<div class="muted">この月の注文はありません</div>';
     return; }
   const [nr,cr]=await Promise.all([sb.from('cast_notes').select('*').eq('staff_id',s.id).eq('is_void',false).order('created_at',{ascending:false}), sb.from('cast_note_cats').select('names').eq('store_id',st).maybeSingle()]);
   if(page!=='set_cast'||storeId!==st||csDetail?.s!==s||csTab!==t) return;
@@ -1115,7 +1115,7 @@ async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast
 }
 
 // ---------- 集計「キャスト」 v0.28・SQL 068・069：成績 → 支給 → 罰金 → 控除 → 支払う額（見るだけ。計算はデータベースの admin_cast_month） ----------
-// 決定時給：選んだスライド表と保証時給（日給の人は日給）の高い方。時間報酬＝決定時給×稼働時間（日給の人は 日給×稼働日数）。会計済みの伝票だけ。体験は入れない
+// 決定時給：選んだスライド表と保証時給（日給の人は日給）の高い方。時間報酬＝決定時給×稼働時間（日給の人は 日給×稼働日数）。会計済の伝票だけ。体験は入れない
 // 同伴ノルマ罰金＝足りない回数×時間給×4時間。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算）。厚生費「標準」＝出勤 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円
 let ksMonth=null;
 const KS_COLS=[
@@ -1147,7 +1147,7 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
     <tr>${cols.map(([g,k,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     ${rows.map(x=>`<tr><td class="nm">${esc(x.name)}${x.active?'':' <small class="muted">（退店）</small>'}${x.seppan?' <small class="muted">折半</small>':''}</td>${cols.map(([g,k,l,typ])=>`<td>${fmt(k,typ,x)}</td>`).join('')}</tr>`).join('')}
     <tr class="kst"><td class="nm"><b>合計</b></td>${cols.map(totCell).join('')}</tr></tbody></table></div>`:'<div class="card muted">この月のキャストはいません</div>')
-    +`<div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">会計済みの伝票と、タイムカードの打刻（丸めた時刻）で計算します<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">決定時給：選んだスライド表と保証時給（日給の人は日給）のうち一番高い金額。時間報酬＝決定時給×稼働時間（日給の人は 日給×稼働日数）<br>小計バック＝${KL}小計×スタッフ設定のバック％（時給・日給に加算）。折半＝${KL}小計×小計バック％（給与が折半の人。時給・保証時給・同伴ノルマ罰金はなし）。商品バック・手当・日払（立替）・罰金は POS で入れたもの。％の罰金は月末の時給で計算します<br>同伴ノルマ罰金＝足りない回数×時給×4時間（日給の人の時給は 日給÷所定時間）<br>課税対象額＝支給の合計。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算。スタッフ設定で「しない」の人は0円）<br>厚生費「標準」：稼働日数 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円<br>残り支給額＝課税対象額−罰金−控除。体験の人はその日に支払済みのため含めていません</div></div>`+'<div id="hpBox" style="margin-top:22px"></div>';
+    +`<div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">会計済の伝票と、タイムカードの打刻（丸めた時刻）で計算します<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">決定時給：選んだスライド表と保証時給（日給の人は日給）のうち一番高い金額。時間報酬＝決定時給×稼働時間（日給の人は 日給×稼働日数）<br>小計バック＝${KL}小計×スタッフ設定のバック％（時給・日給に加算）。折半＝${KL}小計×小計バック％（給与が折半の人。時給・保証時給・同伴ノルマ罰金はなし）。商品バック・手当・日払（立替）・罰金は POS で入れたもの。％の罰金は月末の時給で計算します<br>同伴ノルマ罰金＝足りない回数×時給×4時間（日給の人の時給は 日給÷所定時間）<br>課税対象額＝支給の合計。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算。スタッフ設定で「しない」の人は0円）<br>厚生費「標準」：稼働日数 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円<br>残り支給額＝課税対象額−罰金−控除。体験の人はその日に支払済のため含めていません</div></div>`+'<div id="hpBox" style="margin-top:22px"></div>';
   hallPayDraw(hr,st,m,rows); wire(); };
 
 // v0.29・SQL 069：詳細（Excel）と給料明細（PDF）のダウンロード（d-system の「Excel」「報酬明細PDF」と同じ形）。ライブラリは押した時に読む
@@ -1232,8 +1232,8 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
     <div class="card" style="font-size:14px;line-height:1.7">ボーナス総額 <b>${yen(N(D.pool))}</b>　<span class="muted">売上計 ${yen(N(D.sales))}・人件費比率 ${N(D.ratio).toFixed(2)}%${sl?`（目標 ${N(sl.target).toFixed(2)}%・${RK[sl.rank]||''}・「${N(sl.sales_man)}万円以上」の行）`:'（黒服ボーナススライドに当てはまる行がありません）'}</span></div>
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm">名前</th><th>給与</th><th>担当キャスト売上</th><th>売上シェア</th><th>稼働日数</th><th>稼働時間</th><th>基本給</th><th>遅刻・早退</th><th>ボーナス</th><th>手当</th><th>個別支給</th><th>課税対象額</th><th>罰金</th><th>消費税</th><th>厚生費</th><th>個別控除</th><th>日払（立替）</th><th>源泉徴収</th><th>残り支給額</th>${own?'<th></th>':''}</tr></thead><tbody>
     ${rows.map(x=>`<tr><td class="nm">${esc(x.name)}${x.active?'':' <small class="muted">（退店）</small>'}</td><td>${x.pay_type?CS_HPAY[x.pay_type]+(x.amount!=null?' '+yen(N(x.amount)):''):'<span class="badge warnb">未設定</span>'}</td><td>${yen(N(ms[x.id]))} <small class="muted">担当 ${N(mn[x.id])}人</small></td><td>${share(x)}</td><td>${N(x.days)?N(x.days)+'日':'—'}</td><td>${N(x.hours)?N(x.hours)+'時間':'—'}</td><td>${y0(x.base)}</td>
-      <td>${neg(x.late_deduct)}${N(x.late_min)+N(x.early_min)?`<br><small class="muted">遅刻${N(x.late_min)}分・早退${N(x.early_min)}分</small>`:''}${x.late_fixed?' <span class="badge">修正済み</span>':''}</td>
-      <td>${y0(x.bonus)}${x.bonus_fixed!=null?' <span class="badge">修正済み</span>':''}</td><td>${y0(x.allowance)}</td><td>${y0(x.special_pay)}</td><td>${y0(x.taxable)}</td><td>${neg(x.fines)}</td><td>${neg(x.ctax)}</td><td>${neg(x.welfare)}</td><td>${neg(x.special_deduct)}</td><td>${neg(x.advance)}</td><td>${neg(x.withholding)}</td>
+      <td>${neg(x.late_deduct)}${N(x.late_min)+N(x.early_min)?`<br><small class="muted">遅刻${N(x.late_min)}分・早退${N(x.early_min)}分</small>`:''}${x.late_fixed?' <span class="badge">修正済</span>':''}</td>
+      <td>${y0(x.bonus)}${x.bonus_fixed!=null?' <span class="badge">修正済</span>':''}</td><td>${y0(x.allowance)}</td><td>${y0(x.special_pay)}</td><td>${y0(x.taxable)}</td><td>${neg(x.fines)}</td><td>${neg(x.ctax)}</td><td>${neg(x.welfare)}</td><td>${neg(x.special_deduct)}</td><td>${neg(x.advance)}</td><td>${neg(x.withholding)}</td>
       <td>${N(x.net)<0?`<b style="color:var(--warn)">${yen(N(x.net))}</b>`:`<b>${yen(N(x.net))}</b>`}</td>${own?`<td><button class="ghost sm" data-hpfix="${x.id}">修正</button></td>`:''}</tr>`).join('')||`<tr><td colspan="20" class="muted">この月の黒服はいません</td></tr>`}</tbody></table></div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに時給分を引きます。月給の人の時給＝月給÷（稼働日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。時給の人は働いた時間で払うので引きません。出勤・退勤の時刻が両方入っていないと引けません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（キャスト報酬＋キャスト日払い＋黒服の給与〈ボーナスの前〉）÷売上計<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーだけ。遅刻・早退で引く額とボーナスを修正できます（空にすると自動の計算に戻ります。操作ログに残ります）</div></div>`;
   box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return;
@@ -1257,7 +1257,7 @@ const BL_TXT=['customers','kakari','douhan'];
 let blExtL='延長（回）'; const blLab=(k,l)=>k==='ext'?blExtL:l;
 const BL_SUM=['guests','ext','sub','service','discount','surcharge','due','cash','card','invoice','oki'];
 const blDur=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
-const blSt=x=>x.status==='void'?'削除':x.status==='open'?'来店中':'会計済み';
+const blSt=x=>x.status==='void'?'削除':x.status==='open'?'来店中':'会計済';
 const blVal=(k,x)=>k==='status'?blSt(x):k==='date'?x.date:k==='in'?beHm(x.opened_at):k==='out'?(x.closed_at?beHm(x.closed_at):''):k==='dur'?blDur(x.opened_at,x.closed_at):k==='receipt'?(x.receipt?'◯':''):BL_SUM.includes(k)?Number(x[k]||0):(x[k]??'');
 PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate();
   if(!blFrom){ blFrom=today.slice(0,8)+'01'; blTo=today; }
@@ -1266,7 +1266,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
   <div class="card"><div class="row" style="flex-wrap:wrap;gap:8px;align-items:center"><input type="date" id="blF" value="${f}" style="width:auto"><span>〜</span><input type="date" id="blT" value="${t}" style="width:auto">
     <button class="ghost" id="blMon">月間反映</button><select id="blFl" style="width:auto">${BL_F.map(([k,n])=>`<option value="${k}" ${blFilt===k?'selected':''}>${n}</option>`).join('')}</select><button class="primary" id="blGo">検索</button>
     <span style="flex:1"></span><input id="blQ" placeholder="文字で探す" value="${esc(blQ)}" style="width:180px"></div>
-    <div class="muted" style="font-size:13px;margin-top:6px">期間は31日まで。No で伝票を開きます${own?'。削除は会計済みの伝票のみ':''}</div></div>`;
+    <div class="muted" style="font-size:13px;margin-top:6px">期間は31日まで。No で伝票を開きます${own?'。削除は会計済の伝票のみ':''}</div></div>`;
   $('main').innerHTML=head+'<div id="blBox"><div class="card muted">読み込み中…</div></div>';
   const wire=()=>{ $('blGo').onclick=()=>{ const a=$('blF').value, b=$('blT').value; if(!a||!b){ uiAlert('期間を入力してください'); return; } if(b<a){ uiAlert('期間が逆になっています'); return; }
       if((new Date(b)-new Date(a))/864e5>30){ uiAlert('期間は31日までにしてください'); return; } blFrom=a; blTo=b; blFilt=$('blFl').value; PAGES.bills(); };
@@ -1280,7 +1280,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
   const all=r.data||[]; let rows=[];
   const pick=()=>{ const q=blQ.trim().toLowerCase(); return all.filter(x=>blFilt==='void'?x.status==='void':x.status!=='void'&&(blFilt==='all'||(blFilt==='open'?x.status==='open':Number(x[blFilt]||0)>0)))
     .filter(x=>!q||BL_COLS.some(([k])=>String(blVal(k,x)).toLowerCase().includes(q))); };
-  const cell=(k,x)=>{ const v=blVal(k,x); if(k==='status') return x.status==='closed'?'<span class="muted">会計済み</span>':`<span class="badge ${x.status==='open'?'':'warnb'}">${v}</span>`;
+  const cell=(k,x)=>{ const v=blVal(k,x); if(k==='status') return x.status==='closed'?'<span class="muted">会計済</span>':`<span class="badge ${x.status==='open'?'':'warnb'}">${v}</span>`;
     if(k==='date') return md(v); if(BL_SUM.includes(k)) return k==='guests'||k==='ext'?(v?v:'—'):(v?yen(v):'—'); return esc(v||(k==='out'?'':'')); };
   function draw(){ rows=pick(); const tot={}; BL_SUM.forEach(k=>tot[k]=rows.reduce((a,x)=>a+Number(x[k]||0),0));
     const del=own&&blFilt!=='void';
@@ -1386,7 +1386,7 @@ PAGES.hist_del=async()=>{ const st=storeId; hiPeriod('hist_del','<select id="hiK
 
 // ---------- 顧客サイト v0.37・SQL 076：顧客サイト（preview）をそのまま中に出す。顧客サイトのパスワードは聞かない（管理サイトのログインで入場券をもらう）。編集は「顧客サイト」を編集できる人だけ ----------
 let csFrameMsg=null;
-// v0.62：お客様のデータ（Excel）。期間の会計済みの伝票から、お客様ごとに 名前・係・来店回数・金額（伝票の合計）を金額の高い順に。1枚の伝票にお客様が2人以上いる時は、全員にその伝票の金額を付ける（オーナーの指示）。登録の無い伝票は入らない
+// v0.62：お客様のデータ（Excel）。期間の会計済の伝票から、お客様ごとに 名前・係・来店回数・金額（伝票の合計）を金額の高い順に。1枚の伝票にお客様が2人以上いる時は、全員にその伝票の金額を付ける（オーナーの指示）。登録の無い伝票は入らない
 let cdFrom=null, cdTo=null;
 async function custDataExcel(st,f,t){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   // v0.63：係は店ごとの表（customer_kakari。POS と同じ）。読めない時だけ、前の列（customers.kakari_staff_id）
@@ -1398,7 +1398,7 @@ async function custDataExcel(st,f,t){ try{ await ksLoad('https://cdn.jsdelivr.ne
   const M={}; for(const b of bills){ const amt=(b.payments||[]).reduce((a,p)=>a+Number(p.amount||0),0); const seen=new Set();
     for(const c of (b.bill_customers||[])){ if(!c.customer_id||seen.has(c.customer_id)) continue; seen.add(c.customer_id); const m=M[c.customer_id]||(M[c.customer_id]={name:c.customers?.name||'',kakari:sn[kOf(c.customers)]||'',n:0,amt:0}); m.n++; m.amt+=amt; } }
   const rows=Object.values(M).sort((a,b)=>b.amt-a.amt||b.n-a.n||String(a.name).localeCompare(String(b.name),'ja'));
-  if(!rows.length){ await uiAlert('この期間に、お客様を登録した会計済みの伝票はありません'); return; }
+  if(!rows.length){ await uiAlert('この期間に、お客様を登録した会計済の伝票はありません'); return; }
   const ws=XLSX.utils.aoa_to_sheet([[`お客様のデータ ${f}〜${t}`],['No','名前',KL,'来店回数','金額'],...rows.map((x,i)=>[i+1,x.name,x.kakari,x.n,x.amt])]); ws['!cols']=[{wch:5},{wch:24},{wch:12},{wch:10},{wch:14}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'お客様のデータ'); XLSX.writeFile(wb,`customers-${f}_${t}${ksCode()}.xlsx`); toast('ダウンロードしました'); }
 PAGES.cust=()=>{ const st=storeId, today=businessDate(); if(!cdFrom){ cdFrom=today.slice(0,8)+'01'; cdTo=today; }
@@ -1415,7 +1415,7 @@ PAGES.cust=()=>{ const st=storeId, today=businessDate(); if(!cdFrom){ cdFrom=tod
   $('cdXls').onclick=guard($('cdXls'),async()=>{ const a=$('cdF').value, b=$('cdT').value; if(!a||!b){ await uiAlert('期間を入力してください'); return; } if(b<a){ await uiAlert('期間が逆になっています'); return; }
     if((new Date(b)-new Date(a))/864e5>366){ await uiAlert('期間は1年までにしてください'); return; } cdFrom=a; cdTo=b; await custDataExcel(st,a,b); }); };
 
-// ---------- 請求書の未入金 v0.26・SQL 067：売上は会計した日のまま。振り込まれたら入金日を入れて「入金済み」にする（ここだけ。POS は見るだけ）。間違えた時は理由を入れて未入金に戻す。操作ログに残る ----------
+// ---------- 請求書の未入金 v0.26・SQL 067：売上は会計した日のまま。振り込まれたら入金日を入れて「入金済」にする（ここだけ。POS は見るだけ）。間違えた時は理由を入れて未入金に戻す。操作ログに残る ----------
 let invTab='unpaid';
 const mdj=d=>{ const m=String(d||'').match(/^\d{4}-(\d{2})-(\d{2})/); return m?`${+m[1]}/${+m[2]}`:''; };
 const todayJst=()=>{ const x=new Date(Date.now()+9*3600000); return x.toISOString().slice(0,10); };
@@ -1425,16 +1425,16 @@ async function invRender(st){ const ed=perm('pl')==='edit', box=()=>$('invBox'),
   const head='<div style="font-size:15px;font-weight:700;margin:0 0 6px">請求書の未入金</div>'; // v0.39：見出しは小さく（画面の名前より大きくしない）
   if(r.error){ box().innerHTML=head+`<div class="card err">${esc(/権限/.test(r.error.message)?'SQL 076 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const all=r.data||[], un=all.filter(x=>!x.paid_on), pd=all.filter(x=>x.paid_on), list=invTab==='paid'?pd:un, sum=a=>a.reduce((t,x)=>t+Number(x.amount||0),0);
-  box().innerHTML=head+`<div class="cs-tabs"><button data-it="unpaid" class="${invTab==='unpaid'?'on':''}">未入金（${un.length}件 ${yen(sum(un))}）</button><button data-it="paid" class="${invTab==='paid'?'on':''}">入金済み（${pd.length}件）</button></div>
+  box().innerHTML=head+`<div class="cs-tabs"><button data-it="unpaid" class="${invTab==='unpaid'?'on':''}">未入金（${un.length}件 ${yen(sum(un))}）</button><button data-it="paid" class="${invTab==='paid'?'on':''}">入金済（${pd.length}件）</button></div>
   <div class="card" style="margin-bottom:0"><table class="t"><tr><th>会計した日</th><th>お客様</th><th>${KL}</th><th style="text-align:right">金額</th>${invTab==='paid'?'<th>入金日</th>':''}${ed?'<th></th>':''}</tr>
-  ${list.map(x=>`<tr><td>${esc(x.business_date)}</td><td>${esc(x.customers||'')}</td><td>${esc(x.kakari||'')}</td><td style="text-align:right">${yen(x.amount)}</td>${invTab==='paid'?`<td>${esc(x.paid_on)}</td>`:''}${ed?`<td style="text-align:right">${invTab==='paid'?`<button class="ghost sm" data-iu="${x.id}">未入金に戻す</button>`:`<button class="primary sm" data-ip="${x.id}">入金済みにする</button>`}</td>`:''}</tr>`).join('')||`<tr><td class="muted" colspan="6">${invTab==='paid'?'入金済みの請求書はありません':'未入金の請求書はありません'}</td></tr>`}</table></div>`;
+  ${list.map(x=>`<tr><td>${esc(x.business_date)}</td><td>${esc(x.customers||'')}</td><td>${esc(x.kakari||'')}</td><td style="text-align:right">${yen(x.amount)}</td>${invTab==='paid'?`<td>${esc(x.paid_on)}</td>`:''}${ed?`<td style="text-align:right">${invTab==='paid'?`<button class="ghost sm" data-iu="${x.id}">未入金に戻す</button>`:`<button class="primary sm" data-ip="${x.id}">入金済にする</button>`}</td>`:''}</tr>`).join('')||`<tr><td class="muted" colspan="6">${invTab==='paid'?'入金済の請求書はありません':'未入金の請求書はありません'}</td></tr>`}</table></div>`;
   box().querySelectorAll('[data-it]').forEach(b=>b.onclick=()=>{ invTab=b.dataset.it; again(); });
   const row=id=>all.find(x=>x.id===id), what=x=>`${x.business_date}　${x.table_name||''}${x.customers?'　'+x.customers+' 様':''}　${yen(x.amount)}`;
   box().querySelectorAll('[data-ip]').forEach(b=>b.onclick=guard(b,async()=>{ const x=row(b.dataset.ip); if(!x) return;
-    const t=todayJst(), m=modal(`<h2 style="margin:0">入金済みにする</h2><div>${esc(what(x))}</div><label>入金日<input type="date" id="ipDate" value="${t}" min="${esc(x.business_date)}" max="${t}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">入金済みにする</button></div>`);
+    const t=todayJst(), m=modal(`<h2 style="margin:0">入金済にする</h2><div>${esc(what(x))}</div><label>入金日<input type="date" id="ipDate" value="${t}" min="${esc(x.business_date)}" max="${t}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">入金済にする</button></div>`);
     const d=await new Promise(res=>{ m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(null); }; m.querySelector('[data-k=ok]').onclick=()=>{ const v=m.querySelector('#ipDate').value; m.remove(); res(v||''); }; });
     if(d===null) return; if(!d){ await uiAlert('入金日を入力してください'); return; }
-    const z=await rpc('admin_invoice_paid',{p_payment:x.id,p_date:d}); if(!z.ok) return; toast(`${mdj(d)} 入金済みにしました`); again(); }));
+    const z=await rpc('admin_invoice_paid',{p_payment:x.id,p_date:d}); if(!z.ok) return; toast(`${mdj(d)} 入金済にしました`); again(); }));
   box().querySelectorAll('[data-iu]').forEach(b=>b.onclick=guard(b,async()=>{ const x=row(b.dataset.iu); if(!x) return;
     const m=modal(`<h2 style="margin:0">未入金に戻す</h2><div>${esc(what(x))}<br>入金日 ${esc(x.paid_on)}</div><label>理由（必須・操作ログに残ります）<input id="iuWhy" maxlength="100"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="danger" data-k="ok">未入金に戻す</button></div>`);
     const w=await new Promise(res=>{ m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(null); }; m.querySelector('[data-k=ok]').onclick=()=>{ const v=m.querySelector('#iuWhy').value.trim(); m.remove(); res(v); }; });
@@ -1456,10 +1456,10 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     ${f('siMail','メールアドレス',d.email,{type:'email',ph:'info@example.com'})}
     ${f('siInv','インボイス番号（T＋数字13桁）',d.invoice,{ph:'T1234567890123',ml:20})}
     ${f('siRcpt','領収書メールの宛先',d.receipt_mail,{type:'email'})}
-    ${f('siKL','係の名称',curStore()?.kakari_label,{ph:'係',ml:6})}
+    ${f('siKL','係/担当/指名',curStore()?.kakari_label,{ph:'係',ml:6})}
   </div>
   ${ed?'<div class="row" style="margin-top:12px"><button class="primary" id="siSave">保存</button></div>':''}
-  <div class="muted hint" style="font-size:13px;margin-top:10px;line-height:1.6">店名は POS・顧客サイト・タイムカード・管理サイトに出ます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">係の名称：この店での「係」の呼び方です（例：担当）。空にすると「係」のままです。POS・顧客サイト・管理サイトの画面と、Excel・PDF・印刷に出ます（「係小計」は「担当小計」のように変わります）<br>住所・電話番号・インボイス番号は POS の領収書に出ます。領収書メールの宛先は POS の閉店作業「領収書をメールで送る」で使います。開店時間は登録だけです<br>閉店時間：タイムカードの退勤・アフターの打刻は、閉店より後になりません（時給は閉店まで）<br>0:00〜6:00 は日付が変わった後として扱います（例：1:00 ＝ 翌1:00、23:00 ＝ その日の23:00）<br>アフターの延長（給与項目）も、この閉店時間から数えます。変更しても、前の打刻はそのまま</div></div></div>`;
+  <div class="muted hint" style="font-size:13px;margin-top:10px;line-height:1.6">店名は POS・顧客サイト・タイムカード・管理サイトに出ます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">係/担当/指名：この店での「係」の呼び方です（例：担当）。空にすると「係」のままです。POS・顧客サイト・管理サイトの画面と、Excel・PDF・印刷に出ます（「係小計」は「担当小計」のように変わります）<br>住所・電話番号・インボイス番号は POS の領収書に出ます。領収書メールの宛先は POS の閉店作業「領収書をメールで送る」で使います。開店時間は登録だけです<br>閉店時間：タイムカードの退勤・アフターの打刻は、閉店より後になりません（時給は閉店まで）<br>0:00〜6:00 は日付が変わった後として扱います（例：1:00 ＝ 翌1:00、23:00 ＝ その日の23:00）<br>アフターの延長（給与項目）も、この閉店時間から数えます。変更しても、前の打刻はそのまま</div></div></div>`;
   if(!ed) return;
   const sv=$('siSave'); sv.onclick=guard(sv,async()=>{ const v=id=>$(id).value.trim(), name=v('siName'), op=v('siOpen'), cl=v('siClose');
     if(!name){ await uiAlert('店名を入力してください'); return; } if(!cl){ await uiAlert('閉店時間を入力してください'); return; } if(cl>'06:00'&&cl<'18:00'){ await uiAlert('閉店時間は 18:00〜翌6:00 の間にしてください'); return; }
@@ -1467,10 +1467,10 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     if(iv&&!/^T\d{13}$/.test(iv)){ await uiAlert('インボイス番号は T＋数字13桁 で入力してください'); return; }
     const em=/^[^@\s]+@[^@\s]+\.[^@\s]+$/; if(v('siMail')&&!em.test(v('siMail'))){ await uiAlert('メールアドレスの形が正しくありません'); return; } if(v('siRcpt')&&!em.test(v('siRcpt'))){ await uiAlert('領収書メールの宛先の形が正しくありません'); return; }
     const chg=[]; if(name!==(d.name||'')) chg.push('店名（全部のサイトの表示が変わります）'); if(cl!==(d.close||'')) chg.push(`閉店時間 ${closeTxt(cl)}（これから押す打刻から変わります）`);
-    const kn=v('siKL')==='係'?'':v('siKL'), k0=curStore()?.kakari_label||''; if(kn.length>6){ await uiAlert('係の名称は6文字までにしてください'); return; } if(kn!==k0) chg.push(`係の名称「${kn||'係'}」（全部のサイトの表示が変わります）`);
+    const kn=v('siKL')==='係'?'':v('siKL'), k0=curStore()?.kakari_label||''; if(kn.length>6){ await uiAlert('係/担当/指名は6文字までにしてください'); return; } if(kn!==k0) chg.push(`係/担当/指名「${kn||'係'}」（全部のサイトの表示が変わります）`);
     if(!await uiConfirm('店の情報を保存しますか？'+(chg.length?'\n'+chg.map(x=>'・'+x).join('\n'):''))) return;
     const x=await rpc('admin_save_store_info',{p_store:st,p_name:name,p_open:op||null,p_close:cl,p_address:v('siAddr'),p_phone:v('siTel'),p_email:v('siMail'),p_invoice:iv,p_receipt_mail:v('siRcpt')}); if(!x.ok) return;
-    if(kn!==k0){ rtOwn=Date.now(); const y=await sb.rpc('admin_save_kakari_label',{p_store:st,p_label:kn}); rtOwn=Date.now(); if(y.error){ await uiAlert(/admin_save_kakari_label/.test(y.error.message)?'SQL 080 が未実行です（係の名称はまだ保存できません。ほかの項目は保存しました）':y.error.message); } }
+    if(kn!==k0){ rtOwn=Date.now(); const y=await sb.rpc('admin_save_kakari_label',{p_store:st,p_label:kn}); rtOwn=Date.now(); if(y.error){ await uiAlert(/admin_save_kakari_label/.test(y.error.message)?'SQL 080 が未実行です（係/担当/指名はまだ保存できません。ほかの項目は保存しました）':y.error.message); } }
     toast('保存しました'); me=await loadMe()||me; renderStoreSel(); renderAll(); }); }
 
 // ---------- POS設定 v0.22・SQL 062：料金（メニュー以外）はここだけで変える。POS では見るだけ ----------
@@ -1588,10 +1588,10 @@ async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId
   if(r.error){ box.innerHTML=`<h2>タイムカードの端末</h2><div class="err">${esc(/admin_tc_list/.test(r.error.message)?'SQL 063 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const L=r.data||[];
   box.innerHTML=`<h2>タイムカードの端末</h2>    <table class="t"><tr><th>端末</th><th>状態</th><th>最終打刻</th><th></th></tr>
-    ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済み</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>
+    ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>
       <td>${x.last_used_at?esc(fmtDT(x.last_used_at)):'—'}</td><td style="text-align:right;white-space:nowrap"><button class="ghost sm" data-tcre="${x.id}" data-l="${esc(x.label)}">再登録</button> <button class="ghost sm" data-tcdel="${x.id}" data-l="${esc(x.label)}">削除</button></td></tr>`).join('')||'<tr><td class="muted" colspan="4">まだありません</td></tr>'}</table>
     <div style="margin-top:10px;display:grid;grid-template-columns:auto 1fr auto;column-gap:10px;row-gap:4px;align-items:center"><span class="muted" style="font-size:13px">① タイムカード専用ID</span><span class="muted" style="font-size:13px">② 端末名</span><span></span>
-      <span style="height:44px;display:flex;align-items:center">${tcHasId?'<span class="badge k">作成済み</span>':'<button class="ghost" id="tcIdAdd">作成</button>'}</span><input id="tcLabel" placeholder="例：入口の iPad" maxlength="30" style="height:44px;margin:0"><button class="primary" id="tcAdd" style="height:44px">登録コード発行</button></div>`; /* v0.77：① と ② の見出しと中身の行をそろえる（オーナー「列がそろってない」） */
+      <span style="height:44px;display:flex;align-items:center">${tcHasId?'<span class="badge k">作成済</span>':'<button class="ghost" id="tcIdAdd">作成</button>'}</span><input id="tcLabel" placeholder="例：入口の iPad" maxlength="30" style="height:44px;margin:0"><button class="primary" id="tcAdd" style="height:44px">登録コード発行</button></div>`; /* v0.77：① と ② の見出しと中身の行をそろえる（オーナー「列がそろってない」） */
   /* v0.66・SQL 084：タイムカードの端末でログインするための ID（POS のデータは読めない・書けない）。作った ID とパスワードは上の「今のパスワード」に出る */
   const ia=$('tcIdAdd'); if(ia) ia.onclick=guard(ia,async()=>{ if(!await uiConfirm('タイムカード専用IDを作成しますか？','作成')) return;
     const x=await sb.rpc('admin_tc_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_tc_account_create/.test(x.error.message)?'SQL 084 が未実行です':x.error.message); return; }
@@ -1671,7 +1671,7 @@ PAGES.o_ids=async()=>{
 async function editAccount(a,halls){ if(!a) return;
   const m=modal(`<h2 style="margin:0">IDの変更：${esc(a.login_id)}</h2>
     <label>名前<input data-k="name" value="${esc(a.name)}"></label>
-    <label>黒服と結びつける<select data-k="staff"><option value="">結びつけない</option>${halls.map(h=>`<option value="${h.id}" ${h.id===a.staff_id?'selected':''}>${esc(h.name)}</option>`).join('')}${a.staff_id&&!halls.some(h=>h.id===a.staff_id)?`<option value="${a.staff_id}" selected>${esc(a.staff_name||'（削除済みの黒服）')}</option>`:''}</select></label>
+    <label>黒服と結びつける<select data-k="staff"><option value="">結びつけない</option>${halls.map(h=>`<option value="${h.id}" ${h.id===a.staff_id?'selected':''}>${esc(h.name)}</option>`).join('')}${a.staff_id&&!halls.some(h=>h.id===a.staff_id)?`<option value="${a.staff_id}" selected>${esc(a.staff_name||'（削除済の黒服）')}</option>`:''}</select></label>
     <label>状態<select data-k="active"><option value="1" ${a.is_active?'selected':''}>使える</option><option value="0" ${a.is_active?'':'selected'}>停止（ログイン不可）</option></select></label>
     <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
   const q=k=>m.querySelector(`[data-k=${k}]`);
