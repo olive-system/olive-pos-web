@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.43 -->
+<title>OLIVE 会計</title><!-- v11.44 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -818,7 +818,7 @@ function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card');
   <div class="ln"><span>お支払い</span><span style="white-space:normal;text-align:right">${pays.length?pays.map(p=>`${METHOD[p.method]} ${yen(p.amount)}${p.method==='oki'&&p.received_at?`<small>（${md(p.received_at)}入金）</small>`:''}${p.method==='invoice'?`<small>（${p.invoice_paid_on?invMd(p.invoice_paid_on)+'入金':'未入金'}）</small>`:''}`).join('／'):'入金の記録はありません'}</span></div>
   <div class="bar" style="margin-top:14px;display:flex;justify-content:space-between"><button class="ghost" id="stBack">${billFrom==='bills'?'伝票一覧へ':'ホールへ'}</button>${b.status==='closed'&&hasReceived(b)?'<button class="ghost" id="stReceipt">領収書印刷</button>':''}</div>`;
   st.querySelectorAll('button').forEach(x=>{ x.disabled=false; x.style.display=''; }); $('stBack').onclick=()=>$('bBack').onclick(); if($('stReceipt')) $('stReceipt').onclick=()=>$('prReceipt').onclick(); }
-// v11.18・SQL 067：請求書は会計した日の売上。入金されたかは管理サイト「請求書の未入金」で入れる（POS は見るだけ）
+// v11.18・SQL 067：請求書は会計日の売上。入金されたかは管理サイト「請求書の未入金」で入れる（POS は見るだけ）
 const invMd=d=>{ const m=String(d||'').match(/^\d{4}-(\d{2})-(\d{2})/); return m?`${+m[1]}/${+m[2]}`:''; };
 function invTag(p){ return p.method!=='invoice'?'':p.invoice_paid_on?` <small>入金済 ${invMd(p.invoice_paid_on)}</small>`:' <small>未入金</small>'; }
 function hasReceived(b){ return (b?.payments||[]).some(p=>p.amount>0&&p.received_at); }
@@ -837,7 +837,7 @@ function renderPaidBox(b,T){ const pb=$('bPaid'); const md=d=>{ const x=new Date
 $('gPlus').onclick=async()=>{ const n=cur.guest_count+1; await logOp('客数変更',{before:cur.guest_count,after:n}); const left=cur.set_guest_count!=null; await sb.from('bills').update(left?{guest_count:n,set_guest_count:cur.set_guest_count+1}:{guest_count:n}).eq('id',cur.id); if(!left) await syncAutoHc(n); openBill(cur.id); };
 $('gMinus').onclick=async()=>{ if(cur.guest_count<=1)return; const n=cur.guest_count-1; await logOp('客数変更',{before:cur.guest_count,after:n}); await sb.from('bills').update({guest_count:n}).eq('id',cur.id); if(cur.set_guest_count==null) await syncAutoHc(n); openBill(cur.id); };
 // 途中退店（v10.41）：過去のセット・延長・h.c・b.c はそのまま。次の延長から新しい人数。入金は通常の入金と同じ
-$('gLeave').onclick=guard($('gLeave'),async()=>{ if(!cur||cur.status!=='open'||cur.guest_count<2) return; const gb=cur.guest_count, up=x=>Math.ceil(x/1000)*1000; const due=up(cur.totals?.amount_due??0), unpaid=Math.max(0,cur.totals?.unpaid??0); let n=1; if(gb>2){ n=await uiPick('退店する人数',Array.from({length:gb-1},(_,k)=>({label:`${k+1}名`,value:k+1}))); if(!n) return; } const share=Math.min(unpaid,up(unpaid/gb)*n);
+$('gLeave').onclick=guard($('gLeave'),async()=>{ if(!cur||cur.status!=='open'||cur.guest_count<2) return; const gb=cur.guest_count, up=x=>Math.ceil(x/1000)*1000; const due=up(cur.totals?.amount_due??0), unpaid=Math.max(0,cur.totals?.unpaid??0); let n=1; if(gb>2){ n=await uiPick('退店人数',Array.from({length:gb-1},(_,k)=>({label:`${k+1}名`,value:k+1}))); if(!n) return; } const share=Math.min(unpaid,up(unpaid/gb)*n);
   const av=await uiPrompt(`途中退店（${gb}名→${gb-n}名）\n今の請求額 ${yen(due)}\nお支払い金額`,share); if(av===null) return; const v=parseInt(String(av).replace(/[^0-9]/g,'')||'0',10); if(isNaN(v)||v<0){ toast('金額が正しくありません'); return; } if(v>unpaid){ toast(`未収は ${yen(unpaid)} です`); return; }
   let method=null; if(v>0){ method=await uiPick('お支払い方法',[{label:METHOD.cash,value:'cash'},{label:METHOD.card,value:'card'}]); if(!method) return; }
   if(!await uiConfirm(`途中退店（${gb}名→${gb-n}名）\n${v>0?`${METHOD[method]} ${yen(v)}`:'お支払いなし'}\n確定しますか？`)) return;
@@ -1111,7 +1111,7 @@ const SET = [
   { key:'categories', name:'カテゴリー', table:'categories', label:r=>r.name, cols:[['name','カテゴリー名','text'],['short_name','略称','text'],['is_visible','表示','bool'],['is_industry_target','同業者モードの対象','bool']], newRow:()=>({store_id:store.id,name:'新しいカテゴリー',is_visible:true,is_industry_target:false}) },
   { key:'products', name:'メニュー', table:'products', label:r=>`${r.name}`, sub:r=>yen(r.price), cols:[['name','メニュー名','text'],['short_name','略称','text'],['category_id','カテゴリー','cat'],['price','販売価格（税抜）','number'],['cast_subtotal_price','小計価格（'+KL+'小計に入る額）','number'],['back_amount','バック金額','number'],['back_points','バックポイント','number'],['is_service_target','サービス料の対象','bool'],['is_keepable','キープ可','bool'],['in_stock','在庫あり','bool'],['is_visible','表示','bool']], newRow:()=>({store_id:store.id,name:'新メニュー',category_id:categories[0]?.id,price:0,cast_subtotal_price:0,back_amount:0,back_points:0,is_service_target:true,is_keepable:false,in_stock:true,is_visible:true}) },
   { key:'print', name:'印刷設定', local:true, cols:[['print_method','印刷方法','select',[['tmpa','プリンター（TM Print Assistant）'],['browser','ブラウザ印刷（PDF）']]]] },
-  { key:'pos', name:'料金設定', table:'pos_settings', single:true, ro:true, cols:[['set_minutes','最初のセット時間（分）','number'],['set_unit_price','セット1名単価','number'],['ext_minutes','延長単位（分）','number'],['ext_unit_price','延長1名単価','number'],['service_rate','サービス料率 %','number'],['tax_rate','消費税率 %','number'],['total_round_unit','合計の切り上げ単位','number'],['auto_hc_amount','自動で人数分つけるHC','amt'],['auto_bc_amount','自動で人数分つけるBC','amt'],['douhan_punch_limit_min','同伴の準備時間の目安（分）：伝票の立ち上げ〜出勤打刻がこれを超えるとタイムカードで本人に警告（0＝警告しない）','number'],['advance_cap_cast','日払（立替）の上限（キャスト）円','number'],['advance_cap_hall','日払（立替）の上限（黒服）円','number'],['trial_withholding_rate','体験入店の日払（立替）から引く源泉（%）','number'],['douhan_is_kakari','同伴にしたら自動で'+KL+'にする（ON＝同伴にした人は自動で'+KL+'にもなる。ほかの'+KL+'も追加でき、売上は'+KL+'全員で等分／OFF＝同伴と'+KL+'は別々）','bool'],['cust_auto_kakari','お客様を伝票に登録したら、そのお客様の'+KL+'を自動で追加する','bool'],['set_point','セット1名あたりのポイント（人数分かけて、'+KL+'で均等に分ける）','number'],['ext_point','延長1回・1名あたりのポイント（人数分かけて、'+KL+'で均等に分ける）','number']] },
+  { key:'pos', name:'料金設定', table:'pos_settings', single:true, ro:true, cols:[['set_minutes','最初のセット時間（分）','number'],['set_unit_price','セット1名単価','number'],['ext_minutes','延長単位（分）','number'],['ext_unit_price','延長1名単価','number'],['service_rate','サービス料率 %','number'],['tax_rate','消費税率 %','number'],['total_round_unit','合計の切り上げ単位','number'],['auto_hc_amount','自動で人数分つけるHC','amt'],['auto_bc_amount','自動で人数分つけるBC','amt'],['douhan_punch_limit_min','同伴の準備時間の目安（分）：伝票の立ち上げ〜出勤打刻がこれを超えるとタイムカードで本人に警告（0＝警告しない）','number'],['advance_cap_cast','日払（立替）の上限（キャスト）円','number'],['advance_cap_hall','日払（立替）の上限（黒服）円','number'],['trial_withholding_rate','体験入店の日払（立替）から引く源泉（%）','number'],['douhan_is_kakari','同伴にしたら自動で'+KL+'にする（ON＝同伴の人は自動で'+KL+'にもなる。ほかの'+KL+'も追加でき、売上は'+KL+'全員で等分／OFF＝同伴と'+KL+'は別々）','bool'],['cust_auto_kakari','お客様を伝票に登録したら、そのお客様の'+KL+'を自動で追加する','bool'],['set_point','セット1名あたりのポイント（人数分かけて、'+KL+'で均等に分ける）','number'],['ext_point','延長1回・1名あたりのポイント（人数分かけて、'+KL+'で均等に分ける）','number']] },
   { key:'bills', name:'伝票一覧', bills:true },
   { key:'closing', name:'閉店作業', closing:true },
   { key:'audit', name:'操作ログ', audit:true },
@@ -1126,7 +1126,7 @@ function expLine(b){ return `${b.name}　${b.remaining??0}/10　${(d=>d?d.slice(
 function knLabel(b,cname){ return b.keep_name&&b.keep_name!==cname?`（キープ名：${b.keep_name}）`:''; }
 async function expireBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`)) return false; const d=businessDate(); const { error } = await sb.from('customer_bottles').update({expired_on:d,updated_at:new Date().toISOString()}).eq('id',b.id); if(error){ toast(error.message.includes('column')?'SQL 017 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル期限切れ',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=d; toast('期限切れにしました'); return true; }
 // v10.75：ボトル移動（移動先は記録しない。日付と残量を残してキープから外す。SQL 045）
-async function moveBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name}（${b.remaining??0}/10）をボトル移動にしますか？\n移動した日と残量が記録されます。`)) return false; const d=businessDate(); const { error } = await sb.from('customer_bottles').update({expired_on:d,moved:true,updated_at:new Date().toISOString()}).eq('id',b.id); if(error){ toast(error.message.includes('moved')?'SQL 045 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル移動',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=d; b.moved=true; toast('ボトル移動にしました'); return true; }
+async function moveBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name}（${b.remaining??0}/10）をボトル移動にしますか？\n移動日と残量が記録されます。`)) return false; const d=businessDate(); const { error } = await sb.from('customer_bottles').update({expired_on:d,moved:true,updated_at:new Date().toISOString()}).eq('id',b.id); if(error){ toast(error.message.includes('moved')?'SQL 045 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル移動',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=d; b.moved=true; toast('ボトル移動にしました'); return true; }
 async function unexpireBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name} の${b.moved?'ボトル移動':'期限切れ'}を取り消して、キープ中に戻しますか？`)) return false; const { error } = await sb.from('customer_bottles').update({expired_on:null,...(b.moved?{moved:false}:{}),updated_at:new Date().toISOString()}).eq('id',b.id); if(error){ toast(error.message); return false; } await logOp(b.moved?'ボトル移動を戻す':'ボトル期限切れを戻す',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=null; b.moved=false; toast('キープ中に戻しました'); return true; }
 function btMonths(){ return Number(settings?.bottle_keep_months)||6; } /* v10.99：お店の設定（ボトルのキープ期間）と同じ。顧客サイトと同じ */
 /* v10.99：1回に1000件までしか返らないので、1000件ずつ全部読む（お客様5000件以上に対応） */
@@ -1291,7 +1291,7 @@ function clOrderHtml(od){ if(od.error) return `<div class="muted">${esc(od.error
   const items=[...agg.values()].filter(a=>a.qty>0); if(!items.length) return '<div class="muted">なし</div>';
   const cats=[...categories.map(c=>c.id),null]; return `<div class="list">${cats.map(cid=>{ const xs=items.filter(a=>(a.cid||null)===cid).sort((a,b)=>b.qty-a.qty); if(!xs.length) return ''; const cn=categories.find(c=>c.id===cid)?.name||'未分類'; return `<div class="item" style="flex-wrap:wrap;gap:4px 14px"><b style="flex:0 0 auto">${esc(cn)}</b>${xs.map(a=>`<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>`; }).join('')}</div>`; }
 const clNum=v=>{ const n=parseInt(String(v??'').replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; };
-// v10.61：閉店作業④ 係・同伴・反応◎の登録に間違いがないかを伝票一覧で確認し、確認した人を記録する（操作ログに残る。誰が確認したかで責任の所在が分かる）
+// v10.61：閉店作業④ 係・同伴・反応◎の登録に間違いがないかを伝票一覧で確認し、確認者を記録する（操作ログに残る。誰が確認したかで責任の所在が分かる）
 const CL_CHK='伝票の確認（係・同伴・反応◎）';
 async function clChkRender(d){ const el=$('clChk'); if(!el) return; if(!staffAll.length) await loadStaffAll();
   const r=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',store.id).eq('action',CL_CHK).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clChk')||clDate!==d) return;
@@ -1301,7 +1301,7 @@ async function clChkRender(d){ const el=$('clChk'); if(!el) return; if(!staffAll
   el.innerHTML=`<div style="margin-bottom:8px">${KL}・同伴・反応◎の登録に間違いがないか、伝票一覧で確認してください。</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="ghost sm" id="clChkOpen">伝票一覧を開く</button>
     <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:16px;color:var(--ink)"><input type="checkbox" id="clChkBox" style="width:auto;margin:0">伝票一覧で確認した</label>
-    <select id="clChkWho" style="width:auto;min-width:0"><option value="">確認した人</option>${who.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('')}</select>
+    <select id="clChkWho" style="width:auto;min-width:0"><option value="">確認者</option>${who.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('')}</select>
     <button class="primary sm" id="clChkSave" disabled>記録</button></div>`;
   const upd=()=>{ $('clChkSave').disabled=!($('clChkBox').checked&&$('clChkWho').value); }; $('clChkBox').onchange=upd; $('clChkWho').onchange=upd;
   $('clChkOpen').onclick=()=>{ setCur='bills'; renderSettings('bills'); };
@@ -1370,7 +1370,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   box.querySelectorAll('[data-den]').forEach(i=>i.oninput=()=>{ clCounts[i.dataset.den]=clNum(i.value); clRecalc(); });
   if($('clDepIn')) $('clDepIn').oninput=e=>{ clDeposit=clNum(e.target.value); clRecalc(); };
   if($('clOpenIn')) $('clOpenIn').oninput=e=>{ clOpening=clNum(e.target.value); clRecalc(); };
-  $('clMail').onclick=async()=>{ const hs=staff.filter(x=>x.kind==='hall'); const list=(hs.length?hs:staff).map(x=>({label:x.display_name,value:x.display_name})); const who=await uiPick('閉店作業をした人を選んでください',list); if(!who) return; location.href=clMailUrl(who); };
+  $('clMail').onclick=async()=>{ const hs=staff.filter(x=>x.kind==='hall'); const list=(hs.length?hs:staff).map(x=>({label:x.display_name,value:x.display_name})); const who=await uiPick('閉店作業の担当者を選んでください',list); if(!who) return; location.href=clMailUrl(who); };
   // v11.24・SQL 077：入金・出金の項目は管理サイトの POS設定 で決める（「その他」は自由に書ける）
   if($('clKind')){ const items=k=>{ const v=settings?.['cash_'+k+'_items']; return Array.isArray(v)?v:(k==='out'?['領収書精算','支払い']:[]); };
     const fill=()=>{ const k=$('clKind').value; $('clMemoSel').innerHTML=items(k).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__other">その他</option>'; };
@@ -1466,7 +1466,7 @@ async function renderSettings(key, keepSel){ if(key!==setCur){ setSel=null; setE
     const { data, error } = await sbAll(()=>sb.from('pos_audit_log').select('*').eq('store_id',store.id).gte('created_at',ad+'T08:00:00+09:00').lt('created_at',ad2+'T08:00:00+09:00').order('created_at',{ascending:false}).order('id'));
     if(error){ $('setList').innerHTML=`<div class="muted">操作ログを読めません（SQL 010 が未適用の可能性）：${esc(error.message)}</div>`; return; }
     const f=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; };
-    const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作した人',date:'営業日',memo:'摘要'}; // v11.08：管理サイトの現金管理から入れた操作は「操作した人：管理サイト：名前」
+    const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作者',date:'営業日',memo:'摘要'}; // v11.08：管理サイトの現金管理から入れた操作は「操作者：管理サイト：名前」
     const vj=v=>v===true?'はい':v===false?'いいえ':Array.isArray(v)?v.join('、'):(typeof v==='number'?v.toLocaleString():v);
     const dt=o=>logShort(o,KJ,vj);
     $('setList').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="auD" value="${ad}" style="width:auto"><small class="muted">${(data||[]).length}件</small></div>`+((data||[]).map(l=>`<div class="item" style="display:block"><b>${esc(actL(l.action))}</b> <small>${f(l.created_at)}　${esc(l.detail?.table||'')}</small><br><small>${esc(dt(l.detail))}</small>${l.reason?`<br><small>理由：${esc(l.reason)}</small>`:''}</div>`).join('')||'<div class="muted">この日の記録はありません</div>');
