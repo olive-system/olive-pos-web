@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.41 -->
+<title>OLIVE 顧客</title><!-- customer v1.42 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -225,7 +225,8 @@ async function needEdit(){ if(editing()) return true;
     editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); paintEdit(); toast('編集モードにしました（30分）'); return true; }
   catch(e){ await fail(e); return false; } }
 
-$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':editing()?'<button class="ghost" data-a="end">編集モードを終了</button>':'<button class="edit" data-a="edit">編集パスワードを入力</button>'}<button class="ghost" data-a="reload">最新に更新</button>${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
+if(EMB) $('menuBtn').style.display='none'; /* v1.42：管理サイトの中ではメニューを出さない（中身が無いため。オーナー 2026-10-14） */
+$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':editing()?'<button class="ghost" data-a="end">編集モードを終了</button>':'<button class="edit" data-a="edit">編集パスワードを入力</button>'}${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
   s.querySelector('[data-x]').onclick=()=>done(); s.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; done();
     if(a==='edit') await needEdit(); else if(a==='end'){ endEdit(); toast('編集モードを終了しました'); } else if(a==='reload') await loadList();
     else if(a==='out'){ if(!await uiConfirm('ログアウトしますか？\n次に開く時はパスワードが必要です。','ログアウト','danger')) return; try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(); } }); });
