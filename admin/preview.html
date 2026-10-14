@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.75 -->
+<title>OLIVE 管理</title><!-- admin v0.76 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1367,7 +1367,7 @@ const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>
     if(k==='kind'&&(v==='in'||v==='out')) return v==='in'?'入金':'出金';
     if(k==='is_auto') return v?'自動延長':'手動延長';
     if(['amount','minutes','guest_count'].includes(k)&&n!=null) return n;
-    if(k==='method'||k==='name') return val(v);
+    if(k==='method'||k==='name'||k==='email') return val(v);
     return `${KJ[k]||k}：${n!=null?n:val(v)}`; }).join(' ／ '); }; /* 2026-10-14：内容は短く（オーナー「長い」）。金額・分・人数・日付・入金／出金は値だけ */
 const hiDetail=o=>logShort(o,HI_KJ,hiVal);
 const HI_DEL=/削除|取消|取り消し|外す/;
