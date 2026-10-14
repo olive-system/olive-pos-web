@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.84 -->
+<title>OLIVE 管理</title><!-- admin v0.85 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -409,7 +409,7 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
   const list=(k,l)=>{ const rows=mv.filter(x=>x.kind===k); return `<div class="card"><h2>${l} - ${jd(d)}</h2><table class="t pl"><tr><th>摘要</th><th class="r">金額</th></tr>${rows.map(x=>`<tr><td>${esc(x.memo||'')}</td><td class="r">${plYen(x.amount)}</td></tr>`).join('')}<tr class="kst"><td>合計</td><td class="r">${plYen(rows.reduce((a,x)=>a+Number(x.amount||0),0))}</td></tr></table></div>`; };
   const hm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):''; // 時刻は日本時間で出す（直す時も日本時間で送る）
   const own=!!me?.is_owner, bills=X.bills||[], bt=k=>bills.reduce((a,b)=>a+Number(b[k]||0),0);
-  const billRows=bills.map((b,i)=>`<tr><td><a data-bvw="${b.id}" style="color:var(--blue);cursor:pointer;text-decoration:underline">${i+1}</a></td><td>${hm(b.opened_at)}</td><td>${b.closed_at?hm(b.closed_at):'<span class="badge">来店中</span>'}</td><td>${esc(b.table||'')}</td><td class="r">${b.guests}</td><td>${esc(b.customers||'')}</td><td>${esc(b.kakari||'')}</td><td>${esc(b.douhan||'')}</td><td class="r">${plYen(b.sub)}</td><td class="r"><b>${plYen(b.due)}</b></td><td class="r">${plYen(b.cash)}</td><td class="r">${plYen(b.card)}</td><td class="r">${plYen(b.invoice)}</td><td class="r">${b.oki?plYen(b.oki):'—'}</td>${own?`<td>${b.closed_at&&b.status==='closed'?`<button class="ghost sm" data-bed="${b.id}">修正</button>`:''}</td>`:''}</tr>`).join('');
+  const billRows=bills.map((b,i)=>`<tr><td><a data-bvw="${b.id}" style="color:var(--blue);cursor:pointer;text-decoration:underline">${i+1}</a></td><td>${b.status==='void'?'削除':b.closed_at?'会計済':'<span class="badge">来店中</span>'}</td><td>${esc(b.customers||'')}</td><td>${esc(b.kakari||'')}</td><td class="r"><b>${plYen(b.due)}</b></td><td class="r">${plYen(b.cash)}</td><td class="r">${plYen(b.card)}</td><td class="r">${plYen(b.invoice)}</td><td class="r">${b.oki?plYen(b.oki):'—'}</td><td class="r">${b.guests}</td><td>${esc(b.table||'')}</td><td>${esc(b.douhan||'')}</td><td class="r">${plYen(b.sub)}</td><td>${hm(b.opened_at)}</td><td>${b.closed_at?hm(b.closed_at):''}</td>${own?`<td>${b.closed_at&&b.status==='closed'?`<button class="ghost sm" data-bed="${b.id}">修正</button>`:''}</td>`:''}</tr>`).join('');
   // 勤怠：一人1行（同伴・出勤・退勤またはアフター）。時刻は打刻した時刻、小さく丸めた時刻（計算に使う時刻）
   const EV={douhan:'同伴',clock_in:'出勤',clock_out:'退勤',after:'アフター'}, ppl=[]; (X.events||[]).forEach(e=>{ let p=ppl.find(z=>z.id===e.staff_id); if(!p){ p={id:e.staff_id,name:e.name,kind:e.kind,ev:{}}; ppl.push(p); } p.ev[e.type]=e; });
   const tcell=e=>e?`<span${e.corrected?' style="color:var(--warn)"':''}>${hm(e.at)}</span>${e.rounded_at&&hm(e.rounded_at)!==hm(e.at)?` <small class="muted">→${hm(e.rounded_at)}</small>`:''}${ed?` <button class="ghost sm" data-pfx="${e.id}">修正</button>`:''}`:'—';
@@ -419,8 +419,8 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
     <div class="card"><h2>現金管理 - ${jd(d)}</h2><table class="t pl"><tr><th>摘要</th><th class="r">収入金額</th><th class="r">支払金額</th><th class="r">差引残高</th></tr>${cashRows.map(r=>`<tr><td>${r[0]}</td><td class="r">${r[1]}</td><td class="r">${r[2]}</td><td class="r">${r[3]}</td></tr>`).join('')}</table>
       <div class="row" style="margin-top:8px"><button class="ghost sm" id="plReg">この日の現金管理を開く</button></div></div>
     ${list('out','出金')}${list('in','入金')}</div>
-    <div class="card"><h2>伝票一覧 - ${jd(d)}</h2><div class="cs-w" style="border:none"><table class="t pl"><tr><th>No</th><th>入店</th><th>退店</th><th>卓</th><th class="r">客数</th><th>お客様</th><th>${KL}</th><th>同伴</th><th class="r">${KL}小計</th><th class="r">合計</th><th class="r">現金</th><th class="r">カード</th><th class="r">請求</th><th class="r">置き</th>${own?'<th></th>':''}</tr>
-      ${billRows||`<tr><td colspan="${own?15:14}" class="muted">伝票はありません</td></tr>`}${bills.length?`<tr class="kst"><td colspan="4">合計</td><td class="r">${bt('guests')}</td><td colspan="3"></td><td class="r">${plYen(bt('sub'))}</td><td class="r">${plYen(bt('due'))}</td><td class="r">${plYen(bt('cash'))}</td><td class="r">${plYen(bt('card'))}</td><td class="r">${plYen(bt('invoice'))}</td><td class="r">${plYen(bt('oki'))}</td>${own?'<td></td>':''}</tr>`:''}</table></div></div>
+    <div class="card"><h2>伝票一覧 - ${jd(d)}</h2><div class="cs-w" style="border:none"><table class="t pl"><tr><th>No</th><th>状態</th><th>お客様</th><th>${KL}</th><th class="r">合計</th><th class="r">現金</th><th class="r">カード</th><th class="r">請求</th><th class="r">置き</th><th class="r">客数</th><th>卓</th><th>同伴</th><th class="r">${KL}小計</th><th>入店</th><th>退店</th>${own?'<th></th>':''}</tr>
+      ${billRows||`<tr><td colspan="${own?15:14}" class="muted">伝票はありません</td></tr>`}${bills.length?`<tr class="kst"><td colspan="4">合計</td><td class="r">${plYen(bt('due'))}</td><td class="r">${plYen(bt('cash'))}</td><td class="r">${plYen(bt('card'))}</td><td class="r">${plYen(bt('invoice'))}</td><td class="r">${plYen(bt('oki'))}</td><td class="r">${bt('guests')}</td><td colspan="2"></td><td class="r">${plYen(bt('sub'))}</td><td colspan="2"></td>${own?'<td></td>':''}</tr>`:''}</table></div></div>
     <div class="card"><h2>勤怠 - ${jd(d)}</h2><table class="t pl"><tr><th>名前</th><th>同伴</th><th>出勤</th><th>退勤</th></tr>${attRows||'<tr><td colspan="4" class="muted">打刻はありません</td></tr>'}</table>
       <div class="muted" style="font-size:13px;margin-top:6px">→の後は計算に使う時刻（丸めた時刻）。赤は修正済の時刻</div></div>`;
   wire(); $('plReg').onclick=()=>{ regDate=d; regTab='day'; go('register'); };
@@ -1255,10 +1255,10 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
 // ---------- 伝票一覧 v0.49・SQL 078：期間（31日まで）の伝票。No で中身、オーナーは直す・まとめて削除。Excel ----------
 let blFrom=null, blTo=null, blFilt='all', blQ='';
 const BL_F=[['all','全部'],['discount','値引あり'],['invoice','請求あり'],['oki','置きあり'],['open','来店中'],['void','削除']];
-/* v0.84：重要な順（だれが・どの係で・いくら）。注文は最後（オーナー 2026-10-14） */
-const BL_COLS=[['date','営業日'],['customers','お客様'],['kakari',''+KL+''],['due','合計'],['cash','現金'],['card','カード'],['invoice','請求'],['oki','置き'],
+/* v0.84：重要な順（だれが・どの係で・いくら）。注文は最後。v0.85：状態は前（オーナー 2026-10-14）。収支の日次の伝票一覧も同じ並び */
+const BL_COLS=[['status','状態'],['date','営業日'],['customers','お客様'],['kakari',''+KL+''],['due','合計'],['cash','現金'],['card','カード'],['invoice','請求'],['oki','置き'],
   ['guests','客数'],['table','卓'],['douhan','同伴'],['sub',''+KL+'小計'],['service','サービス料'],['discount','値引'],['surcharge','値増'],['ext','延長'],
-  ['in','入店'],['out','退店'],['dur','時間'],['status','状態'],['receipt','領収書'],['items','注文']];
+  ['receipt','領収書'],['in','入店'],['out','退店'],['dur','時間'],['items','注文']]; /* 入店・退店は注文の前（オーナー） */
 const BL_TXT=['customers','kakari','douhan'];
 // v0.51：延長の列は回数。見出しに POS設定の延長単位を出す（例：30分延長（回））。POS設定を読めない時は「延長（回）」
 let blExtL='延長（回）'; const blLab=(k,l)=>k==='ext'?blExtL:l;
