@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.42 -->
+<title>OLIVE 会計</title><!-- v11.43 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -543,6 +543,8 @@ const FOREVER='9999-12-31'; // v10.46：保証時給の期限「永久」
 function gDefault(){ const [y,m]=businessDate().split('-').map(Number); const d=new Date(y,m-1+4,0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // v10.46：今月（会計済）の係小計を人ごとに集計（係が複数なら等分）。only＝この人たちが係の伝票だけ計算する
 // v10.68：今月のポイント（会計済）。セット・延長のポイントは 人数×設定値 を係で均等に分け、商品のポイントは振り分けた人に付く（SQL 042）
+/* v11.43・SQL 090：決定時給は、管理サイトの給料の計算と同じ値を出す（折半・時給加算・ポイントも同じになる）。関数が無い時は画面の計算のまま */
+function posWage(s){ sb.rpc('pos_cast_wage',{p_staff:s.id}).then(r=>{ if(cSel!==s||r.error||!r.data||r.data.wage==null) return; txt('cWage',yen(r.data.wage)); }); }
 async function monthPoints(only){ const bd=businessDate(), m1=bd.slice(0,7)+'-01'; const sp=Number(settings.set_point||0), ep=Number(settings.ext_point||0); const r=await sb.from('bills').select('id,guest_count,set_guest_count,bill_casts(staff_id,is_kakari),bill_extensions(qty),bill_items(is_void,bill_item_splits(staff_id,back_points))').eq('store_id',store.id).eq('status','closed').gte('business_date',m1).lte('business_date',bd); if(r.error) return null; const m={}; const add=(id,v)=>{ if(only&&!only.has(id)) return; m[id]=Math.round(((m[id]||0)+v)*10)/10; };
   (r.data||[]).forEach(b=>{ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id); const base=sp*(b.set_guest_count??b.guest_count??0)+ep*(b.bill_extensions||[]).reduce((a,e)=>a+Number(e.qty||0),0); if(ks.length&&base) ks.forEach(id=>add(id,base/ks.length)); (b.bill_items||[]).filter(x=>!x.is_void).forEach(x=>(x.bill_item_splits||[]).forEach(z=>{ const v=Number(z.back_points||0); if(v) add(z.staff_id,v); })); });
   return m; }
@@ -585,15 +587,15 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; if(!s){ f.innerHTML
     const gw=ctm?ctm.guaranteed_wage:s.guaranteed_wage, gUntil=ctm?ctm.guarantee_until:s.guarantee_until, dq=ctm?ctm.douhan_quota:s.douhan_quota;
     txt('cQuota',dq==null||dq===''?'未設定':dq+'回'); txt('cDhCnt',dh==null?'—':dh+'回');
     const row=(k,label,sub,val)=>`<div data-w="${k}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 8px;padding:5px 6px;border-radius:6px"><div style="min-width:0">${label}${sub?`<br><small>${sub}</small>`:''}</div><div style="text-align:right;white-space:nowrap"><small class="wtag" style="display:none;color:var(--acc);font-weight:700;margin-right:4px">適用</small><b style="color:var(--ink);font-size:15px">${val}</b></div></div>`;
-    if(s.is_seppan||s.is_trial){ box.innerHTML=`<div style="padding:5px 6px">${s.is_seppan?'折半':'体験'}のためスライドはありません</div>`; txt('cWage','—'); return; }
+    if(s.is_trial){ box.innerHTML=`<div style="padding:5px 6px">体験のためスライドはありません</div>`; txt('cWage','—'); return; }
     const mine=(stb||[]).filter(t=>t.unit===unit&&(ctm?.slide_ids||[]).includes(t.id));
     const need=new Set(mine.map(t=>t.basis)), sid=new Set([s.id]);
-    const kb=(need.has('groups')||need.has('guests'))&&!s._new?sb.from('bills').select('guest_count,bill_casts!inner(staff_id,is_kakari)').eq('store_id',store.id).eq('status','closed').gte('business_date',m1).lte('business_date',bd).eq('bill_casts.staff_id',s.id).eq('bill_casts.is_kakari',true).then(r=>r.error?null:(r.data||[])):Promise.resolve(null);
+    const kb=(need.has('groups')||need.has('guests'))&&!s._new?sb.from('bills').select('guest_count,set_guest_count,bill_casts!inner(staff_id,is_kakari)').eq('store_id',store.id).eq('status','closed').gte('business_date',m1).lte('business_date',bd).eq('bill_casts.staff_id',s.id).eq('bill_casts.is_kakari',true).then(r=>r.error?null:(r.data||[])):Promise.resolve(null);
     const [ks,pt,dy,rc,kbl]=await Promise.all([ need.has('sales')&&!s._new?monthKakari(sid).then(m=>m?(m[s.id]||0):null):null, need.has('points')&&!s._new?monthPoints(sid).then(m=>m?(m[s.id]||0):null):null,
       need.has('days')&&!s._new?sb.from('attendance_events').select('business_date').eq('staff_id',s.id).gte('business_date',m1).lte('business_date',bd).in('event_type',['clock_in','douhan']).then(r=>r.error?null:new Set((r.data||[]).map(x=>x.business_date)).size):null,
       need.has('reactions')&&!s._new?sb.from('good_reactions').select('bills!inner(business_date,status)').eq('staff_id',s.id).eq('store_id',store.id).gte('bills.business_date',m1).lte('bills.business_date',bd).then(r=>r.error?null:(r.data||[]).filter(x=>x.bills&&x.bills.status==='closed').length):null, kb ]);
     if(cSel!==s) return;
-    const met={sales:[ks,v=>yen(v),''+KL+'小計'],points:[pt,v=>Number(v).toLocaleString('ja-JP')+'pt','ポイント'],douhan:[dh,v=>v+'回','同伴数'],days:[dy,v=>v+'日','稼働日数'],reactions:[rc,v=>v+'回','反応数'],groups:[kbl&&kbl.length,v=>v+'組','組数'],guests:[kbl&&kbl.reduce((a,b)=>a+Number(b.guest_count||0),0),v=>v+'名','人数']};
+    const met={sales:[ks,v=>yen(v),''+KL+'小計'],points:[pt,v=>Number(v).toLocaleString('ja-JP')+'pt','ポイント'],douhan:[dh,v=>v+'回','同伴数'],days:[dy,v=>v+'日','稼働日数'],reactions:[rc,v=>v+'回','反応数'],groups:[kbl&&kbl.length,v=>v+'組','組数'],guests:[kbl&&kbl.reduce((a,b)=>a+Number(b.set_guest_count??b.guest_count??0),0),v=>v+'名','人数']};
     const cand=[]; let html='';
     for(const t of mine){ const [v,f,l]=met[t.basis]||[null,String,t.basis]; const rs=(srw||[]).filter(r=>r.table_id===t.id); const hit=v==null?null:rs.filter(r=>Number(r.threshold)<=v).sort((a,b)=>b.threshold-a.threshold)[0];
       const k='t'+t.id; if(hit) cand.push([k,hit.amount]); html+=row(k,esc(t.name),`${l} ${v==null?'—':f(v)}`,hit?yen(hit.amount):rs.length?'該当なし':'未設定'); }
@@ -602,8 +604,8 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; if(!s){ f.innerHTML
     else { const g=num(gw), gu=gUntil||(g!=null?gDefault():null), gExp=gu&&gu!==FOREVER&&gu<bd; if(g!=null&&!gExp) cand.push(['g',g]); html+=row('g','保証時給','',g==null?'未設定':yen(g)+(gExp?'（期限切れ）':'')); }
     box.innerHTML=html;
     const mx=cand.length?Math.max(...cand.map(x=>x[1])):null; const win=cand.find(x=>x[1]===mx);
-    txt('cWage',mx==null?'未設定':yen(mx));
-    box.querySelectorAll('[data-w]').forEach(e=>{ const on=!!win&&e.dataset.w===win[0]; e.style.background=on?'rgba(63,157,90,.12)':''; const tg=e.querySelector('.wtag'); if(tg) tg.style.display=on?'':'none'; });
+    txt('cWage',mx==null?'未設定':yen(mx)); posWage(s);
+    box.querySelectorAll('[data-w]').forEach(e=>{ const on=!!win&&e.dataset.w===win[0]; e.style.background=on?'var(--soft)':''; const tg=e.querySelector('.wtag'); if(tg) tg.style.display=on?'':'none'; });
   })();
   // v10.53：反応◎の回数（今月・累計）
   if(s._new){ const a=$('cGoodA'), m=$('cGoodM'); if(a) a.textContent='0回'; if(m) m.textContent='0回'; } else if(s.kind!=='hall'){ const m1=businessDate().slice(0,7)+'-01'; sbAll(()=>sb.from('good_reactions').select('id,bills!inner(business_date,opened_at,table_id,guest_count,status,bill_customers(customer_id))').eq('staff_id',s.id).order('id')).then(r=>{ if(cSel!==s) return; const a=$('cGoodA'), m=$('cGoodM'); if(r.error){ if(a) a.textContent='—'; if(m) m.textContent='—'; return; } const d=(r.data||[]).filter(x=>x.bills&&x.bills.status!=='void').sort((x,y)=>(y.bills.business_date+y.bills.opened_at).localeCompare(x.bills.business_date+x.bills.opened_at)); const dm=d.filter(x=>x.bills.business_date>=m1); if(a) a.textContent=d.length+'回'; if(m) m.textContent=dm.length+'回'; const mb=$('cGoodMb'), ab=$('cGoodAb'); if(mb) mb.onclick=()=>goodList(`${s.display_name}　反応◎（今月 ${dm.length}回）`,dm); if(ab) ab.onclick=()=>goodList(`${s.display_name}　反応◎（累計 ${d.length}回）`,d); }); }
@@ -792,7 +794,7 @@ function renderBill(){ const b=cur, t=tables.find(x=>x.id===b.table_id);
     const p0=products.find(p=>p.id===it.product_id); const zero=Number(p0?p0.cast_subtotal_price:it.cast_subtotal_price)===0; // 小計価格が0円の商品（h.c・b.c・立替金など）は、金額を変更しても係小計には入れない
     await sb.from('bill_items').update({unit_price:np,cast_subtotal_price:zero?0:np}).eq('id',it.id);
     openBill(b.id); });
-  $('bOrders').querySelectorAll('[data-del]').forEach(x=>x.onclick=async()=>{ const it=items.find(i=>i.id===x.dataset.del); await logOp('注文削除',{item:it?.name,qty:it?.qty,amount:it?it.unit_price*it.qty:null}); await sb.from('bill_items').update({is_void:true}).eq('id',x.dataset.del); openBill(b.id); });
+  $('bOrders').querySelectorAll('[data-del]').forEach(x=>x.onclick=async()=>{ const it=items.find(i=>i.id===x.dataset.del); const r=await sb.from('bill_items').update({is_void:true}).eq('id',x.dataset.del); if(r.error){ toast('削除できません：'+r.error.message); return; } await logOp('注文削除',{item:it?.name,qty:it?.qty,amount:it?it.unit_price*it.qty:null}); await openBill(b.id); if((cur?.totals?.unpaid??0)<0) await uiAlert(`入金が請求額より ${yen(-cur.totals.unpaid)} 多くなりました。会計の画面で入金を取り消してください`); }); /* v11.43：削除を確かめてから記録（前は失敗しても記録が残った） */
   $('bOrders').querySelectorAll('[data-split]').forEach(x=>x.onclick=()=>openSplit(items.find(i=>i.id===x.dataset.split)));
   const T=b.totals;
   $('bTotals').innerHTML=`<span>小計</span><span class="right">${yen(T.subtotal)}</span><span>サービス料${T.service_rate!=null?' '+T.service_rate+'%':''}</span><span class="right">${yen(T.service)}</span><span>消費税</span><span class="right">${yen(T.tax)}</span><span>合計</span><span class="right">${yen(T.total_rounded)}</span>${T.adjustment?`<span>値引/値増</span><span class="right">${yen(T.adjustment)}</span>`:''}<span class="big">請求額</span><span class="big right">${yen(T.amount_due)}</span>${kakariRows(b,T)}`;
@@ -1030,14 +1032,15 @@ function renderCart(){ $('oCart').innerHTML=oCart.map((l,i)=>`<div class="oline 
   $('oCart').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ oCart[b.dataset.p].qty++; renderCart(); });
   $('oCart').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.m); oCart[i].qty--; if(oCart[i].qty<=0){ oCart.splice(i,1); oSel=Math.min(oSel,oCart.length-1); renderOrderCasts(); } renderCart(); }); }
 function buildSplits(itemId, line){ const q=line.qty, back=line.p.back_amount*q, pts=Number(line.p.back_points)*q, n=line.casts.length; // 売上は常に係。ここはバックとポイントだけ
-  return line.casts.map(id=>({bill_item_id:itemId,staff_id:id,sales_amount:0,back_amount:Math.floor(back/n),back_points:Math.floor(pts/n*10)/10})); }
+  return line.casts.map((id,i)=>({bill_item_id:itemId,staff_id:id,sales_amount:0,back_amount:Math.floor(back/n)+(i===0?back-Math.floor(back/n)*n:0),back_points:Math.floor(pts/n*10)/10})); } /* v11.43：端数は最初の人に（前は消えていた） */
 $('oConfirm').onclick=async()=>{ if(!oCart.length){ toast('メニューを選んでください'); return; }
   // キープ可の商品：伝票のお客様にボトルを自動登録する。お客様が未登録なら注文を入れない／複数なら誰のボトルか選ぶ
   const keepFor=new Map(); const keepLines=oCart.filter(l=>l.p.is_keepable); if(keepLines.length){ const bcs=[...new Set((cur.bill_customers||[]).map(x=>x.customer_id))]; if(!bcs.length){ await uiConfirm('先にお客様名を登録してください'); return; }
     for(const l of keepLines){ if(bcs.length===1){ keepFor.set(l,bcs[0]); continue; } const pick=await uiPick(`${l.p.name} はどなたのボトルですか？`, bcs.map(id=>({label:(customers.find(c=>c.id===id)?.name||'（不明）')+' 様',value:id}))); if(!pick) return; keepFor.set(l,pick); } }
   $('oConfirm').disabled=true;
-  try{ for(const l of oCart){ const p=l.p; const { data:item, error } = await sb.from('bill_items').insert({bill_id:cur.id,product_id:p.id,name:p.name,category_id:p.category_id,qty:l.qty,unit_price:p.price,cast_subtotal_price:p.cast_subtotal_price,back_amount:p.back_amount,back_points:p.back_points,is_service_target:p.is_service_target}).select().single();
-      if(error){ toast(error.message); return; } const sp=buildSplits(item.id,l); if(sp.length){ const r=await sb.from('bill_item_splits').insert(sp); if(r.error){ toast(r.error.message); return; } }
+  const done=new Set(), stop=async m=>{ toast(m); oCart=oCart.filter(x=>!done.has(x)); await openBill(cur.id); renderOrder(); }; /* v11.43：途中で失敗したら、入った行はカートから外す（押し直しても二重にならない） */
+  try{ for(const l of oCart){ const p=l.p; const { data:item, error } = await sb.from('bill_items').insert({bill_id:cur.id,product_id:p.id,name:p.name,category_id:p.category_id,qty:l.qty,unit_price:p.price,cast_subtotal_price:p.cast_subtotal_price,back_amount:p.back_amount,back_points:p.back_points,is_service_target:p.is_service_target,is_keep:!!p.is_keepable}).select().single();
+      if(error){ await stop(error.message); return; } done.add(l); const sp=buildSplits(item.id,l); if(sp.length){ const r=await sb.from('bill_item_splits').insert(sp); if(r.error){ await stop(r.error.message); return; } }
       if(keepFor.has(l)){ const cid=keepFor.get(l); const cu=customers.find(c=>c.id===cid); const kk=(cur.bill_casts||[]).find(c=>c.is_kakari)?.staff_id||cu?.kakari_staff_id||null; for(let k=0;k<l.qty;k++){ const rb=await sb.from('customer_bottles').insert({store_id:store.id,customer_id:cid,product_id:p.id,name:p.name,remaining:10,kakari_staff_id:kk,keep_name:cu?.name||null}); if(rb.error){ toast('ボトル登録エラー：'+rb.error.message); break; } } await logOp('ボトル登録（注文から自動）',{customer:cu?.name||null,bottle:p.name,qty:l.qty}); } }
     const n=oCart.reduce((a,l)=>a+l.qty,0); oCart=[]; oSel=-1; await openBill(cur.id); renderOrder(); show('v-order'); toast(`${n}点を注文しました`); }
   finally{ $('oConfirm').disabled=false; } };
