@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.40 -->
+<title>OLIVE 顧客</title><!-- customer v1.41 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -308,7 +308,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
     try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:'remaining',p_value:v}); b.remaining=Number(v); toast(`${b.name} を 残り ${v}/10 にしました`); }catch(e){ x.value=String(b.remaining); await fail(e); } finally{ x.disabled=false; } });
   D.querySelectorAll('[data-fin]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.fin); if(!await uiConfirm(`${b.name} を飲み切りにしますか？`,'飲み切り')) return; await bottleAct(b,'finish','飲み切りにしました'); });
   D.querySelectorAll('[data-exp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.exp); if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`,'期限切れ','danger')) return; await bottleAct(b,'expire','期限切れにしました'); });
-  D.querySelectorAll('[data-mv]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.mv); if(!await uiConfirm(`${b.name}（${b.remaining??0}/10）をボトル移動にしますか？\n移動した日と残量が記録されます。`,'ボトル移動')) return; await bottleAct(b,'move','ボトル移動にしました'); });
+  D.querySelectorAll('[data-mv]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.mv); if(!await uiConfirm(`${b.name}（${b.remaining??0}/10）をボトル移動にしますか？\n移動日と残量が記録されます。`,'ボトル移動')) return; await bottleAct(b,'move','ボトル移動にしました'); });
   D.querySelectorAll('[data-unexp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.unexp); if(!await uiConfirm(`${b.name} の${b.moved?'ボトル移動':'期限切れ'}を取り消して、キープ中に戻しますか？`,'戻す')) return; if(!await needEdit()) return; await bottleAct(b,'unexpire','キープ中に戻しました',null,true); });
   /* v1.10：キープ名は常に表示。書き換えて枠を離れたら、編集パスワードを確認してから保存（POS と同じ形） */
   D.querySelectorAll('[data-kn]').forEach(x=>x.onchange=async()=>{ const b=bts.find(z=>z.id===x.dataset.kn); const v=x.value.trim(); const before=b.keep_name||c.name; if((v||c.name)===before){ x.value=before; return; } if(!await needEdit()){ x.value=before; return; } await bottleAct(b,'keep_name','キープ名を保存しました',v,true); });
