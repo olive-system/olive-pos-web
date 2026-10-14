@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.70 -->
+<title>OLIVE 管理</title><!-- admin v0.71 -->
 <style>
   :root{--bg:#f6f5f2;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--acc:#3f9d5a;--warn:#d9534f;--gold:#e0a32a;--blue:#3b82f6;--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -101,10 +101,11 @@
   table.ks td,table.ks th{text-align:right;white-space:nowrap}table.ks th.nm,table.ks td.nm{text-align:left}table.ks th.ksg{text-align:center;color:var(--ink);font-weight:700;border-left:1px solid var(--line)}table.ks tr.kst td{border-top:2px solid var(--line);font-weight:700}
   .plg{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;align-items:start}.plg .card{margin:0}table.pl td.r,table.pl th.r{text-align:right}table.pl tr.sep td{padding:2px;border-bottom:2px solid var(--line)}table.pl tr.kst td{font-weight:700;border-top:2px solid var(--line)}table.pl td,table.pl th{white-space:nowrap}
   /* v0.50：まとめ */
-  .smg{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:14px;align-items:start}
+  .smg{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px;align-items:start}
   .smb{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}.smb h2{margin:0;padding:10px 14px;font-size:16px;font-weight:600}.smb h2 small{font-weight:400}
   .smb .big{text-align:right;font-size:24px;padding:10px 14px}.smb table{width:100%;border-collapse:collapse}.smb td{padding:8px 12px;border-top:1px solid var(--line);font-size:14px}
   .smb td:first-child{background:#f4f3f0;font-weight:600;width:45%;white-space:nowrap}.smb td:last-child{text-align:right}
+  .smb tr.sum td{font-weight:700;font-size:16px;border-top:2px solid var(--line)}.smb tr.sub td:first-child{padding-left:26px;font-weight:400}
 </style>
 </head>
 <body>
@@ -291,7 +292,7 @@ const PAGES={};
 // 見られる画面が1つもない時
 PAGES.none=()=>{ $('main').innerHTML=`<div class="card muted">見られる画面がありません。オーナーに「表示設定」で選んでもらってください</div>`; };
 
-// ---------- まとめ v0.50：d-system の「まとめ」と同じ形（月間と今日の 店舗状況・売上・経費・入金、売上推移のグラフ）。数字は収支と同じ（admin_pl_month） ----------
+// ---------- まとめ v0.50：月間と本日（v0.71 から箱は2つだけ）、売上推移のグラフ。数字は収支と同じ（admin_pl_month） ----------
 // 経費＝人件費（女子＝女子給与＋日払い、男子＝黒服の給与。日ごとは男子日払い）＋諸経費（出金）。粗利＝売上＋入金−人件費−諸経費
 let smMonth=null, smChart=null;
 PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMonth=now; const m=smMonth, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
@@ -302,21 +303,22 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
   // v0.59：ユニーク数＝その期間に来店した、登録のあるお客様の人数（同じお客様は何回来ても1人。会計済みの伝票）。読めない時は「—」
   const uniq=(async()=>{ try{ const all=[]; for(let i=0;i<20;i++){ const q=await sb.from('bills').select('business_date,bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').range(i*1000,i*1000+999); if(q.error) return null; all.push(...(q.data||[])); if((q.data||[]).length<1000) break; }
       const cnt=f=>new Set(all.filter(f).flatMap(b=>(b.bill_customers||[]).map(c=>c.customer_id)).filter(Boolean)).size; return {month:cnt(()=>true),day:d=>cnt(b=>b.business_date===d)}; }catch(e){ return null; } })();
-  const r=await sb.rpc('admin_pl_month',{p_store:st,p_month:m}); const U=await uniq; if(page!=='summary'||storeId!==st||smMonth!==m) return;
+  const okiP=sb.rpc('admin_oki_month',{p_store:st,p_month:m}); const r=await sb.rpc('admin_pl_month',{p_store:st,p_month:m}); const U=await uniq; const okR=await okiP, OK=okR.error?null:(okR.data||{}); if(page!=='summary'||storeId!==st||smMonth!==m) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; wire(); return; }
   const d=r.data, D=d.days||[], T=plTotals(d), N=v=>Number(v||0), per=(a,b)=>N(b)?yen(Math.round(N(a)/N(b))):yen(0);
   const hallM=Math.max(N(T.hall_pay),N(T.hall_adv)), castD=x=>N(x.cast_pay)+N(x.cast_adv);
-  const box=(ttl,bg,fg,big,rows)=>`<div class="smb"><h2 style="background:${bg};color:${fg}">${ttl}</h2>${big==null?'':`<div class="big">${yen(big)}</div>`}<table>${rows.map(([l,v])=>`<tr><td>${l}</td><td>${v}</td></tr>`).join('')}</table></div>`;
-  const set=(x,sfx,fPay,mPay,uq,sfx0=sfx)=>`<div class="smg">
-    ${box('店舗状況'+sfx0,'#2f6fb5','#fff',null,[['来店人数',N(x.guests)+'人'],['来店組数',N(x.groups)+'組'],['ユニーク数',uq==null?'—':uq+'人'],['客単価',per(x.sales,x.guests)],['組単価',per(x.sales,x.groups)]])}
-    ${box('売上'+sfx,'#dcecf7','#2f6fb5',N(x.sales),[['現金',yen(x.cash)],['売掛',yen(x.invoice)],['カード',yen(x.card)]])}
-    ${box('経費'+sfx,'#f7dede','#c0392b',fPay+mPay+N(x.cash_out),[['人件費-女子',yen(fPay)],['人件費-男子',yen(mPay)],['諸経費',yen(x.cash_out)]])}
-    ${box('入金'+sfx,'#fbf1dc','#a67c1a',N(x.cash_in),[])}</div>`;
+  // v0.71：箱に分けない。「月間」と「本日」の2つだけ。並びは同じ（オーナーの指示 2026-10-14）。売上の内訳は 現金・置き・請求・カード
+  // 置き＝その期間に置きにして、まだ入金されていない額（SQL 088 の admin_oki_month。売上の合計には入らない。関数が無い時は「—」）
+  const okiOf=f=>OK==null?null:Object.entries(OK).filter(([k])=>f(k)).reduce((a,[,v])=>a+N(v),0);
+  const one=(ttl,x,fPay,mPay,uq,oki)=>`<div class="smb"><h2 style="background:#2f6fb5;color:#fff">${ttl}</h2><table>${[
+    ['来店人数',N(x.guests)+'人'],['来店組数',N(x.groups)+'組'],['ユニーク数',uq==null?'—':uq+'人'],['客単価',per(x.sales,x.guests)],['組単価',per(x.sales,x.groups)],
+    ['売上',yen(x.sales),1],['現金',yen(x.cash),2],['置き',oki==null?'—':yen(oki),2],['請求',yen(x.invoice),2],['カード',yen(x.card),2],
+    ['経費',yen(fPay+mPay+N(x.cash_out)),1],['人件費-女子',yen(fPay),2],['人件費-男子',yen(mPay),2],['諸経費',yen(x.cash_out),2],
+    ['入金',yen(x.cash_in),1]].map(([l,v,k])=>`<tr class="${k===1?'sum':k===2?'sub':''}"><td>${l}</td><td>${v}</td></tr>`).join('')}</table></div>`;
   const bdNow=businessDate(), t=D.find(x=>x.date===bdNow)||{}, jd=x=>{ const [y,mo,dd]=x.split('-').map(Number); return `${y}年${mo}月${dd}日`; };
-  $('main').innerHTML=head+set(T,'累計 <small>[月間]</small>',N(T.cast_pay)+N(T.cast_adv),hallM,U?U.month:null,' <small>[月間]</small>')
-    +(m===now?set(t,` <small>${jd(bdNow)}</small>`,castD(t),N(t.hall_adv),U?U.day(bdNow):null):'')
+  $('main').innerHTML=head+`<div class="smg">${one('月間',T,N(T.cast_pay)+N(T.cast_adv),hallM,U?U.month:null,okiOf(()=>true))}${m===now?one(`本日 <small>${jd(bdNow)}</small>`,t,castD(t),N(t.hall_adv),U?U.day(bdNow):null,okiOf(k=>k===bdNow)):''}</div>`
     +`<div class="smb" style="margin-bottom:14px"><h2 style="background:#dcefd6;color:#3f7d3a">売上推移</h2><div style="padding:12px;height:420px"><canvas id="smCv"></canvas></div>
-      <div class="muted" style="font-size:13px;line-height:1.7;padding:0 14px 12px">・粗利＝売上＋入金−人件費−経費<br>・グラフの人件費は日ごとの分です（女子給与＋日払（立替））。小計バック・罰金・控除・黒服の給与など月で決まるものは、上の「経費累計 [月間]」だけに入ります</div></div>`;
+      <div class="muted" style="font-size:13px;line-height:1.7;padding:0 14px 12px">・粗利＝売上＋入金−人件費−経費<br>・グラフの人件費は日ごとの分です（女子給与＋日払（立替））。小計バック・罰金・控除・黒服の給与など月で決まるものは、「月間」の経費だけに入ります</div></div>`;
   wire();
   try{ await ksLoad('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'); }catch(e){ return; }
   if(page!=='summary'||storeId!==st||smMonth!==m||!$('smCv')) return;
