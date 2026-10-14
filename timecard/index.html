@@ -107,11 +107,11 @@
     <div class="err" id="loginErr"></div>
   </form>
 </div>
-<!-- 2026-10-02・SQL 063：登録した端末だけ打刻できる。管理サイト（オーナー）の「パスワード」画面で出した登録コードを、この端末で1回入れる -->
+<!-- 2026-10-02・SQL 063：登録した端末だけ打刻できる。管理サイト（オーナー）の「パスワード」画面で発行した登録コードを、この端末で1回入れる -->
 <div class="login hidden" id="reg">
   <form id="regForm">
     <h1>この端末を登録</h1>
-    <div style="font-size:15px;color:var(--muted);line-height:1.6">管理サイトの「パスワード」画面で出した登録コード（6けた）を入れてください</div>
+    <div style="font-size:15px;color:var(--muted);line-height:1.6">管理サイトの「パスワード」画面で発行した登録コード（6けた）を入力してください</div>
     <input id="regCode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="登録コード">
     <button type="submit">登録する</button>
     <div class="err" id="regErr"></div>
@@ -298,15 +298,15 @@ async function punch(staff){
   try {
     let photoPath = null;
     const blob = await capture();
-    if (!blob) { await showToast('写真が撮れません', 'カメラを許可してから、もう一度押してください', 3000); return; }
+    if (!blob) { await showToast('写真が撮れません', 'カメラを許可してから、再度押してください', 3000); return; }
     {
       const d = new Date();
       photoPath = `${store?.id || 'store'}/${d.toISOString().slice(0,10)}/${staff.id}_${type}_${d.getTime()}.jpg`;
       const { error: upErr } = await sb.storage.from('selfies').upload(photoPath, blob, { contentType:'image/jpeg' });
-      if (upErr) { console.warn('upload failed', upErr); await showToast('写真を保存できません', '通信を確認して、もう一度押してください', 3000); return; }
+      if (upErr) { console.warn('upload failed', upErr); await showToast('写真を保存できません', '通信を確認して、再度押してください', 3000); return; }
     }
     const { error } = await sb.rpc('punch', { p_staff_id: staff.id, p_type: type, p_photo: photoPath, p_terminal: tcGet() || '' });
-    if (error && /登録されていません/.test(error.message)) { tcSet(null); showReg('この端末の登録が消されました。登録コードを入れ直してください'); return; }
+    if (error && /登録されていません/.test(error.message)) { tcSet(null); showReg('この端末の登録が削除されました。登録コードを再入力してください'); return; }
     if (error) throw error;
 
     if (type === 'douhan')      await fxDouhan(staff.display_name);
