@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.03 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.04 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -31,6 +31,10 @@
   .warnbox td:last-child{text-align:right;font-weight:700;white-space:nowrap}.warnbox tr.hi td{background:var(--card);color:var(--warn)}.warnbox .now{margin-top:6px;font-size:13px;color:var(--warn)}
   label.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}textarea{width:100%;min-height:90px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);resize:vertical}
   .btn{display:block;width:100%;border:0;border-radius:10px;padding:14px;font:inherit;font-weight:700;background:var(--pri);color:#fff;cursor:pointer}.btn.g{background:var(--card);color:var(--ink);border:1px solid var(--line);font-weight:400}.btn[disabled]{opacity:.6}
+  table.t{width:100%;border-collapse:collapse;font-size:14px}table.t th{font-weight:400;color:var(--muted);font-size:12px;text-align:left;padding:8px;border-bottom:1px solid var(--line)}table.t td{padding:8px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}table.t td.mk{color:var(--warn);font-size:12px}
+  .mon{display:flex;justify-content:space-between;align-items:center;margin:0 2px 10px;font-size:17px}.mon button{background:none;border:0;font:inherit;font-size:24px;color:var(--muted);padding:0 10px}.mon button[disabled]{opacity:.25}
+  .row.s{border-top:1px solid var(--line);font-weight:700}.row.n{font-size:18px;border-top:2px solid var(--head);padding-top:8px;margin-top:4px}.gh{font-size:12px;color:var(--muted);margin-bottom:2px}.ttl{text-align:center;font-weight:700;margin-bottom:6px}
+  .sign{width:100%;height:180px;border:1px solid var(--line);border-radius:8px;background:var(--card);touch-action:none;display:block}
   .hide{display:none!important}
 </style>
 </head>
@@ -112,9 +116,11 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b><small>${s}</small></button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
-    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('shift','シフト','提出・確定')}${tile('absent','当日欠勤','欠勤連絡',true)}${tile('req','申請','変更・名刺・ドレス')}${tile('pay','給与明細','明細・日払い')}${tile('info','お知らせ','店舗連絡')}</div>`);
+    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','勤怠','打刻の履歴',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','当日欠勤','欠勤連絡',true)}${tile('req','申請','変更・名刺・ドレス')}${tile('info','お知らせ','店舗連絡')}${tile('shift','シフト','提出・確定')}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
+  $('main').querySelector('[data-go=att]').onclick = () => attend(null);
+  $('main').querySelector('[data-go=pay]').onclick = payslip;
 }
 
 function perf(){
@@ -169,6 +175,86 @@ function absentDone(date, at, fine, already, lineOk = true){
     <div class="muted sm">取消は黒服にご連絡ください</div>${lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>
     <button class="btn g" id="abHome">ホーム</button>`);
   $('abHome').onclick = home;
+}
+
+// v0.04・SQL 099：勤怠（月ごとの打刻の履歴。時刻は丸め後＝給与計算と同じ）
+const ym = d => String(d).slice(0,7), mAdd = (m, n) => { const [y, mo] = m.split('-').map(Number); const x = new Date(y, mo - 1 + n, 1); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-01`; };
+async function attend(month){
+  setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  const r = await sb.rpc('cast_attendance', { p_token: TOKEN, p_month: month });
+  if(r.error){ fail(r.error.message); return; }
+  const A = r.data, m = String(A.month), cur = String(ME.month), [y, mo] = m.split('-').map(Number);
+  const prevOk = m > mAdd(cur, -12), nextOk = m < cur;
+  const rows = (A.days||[]).map(d => `<tr><td>${Number(d.date.slice(5,7))}/${Number(d.date.slice(8,10))}（${WD[new Date(d.date+'T00:00:00+09:00').getDay()]}）</td><td>${d.in?tTxt(d.in):'—'}</td><td>${d.out?tTxt(d.out):'—'}</td><td>${d.hours!=null?HM(d.hours).replace('時間',':').replace('分',''):'—'}</td><td class="mk">${[d.douhan?'同伴':'', d.after?'アフター':''].filter(Boolean).join('・')}</td></tr>`).join('');
+  show(`<div class="mon"><button id="mP" ${prevOk?'':'disabled'} aria-label="前の月">‹</button><b>${y}年${mo}月</b><button id="mN" ${nextOk?'':'disabled'} aria-label="次の月">›</button></div>
+    <div class="card"><div class="row"><span>出勤日数</span><b>${Number(A.total_days)}日</b></div><div class="row"><span>稼働時間</span><b>${HM(A.total_hours)}</b></div></div>
+    <div class="card" style="padding:0;overflow:hidden">${rows?`<table class="t"><tr><th>日付</th><th>出勤</th><th>退勤</th><th>稼働</th><th></th></tr>${rows}</table>`:'<div class="muted" style="padding:12px">打刻はありません</div>'}<div class="muted sm" style="padding:8px 10px">時刻は15分丸め後（給与計算と同じ）</div></div>`);
+  $('mP').onclick = () => attend(mAdd(m, -1)); $('mN').onclick = () => attend(mAdd(m, 1));
+}
+
+// v0.04・SQL 099：給与明細（前月分だけ。管理サイトの報酬支払明細書と同じ中身）・PDF・受取確認（15日から、手書きサイン）
+const N = v => Number(v||0), cm = v => N(v) ? N(v).toLocaleString('ja-JP') : '--';
+function slipHtml(P){
+  const x = P.slip, L = (k, v, c='') => `<div class="row ${c}"><span>${esc(k)}</span><b>${v}</b></div>`, B = k => N(x.backs?.[k]?.amount);
+  const ded = N(x.ctax) + N(x.fines) + N(x.quota_fine) + N(x.welfare) + N(x.special_deduct);
+  const pay = [L(x.pay_type==='daily'?'報酬（日給）':'報酬（時給）', cm(x.time_pay)), L('小計バック', cm(x.kakari_back)), ...(x.seppan?[L(`折半（${N(x.seppan_pct)}%）`, cm(x.seppan_pay))]:[]), L('HC', cm(B('hc'))), L('ボトルバック', cm(B('bottle'))), L('商品バック', cm(B('other'))), L('手当など、その他', cm(N(x.allowance)+N(x.special_pay))), L('合計', cm(x.taxable), 's')];
+  const dd = [L('消費税', cm(x.ctax)), ...(P.fine_names||[]).map(f => L(f, cm(x.fine_items?.[f]))), L('同伴ノルマ', cm(x.quota_fine)), L('厚生費', cm(x.welfare)), L('個別控除', cm(x.special_deduct)), L('合計', cm(ded), 's')];
+  const [y, mo] = String(P.month).split('-').map(Number), net = N(x.net);
+  return `<div class="card"><div class="ttl">報酬支払明細書</div><div class="muted sm" style="text-align:center;margin-bottom:6px">${y}年${mo}月分　${esc(P.store_name)}　${esc(P.name)}${P.real_name?'/'+esc(P.real_name):''}</div>
+      ${L('稼働日数', `${N(x.days)}日`)}${L('稼働時間', HM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給', x.wage?yen(x.wage):'--')}</div>
+    <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
+    <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
+}
+async function payslip(){
+  setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  const r = await sb.rpc('cast_pay_slip', { p_token: TOKEN });
+  if(r.error){ fail(r.error.message); return; }
+  const P = r.data, [y, mo] = String(P.month).split('-').map(Number);
+  if(!P.slip){ show(`<div class="mon"><span></span><b>${y}年${mo}月分</b><span></span></div><div class="card c muted">${mo}月分の明細はありません</div>`); return; }
+  const md = d => `${Number(String(d).slice(5,7))}/${Number(String(d).slice(8,10))}`;
+  const adv = (P.advances||[]).map(a => `<div class="row"><span>${md(a.date)}（${WD[new Date(a.date+'T00:00:00+09:00').getDay()]}）</span><b>${yen(a.amount)}</b></div>`).join('');
+  const fl = (P.fines||[]).map(f => `<div class="row"><span>${md(f.date)} ${esc(f.reason||'')}</span><b>${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</b></div>`).join('');
+  const rc = P.receipt ? `<div class="card c"><div class="big">受取確認済み</div><p>${mo}月分　${new Date(P.receipt.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</p></div>`
+    : P.can_sign ? `<div class="card"><div class="gh">受取確認（給与を受け取ったらサイン）</div><canvas class="sign" id="sg"></canvas><div class="row" style="margin-top:8px;gap:8px"><button class="btn g" id="sgClr" style="width:auto;padding:10px 16px">再入力</button><button class="btn" id="sgOk" style="flex:1">受取確認</button></div></div>`
+    : `<div class="card muted sm">受取確認は15日からです</div>`;
+  show(`<div class="mon"><span></span><b>${y}年${mo}月分</b><span></span></div><div id="slip">${slipHtml(P)}</div>
+    <div class="card"><div class="gh">日払（立替）</div>${adv||'<div class="muted sm">なし</div>'}</div><div class="card"><div class="gh">罰金</div>${fl||'<div class="muted sm">なし</div>'}</div>
+    <button class="btn g" id="pdf" style="margin-bottom:10px">PDF ダウンロード</button>${rc}`);
+  $('pdf').onclick = () => slipPdf(P);
+  if(P.receipt || !P.can_sign) return;
+  const cv = $('sg'), W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, Math.max(1, window.devicePixelRatio||1)); cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  const g = cv.getContext('2d'); g.scale(dpr, dpr); let drawn = false, down = false;
+  const clear = () => { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.strokeStyle = '#111'; g.lineWidth = 2.6; g.lineCap = 'round'; g.lineJoin = 'round'; drawn = false; }; clear();
+  const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX-b.left)*W/b.width, (e.clientY-b.top)*H/b.height]; };
+  cv.onpointerdown = e => { e.preventDefault(); down = true; try{ cv.setPointerCapture(e.pointerId); }catch(_){} const [a, b] = pos(e); g.beginPath(); g.moveTo(a, b); g.lineTo(a+0.1, b+0.1); g.stroke(); drawn = true; };
+  cv.onpointermove = e => { if(!down) return; e.preventDefault(); const [a, b] = pos(e); g.lineTo(a, b); g.stroke(); };
+  cv.onpointerup = cv.onpointercancel = () => { down = false; };
+  $('sgClr').onclick = clear;
+  $('sgOk').onclick = async () => {
+    if(!drawn){ alert('サインを入力してください'); return; }
+    if(!confirm(`${mo}月分の給与を受け取りましたか？\n受取確認は取消できません`)) return;
+    $('sgOk').disabled = true;
+    const q = await sb.rpc('cast_pay_sign', { p_token: TOKEN, p_signature: cv.toDataURL('image/png') });
+    if(q.error){ $('sgOk').disabled = false; alert(q.error.message); return; }
+    const net = N(q.data.net), at = new Date(q.data.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    try{ await liff.sendMessages([{ type:'text', text:`【給与の受取確認】${y}年${mo}月分\n${ME.name}\n残り支給額 ${(net<0?'−':'')}¥${Math.abs(net).toLocaleString('ja-JP')}\n${at} サイン済み` }]); }catch(e){ alert('公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください'); }
+    payslip();
+  };
+}
+// PDF：画面の明細をそのまま A4 縦1枚に
+let pdfLib = null;
+function loadJs(u){ return new Promise((ok, ng) => { const sc = document.createElement('script'); sc.src = u; sc.onload = ok; sc.onerror = () => ng(new Error('読み込みに失敗しました')); document.head.appendChild(sc); }); }
+async function slipPdf(P){
+  const b = $('pdf'); b.disabled = true; b.textContent = '作成中…';
+  try{
+    if(!pdfLib) pdfLib = Promise.all([loadJs('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'), loadJs('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js')]);
+    await pdfLib;
+    const c = await html2canvas($('slip'), { scale: 2, backgroundColor: getComputedStyle(document.body).backgroundColor });
+    const pdf = new window.jspdf.jsPDF({ unit:'mm', format:'a4' }), k = Math.min(190 / c.width, 277 / c.height), w = c.width * k, h = c.height * k;
+    pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', (210 - w) / 2, 10, w, h);
+    pdf.save(`給与明細_${ym(P.month)}_${P.name}.pdf`);
+  }catch(e){ alert('PDF を作成できませんでした：' + (e.message||e)); }
+  finally{ b.disabled = false; b.textContent = 'PDF ダウンロード'; }
 }
 
 start();
