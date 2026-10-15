@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.12 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.13 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -29,7 +29,7 @@
   .warnbox{background:var(--warn-soft);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
   .warnbox b.t{color:var(--warn);display:block;margin-bottom:6px}.warnbox table{width:100%;border-collapse:collapse}.warnbox td{padding:6px 4px;border-top:1px solid var(--line)}
   .warnbox td:last-child{text-align:right;font-weight:700;white-space:nowrap}.warnbox tr.hi td{background:var(--card);color:var(--warn)}.warnbox .now{margin-top:6px;font-size:13px;color:var(--warn)}
-  label.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}textarea{width:100%;min-height:90px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);resize:vertical}
+  label.f,div.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}textarea{width:100%;min-height:90px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);resize:vertical}
   .btn{display:block;width:100%;border:0;border-radius:10px;padding:14px;font:inherit;font-weight:700;background:var(--pri);color:#fff;cursor:pointer}.btn.g{background:var(--card);color:var(--ink);border:1px solid var(--line);font-weight:400}.btn[disabled]{opacity:.6}
   table.t{width:100%;border-collapse:collapse;font-size:14px}table.t th{font-weight:400;color:var(--muted);font-size:12px;text-align:left;padding:8px;border-bottom:1px solid var(--line)}table.t td{padding:8px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}table.t td.mk{color:var(--warn);font-size:12px}
   .mon{display:flex;justify-content:space-between;align-items:center;margin:0 2px 10px;font-size:17px}.mon button{background:none;border:0;font:inherit;font-size:24px;color:var(--muted);padding:0 10px}.mon button[disabled]{opacity:.25}
@@ -125,12 +125,13 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
-    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('req','申請','変更')}${tile('info','お知らせ','店舗連絡')}${tile('shift','シフト','提出・確定')}</div>`);
+    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('req','申請','変更')}${tile('info','お知らせ','店舗連絡')}${tile('shift','シフト','提出・確定')}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   $('main').querySelector('[data-go=att]').onclick = () => attend(null);
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
+  $('main').querySelector('[data-go=resv]').onclick = resvList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
 }
 
@@ -341,6 +342,49 @@ async function dressReport(){
       /* SQL 111：記録は店の公式 LINE から本人へ（金額＋レシートの写真）。キャストからの文は送らない */
       dressReport();
     }catch(e){ $('drGo').disabled = false; await uiAlert(e.message || String(e)); }
+  };
+}
+
+// v0.13・SQL 112：予約・同伴の申請と予約一覧（自分が取った予約＋自分が係のお客様の予約）。申請するとお店（公式 LINE のトーク）とお客様の係のキャストに LINE が届く。POS に出す所は後で
+const resvLine = r => `${Number(String(r.date).slice(5,7))}/${Number(String(r.date).slice(8,10))}（${WD[new Date(r.date+'T00:00:00+09:00').getDay()]}）${r.time}　${r.name} 様 ${r.guests}名`;
+async function resvList(){
+  setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  const r = await sb.rpc('cast_resv_list', { p_token: TOKEN });
+  if(r.error){ fail(r.error.message); return; }
+  const rows = (r.data||[]).map(x => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><span>${esc(resvLine(x))}</span>${x.douhan?'<b class="sm" style="color:var(--ok)">同伴</b>':''}</div>
+    <div class="muted sm">${x.mine?'自分の予約':`${esc(x.by)}さんが取った予約（係のお客様）`}${x.douhan&&x.meet?`・待ち合わせ ${x.meet}`:''}${x.memo?`・${esc(x.memo)}`:''}</div></div>`).join('');
+  show(`<button class="btn" id="rvNew" style="margin-bottom:12px">予約申請</button><div class="card"><div class="gh">予約一覧（これからの予約）</div>${rows||'<div class="muted sm" style="padding:8px 0">予約はありません</div>'}</div><div class="muted sm" style="margin:0 2px">変更・取消は黒服にご連絡ください</div>`);
+  $('rvNew').onclick = resvForm;
+}
+function resvForm(){
+  setBack(resvList);
+  const today = new Date(Date.now() + 9*3600e3).toISOString().slice(0,10), fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink)';
+  let dh = false;
+  show(`<div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${today}" style="${fld}"></label>
+      <label class="f" style="margin-top:8px">来店時刻<input type="time" id="rvT" value="21:00" style="${fld}"></label>
+      <div class="f" style="margin-top:8px">お客様（フルネーム）</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="rvF" maxlength="20" placeholder="苗字（例：小林）" style="${fld}"><input id="rvG" maxlength="20" placeholder="名前（例：大三）" style="${fld}"></div>
+      <div class="muted sm" style="margin-top:4px">ニックネームではなく、お客様の苗字と名前を入力してください</div>
+      <label class="f" style="margin-top:8px">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="1" style="${fld};text-align:right"></label>
+      <div class="f" style="margin-top:8px">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 18px;background:var(--ink);color:#fff">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 18px">あり</button></div>
+      <label class="f hide" id="rvMw" style="margin-top:8px">待ち合わせの時刻<input type="time" id="rvM" value="19:30" style="${fld}"></label>
+      <label class="f" style="margin-top:8px">メモ（任意）<textarea id="rvMemo" maxlength="300" style="min-height:60px"></textarea></label></div>
+    <button class="btn" id="rvGo">予約申請</button><p class="muted sm" style="margin:10px 2px">申請すると、お店とお客様の係のキャストに LINE が届きます</p>`);
+  const setDh = v => { dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; $('rvMw').classList.toggle('hide', !v); };
+  $('rvDh0').onclick = () => setDh(false); $('rvDh1').onclick = () => setDh(true);
+  $('rvGo').onclick = async () => {
+    const d = $('rvD').value, t = $('rvT').value, f = $('rvF').value.trim(), g = $('rvG').value.trim(), n = parseInt($('rvN').value, 10), m = $('rvM').value, memo = $('rvMemo').value.trim();
+    if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return; }
+    if(!f || !g){ await uiAlert('お客様の苗字と名前を両方入力してください'); return; }
+    if(!(n >= 1)){ await uiAlert('人数を入力してください'); return; }
+    if(dh && !m){ await uiAlert('待ち合わせの時刻を入力してください'); return; }
+    const x = { date:d, time:t, name:`${f} ${g}`, guests:n };
+    if(!await uiConfirm(`${resvLine(x)}${dh?`\n同伴あり（待ち合わせ ${m}）`:''}\nこの内容で予約申請しますか？`)) return;
+    $('rvGo').disabled = true;
+    const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_date: d, p_time: t, p_family: f, p_given: g, p_guests: n, p_douhan: dh, p_meet: dh ? m : null, p_memo: memo || null });
+    if(q.error){ $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
+    try{ await liff.sendMessages([{ type:'text', text:`【予約】${resvLine(x).replace('　', `\n${ME.name}　`)}${dh?`\n同伴あり（待ち合わせ ${m}）`:''}${memo?`\nメモ：${memo}`:''}` }]); }catch(e){}
+    await uiAlert(q.data.notified ? `予約申請を受付しました。\n係のキャスト（${q.data.notified}人）にも LINE で送りました` : '予約申請を受付しました');
+    resvList();
   };
 }
 
