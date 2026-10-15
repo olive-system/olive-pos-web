@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.94 -->
+<title>OLIVE 管理</title><!-- admin v0.95 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -819,9 +819,11 @@ PAGES.set_pay=async()=>{
   <div class="psec">キャスト</div>
   ${stb.error?`<div class="card err">${esc(/slide_tables/.test(stb.error.message)&&/does not exist|schema cache/.test(stb.error.message)?'SQL 058 が未実行です：':'スライド表を読み込めません：')}${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed)}
   ${payPtCard(pos,ed)}
+  <div id="cardBox"></div>
   <div class="psec">黒服</div>
   ${slideCard('hall',hb.data||[],ed,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">単位は万円。月の総売上が、その行の売上以上になっている行のうち、一番下の行を使います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">一番上の行より売上が少ない月は0円です。<br>人件費比率（キャストの給与＋黒服の月給＋体験の報酬 ÷ 総売上）が 目標比率以内／＋2%まで／＋5%まで／5%超 で金額が決まり、売上ボーナスを加算した総額を、黒服の売上シェアで分けます</div></div>`)}`;
   foldWire($('main'));
+  cardFold(st,ed);
   $('main').querySelectorAll('tr[data-fr]').forEach(tr=>fineRowWire(tr,ed));
   if(!ed) return;
   payNumWire(st);
@@ -1593,6 +1595,15 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     const r=await rpc('admin_save_pos_settings',{p_store:st,p_vals:v,p_vip:vip}); if(!r.ok) return; toast('保存しました'); PAGES.set_pos(); }); };
 
 // v0.22・SQL 062：給与で使う数（日払の上限・体験の源泉・ポイント・同伴の準備時間）。前は POS の料金設定にあった
+// v0.95・SQL 105：名刺発注の設定（LINEマイページの名刺発注。宛先・件名・返信先・枚数・金額。店ごと）
+async function cardFold(st,ed){ const box=$('cardBox'); if(!box) return; const r=await sb.rpc('admin_get_card_settings',{p_store:st}); if(r.error||page!=='set_pay'||storeId!==st) return; const c=r.data||{};
+  const inp=(id,l,v,ph='')=>`<label>${l}<input id="${id}" value="${esc(v??'')}" placeholder="${ph}" ${ed?'':'disabled'}></label>`;
+  box.innerHTML=foldCard('card','名刺発注','',`${c.qty}枚 ${Number(c.price).toLocaleString('ja-JP')}円・宛先 ${c.to_email?esc(c.to_email):'未設定'}`,`<div class="muted" style="font-size:13px;margin-bottom:8px">LINEマイページで発注すると、宛先にメールを送信し、名刺代を給与の個別控除に入れます</div><div class="grid2">
+    ${inp('cdTo','宛先メールアドレス',c.to_email,'例：info@example.com')}${inp('cdSub','件名',c.subject)}${inp('cdRe','返信先アドレス',c.reply_to)}${inp('cdQty','枚数',c.qty)}${inp('cdPrice','金額（円）',c.price)}</div>
+    <div class="muted" style="font-size:13px;margin-top:8px">メール送信の設定：${c.mail_ready?'設定済み':'未設定'}</div>${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="cdSave">保存</button></div>':''}`);
+  foldWire(box); const sv=$('cdSave'); if(!sv) return;
+  sv.onclick=guard(sv,async()=>{ const q=slNum($('cdQty').value), pr=slNum($('cdPrice').value); if(!(q>0)||!(pr>=0)){ await uiAlert('枚数と金額を確認してください'); return; }
+    if(!await uiConfirm('名刺発注の設定を保存しますか？')) return; const x=await rpc('admin_save_card_settings',{p_store:st,p_to:$('cdTo').value,p_subject:$('cdSub').value,p_reply:$('cdRe').value,p_qty:q,p_price:pr}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
 // v0.90：給与項目の並びに合わせて2つの箱に分けた（保存は同じ admin_save_pay_settings。どちらの保存も6つ全部を送る）
 const pnNum=(id,label,v,ed)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${ed?'':'disabled'}></label>`;
 const pnSaveBtn=ed=>ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pnsave>保存</button></div>':'';
