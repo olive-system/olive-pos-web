@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.91 -->
+<title>OLIVE 管理</title><!-- admin v0.92 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1321,7 +1321,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
   const [r,ps]=await Promise.all([sb.rpc('admin_bill_list',{p_store:st,p_from:f,p_to:t}), sb.from('pos_settings').select('ext_minutes').eq('store_id',st).maybeSingle()]); if(page!=='bills'||storeId!==st||blFrom!==f||blTo!==t) return;
   const em=Number(ps?.data?.ext_minutes||0); blExtL=em>0?`${em}分延長`:'延長';
   if(r.error){ $('blBox').innerHTML=`<div class="card err">${esc(/admin_bill_list/.test(r.error.message)?'SQL 078 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
-  const all=r.data||[]; let rows=[];
+  const all=(r.data||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.opened_at||'').localeCompare(String(a.opened_at||''))); let rows=[]; // v0.92：新しい順（オーナー 2026-10-15）
   const pick=()=>{ const q=blQ.trim().toLowerCase(); return all.filter(x=>blFilt==='void'?x.status==='void':x.status!=='void'&&(blFilt==='all'||(blFilt==='open'?x.status==='open':Number(x[blFilt]||0)>0)))
     .filter(x=>!q||BL_XLS_COLS.some(([k])=>String(blVal(k,x)).toLowerCase().includes(q))); };
   const cell=(k,x)=>{ const v=blVal(k,x); if(k==='status') return x.status==='closed'?'<span class="muted">会計済</span>':`<span class="badge ${x.status==='open'?'':'warnb'}">${v}</span>`;
