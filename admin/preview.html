@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.92 -->
+<title>OLIVE 管理</title><!-- admin v0.93 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -400,7 +400,7 @@ async function plExcel(d){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@
     const bs=(E.bills||[]).filter(b=>b.date===dd), N=k=>bs.reduce((a,b)=>a+Number(b[k]||0),0);
     const O=[0,1,2,3,4,5,6,7,8,9,11,16,12,13,14,15,10], ord=r=>O.map(i=>r[i]); // v0.37：列の順番（係小計・合計のあとに現金〜置き、注文は最後）
     XLSX.utils.book_append_sheet(w,sheet([ord(['№','入店','退店','時間','領収書','卓番号','客数','顧客',''+KL+'','同伴','注文',''+KL+'小計','現金','カード','請求','置き','合計']),
-      ...bs.map((b,j)=>ord([j+1,hm(b.opened_at),b.closed_at?hm(b.closed_at):'来店中',dur(b.opened_at,b.closed_at),b.receipt?'◯':'',b.table||'',Number(b.guests||0),b.customers||'',b.kakari||'',b.douhan||'',b.items||'',Number(b.sub||0),Number(b.cash||0),Number(b.card||0),Number(b.invoice||0),Number(b.oki||0),Number(b.due||0)])),
+      ...bs.map((b,j)=>ord([j+1,beHm5(b.opened_at),b.closed_at?hm(b.closed_at):'来店中',dur(b.opened_at,b.closed_at),b.receipt?'◯':'',b.table||'',Number(b.guests||0),b.customers||'',b.kakari||'',b.douhan||'',b.items||'',Number(b.sub||0),Number(b.cash||0),Number(b.card||0),Number(b.invoice||0),Number(b.oki||0),Number(b.due||0)])),
       ord(['計','','','',bs.filter(b=>b.receipt).length,'',N('guests'),'','','','',N('sub'),N('cash'),N('card'),N('invoice'),N('oki'),N('due')])],ord([5,7,7,7,7,9,6,16,14,14,40,10,10,10,10,10,10])),'伝票一覧');
     const memo=(E.memos||[]).find(x=>x.date===dd)?.memo||''; XLSX.utils.book_append_sheet(w,sheet([['メモ'],[memo]],[80]),'メモ');
     dir.file(`日次収支明細-${dd}.xlsx`,out(w)); }
@@ -454,6 +454,9 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
 const BE_M={cash:'現金',card:'カード',invoice:'請求書',oki:'置き'}, BE_ROLE={douhan:'同伴',douhan1:'同伴①',douhan2:'同伴②'};
 const beDh=r=>r==='douhan'||r==='douhan1'||r==='douhan2';
 const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+// v0.93：来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
+const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
+const beHm5=t=>t?beHm(ceil5(t)):'';
 const beHm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 function beRole(ts){ const x=new Date(new Date(ts||Date.now()).toLocaleString('en-US',{timeZone:'Asia/Tokyo'})), m=x.getHours()*60+x.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; } // POS と同じ決め方
 // v0.38：伝票の No を押すと、その伝票の中身を全部見る（見るだけ。オーナーは「直す」へ）
@@ -468,7 +471,7 @@ async function billView(id,canEdit){ // v0.49・SQL 078：見るだけの人も 
   const L=(l,v,c)=>`<div class="bv-ln ${c||''}"><span>${l}</span><span style="white-space:nowrap">${v}</span></div>`, extMin=exts.reduce((t,e)=>t+N(e.minutes),0);
   const its=items.map(i=>{ const bk=(i.splits||[]).filter(z=>N(z.back_amount)||N(z.back_points)).map(z=>sn(z.staff_id)); return L(`${esc(i.name||pn(i.product_id))} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`,yen(N(i.unit_price)*N(i.qty))); }).join('');
   const box=modal(`<style>.bv-ln{display:flex;justify-content:space-between;gap:12px;padding:6px 2px;font-size:16px}.bv-ln small{color:var(--muted);font-size:13px}.bv-ln.sm,.bv-sm{font-size:14px;color:var(--muted)}.bv hr{border:0;border-top:1px solid var(--line);margin:8px 0}</style>
-    <div class="bv"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(B.table||'')}</b><span>${md(B.business_date)}　${beHm(B.opened_at)}〜${B.closed_at?beHm(B.closed_at):''}${B.closed_at?`（${dur(B.opened_at,B.closed_at)}）`:''}　${N(B.guest_count)}名</span>${B.closed_at?'':'<span class="badge" style="margin-left:auto">来店中</span>'}</div>
+    <div class="bv"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(B.table||'')}</b><span>${md(B.business_date)}　${beHm5(B.opened_at)}〜${B.closed_at?beHm(B.closed_at):''}${B.closed_at?`（${dur(B.opened_at,B.closed_at)}）`:''}　${N(B.guest_count)}名</span>${B.closed_at?'':'<span class="badge" style="margin-left:auto">来店中</span>'}</div>
     <div class="bv-sm" style="margin-top:6px">お客様：${B.customers?esc(String(B.customers).split('・').map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}　　反応<span style="color:var(--gold)">◎</span>：${gd.length?esc(gd.join('・')):'なし'}</div><hr>
     ${N(C.set)?L(`セット${C.set_guests!=null?` <small>× ${C.set_guests}</small>`:''}`,yen(C.set)):''}${N(C.vip_set)?L('VIPルーム料金',yen(C.vip_set)):''}${N(C.extension)?L(`延長 <small>${exts.length}回・計${extMin}分</small>`,yen(C.extension)):''}${N(C.vip_ext)?L('VIPルーム延長',yen(C.vip_ext)):''}${its||'<div class="bv-sm">注文はありません</div>'}
     ${voids.length?`<div class="bv-sm" style="margin-top:4px">取消：${voids.map(i=>esc(i.name||pn(i.product_id))+' × '+i.qty).join('、')}</div>`:''}<hr>
@@ -530,7 +533,7 @@ async function billEdit(id){
   function draw(){ const it=S.items.filter(live), ex=S.exts.length, prods=(O.products||[]).filter(p=>p.is_visible!==false||S.items.some(i=>i.product_id===p.id));
     const act=ST.filter(s=>s.is_active&&(s.kind==='cast'||s.kakari_only)), cs=S.casts;
     box.querySelector('.box').innerHTML=`<h2 style="margin:0">伝票の修正　<small class="muted" style="font-weight:400">${md(bd)} 卓${esc(B.table||'')}${B.customers?'　'+esc(B.customers):''}</small></h2>
-    <div class="card" style="margin:0"><h2>人数・時刻</h2><div class="row" style="flex-wrap:wrap;gap:10px"><label style="flex:1 1 120px">客数<input type="number" inputmode="numeric" id="beG" min="1" value="${B.guest_count}"></label><label style="flex:1 1 140px">来店<input type="time" id="beIn" value="${beHm(B.opened_at)}"></label><label style="flex:1 1 140px">退店<input type="time" id="beOut" value="${beHm(B.closed_at)}"></label></div>
+    <div class="card" style="margin:0"><h2>人数・時刻</h2><div class="row" style="flex-wrap:wrap;gap:10px"><label style="flex:1 1 120px">客数<input type="number" inputmode="numeric" id="beG" min="1" value="${B.guest_count}"></label><label style="flex:1 1 140px">来店<input type="time" id="beIn" value="${beHm5(B.opened_at)}"></label><label style="flex:1 1 140px">退店<input type="time" id="beOut" value="${beHm(B.closed_at)}"></label></div>
       <div class="muted" style="font-size:13px;margin-top:6px">延長 ${ex}回${S.exts.some(e=>e.is_auto)||Number(st.ext_minutes||0)>0?'（時刻を変更すると、自動延長を付け直します）':''}</div></div>
     <div class="card" style="margin:0"><h2>${KL}・同伴・反応◎</h2>${cs.filter(c=>c.is_kakari||beDh(c.role)).map(c=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(sn(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',BE_ROLE[c.role]||''].filter(Boolean).join('・')}</small></span><button class="ghost sm" data-bcrm="${c.id}">×</button></div>`).join('')||'<div class="muted">なし</div>'}
       <div class="row" style="margin:8px 0;flex-wrap:wrap">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}${sel('d','＋同伴',act.filter(s=>!s.kakari_only&&att.has(s.id)&&!cs.some(c=>c.staff_id===s.id&&beDh(c.role))))}</div>
@@ -552,7 +555,7 @@ async function billEdit(id){
     q('#beG').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=1)){ e.target.value=B.guest_count; return; } const old=B.guest_count; if(n===old) return;
       if(B.set_guest_count!=null){ if(n>old) B.set_guest_count+=n-old; } else S.items.filter(i=>live(i)&&(i.product_id===hcId||i.product_id===bcId)&&i.product_id).forEach(i=>{ i.qty=n; resplit(i); }); // POS と同じ：途中で帰った人がいなければ、自動の HC・BC の数も客数に
       B.guest_count=n; redo(); };
-    const tm=(k,v)=>{ if(!v) return; const ts=toTs(v); if(k==='opened_at'&&B.set_start){ B.set_start=new Date(new Date(B.set_start).getTime()+(new Date(ts)-new Date(B.opened_at))).toISOString(); } B[k]=ts; reExt(); redo(); };
+    const tm=(k,v)=>{ if(!v) return; const ts=toTs(v); if(k==='opened_at'&&B.set_start){ B.set_start=new Date(new Date(B.set_start).getTime()+(ceil5(ts)-ceil5(B.opened_at))).toISOString(); } B[k]=ts; reExt(); redo(); };
     q('#beIn').onchange=e=>tm('opened_at',e.target.value); q('#beOut').onchange=e=>tm('closed_at',e.target.value);
     qa('[data-bcrm]').forEach(x=>x.onclick=()=>{ const c=S.casts.find(z=>z.id===x.dataset.bcrm); S.casts=S.casts.filter(z=>z!==c); if(c.is_kakari) syncHc(); redo(); });
     qa('[data-bgrm]').forEach(x=>x.onclick=()=>{ S.goods=S.goods.filter(z=>z.id!==x.dataset.bgrm); redo(); });
@@ -1302,7 +1305,7 @@ let blExtL='延長'; /* v0.88：（回）はいらない（オーナー） */ co
 const BL_SUM=['guests','ext','sub','service','discount','surcharge','due','cash','card','invoice','oki'];
 const blDur=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
 const blSt=x=>x.status==='void'?'削除':x.status==='open'?'来店中':'会計済';
-const blVal=(k,x)=>k==='status'?blSt(x):k==='date'?x.date:k==='in'?beHm(x.opened_at):k==='out'?(x.closed_at?beHm(x.closed_at):''):k==='dur'?blDur(x.opened_at,x.closed_at):k==='receipt'?(x.receipt?'◯':''):BL_SUM.includes(k)?Number(x[k]||0):(x[k]??'');
+const blVal=(k,x)=>k==='status'?blSt(x):k==='date'?x.date:k==='in'?beHm5(x.opened_at):k==='out'?(x.closed_at?beHm(x.closed_at):''):k==='dur'?blDur(x.opened_at,x.closed_at):k==='receipt'?(x.receipt?'◯':''):BL_SUM.includes(k)?Number(x[k]||0):(x[k]??'');
 PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate();
   if(!blFrom){ blFrom=today.slice(0,8)+'01'; blTo=today; }
   const f=blFrom, t=blTo;
