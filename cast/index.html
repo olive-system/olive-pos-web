@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.08 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.09 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -116,11 +116,12 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
-    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('req','申請','変更・名刺・ドレス')}${tile('info','お知らせ','店舗連絡')}${tile('shift','シフト','提出・確定')}</div>`);
+    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('card','名刺発注','',true)}${tile('req','申請','変更・ドレス')}${tile('info','お知らせ','店舗連絡')}${tile('shift','シフト','提出・確定')}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   $('main').querySelector('[data-go=att]').onclick = () => attend(null);
   $('main').querySelector('[data-go=pay]').onclick = payslip;
+  $('main').querySelector('[data-go=card]').onclick = cardOrder;
 }
 
 function perf(){
@@ -266,6 +267,36 @@ async function slipPdf(P){
     pdf.save(`給与明細_${ym(P.month)}_${P.name}.pdf`);
   }catch(e){ alert('PDF を作成できませんでした：' + (e.message||e)); }
   finally{ b.disabled = false; b.textContent = 'PDF ダウンロード'; }
+}
+
+// v0.09・SQL 105：名刺発注。印刷する名前は「前回と同じ」か入力。店の Gmail から印刷屋さんへメール。名刺代は給与から控除
+async function cardOrder(){
+  setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  const r = await sb.rpc('cast_card_info', { p_token: TOKEN });
+  if(r.error){ fail(r.error.message); return; }
+  const C = r.data, ds = t => new Date(t).toLocaleDateString('ja-JP', { timeZone:'Asia/Tokyo', month:'numeric', day:'numeric' });
+  const hist = (C.history||[]).map(h => `<div class="row"><span>${ds(h.at)}　${esc(h.print_name)}</span><b>${h.qty}枚</b></div>`).join('');
+  if(!C.ready){ show(`<div class="card c muted">名刺発注は準備中です</div>${hist?`<div class="card"><div class="gh">発注履歴</div>${hist}</div>`:''}`); return; }
+  const last = C.last_name;
+  show(`<div class="card"><div class="row"><span>依頼者</span><b>${esc(C.name)}</b></div>
+      <label class="f" style="margin-top:10px">印刷する名前</label>
+      ${last?`<label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px;margin:6px 0"><input type="radio" name="cn" value="last" checked style="width:auto">前回と同じ（${esc(last)}）</label>
+      <label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px;margin:6px 0"><input type="radio" name="cn" value="new" style="width:auto">入力</label>`:''}
+      <input id="cnName" maxlength="40" placeholder="例：深青(みお)" style="width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;${last?'display:none':''}">
+      <div class="row" style="margin-top:10px"><span>枚数</span><b>${C.qty}枚 ${yen(C.price)}</b></div></div>
+    <div class="err sm" style="margin:0 2px 12px">名刺代 ${yen(C.price)}は、給与から控除されます。</div>
+    <button class="btn" id="cnGo">名刺発注</button>${hist?`<div class="card" style="margin-top:12px"><div class="gh">発注履歴</div>${hist}</div>`:''}`);
+  document.querySelectorAll('input[name=cn]').forEach(x => x.onchange = () => { $('cnName').style.display = document.querySelector('input[name=cn]:checked')?.value === 'new' ? '' : 'none'; });
+  $('cnGo').onclick = async () => {
+    const useLast = last && document.querySelector('input[name=cn]:checked')?.value === 'last', nm = useLast ? last : $('cnName').value.trim();
+    if(!nm){ alert('印刷する名前を入力してください'); return; }
+    if(!confirm(`名刺 ${C.qty}枚（${nm}）を発注しますか？\n名刺代 ${yen(C.price)}は給与から控除されます`)) return;
+    $('cnGo').disabled = true;
+    const q = await sb.rpc('cast_card_order', { p_token: TOKEN, p_print_name: nm });
+    if(q.error){ $('cnGo').disabled = false; alert(q.error.message); return; }
+    show(`<div class="card c"><div class="big">送信完了</div><p>名刺 ${q.data.qty}枚（${esc(nm)}）の発注を受付しました。</p>${q.data.sent?'':'<p class="err sm">印刷屋さんへのメールの送信に失敗しました。黒服にご連絡ください</p>'}</div><button class="btn g" id="cnHome">ホーム</button>`);
+    $('cnHome').onclick = home;
+  };
 }
 
 start();
