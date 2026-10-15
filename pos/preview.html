@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.50 -->
+<title>OLIVE 会計</title><!-- v11.51 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -66,7 +66,7 @@
   .cast-line{display:flex;align-items:center;gap:8px;padding:4px 0 4px 12px;font-size:15px}
   .kindbtn{padding:10px 14px;border-radius:10px;background:var(--soft)}.kindbtn.on{background:var(--ink);color:#fff}
   .tbl .tags{font-size:13px;color:var(--muted)}
-  @media print{ body>*{display:none!important} #printArea{display:block!important;font-family:"Hiragino Sans",sans-serif;font-size:13px;width:72mm} }
+  @media print{ @page{margin:0} body>*{display:none!important} #printArea{display:block!important;font-family:"Hiragino Sans",sans-serif;font-size:13px;width:72mm;padding:3mm 0} } /* v11.51：@page の余白0＝ブラウザの印刷で紙の端にサイトのアドレスと日付を出さない */
   #printArea{display:none}
   .settings{display:grid;grid-template-columns:170px 1fr 1.2fr;gap:12px;min-height:70vh}.settings .menu{display:flex;flex-direction:column;gap:6px}.settings .menu button{text-align:left}
   .lst{display:flex;flex-direction:column;gap:6px}.lst .row{display:flex;align-items:center;gap:8px;padding:12px;border-radius:10px;background:#fff;border:1px solid var(--line);font-size:16px;user-select:none;-webkit-user-select:none}
@@ -367,7 +367,7 @@ async function loadHall(){
 // v11.00：黒服を削除した時の警告（管理サイトでオーナーがパスワードを新しくするまで出し続ける）。パスワードが変わってこの端末のログインが使えなくなったら、ログイン画面に戻す（SQL 046）
 async function checkPwAlert(){ if(!store) return; try{
   const [a,s]=await Promise.all([sb.from('admin_store_settings').select('pw_alert,pw_alert_note').eq('store_id',store.id).maybeSingle(), sb.from('stores').select('id').limit(1)]);
-  if(!s.error&&!(s.data||[]).length){ await sb.auth.signOut(); alert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); return; }
+  if(!s.error&&!(s.data||[]).length){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); /* v11.51：ブラウザの窓はアドレスが出るので画面の中の窓に */ return; }
   const el=$('pwAlert'); if(a.error||!a.data?.pw_alert){ el.style.display='none'; return; }
   el.textContent=`⚠ 黒服（${a.data.pw_alert_note||''}）が削除されました。オーナーは管理サイトでパスワードを更新してください`; el.style.display='block';
 }catch(e){ console.warn('pwAlert',e); } }
