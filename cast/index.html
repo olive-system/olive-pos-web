@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.05 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.06 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -234,10 +234,17 @@ async function payslip(){
     if(!drawn){ alert('サインを入力してください'); return; }
     if(!confirm(`${mo}月分の給与を受け取りましたか？\n受取確認は取消できません`)) return;
     $('sgOk').disabled = true;
-    const q = await sb.rpc('cast_pay_sign', { p_token: TOKEN, p_signature: cv.toDataURL('image/png') });
+    const png = cv.toDataURL('image/png');
+    const q = await sb.rpc('cast_pay_sign', { p_token: TOKEN, p_signature: png });
     if(q.error){ $('sgOk').disabled = false; alert(q.error.message); return; }
     const net = N(q.data.net), at = new Date(q.data.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     try{ await liff.sendMessages([{ type:'text', text:`${y}年${mo}月分の給料として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${at}）` }]); }catch(e){ alert('公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください'); }
+    // v0.06・SQL 100：サインの画像を保存して、店（公式 LINE）から本人のトークへ「○月分 給料 ○円 の受取サイン」＋画像を送信
+    try{
+      const blob = await (await fetch(png)).blob();
+      const up = await sb.storage.from('pay-signs').upload(`${q.data.id}.png`, blob, { contentType:'image/png', upsert:false });
+      if(!up.error) await sb.rpc('cast_pay_push', { p_token: TOKEN, p_receipt: q.data.id });
+    }catch(e){}
     payslip();
   };
 }
