@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>OLIVE マイページ</title><!-- cast v0.01 -->
+<style>
+  :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px}
+  .top{position:sticky;top:0;z-index:5;background:var(--head);color:#fff;display:flex;align-items:center;gap:10px;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top))}
+  .top b{font-size:18px}.top .sub{margin-left:auto;font-size:13px;color:var(--line)}
+  .top button{background:transparent;border:1px solid var(--line);color:#fff;border-radius:8px;height:34px;padding:0 12px;font:inherit;font-size:14px}
+  main{max-width:520px;margin:0 auto;padding:14px 14px 40px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+  .c{text-align:center;padding:24px 16px}.big{font-size:22px;font-weight:700;margin-bottom:8px}
+  .code{font-size:42px;font-weight:700;letter-spacing:.2em;margin:16px 0 10px;color:var(--head);font-variant-numeric:tabular-nums}
+  .muted{color:var(--muted)}.sm{font-size:13px}.err{color:var(--warn)}
+  .hello{font-size:20px;font-weight:700;margin:2px 2px 10px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0}.row b{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .row.warn b{color:var(--warn)}
+  .bar{height:10px;background:var(--soft);border-radius:6px;margin:8px 0 6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--brand)}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tile{position:relative;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 12px;min-height:84px;font:inherit;color:var(--ink);cursor:pointer}
+  .tile b{display:block;font-size:17px}.tile small{color:var(--muted)}
+  .tile[disabled]{cursor:default;opacity:.55}.tile .soon{position:absolute;top:8px;right:8px;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
+  .subh{color:var(--muted);margin:0 2px 8px;font-size:14px}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="top"><b id="tStore">OLIVE</b><span class="sub" id="tSub">マイページ</span><button id="tBack" class="hide">戻る</button></div>
+<main id="main"><div class="card c muted">読み込み中…</div></main>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
+<script>
+// キャストマイページ v0.01（SQL 096）：公式 LINE のメニュー → LINE ログイン（LIFF）→ 結びついていれば自分のページ、まだなら4けたの番号
+// 銀座と広島で入口（LIFF）が別。?s= に店のコード
+const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
+const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
+const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const yen = n => Number(n||0).toLocaleString('ja-JP') + '円';
+const HM = h => { const t=Math.round(Number(h||0)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
+let TOKEN = null, ME = null, KL = '係', pollT = null;
+
+function show(html){ $('main').innerHTML = html; window.scrollTo(0,0); }
+function fail(msg){ show(`<div class="card c"><div class="big">開けませんでした</div><p class="err">${esc(msg)}</p><p class="muted sm">公式 LINE のメニューから、もう一度開いてください</p></div>`); }
+
+async function start(){
+  if(!LIFF[STORE]){ fail('店がわかりません（公式 LINE のメニューから開いてください）'); return; }
+  try{ localStorage.setItem('olive_cast_store', STORE); }catch(e){}
+  try{ await liff.init({ liffId: LIFF[STORE] }); }catch(e){ fail('LINE の準備ができませんでした：' + (e.message||e)); return; }
+  if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
+  await login();
+}
+
+// LINE の id_token をデータベースで確かめる → 入場券、または結びつけの番号
+async function login(){
+  const idt = liff.getIDToken();
+  if(!idt){ liff.login({ redirectUri: location.href }); return; }
+  const r = await sb.rpc('cast_login', { p_store: STORE, p_id_token: idt });
+  if(r.error){ if(/確かめ/.test(r.error.message)){ liff.logout(); liff.login({ redirectUri: location.href }); return; } fail(r.error.message); return; }
+  if(r.data.status === 'link'){ showLink(r.data); return; }
+  TOKEN = r.data.token; clearTimeout(pollT); await loadMe();
+}
+
+// まだ結びついていない：番号を出して、黒服が POS で入れるのを待つ（5秒ごとに確かめる）
+function showLink(d){
+  show(`<div class="card c"><div class="big">ようこそ</div><p>この LINE は、まだ OLIVE のキャストと結びついていません。</p><p>黒服に、この番号を伝えてください。</p>
+    <div class="code">${esc(d.code)}</div><p class="muted sm">番号は10分で変わります。結びつくと、この画面が自動で変わります</p></div>`);
+  clearTimeout(pollT); pollT = setTimeout(login, 5000);
+}
+
+async function loadMe(){
+  const r = await sb.rpc('cast_me', { p_token: TOKEN });
+  if(r.error){ fail(r.error.message); return; }
+  ME = r.data; KL = ME.kakari_label || '係';
+  $('tStore').textContent = ME.store_name || 'OLIVE';
+  home();
+}
+
+// スライド表の「次の段」の文：あと○○で 時給○円
+const UNIT = { sales:v=>`${Math.round(v/10000).toLocaleString('ja-JP')}万円`, points:v=>`${v}ポイント`, douhan:v=>`${v}回`, days:v=>`${v}日`, reactions:v=>`${v}回`, groups:v=>`${v}組`, guests:v=>`${v}名` };
+const BASIS = { sales:()=>KL+'小計', points:()=>'ポイント', douhan:()=>'同伴', days:()=>'稼働日数', reactions:()=>'反応◎', groups:()=>KL+'の組数', guests:()=>KL+'の人数' };
+function nextTxt(s){
+  const u = s.unit === 'daily' ? '日給' : '時給';
+  if(s.next_threshold == null) return `一番上の段（${u} ${yen(s.cur_amount)}）`;
+  const rest = Number(s.next_threshold) - Number(s.value||0), f = UNIT[s.basis] || (v=>v);
+  return `あと ${f(s.basis==='points'?Math.round(rest*10)/10:Math.ceil(rest))}で ${u} ${yen(s.next_amount)}`;
+}
+function wageNow(){ const st = ME.stats||{}; if(st.wage) return Number(st.wage); const a = (ME.slides||[]).map(s=>Number(s.cur_amount||0)); return a.length ? Math.max(...a) : 0; }
+
+function setBack(fn){ const b=$('tBack'); b.classList.toggle('hide', !fn); $('tSub').classList.toggle('hide', !!fn); b.onclick = fn || null; }
+
+function home(){
+  setBack(null);
+  const st = ME.stats||{}, sl = (ME.slides||[]).find(s=>s.basis==='sales') || (ME.slides||[])[0];
+  let top = `<div class="row"><span>今月の${esc(KL)}小計</span><b>${Math.round(Number(st.sales||0)/10000).toLocaleString('ja-JP')}万円</b></div>`;
+  if(sl && sl.next_threshold != null){
+    const pct = Math.max(0, Math.min(100, Number(sl.value||0) / Number(sl.next_threshold) * 100));
+    top += `<div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div><div class="muted sm">${esc(nextTxt(sl))}</div>`;
+  } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
+  const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b><small>${s}</small></button>`;
+  show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
+    <div class="tiles">${tile('perf','成績','今月の数字',true)}${tile('shift','シフト','提出・確定')}${tile('absent','当日欠勤','連絡する')}${tile('req','申請','変更・名刺・ドレス')}${tile('pay','給与明細','明細・日払い')}${tile('info','お知らせ','店からの連絡')}</div>`);
+  $('main').querySelector('[data-go=perf]').onclick = perf;
+}
+
+function perf(){
+  setBack(home);
+  const st = ME.stats||{}, r = (k,v,c='') => `<div class="row ${c}"><span>${k}</span><b>${v}</b></div>`;
+  const [y,m] = String(ME.month).split('-').map(Number), d = Number(String(ME.business_date).slice(8,10));
+  const u = ME.pay_type === 'daily' ? '日給' : '時給';
+  const slides = (ME.slides||[]).map(s=>`<div class="muted sm">${esc(s.name)}：${esc(nextTxt(s))}</div>`).join('');
+  const q = st.quota != null && Number(st.quota) > 0 ? Number(st.quota) : null, dh = Number(st.douhan||0);
+  const dhCard = q ? `${r('同伴', `${dh}回 / ノルマ ${q}回`, dh<q?'warn':'')}${dh<q?`<div class="muted sm">あと${q-dh}回（足りないと月末に罰金）</div>`:'<div class="muted sm">ノルマ達成</div>'}` : r('同伴', `${dh}回`);
+  const fines = (ME.fines||[]), fsum = Number(st.fines||0);
+  const fl = fines.map(f=>`<div class="muted sm">${Number(String(f.date).slice(5,7))}/${Number(String(f.date).slice(8,10))} ${esc(f.reason||'')}　${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</div>`).join('');
+  show(`<div class="subh">${m}月（${m}/${d} まで）</div>
+    <div class="card">${r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
+    <div class="card">${dhCard}</div>
+    <div class="card">${r('出勤日数', `${Number(st.days||0)}日`)}${r('稼働時間', HM(st.hours))}${r('ポイント', `${Number(st.points||0)}`)}${r('反応◎', `${Number(st.reactions||0)}回`)}</div>
+    <div class="card">${r('罰金（今月）', fines.length?yen(fsum):'なし')}${fl}</div>`);
+}
+
+start();
+</script>
+</body>
+</html>
