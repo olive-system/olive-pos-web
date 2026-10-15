@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.15 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.16 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -100,6 +100,7 @@ async function loadMe(){
   { const d = await sb.rpc('cast_dress_info', { p_token: TOKEN }); ME.dress = d.error ? null : d.data; } /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
   $('tStore').textContent = ME.store_name || 'OLIVE';
   home();
+  { const th = thxParam(); if(th) resvThanksById(th); } /* v0.16・SQL 115：係に届いた LINE の「ありがとうを送る」から開いた時 */
 }
 
 // スライド表の「次の段」の文：あと○○で 時給○円
@@ -358,11 +359,42 @@ async function resvList(){
   RESV = r.data || [];
   const rows = RESV.map((x, i) => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><span>${esc(resvLine(x))}</span>${x.douhan?'<b class="sm" style="color:var(--ok)">同伴</b>':''}</div>
     <div class="muted sm">${x.mine?`自分の予約・係 ${x.kakari_name===ME.name?'自分':esc(x.kakari_name||'')}`:`${esc(x.by)}さんが取った予約（係 自分）`}${x.douhan&&x.meet?`・待ち合わせ ${x.meet}`:''}${x.memo?`・${esc(x.memo)}`:''}</div>
+    ${x.mine&&x.thanked?`<div class="sm" style="color:var(--ok);margin-top:2px">${esc(x.kakari_name||'')}さんからありがとう${x.thanks_note?`「${esc(x.thanks_note)}」`:''}</div>`:''}
+    ${!x.mine?(x.thanked?'<div class="sm" style="color:var(--ok);margin-top:2px">ありがとう済み</div>':`<div style="margin-top:6px"><button class="btn g" data-th="${i}" style="width:auto;padding:6px 16px">ありがとうを送る</button></div>`):''}
     ${x.mine?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn g" data-ed="${i}" style="width:auto;padding:6px 16px">変更</button><button class="btn g" data-cx="${i}" style="width:auto;padding:6px 16px;color:var(--warn)">取消</button></div>`:''}</div>`).join('');
   show(`<button class="btn" id="rvNew" style="margin-bottom:12px">予約・同伴申請</button><div class="card"><div class="gh">予約一覧（これからの予約）</div>${rows||'<div class="muted sm" style="padding:8px 0">予約はありません</div>'}</div>`);
   $('rvNew').onclick = () => resvForm(null);
   $('main').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => resvForm(RESV[b.dataset.ed]));
   $('main').querySelectorAll('[data-cx]').forEach(b => b.onclick = () => resvCancel(RESV[b.dataset.cx]));
+  $('main').querySelectorAll('[data-th]').forEach(b => b.onclick = () => resvThanks(RESV[b.dataset.th]));
+}
+// v0.16・SQL 115：係から誘客したキャストへ「ありがとう」（決まった文＋ひとこと。1つの予約に1回。2026-10-15 オーナー）
+function thxParam(){
+  const q = new URLSearchParams(location.search); let t = q.get('thanks');
+  if(!t){ const st = q.get('liff.state'); if(st) t = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('thanks'); }
+  return /^[0-9a-f-]{36}$/.test(t || '') ? t : null;
+}
+async function resvThanksById(id){
+  const r = await sb.rpc('cast_resv_list', { p_token: TOKEN });
+  if(r.error){ fail(r.error.message); return; }
+  RESV = r.data || []; const x = RESV.find(v => v.id === id);
+  if(!x){ await uiAlert('この予約は取消されたか、来店日を過ぎています'); resvList(); return; }
+  if(x.thanked){ await uiAlert('ありがとうは送信済みです'); resvList(); return; }
+  resvThanks(x);
+}
+function resvThanks(x){
+  setBack(resvList);
+  show(`<div class="ttl">ありがとうを送る</div><div class="card"><div class="gh">誘客 ${esc(x.by)}さん</div><div style="padding:6px 0">${esc(resvLine(x))}</div>
+      <label class="f" style="margin-top:8px">ひとこと（任意）<textarea id="thN" maxlength="100" style="min-height:60px"></textarea></label></div>
+    <button class="btn" id="thGo">ありがとうを送る</button><p class="muted sm" style="margin:10px 2px">お店の公式 LINE から ${esc(x.by)}さんに届きます</p>`);
+  $('thGo').onclick = async () => {
+    const note = $('thN').value.trim();
+    $('thGo').disabled = true;
+    const q = await sb.rpc('cast_resv_thanks', { p_token: TOKEN, p_id: x.id, p_note: note || null });
+    if(q.error){ $('thGo').disabled = false; await uiAlert(q.error.message); return; }
+    await uiAlert(q.data.sent ? `${x.by}さんにありがとうを送りました` : `ありがとうを記録しました。\n${x.by}さんは LINE 未連携のため、LINE は届いていません`);
+    resvList();
+  };
 }
 async function resvCancel(x){
   if(!await uiConfirm(`${resvLine(x)}\nこの予約を取消しますか？`, '取消')) return;
