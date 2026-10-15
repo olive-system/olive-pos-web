@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.14 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.15 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -348,8 +348,8 @@ async function dressReport(){
 // v0.14・SQL 113：予約・同伴申請と予約一覧（自分が取った予約＋自分が係の予約）。お客様はフルネーム1つの欄・係はキャストから選ぶ・変更と取消は取った本人がその場で（承認なし。2026-10-15 オーナー）
 //   申請・変更・取消をすると、お店（公式 LINE のトーク）と係のキャストに LINE が届く。POS に出す所は後で
 const resvLine = r => `${Number(String(r.date).slice(5,7))}/${Number(String(r.date).slice(8,10))}（${WD[new Date(r.date+'T00:00:00+09:00').getDay()]}）${r.time}　${r.name} 様 ${r.guests}名`;
-// LINE の文（SQL 113 の resv_text と同じ形。2026-10-15 オーナー）
-const resvMsg = (head, x, kn, by) => `【${head}】\n${resvLine(x).split('　')[0]}\n${x.name} 様 ${x.guests}名（係 ${kn}）\n誘客 ${by}${x.douhan?`\n同伴あり（待ち合わせ ${x.meet}）`:''}${x.memo?`\nメモ：${x.memo}`:''}`;
+// LINE の文（SQL 114 の resv_text と同じ形。2026-10-15 オーナーの見本：【同伴】／日時　人数／お客様 様　係／誘客／（待ち合わせ）／メモ）
+const resvMsg = (head, x, kn, by) => `【${x.douhan?head.replace('予約','同伴'):head}】\n${resvLine(x).split('　')[0]}　${x.guests}名\n${x.name} 様　係 ${kn}\n誘客 ${by}${x.douhan?`\n（待ち合わせ ${x.meet}）`:''}${x.memo?`\nメモ：${x.memo}`:''}`;
 let RESV = [];
 async function resvList(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
@@ -391,7 +391,9 @@ async function resvForm(ed){
       <label class="f" style="margin-top:8px">メモ（任意）<textarea id="rvMemo" maxlength="300" style="min-height:60px">${ed&&ed.memo?esc(ed.memo):''}</textarea></label></div>
     <button class="btn" id="rvGo">${ed?'変更する':'予約・同伴申請'}</button><p class="muted sm" style="margin:10px 2px">${ed?'変更':'申請'}すると、お店と係のキャストに LINE が届きます</p>`);
   const setDh = v => { dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; $('rvMw').classList.toggle('hide', !v); };
-  setDh(dh); $('rvDh0').onclick = () => setDh(false); $('rvDh1').onclick = () => setDh(true);
+  // 同伴ありは来店時刻 20:30、なしは 21:00（オーナー 2026-10-15。自分で時刻を変えていたら、そのまま）
+  const setDhT = v => { const t = $('rvT'); if(t.value === (v ? '21:00' : '20:30')) t.value = v ? '20:30' : '21:00'; setDh(v); };
+  setDh(dh); $('rvDh0').onclick = () => setDhT(false); $('rvDh1').onclick = () => setDhT(true);
   $('rvGo').onclick = async () => {
     const d = $('rvD').value, t = $('rvT').value, c = $('rvC').value.trim().replace(/[\s　]+/g, ' '), k = $('rvK').value, n = parseInt($('rvN').value, 10), m = $('rvM').value, memo = $('rvMemo').value.trim();
     if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return; }
