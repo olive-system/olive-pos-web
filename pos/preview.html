@@ -578,7 +578,7 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; if(!s){ f.innerHTML
     <div class="bar"><button class="primary" id="cSave">${s._new?'登録':'保存'}</button><button class="ghost sm" id="cDel" style="color:var(--muted);${s._new?'display:none':''}">削除</button>${s._new?'':'<span class="muted" style="font-size:13px">削除すると一覧・タイムカードから消えます</span>'}</div>`;
   // v11.48・SQL 096：LINEマイページの LINE連携（キャストの画面の4桁の番号を入力）。SQL 096 が無い時は出さない。v11.49：言葉を熟語に（オーナー 2026-10-15）
   if(!s._new) sb.rpc('pos_cast_links').then(r=>{ const row=$('cLineRow'); if(!row||cSel!==s||r.error) return; row.style.display=''; const l=(r.data||[]).find(x=>x.staff_id===s.id), b=$('cLineBtn');
-    $('cLine').textContent=l?`連携済み（${l.line_name||'名前なし'}）`:'未連携'; b.style.display=''; b.textContent=l?'連携解除':'LINE連携';
+    $('cLine').textContent=l?(l.line_name||'LINE 名なし'):'未連携'; /* 連携中は LINE の名前だけ（オーナー 2026-10-15） */ b.style.display=''; b.textContent=l?'連携解除':'LINE連携';
     b.onclick=async()=>{ if(l){ if(!await uiConfirm(`${s.display_name} の LINE連携を解除しますか？\nLINEマイページに入れなくなります（再連携できます）`)) return; const u=await sb.rpc('pos_cast_unlink',{p_staff:s.id}); toast(u.error?u.error.message:'解除しました'); if(!u.error) renderCasts(); return; }
       const v=await uiPrompt('LINEマイページに表示された4桁の番号'); if(v===null) return; const code=String(v).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\D/g,''); if(code.length!==4){ toast('4桁の番号を入力してください'); return; }
       const k=await sb.rpc('pos_cast_link',{p_staff:s.id,p_code:code}); if(k.error){ await uiAlert(k.error.message); return; } toast(`連携しました（${k.data?.line_name||'LINE'}）`); renderCasts(); }; });
