@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.93 -->
+<title>OLIVE 管理</title><!-- admin v0.94 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1200,14 +1200,17 @@ const ksFineNames=rows=>[...new Set(rows.flatMap(x=>Object.keys(x.fine_items||{}
 const ksDed=x=>ksN(x.ctax)+ksN(x.fines)+ksN(x.quota_fine)+ksN(x.welfare)+ksN(x.special_deduct);
 const ksHM=h=>{ const t=Math.round(ksN(h)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
 const ksCode=()=>{ const c=curStore()?.code; return c?'_'+c:''; };
+// v0.94：本名（POS の在籍キャストで入れたもの）。給与明細の PDF は「源氏名/本名」、Excel は「本名」の列（オーナー 2026-10-15）。読めない時は空
+async function ksReal(){ const r=await sb.from('staff').select('id,real_name').eq('store_id',storeId); const m={}; (r.data||[]).forEach(x=>{ m[x.id]=(x.real_name||'').trim(); }); return m; }
 async function ksExcel(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
+  const RN=await ksReal();
   // v0.60：キャストと黒服を1つの表に（d-system の「キャスト売上一覧」と同じ。「黒服」のシートはやめた）。黒服の行は名前に（黒服）。黒服だけの数字は ボーナスの「黒服給与」「黒服ボーナス」、マイナスの「遅刻・早退」「黒服罰金」
   // 黒服の総支給額は 遅刻・早退を引く前（課税対象額＋遅刻・早退）。マイナスの計に遅刻・早退が入るので、総支給額−マイナス−消費税−日払−源泉＝残り支給額 が合う
-  const casts=d.rows||[], halls=(h?.rows||[]).map(x=>({_hall:true,name:x.name+'（黒服）',active:x.active,manager:'',points:0,taxable:ksN(x.taxable)+ksN(x.late_deduct),_taxable:ksN(x.taxable),net:x.net,days:x.days,hours:x.hours,
+  const casts=d.rows||[], halls=(h?.rows||[]).map(x=>({_hall:true,id:x.id,name:x.name+'（黒服）',active:x.active,manager:'',points:0,taxable:ksN(x.taxable)+ksN(x.late_deduct),_taxable:ksN(x.taxable),net:x.net,days:x.days,hours:x.hours,
     allowance:x.allowance,special_pay:x.special_pay,_base:x.base,_bonus:x.bonus,_late:x.late_deduct,_hfine:x.fines,ctax:x.ctax,advance:x.advance,welfare:x.welfare,special_deduct:x.special_deduct,withholding:x.withholding}));
   const rows=[...casts,...halls], fn=ksFineNames(casts), [y,mo]=String(d.month).split('-').map(Number);
   // [見出し, 小見出し, 値]。小見出しが無い列は2行を1つにする
-  const G=[['No',null,(x,i)=>i+1],['名前',null,x=>x.name+(x.active?'':'（退店）')],['担当黒服',null,x=>x.manager||''],['ポイント',null,x=>ksN(x.points)],['総支給額',null,x=>ksN(x.taxable)],['残り支給額',null,x=>ksN(x.net)],
+  const G=[['No',null,(x,i)=>i+1],['名前',null,x=>x.name+(x.active?'':'（退店）')],['本名',null,x=>RN[x.id]||''],['担当黒服',null,x=>x.manager||''],['ポイント',null,x=>ksN(x.points)],['総支給額',null,x=>ksN(x.taxable)],['残り支給額',null,x=>ksN(x.net)],
     [''+KL+'本計',null,x=>ksN(x.honkei)],[''+KL+'小計',null,x=>ksN(x.sales)],['同伴本計',null,x=>ksN(x.douhan_honkei)],['同伴小計',null,x=>ksN(x.douhan_sales)],['給率(%)',null,x=>ksN(x.sales)?Math.round(ksN(x.taxable)/ksN(x.sales)*1000)/10:0],['稼働日数',null,x=>ksN(x.days)],
     ['時間報酬','決定時給',x=>ksN(x.wage)],['時間報酬','時間',x=>ksN(x.hours)],['時間報酬','報酬額',x=>ksN(x.time_pay)],['小計バック',null,x=>ksN(x.kakari_back)],['折半',null,x=>ksN(x.seppan_pay)],
     ...[['hc','HC'],['bottle','ボトルバック'],['other','商品バック']].flatMap(([k,l])=>[[l,'組数',x=>ksB(x,k,'groups')],[l,'本数',x=>ksB(x,k,'qty')],[l,'金額',x=>ksB(x,k,'amount')]]),
@@ -1223,18 +1226,19 @@ async function ksExcel(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xls
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'キャスト売上一覧');
   XLSX.writeFile(wb,`data-${y}-${String(mo).padStart(2,'0')}${ksCode()}.xlsx`); toast('ダウンロードしました'); }
 async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'); await ksLoad('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); }catch(e){ await uiAlert(e.message); return; }
+  const RN=await ksReal(), nmT=x=>esc(x.name)+(RN[x.id]?'/'+esc(RN[x.id]):'');
   const rows=[...(d.rows||[]),...(h?.rows||[]).map(x=>({...x,hall:true}))], fn=ksFineNames(d.rows||[]), [y,mo]=String(d.month).split('-').map(Number), sn=curStore()?.name||'', v=n=>ksN(n)?ksN(n).toLocaleString('ja-JP'):'--';
   const now=new Date(), pt=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
   // 列は3つ（縦の見出し・項目・金額）。見出しの無い行は最初の2つをまとめる。縦書きは1文字ずつ改行（PDF にする時に縦書きが崩れないように）
   const L=(l,val,c='')=>`<tr class="${c}"><td class="lb" colspan="2">${esc(l)}</td><td class="vl">${val}</td></tr>`, grp=(name,trs)=>trs.map((t,i)=>t.replace('<td class="lb" colspan="2">',(i===0?`<td class="gl" rowspan="${trs.length}">${[...name].join('<br>')}</td>`:'')+'<td class="gi">')).join('');
   const slip=x=>{ if(x.hall) return hallSlip(x); const pay=[L(x.pay_type==='daily'?'報酬（日給）':'報酬（時給）',v(x.time_pay)),L('小計バック',v(x.kakari_back)),...(x.seppan?[L(`折半（${ksN(x.seppan_pct)}%）`,v(x.seppan_pay))]:[]),L('HC',v(ksB(x,'hc','amount'))),L('ボトルバック',v(ksB(x,'bottle','amount'))),L('商品バック',v(ksB(x,'other','amount'))),L('手当など、その他',v(ksN(x.allowance)+ksN(x.special_pay))),L('合計',v(x.taxable),'sum')];
     const ded=[L('消費税',v(x.ctax)),...fn.map(f=>L(f,v(x.fine_items?.[f]))),L('同伴ノルマ',v(x.quota_fine)),L('厚生費',v(x.welfare)),L('個別控除',v(x.special_deduct)),L('合計',v(ksDed(x)),'sum')];
-    return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${esc(x.name)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給',x.wage?ksN(x.wage).toLocaleString('ja-JP'):'--')}
+    return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${nmT(x)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給',x.wage?ksN(x.wage).toLocaleString('ja-JP'):'--')}
       ${grp('支給対象',pay)}${grp('控除対象',ded)}${L('総支給額',ksN(x.taxable-ksDed(x)).toLocaleString('ja-JP'))}${L('課税対象額',v(x.taxable))}${L('源泉徴収',v(x.withholding))}${L('日払（立替）',v(x.advance))}${L('残り支給額',(ksN(x.net)<0?'−':'')+'¥'+Math.abs(ksN(x.net)).toLocaleString('ja-JP'),'net')}</table></div>`; };
   // v0.34：黒服の明細（基本給・遅刻・早退・ボーナス）
   const hallSlip=x=>{ const pay=[L(`基本給（${CS_HPAY[x.pay_type]||'—'}）`,v(x.base)),L('遅刻・早退',ksN(x.late_deduct)?'−'+v(x.late_deduct):'--'),L('ボーナス',v(x.bonus)),L('手当など、その他',v(ksN(x.allowance)+ksN(x.special_pay))),L('合計',v(x.taxable),'sum')];
     const ded=[L('消費税',v(x.ctax)),L('罰金',v(x.fines)),L('厚生費',v(x.welfare)),L('個別控除',v(x.special_deduct)),L('合計',v(ksDed(x)),'sum')];
-    return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${esc(x.name)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L('遅刻・早退',`${ksN(x.late_min)+ksN(x.early_min)}分`)}
+    return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${nmT(x)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L('遅刻・早退',`${ksN(x.late_min)+ksN(x.early_min)}分`)}
       ${grp('支給対象',pay)}${grp('控除対象',ded)}${L('総支給額',ksN(x.taxable-ksDed(x)).toLocaleString('ja-JP'))}${L('課税対象額',v(x.taxable))}${L('源泉徴収',v(x.withholding))}${L('日払（立替）',v(x.advance))}${L('残り支給額',(ksN(x.net)<0?'−':'')+'¥'+Math.abs(ksN(x.net)).toLocaleString('ja-JP'),'net')}</table></div>`; };
   const per=6, pages=[]; for(let i=0;i<rows.length;i+=per) pages.push(rows.slice(i,i+per));
   // 最後のページ：支払報酬金種一覧（残り支給額を、大きいお札・硬貨から順に何枚ずつ用意するか。マイナスの人は0円）
