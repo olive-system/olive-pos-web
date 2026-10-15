@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.10 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.11 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -35,6 +35,9 @@
   .mon{display:flex;justify-content:space-between;align-items:center;margin:0 2px 10px;font-size:17px}.mon button{background:none;border:0;font:inherit;font-size:24px;color:var(--muted);padding:0 10px}.mon button[disabled]{opacity:.25}
   .row.s{border-top:1px solid var(--line);font-weight:700}.row.n{font-size:18px;border-top:2px solid var(--head);padding-top:8px;margin-top:4px}.gh{font-size:12px;color:var(--muted);margin-bottom:2px}.ttl{text-align:center;font-weight:700;margin-bottom:6px}
   .sign{width:100%;height:180px;border:1px solid var(--line);border-radius:8px;background:var(--card);touch-action:none;display:block}
+  .dlg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50}
+  .dlg .box{background:var(--card);border-radius:16px;padding:20px 18px 16px;width:min(360px,100%);text-align:center}.dlg p{margin:0 0 16px;white-space:pre-wrap;line-height:1.6}
+  .dlg .bt{display:flex;gap:8px}.dlg .bt .btn{flex:1}
   .hide{display:none!important}
 </style>
 </head>
@@ -57,6 +60,11 @@ const yen = n => Number(n||0).toLocaleString('ja-JP') + '円';
 const HM = h => { const t=Math.round(Number(h||0)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
 let TOKEN = null, ME = null, KL = '係', pollT = null;
 
+// v0.11：確認・お知らせは画面の中の窓で出す（ブラウザの窓にはサイトのアドレスが出るため。オーナー 2026-10-15）
+function dlg(msg, ok, cancel){ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
+  d.innerHTML = `<div class="box"><p>${esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn" data-k="ok">${esc(ok)}</button></div></div>`;
+  document.body.appendChild(d); d.querySelector('[data-k=ok]').onclick = () => { d.remove(); res(true); }; const n = d.querySelector('[data-k=no]'); if(n) n.onclick = () => { d.remove(); res(false); }; }); }
+const uiAlert = m => dlg(m, 'OK', false), uiConfirm = (m, ok = 'OK') => dlg(m, ok, true);
 function show(html){ $('main').innerHTML = html; window.scrollTo(0,0); }
 function fail(msg){ show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(msg)}</p><p class="muted sm">公式 LINE のメニューから再度開いてください</p></div>`); }
 
@@ -159,11 +167,11 @@ async function absent(){
     <div class="card"><label class="f" for="abR">理由</label><textarea id="abR" maxlength="300"></textarea></div>${rule}
     <button class="btn" id="abGo">欠勤連絡</button><p class="muted sm" style="margin:10px 2px">送信内容は公式 LINE のトークにも送信されます</p>`);
   $('abGo').onclick = async () => {
-    const rs = $('abR').value.trim(); if(!rs){ alert('理由を入力してください'); return; }
-    if(!confirm(`${dTxt(A.date)}の欠勤連絡を送信しますか？`)) return;
+    const rs = $('abR').value.trim(); if(!rs){ await uiAlert('理由を入力してください'); return; }
+    if(!await uiConfirm(`${dTxt(A.date)}の欠勤連絡を送信しますか？`)) return;
     $('abGo').disabled = true;
     const q = await sb.rpc('cast_absence_submit', { p_token: TOKEN, p_reason: rs });
-    if(q.error){ $('abGo').disabled = false; alert(q.error.message); return; }
+    if(q.error){ $('abGo').disabled = false; await uiAlert(q.error.message); return; }
     let lineOk = true;
     try{ await liff.sendMessages([{ type:'text', text:`【当日欠勤】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
     absentDone(q.data.date, q.data.at, q.data.fine_name, false, lineOk);
@@ -240,14 +248,14 @@ async function payslip(){
   cv.onpointerup = cv.onpointercancel = () => { down = false; };
   $('sgClr').onclick = clear;
   $('sgOk').onclick = async () => {
-    if(!drawn){ alert('サインを入力してください'); return; }
-    if(!confirm(`${mo}月分の給与を受け取りましたか？\n受取確認は取消できません`)) return;
+    if(!drawn){ await uiAlert('サインを入力してください'); return; }
+    if(!await uiConfirm(`${mo}月分の給与を受け取りましたか？\n受取確認は取消できません`)) return;
     $('sgOk').disabled = true;
     const png = cv.toDataURL('image/png');
     const q = await sb.rpc('cast_pay_sign', { p_token: TOKEN, p_signature: png });
-    if(q.error){ $('sgOk').disabled = false; alert(q.error.message); return; }
+    if(q.error){ $('sgOk').disabled = false; await uiAlert(q.error.message); return; }
     const net = N(q.data.net), at = new Date(q.data.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    try{ await liff.sendMessages([{ type:'text', text:`${y}年${mo}月分の給料として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${at}）` }]); }catch(e){ alert('公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください'); }
+    try{ await liff.sendMessages([{ type:'text', text:`${y}年${mo}月分の給料として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${at}）` }]); }catch(e){ await uiAlert('公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください'); }
     // v0.06・SQL 100：サインの画像を保存して、店（公式 LINE）から本人のトークへ「○月分 給料 ○円 の受取サイン」＋画像を送信
     await pushSign(q.data.id, png, false);
     payslip();
@@ -265,7 +273,7 @@ async function slipPdf(P){
     const pdf = new window.jspdf.jsPDF({ unit:'mm', format:'a4' }), k = Math.min(190 / c.width, 277 / c.height), w = c.width * k, h = c.height * k;
     pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', (210 - w) / 2, 10, w, h);
     pdf.save(`給与明細_${ym(P.month)}_${P.name}.pdf`);
-  }catch(e){ alert('PDF を作成できませんでした：' + (e.message||e)); }
+  }catch(e){ await uiAlert('PDF を作成できませんでした：' + (e.message||e)); }
   finally{ b.disabled = false; b.textContent = 'PDF ダウンロード'; }
 }
 
@@ -279,20 +287,19 @@ async function cardOrder(){
   if(!C.ready){ show(`<div class="card c muted">名刺発注は準備中です</div>${hist?`<div class="card"><div class="gh">発注履歴</div>${hist}</div>`:''}`); return; }
   const lf = C.last_family || '', lg = C.last_given || '', fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink)';
   show(`<div class="card"><div class="row"><span>依頼者</span><b>${esc(C.name)}</b></div>
-      <div class="row" style="margin-top:10px"><span>印刷する名前（フルネーム）</span><button class="btn g" id="cnLast" style="width:auto;padding:6px 12px;font-size:14px" ${lf?'':'disabled'}>前回と同じ</button></div>
-      ${lf?'':'<div class="muted sm" style="text-align:right">前回の発注はありません</div>'}
+      <div class="row" style="margin-top:10px"><span>印刷する名前（フルネーム）</span>${lf?'<button class="btn g" id="cnLast" style="width:auto;padding:6px 12px;font-size:14px">前回と同じ</button>':''}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px"><label class="f">苗字<input id="cnF" maxlength="20" placeholder="例：一ノ瀬" style="${fld}"></label><label class="f">名前<input id="cnG" maxlength="20" placeholder="例：美緒" style="${fld}"></label></div>
       <div class="row" style="margin-top:10px"><span>枚数</span><b>${C.qty}枚 ${yen(C.price)}</b></div></div>
     <div class="err sm" style="margin:0 2px 12px">名刺代 ${yen(C.price)}は、給与から控除されます。</div>
     <button class="btn" id="cnGo">名刺発注</button>${hist?`<div class="card" style="margin-top:12px"><div class="gh">発注履歴</div>${hist}</div>`:''}`);
-  $('cnLast').onclick = () => { $('cnF').value = lf; $('cnG').value = lg; };
+  if(lf) $('cnLast').onclick = () => { $('cnF').value = lf; $('cnG').value = lg; }; /* 初回は出さない（オーナー 2026-10-15） */
   $('cnGo').onclick = async () => {
     const f = $('cnF').value.trim(), g = $('cnG').value.trim(), nm = `${f}　${g}`;
-    if(!f || !g){ alert('苗字と名前を両方入力してください'); return; }
-    if(!confirm(`名刺 ${C.qty}枚（${nm}）を発注しますか？\n名刺代 ${yen(C.price)}は給与から控除されます`)) return;
+    if(!f || !g){ await uiAlert('苗字と名前を両方入力してください'); return; }
+    if(!await uiConfirm(`名刺 ${C.qty}枚（${nm}）を発注しますか？\n名刺代 ${yen(C.price)}は給与から控除されます`)) return;
     $('cnGo').disabled = true;
     const q = await sb.rpc('cast_card_order', { p_token: TOKEN, p_family: f, p_given: g });
-    if(q.error){ $('cnGo').disabled = false; alert(q.error.message); return; }
+    if(q.error){ $('cnGo').disabled = false; await uiAlert(q.error.message); return; }
     show(`<div class="card c"><div class="big">送信完了</div><p>名刺 ${q.data.qty}枚（${esc(nm)}）の発注を受付しました。</p>${q.data.sent?'':'<p class="err sm">印刷屋さんへのメールの送信に失敗しました。黒服にご連絡ください</p>'}</div><button class="btn g" id="cnHome">ホーム</button>`);
     $('cnHome').onclick = home;
   };
