@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.11 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.12 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -97,6 +97,7 @@ async function loadMe(){
   const r = await sb.rpc('cast_me', { p_token: TOKEN });
   if(r.error){ fail(r.error.message); return; }
   ME = r.data; KL = ME.kakari_label || '係';
+  { const d = await sb.rpc('cast_dress_info', { p_token: TOKEN }); ME.dress = d.error ? null : d.data; } /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
   $('tStore').textContent = ME.store_name || 'OLIVE';
   home();
 }
@@ -124,12 +125,13 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
-    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('card','名刺発注','',true)}${tile('req','申請','変更・ドレス')}${tile('info','お知らせ','店舗連絡')}${tile('shift','シフト','提出・確定')}</div>`);
+    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('req','申請','変更')}${tile('info','お知らせ','店舗連絡')}${tile('shift','シフト','提出・確定')}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   $('main').querySelector('[data-go=att]').onclick = () => attend(null);
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
+  { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
 }
 
 function perf(){
@@ -302,6 +304,43 @@ async function cardOrder(){
     if(q.error){ $('cnGo').disabled = false; await uiAlert(q.error.message); return; }
     show(`<div class="card c"><div class="big">送信完了</div><p>名刺 ${q.data.qty}枚（${esc(nm)}）の発注を受付しました。</p>${q.data.sent?'':'<p class="err sm">印刷屋さんへのメールの送信に失敗しました。黒服にご連絡ください</p>'}</div><button class="btn g" id="cnHome">ホーム</button>`);
     $('cnHome').onclick = home;
+  };
+}
+
+// v0.12・SQL 110：ドレス新調日。決められた日までに、新しいドレスの金額とレシートの写真を提出。前月の決定時給×3時間未満なら罰金（自動）
+async function shrinkJpeg(file){ const img = await new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = URL.createObjectURL(file); });
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.85)); }
+async function dressReport(){
+  setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  const r = await sb.rpc('cast_dress_info', { p_token: TOKEN });
+  if(r.error){ fail(r.error.message); return; }
+  const D = r.data; if(!D.enabled){ home(); return; }
+  const due = dTxt(D.due), rp = D.report, f = D.fine, unit = D.pay_type === 'daily' ? '日給' : '時給';
+  const fineTxt2 = !f ? '—' : f.calc === 'hourly_pct' ? `時給 × ${f.value/100}時間` : f.calc === 'daily_pct' ? `日給の${f.value}%` : f.calc === 'yen' ? yen(f.value) : '—';
+  const rule = `<div class="warnbox"><b class="t">新調日の決まり</b>${D.threshold?`ドレスの金額が 前月の決定${unit} × 3時間（<b>${yen(D.threshold)}</b>）以上なら罰金なし。`:'前月の決定時給がないため、金額の判定はありません。'}足りない時・期限までに提出がない時は 罰金（${esc(fineTxt2)}）</div>`;
+  const RES = { ok:'罰金なし', short:'罰金あり', missing:'提出なし（罰金あり）', nojudge:'判定なし' };
+  if(rp && rp.status !== 'pending_photo'){ show(`<div class="card"><div class="row"><span>新調日</span><b>${due}</b></div></div><div class="card c"><div class="big">提出済み</div>${rp.amount?`<div class="row" style="text-align:left"><span>金額</span><b>${yen(rp.amount)}</b></div>`:''}<div class="row" style="text-align:left"><span>判定</span><b class="${rp.status==='ok'?'':'err'}">${RES[rp.status]||''}</b></div></div>${rule}`); return; }
+  const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);text-align:right';
+  show(`<div class="card"><div class="row"><span>新調日（提出の期限）</span><b>${due}</b></div><div class="muted sm">この日までに新しいドレスを買って、金額とレシートの写真を提出します</div></div>
+    <div class="card"><label class="f" for="drA">ドレスの金額（円）</label><input id="drA" inputmode="numeric" placeholder="例：58000" style="${fld}">
+      <label class="f" style="margin-top:10px">レシートの写真</label><input type="file" id="drP" accept="image/*" style="width:100%;font:inherit;font-size:14px"><div id="drPv" class="muted sm"></div></div>
+    ${rule}<button class="btn" id="drGo">提出</button>`);
+  $('drP').onchange = () => { $('drPv').textContent = $('drP').files[0] ? '写真を選びました' : ''; };
+  $('drGo').onclick = async () => {
+    const a = Number(String($('drA').value).replace(/[^0-9]/g, '')), file = $('drP').files[0];
+    if(!(a > 0)){ await uiAlert('ドレスの金額を入力してください'); return; }
+    if(!file){ await uiAlert('レシートの写真を選んでください'); return; }
+    if(!await uiConfirm(`ドレス ${yen(a)} を提出しますか？\n提出は1回だけです`)) return;
+    $('drGo').disabled = true;
+    try{
+      const q = await sb.rpc('cast_dress_submit', { p_token: TOKEN, p_amount: a }); if(q.error) throw q.error;
+      const blob = await shrinkJpeg(file);
+      const up = await sb.storage.from('dress-receipts').upload(`${q.data.id}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error;
+      const d = await sb.rpc('cast_dress_done', { p_token: TOKEN, p_report: q.data.id }); if(d.error) throw d.error;
+      /* SQL 111：記録は店の公式 LINE から本人へ（金額＋レシートの写真）。キャストからの文は送らない */
+      dressReport();
+    }catch(e){ $('drGo').disabled = false; await uiAlert(e.message || String(e)); }
   };
 }
 
