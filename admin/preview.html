@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.01 -->
+<title>OLIVE 管理</title><!-- admin v1.02 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1593,16 +1593,16 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+SH_WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){ const k=iso(d), L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
     cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
-      <div style="display:flex;justify-content:space-between"><b>${d}</b>${EV.has(k)?'<small style="color:var(--ok)">イベント</small>':''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><b>${d}</b>${R.length?`<small style="color:var(--muted);font-size:11px">予約${R.length-dn}${dn?'・同伴'+dn:''}</small>`:''}</div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>${L.length}／${tg(k)}人</span>${e<need?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}</span>`:''}</div>
-      <div style="font-size:11px;word-break:keep-all">${(()=>{ const P=L.slice().sort(mainOrd); return P.slice(0,4).map(x=>esc(cName(x.staff_id))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div>
-      ${R.length?`<div style="font-size:11px;color:var(--muted)">予約${R.length-dn}${dn?'・同伴'+dn:''}</div>`:''}</div>`; }
+      <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).map(r=>r.by)), isD=x=>DH.has(cName(x.staff_id)); const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b)), inL=new Set(L.map(x=>cName(x.staff_id))), miss=[...DH].filter(n=>!inL.has(n));
+        return miss.map(n=>`<b style="background:var(--warn);color:#fff;border-radius:4px;padding:0 3px">${esc(n)}</b>`).concat(P.slice(0,4).map(x=>isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
   cal+='</div>';
   const sub=C.filter(c=>c.submitted).length;
   $('main').innerHTML=head+today+`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="shM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
       <small class="muted">提出 ${sub}／${C.length}人・${M.fixed?'確定済み':'確定前'}</small><span style="flex:1"></span>
       ${ed?`<button class="ghost sm" id="shTg">曜日別の目安人数</button>${M.fixed?'':'<button class="ghost sm" id="shDr">下書き作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>`:''}</div>${cal}
-    <div class="muted" style="font-size:12px;margin-top:6px">人数／目安・19:50〜20:15 が足りない時は赤・予約と同伴の数。日を押すと、その日の詳細</div></div>`;
+    <div class="muted" style="font-size:12px;margin-top:6px">色付きの日はイベント日・緑の名前は同伴・赤の名前は同伴があるのにシフトなし・赤の文字は 19:50〜20:15 の不足。日を押すと、その日の詳細</div></div>`;
   $('shM').onchange=()=>{ shMonth=$('shM').value; PAGES.shift(); };
   $('main').querySelectorAll('[data-shd]').forEach(b=>b.onclick=()=>shiftDayEdit(st,M,b.dataset.shd,ed));
   if(!ed) return;
