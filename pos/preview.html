@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.56 -->
+<title>OLIVE 会計</title><!-- v11.57 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -589,12 +589,16 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; if(!s){ f.innerHTML
     <div class="c-cast" data-disp="block" style="font-size:13px;color:var(--muted);padding:0 6px">反応◎　<span id="cGoodMb" style="cursor:pointer;text-decoration:underline dotted">今月 <b style="color:var(--ink)" id="cGoodM">…</b></span>　<span id="cGoodAb" style="cursor:pointer;text-decoration:underline dotted">累計 <b style="color:var(--ink)" id="cGoodA">…</b></span></div>
     <div id="cFineRow" style="font-size:13px;color:var(--muted);padding:0 6px">罰金　<span id="cFineMb" style="cursor:pointer;text-decoration:underline dotted">今月 <b style="color:var(--ink)" id="cFineM">…</b></span>　<span id="cFineAb" style="cursor:pointer;text-decoration:underline dotted">累計 <b style="color:var(--ink)" id="cFineA">…</b></span></div>
     ${s._new?'':`<div id="cLineRow" style="font-size:13px;color:var(--muted);padding:0 6px;display:none">LINEマイページ　<b style="color:var(--ink)" id="cLine">…</b>　<button class="ghost sm" id="cLineBtn" style="display:none"></button></div>`}
+    ${s._new?'':`<div class="c-cast" data-disp="block" id="cShRow" style="font-size:13px;color:var(--muted);padding:0 6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">希望出勤日数<select id="cShW" style="width:auto;font-size:14px;padding:4px 8px"><option value="">未設定</option>${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${s.shift_days_per_week===n?'selected':''}>週 ${n}日</option>`).join('')}</select>出勤可能時間<select id="cShE" style="width:auto;font-size:14px;padding:4px 8px"><option value="">未設定</option>${['19:50','20:15','20:30','20:45','21:00'].map(t=>`<option value="${t}" ${s.shift_earliest===t?'selected':''}>${t}〜</option>`).join('')}</select></div>`}
     ${s._new?'':`<div class="c-cast" data-disp="block" id="cSlRow" style="font-size:13px;color:var(--muted);padding:0 6px">営業連絡　<span id="cSl" style="color:var(--ink)">…</span>　<button type="button" class="ghost sm" id="cSlBtn">提案の入替</button></div>`}
     ${s._new?'':`<div class="c-cast" data-disp="block" id="cDocRow" style="font-size:13px;color:var(--muted);padding:0 6px">書類　<span id="cDocs"></span></div>`}
     <div class="c-hall" data-disp="grid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px;font-size:13px;color:var(--muted)"><div>担当キャスト売上<br><b style="color:var(--ink);font-size:15px" id="cMgrSum">…</b></div><div>売上シェア<br><b style="color:var(--ink);font-size:15px" id="cMgrPct">…</b></div></div>
     <label class="sw" id="cNoTcBox" style="display:none"><input type="checkbox" data-k="no_timecard" ${s.no_timecard?'checked':''}>タイムカードを打たない（売上歩合の人。在籍リストの下に手当の欄が出ます）</label>
     <div id="cTrialBox" style="display:none"><label>体験の報酬<select data-k="trial_pay_type"><option value="hourly" ${s.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input type="number" inputmode="numeric" data-k="trial_pay_amount" value="${s.trial_pay_amount||''}"></label><div class="muted" style="font-size:13px">在籍リストで日払（立替）を自動計算します（源泉 ${Number(settings?.trial_withholding_rate??10)}% を引いた全額）</div></div>
     <div class="bar"><button class="primary" id="cSave">${s._new?'登録':'保存'}</button><button class="ghost sm" id="cDel" style="color:var(--muted);${s._new?'display:none':''}">削除</button>${s._new?'':'<span class="muted" style="font-size:13px">削除すると一覧・タイムカードから消えます</span>'}</div>`;
+  // v11.57・SQL 122：シフトの希望出勤日数（週○日）と出勤可能時間（入店時に黒服がヒアリング）。変えたらすぐ保存（管理サイトのシフトの下書きに使う）
+  if(!s._new){ const sv=async(k,v,l)=>{ const u=await sb.from('staff').update({[k]:v}).eq('id',s.id).select('id'); if(u.error||!(u.data||[]).length){ toast(u.error?.message||'保存できませんでした'); return; } s[k]=v; await logOp('シフトの希望',{name:s.display_name,[l]:v??'未設定'}); toast('保存しました'); };
+    const w=$('cShW'), e=$('cShE'); if(w) w.onchange=()=>sv('shift_days_per_week',w.value?Number(w.value):null,'希望出勤日数'); if(e) e.onchange=()=>sv('shift_earliest',e.value||null,'出勤可能時間'); }
   // v11.56・SQL 121：営業連絡の今日の状態と、提案（連絡先交換のお客様から30名）の入替
   if(!s._new){ const r=salesM[s.id], el=$('cSl'); if(el) el.textContent=r&&r.count!=null?`連絡済み ${r.count}名・スクショ${r.sent?'送信済み':'未送信'}`:'未連絡';
     const b=$('cSlBtn'); if(b) b.onclick=()=>salesPlanEdit(s); }

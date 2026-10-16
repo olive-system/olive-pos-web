@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v0.99 -->
+<title>OLIVE 管理</title><!-- admin v1.00 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -181,6 +181,7 @@ const SCREENS=[
   {k:'cast_sales',n:'スタッフ'},
   {k:'register',n:'現金管理'},
   {k:'punches',n:'打刻一覧'},
+  {k:'shift',n:'シフト'},
   {k:'cust',n:'顧客サイト'},
   {grp:'設定'},
   {k:'set_cast',n:'スタッフ設定'},
@@ -1560,6 +1561,69 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   $('main').querySelectorAll('[data-ne]').forEach(b=>b.onclick=()=>{ ntEdit=b.dataset.ne; PAGES.notice(); });
   $('main').querySelectorAll('[data-nd]').forEach(b=>b.onclick=guard(b,async()=>{ const x=L.find(z=>z.id===b.dataset.nd); if(!await uiConfirm(`「${x.title}」を削除しますか？`,'削除','danger')) return;
     const q=await rpc('admin_notice_delete',{p_store:st,p_id:x.id}); if(!q.ok) return; toast('削除しました'); if(ntEdit===x.id) ntEdit=null; PAGES.notice(); })); };
+// v1.00・SQL 122：⑧シフト（オーナーにヒアリングして決めた形 2026-10-16）。上に本日の出勤・同伴・予約、下に月のカレンダー（名前だけ・人数／目安・19:50〜20:15 の不足・予約と同伴の数）。
+//   日を押すとその日の詳細（名前と出勤時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）。曜日別の目安人数 → 下書き作成 → 直す → 確定（マイページに出る）
+let shMonth=null; const SH_TIMES=['19:50','20:15','20:30','20:45','21:00'], SH_WD=['日','月','火','水','木','金','土'];
+PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMonth(); if(!shMonth) shMonth=csAddMonth(now,1); const m=shMonth;
+  const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2)];
+  const head=`<h1>シフト <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+  $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
+  const [tr,mr]=await Promise.all([sb.rpc('admin_shift_today',{p_store:st}), sb.rpc('admin_shift_month',{p_store:st,p_month:m})]);
+  if(page!=='shift'||storeId!==st||shMonth!==m) return;
+  if(mr.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(mr.error.message)}</div>`; return; }
+  const T=tr.error?null:tr.data, M=mr.data, C=M.casts||[], cName=id=>C.find(c=>c.id===id)?.name||'';
+  const md=d=>{ const x=new Date(d+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()}（${SH_WD[x.getDay()]}）`; };
+  // 本日
+  let today='';
+  if(T){ const byT={}; (T.shifts||[]).forEach(x=>(byT[x.time]=byT[x.time]||[]).push(x.name)); const early=(T.shifts||[]).filter(x=>x.time<='20:15').length;
+    const dh=(T.resv||[]).filter(r=>r.douhan), rv=(T.resv||[]).filter(r=>!r.douhan);
+    today=`<div class="card"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b>本日 ${md(T.day)}</b><small class="muted">出勤 ${(T.shifts||[]).length}人・19:50〜20:15 ${early}人／${T.early}人</small></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px;margin-top:8px;font-size:14px;line-height:1.7">
+      <div><div class="muted" style="font-size:12px">出勤</div>${Object.keys(byT).sort().map(t=>`<div><b>${t}</b>　${byT[t].map(esc).join('・')}</div>`).join('')||'<div class="muted">確定したシフトがありません</div>'}</div>
+      <div><div class="muted" style="font-size:12px">同伴</div>${dh.map(r=>`<div>${r.time}　${esc(r.name)} 様 ${r.guests}名（${esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}
+        <div class="muted" style="font-size:12px;margin-top:4px">予約</div>${rv.map(r=>`<div>${r.time}　${esc(r.name)} 様 ${r.guests}名（係 ${esc(r.kakari||'—')}・誘客 ${esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}</div></div></div>`; }
+  // 月
+  const S={}; (M.shifts||[]).forEach(x=>(S[x.day]=S[x.day]||[]).push(x)); const NG={}; (M.ng||[]).forEach(x=>(NG[x.day]=NG[x.day]||new Set()).add(x.staff_id)); const EV=new Set(M.events||[]);
+  const tg=d=>M.day_targets?.[d]??M.targets?.[String(new Date(d+'T00:00:00+09:00').getDay())]??0;
+  const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)), first=new Date(y,mo-1,1).getDay(), nd=new Date(y,mo,0).getDate(), iso=d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}`;
+  const ord=x=>C.findIndex(c=>c.id===x.staff_id);
+  let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+SH_WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
+  for(let d=1;d<=nd;d++){ const k=iso(d), L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
+    cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
+      <div style="display:flex;justify-content:space-between"><b>${d}</b>${EV.has(k)?'<small style="color:var(--ok)">イベント</small>':''}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>${L.length}／${tg(k)}人</span>${e<need?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}</span>`:''}</div>
+      <div style="font-size:11px;word-break:keep-all">${L.map(x=>esc(cName(x.staff_id))).join('・')}</div>
+      ${R.length?`<div style="font-size:11px;color:var(--muted)">予約${R.length-dn}${dn?'・同伴'+dn:''}</div>`:''}</div>`; }
+  cal+='</div>';
+  const sub=C.filter(c=>c.submitted).length;
+  $('main').innerHTML=head+today+`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="shM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
+      <small class="muted">提出 ${sub}／${C.length}人・${M.fixed?'確定済み':'確定前'}</small><span style="flex:1"></span>
+      ${ed?`<button class="ghost sm" id="shTg">曜日別の目安人数</button>${M.fixed?'':'<button class="ghost sm" id="shDr">下書き作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>`:''}</div>${cal}
+    <div class="muted" style="font-size:12px;margin-top:6px">人数／目安・19:50〜20:15 が足りない時は赤・予約と同伴の数。日を押すと、その日の詳細</div></div>`;
+  $('shM').onchange=()=>{ shMonth=$('shM').value; PAGES.shift(); };
+  $('main').querySelectorAll('[data-shd]').forEach(b=>b.onclick=()=>shiftDayEdit(st,M,b.dataset.shd,ed));
+  if(!ed) return;
+  $('shTg').onclick=async()=>{ const cur=SH_WD.map((_,i)=>M.targets?.[String(i)]??''); const box=modal(`<h2 style="margin:0">目安人数（${mo}月・曜日別）</h2><div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:10px">${SH_WD.map((w,i)=>`<label style="text-align:center">${w}<input type="number" inputmode="numeric" min="0" data-tg="${i}" value="${cur[i]}" style="width:100%;text-align:center"></label>`).join('')}</div><div class="bar" style="justify-content:flex-end;margin-top:12px"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>保存</button></div>`);
+    box.querySelector('[data-x]').onclick=()=>box.remove(); box.querySelector('[data-ok]').onclick=async()=>{ const v=[...box.querySelectorAll('[data-tg]')].map(x=>x.value===''?null:Number(x.value)); if(v.some(x=>x==null||!(x>=0))){ await uiAlert('目安人数を入力してください'); return; } const q=await rpc('admin_shift_targets_save',{p_store:st,p_month:m,p_counts:v}); if(!q.ok) return; box.remove(); toast('保存しました'); PAGES.shift(); }; };
+  if($('shDr')) $('shDr').onclick=guard($('shDr'),async()=>{ if(!await uiConfirm(`${mo}月の下書きを作成しますか？\n今の${mo}月のシフトは作り直しになります`)) return; const q=await rpc('admin_shift_draft',{p_store:st,p_month:m}); if(!q.ok) return; toast(`下書きを作成しました（${q.data}件）`); PAGES.shift(); });
+  $('shFx').onclick=guard($('shFx'),async()=>{ const fx=!M.fixed; if(!await uiConfirm(fx?`${mo}月のシフトを確定しますか？\nマイページに表示します`:`${mo}月のシフトの確定を取消しますか？\nマイページに表示しなくなります`)) return; const q=await rpc('admin_shift_fix',{p_store:st,p_month:m,p_fix:fx}); if(!q.ok) return; toast(fx?'確定しました':'確定を取消しました'); PAGES.shift(); }); };
+// 日の詳細（出勤の名前と時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）
+function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:00+09:00');
+  const L=(M.shifts||[]).filter(s=>s.day===day), on=new Set(L.map(s=>s.staff_id)), ng=new Set((M.ng||[]).filter(n=>n.day===day).map(n=>n.staff_id)), R=M.resv?.[day]||[];
+  const canAdd=C.filter(c=>!on.has(c.id)&&!ng.has(c.id)), tgv=M.day_targets?.[day]??'', ev=(M.events||[]).includes(day);
+  const box=modal(`<div style="display:flex;gap:8px;align-items:baseline"><h2 style="margin:0">${x.getMonth()+1}/${x.getDate()}（${SH_WD[x.getDay()]}）</h2><small class="muted">出勤 ${L.length}人</small></div>
+    ${ed?`<div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center;margin:0">目安人数<input type="number" inputmode="numeric" min="0" id="sdT" value="${tgv}" placeholder="曜日別" style="width:80px;text-align:center"></label><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="sdE" ${ev?'checked':''} style="width:auto">イベント日</label><button class="ghost sm" id="sdS">保存</button></div>`:''}
+    <div class="muted" style="font-size:12px;margin-top:10px">出勤</div>
+    ${L.sort((a,b)=>a.time.localeCompare(b.time)).map(s=>{ const c=C.find(z=>z.id===s.staff_id)||{}; return `<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:5px 0"><span>${esc(c.name||'')}${c.daily?' <small class="muted">日給</small>':''}</span>${ed?`<select data-sdt="${s.staff_id}" style="width:auto"><option value="">出勤なし</option>${SH_TIMES.map(t=>`<option ${t===s.time?'selected':''}>${t}</option>`).join('')}</select>`:`<b>${s.time}</b>`}</div>`; }).join('')||'<div class="muted">なし</div>'}
+    ${ed?`<div class="muted" style="font-size:12px;margin-top:10px">出勤できる人（押すと追加）</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${canAdd.map(c=>`<button class="ghost sm" data-sda="${c.id}">${esc(c.name)}${c.week?` <small class="muted">週${c.week}</small>`:''}${c.earliest?` <small class="muted">${c.earliest}〜</small>`:''}</button>`).join('')||'<span class="muted">なし</span>'}</div>`:''}
+    <div class="muted" style="font-size:12px;margin-top:10px">出勤できない日</div><div>${[...ng].map(id=>esc(C.find(c=>c.id===id)?.name||'')).join('・')||'<span class="muted">なし</span>'}</div>
+    <div class="muted" style="font-size:12px;margin-top:10px">予約・同伴</div>${R.map(r=>`<div style="font-size:14px">${r.time}　${esc(r.name)} 様 ${r.guests}名（${r.douhan?'同伴 '+esc(r.by):'係 '+esc(r.kakari||'—')+'・誘客 '+esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}
+    <div class="bar" style="justify-content:flex-end;margin-top:12px"><button class="ghost" data-x>閉じる</button></div>`);
+  let changed=false; const close=()=>{ box.remove(); if(changed) PAGES.shift(); }; box.querySelector('[data-x]').onclick=close;
+  if(!ed) return;
+  box.querySelectorAll('[data-sdt]').forEach(sel=>sel.onchange=async()=>{ const q=await rpc('admin_shift_set',{p_store:st,p_staff:sel.dataset.sdt,p_day:day,p_time:sel.value||null}); if(!q.ok) return; changed=true; toast(sel.value?`${sel.value} にしました`:'出勤なしにしました'); });
+  box.querySelectorAll('[data-sda]').forEach(b=>b.onclick=async()=>{ const c=C.find(z=>z.id===b.dataset.sda); const t=c.daily?'19:50':(c.earliest&&c.earliest>'20:30'?c.earliest:(c.earliest||'20:30')); const q=await rpc('admin_shift_set',{p_store:st,p_staff:c.id,p_day:day,p_time:t}); if(!q.ok) return; changed=true; box.remove(); M.shifts=(M.shifts||[]).concat([{staff_id:c.id,day,time:t}]); shiftDayEdit(st,M,day,ed); });
+  box.querySelector('#sdS').onclick=async()=>{ const v=box.querySelector('#sdT').value; const q=await rpc('admin_shift_day_save',{p_store:st,p_day:day,p_count:v===''?null:Number(v),p_event:box.querySelector('#sdE').checked}); if(!q.ok) return; changed=true; toast('保存しました'); }; }
 PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'':'disabled';
   const keep=$('siBox')?.dataset.st===st?$('siBox'):null; // 料金だけ保存した時は、店の情報の入力中の内容を消さない
   $('main').innerHTML=`<h1>POS設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
