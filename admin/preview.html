@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.02 -->
+<title>OLIVE 管理</title><!-- admin v1.03 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -187,6 +187,7 @@ const SCREENS=[
   {k:'set_cast',n:'スタッフ設定'},
   {k:'set_pay',n:'報酬項目'},
   {k:'set_pos',n:'POS設定'},
+  {k:'set_shift',n:'シフト設定'},
   {k:'notice',n:'お知らせ'},
   {grp:'履歴'},
   {k:'hist_memo',n:'メモ一覧'},
@@ -1561,6 +1562,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   $('main').querySelectorAll('[data-ne]').forEach(b=>b.onclick=()=>{ ntEdit=b.dataset.ne; PAGES.notice(); });
   $('main').querySelectorAll('[data-nd]').forEach(b=>b.onclick=guard(b,async()=>{ const x=L.find(z=>z.id===b.dataset.nd); if(!await uiConfirm(`「${x.title}」を削除しますか？`,'削除','danger')) return;
     const q=await rpc('admin_notice_delete',{p_store:st,p_id:x.id}); if(!q.ok) return; toast('削除しました'); if(ntEdit===x.id) ntEdit=null; PAGES.notice(); })); };
+// v1.03・SQL 124：曜日別の目安人数は「シフト設定」へ（オーナー 2026-10-16「設定から行くように」）。「下書き作成」→「自動作成」。色の見本をカレンダーの上に
 // v1.00・SQL 122：⑧シフト（オーナーにヒアリングして決めた形 2026-10-16）。上に本日の出勤・同伴・予約、下に月のカレンダー（名前だけ・人数／目安・19:50〜20:15 の不足・予約と同伴の数）。
 //   日を押すとその日の詳細（名前と出勤時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）。曜日別の目安人数 → 下書き作成 → 直す → 確定（マイページに出る）
 let shMonth=null; const SH_TIMES=['19:50','20:15','20:30','20:45','21:00'], SH_WD=['日','月','火','水','木','金','土'];
@@ -1601,14 +1603,19 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const sub=C.filter(c=>c.submitted).length;
   $('main').innerHTML=head+today+`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="shM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
       <small class="muted">提出 ${sub}／${C.length}人・${M.fixed?'確定済み':'確定前'}</small><span style="flex:1"></span>
-      ${ed?`<button class="ghost sm" id="shTg">曜日別の目安人数</button>${M.fixed?'':'<button class="ghost sm" id="shDr">下書き作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>`:''}</div>${cal}
-    <div class="muted" style="font-size:12px;margin-top:6px">色付きの日はイベント日・緑の名前は同伴・赤の名前は同伴があるのにシフトなし・赤の文字は 19:50〜20:15 の不足。日を押すと、その日の詳細</div></div>`;
+      ${ed?`${M.fixed?'':'<button class="ghost sm" id="shDr">自動作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>`:''}</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:8px">
+      <span style="display:inline-flex;gap:4px;align-items:center"><span style="display:inline-block;width:14px;height:14px;background:var(--gold-soft);border:1px solid var(--line);border-radius:3px"></span>イベント日</span>
+      <span style="display:inline-flex;gap:4px;align-items:center"><b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">名前</b>同伴</span>
+      <span style="display:inline-flex;gap:4px;align-items:center"><b style="background:var(--warn);color:#fff;border-radius:4px;padding:0 4px">名前</b>同伴・シフトなし</span>
+      <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--warn)">19:50 不足</b>19:50〜20:15 の不足</span>
+      <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--ink);font-weight:400">6／8人</b>出勤人数／目安</span>${Object.keys(M.targets||{}).length?'':'<button class="ghost sm" id="shGoSet">目安人数の入力（シフト設定）</button>'}</div>${cal}
+    <div class="muted" style="font-size:12px;margin-top:6px">日を押すと、その日の詳細（時刻の変更・追加・イベント日）</div></div>`;
   $('shM').onchange=()=>{ shMonth=$('shM').value; PAGES.shift(); };
   $('main').querySelectorAll('[data-shd]').forEach(b=>b.onclick=()=>shiftDayEdit(st,M,b.dataset.shd,ed));
+  if($('shGoSet')) $('shGoSet').onclick=()=>{ setMonth=m; go('set_shift'); };
   if(!ed) return;
-  $('shTg').onclick=async()=>{ const cur=SH_WD.map((_,i)=>M.targets?.[String(i)]??''); const box=modal(`<h2 style="margin:0">目安人数（${mo}月・曜日別）</h2><div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:10px">${SH_WD.map((w,i)=>`<label style="text-align:center">${w}<input type="number" inputmode="numeric" min="0" data-tg="${i}" value="${cur[i]}" style="width:100%;text-align:center"></label>`).join('')}</div><div class="bar" style="justify-content:flex-end;margin-top:12px"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>保存</button></div>`);
-    box.querySelector('[data-x]').onclick=()=>box.remove(); box.querySelector('[data-ok]').onclick=async()=>{ const v=[...box.querySelectorAll('[data-tg]')].map(x=>x.value===''?null:Number(x.value)); if(v.some(x=>x==null||!(x>=0))){ await uiAlert('目安人数を入力してください'); return; } const q=await rpc('admin_shift_targets_save',{p_store:st,p_month:m,p_counts:v}); if(!q.ok) return; box.remove(); toast('保存しました'); PAGES.shift(); }; };
-  if($('shDr')) $('shDr').onclick=guard($('shDr'),async()=>{ if(!await uiConfirm(`${mo}月の下書きを作成しますか？\n今の${mo}月のシフトは作り直しになります`)) return; const q=await rpc('admin_shift_draft',{p_store:st,p_month:m}); if(!q.ok) return; toast(`下書きを作成しました（${q.data}件）`); PAGES.shift(); });
+  if($('shDr')) $('shDr').onclick=guard($('shDr'),async()=>{ if(!await uiConfirm(`${mo}月のシフトを自動作成しますか？\n希望出勤日数・出勤できない日・目安人数から作成します。今の${mo}月のシフトは作り直しになります`)) return; const q=await rpc('admin_shift_draft',{p_store:st,p_month:m}); if(!q.ok) return; toast(`自動作成しました（${q.data}件）`); PAGES.shift(); });
   $('shFx').onclick=guard($('shFx'),async()=>{ const fx=!M.fixed; if(!await uiConfirm(fx?`${mo}月のシフトを確定しますか？\nマイページに表示します`:`${mo}月のシフトの確定を取消しますか？\nマイページに表示しなくなります`)) return; const q=await rpc('admin_shift_fix',{p_store:st,p_month:m,p_fix:fx}); if(!q.ok) return; toast(fx?'確定しました':'確定を取消しました'); PAGES.shift(); }); };
 // 日の詳細（出勤の名前と時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）
 function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:00+09:00');
@@ -1627,6 +1634,22 @@ function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:
   box.querySelectorAll('[data-sdt]').forEach(sel=>sel.onchange=async()=>{ const q=await rpc('admin_shift_set',{p_store:st,p_staff:sel.dataset.sdt,p_day:day,p_time:sel.value||null}); if(!q.ok) return; changed=true; toast(sel.value?`${sel.value} にしました`:'出勤なしにしました'); });
   box.querySelectorAll('[data-sda]').forEach(b=>b.onclick=async()=>{ const c=C.find(z=>z.id===b.dataset.sda); const t=c.daily?'19:50':(c.earliest&&c.earliest>'20:30'?c.earliest:(c.earliest||'20:30')); const q=await rpc('admin_shift_set',{p_store:st,p_staff:c.id,p_day:day,p_time:t}); if(!q.ok) return; changed=true; box.remove(); M.shifts=(M.shifts||[]).concat([{staff_id:c.id,day,time:t}]); shiftDayEdit(st,M,day,ed); });
   box.querySelector('#sdS').onclick=async()=>{ const v=box.querySelector('#sdT').value; const q=await rpc('admin_shift_day_save',{p_store:st,p_day:day,p_count:v===''?null:Number(v),p_event:box.querySelector('#sdE').checked}); if(!q.ok) return; changed=true; toast('保存しました'); }; }
+// v1.03・SQL 124：シフト設定（曜日別の目安人数を店・月ごとに。日ごとの目安はシフトのカレンダーで日を押して変更）
+let setMonth=null;
+PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm('shift')==='edit', now=csNowMonth(); if(!setMonth) setMonth=csAddMonth(now,1); const m=setMonth;
+  const head=`<h1>シフト設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+  $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
+  const r=await sb.rpc('admin_shift_targets_get',{p_store:st,p_month:m}); if(page!=='set_shift'||storeId!==st||setMonth!==m) return;
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
+  const T=r.data||{}, opts=[now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
+  $('main').innerHTML=head+`<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>目安人数（曜日別）</b><select id="ssM" style="width:auto">${opts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select></div>
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:12px;max-width:560px">${SH_WD.map((w,i)=>`<label style="text-align:center">${w}<input type="number" inputmode="numeric" min="0" data-ss="${i}" value="${T[String(i)]??''}" ${ed?'':'disabled'} style="width:100%;text-align:center"></label>`).join('')}</div>
+    <div class="muted" style="font-size:13px;margin-top:8px">シフトの自動作成で、この人数まで割り振ります。日ごとの変更は、シフトのカレンダーで日を押して入力します</div>
+    ${ed?'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="primary sm" id="ssS">保存</button></div>':''}</div>`;
+  $('ssM').onchange=()=>{ setMonth=$('ssM').value; PAGES.set_shift(); };
+  if(!ed) return;
+  $('ssS').onclick=guard($('ssS'),async()=>{ const v=[...$('main').querySelectorAll('[data-ss]')].map(x=>x.value===''?null:Number(x.value)); if(v.some(x=>x==null||!(x>=0))){ await uiAlert('目安人数を入力してください'); return; }
+    const q=await rpc('admin_shift_targets_save',{p_store:st,p_month:m,p_counts:v}); if(!q.ok) return; toast('保存しました'); PAGES.set_shift(); }); };
 PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'':'disabled';
   const keep=$('siBox')?.dataset.st===st?$('siBox'):null; // 料金だけ保存した時は、店の情報の入力中の内容を消さない
   $('main').innerHTML=`<h1>POS設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
