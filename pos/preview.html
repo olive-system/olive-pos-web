@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.57 -->
+<title>OLIVE 会計</title><!-- v11.58 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1153,16 +1153,17 @@ $('payClose').onclick=guard($('payClose'),async()=>{ if(cur.totals.unpaid>0){toa
 // v11.11・SQL 060：店名・住所・電話・メール・インボイス番号・領収書メールの宛先は管理サイト「POS設定」の店の情報で変える（POS では変えない。領収書・閉店作業はそれを読む）
 // ---------- settings（d-system風：一覧＋詳細、編集モードで長押し並び替え・削除） ----------
 const SET = [
+  { key:'chorei', name:'朝礼', chorei:true }, // v11.58・SQL 129：朝礼（オーナー 2026-10-16。並びもオーナー）
+  { key:'closing', name:'閉店作業', closing:true },
+  { key:'bills', name:'伝票一覧', bills:true },
   { key:'tables', name:'テーブル', table:'tables', label:r=>r.name, cols:[['name','テーブル名','text'],['is_visible','表示','bool']], newRow:()=>({store_id:store.id,name:'新しいテーブル',is_visible:true}) },
   { key:'categories', name:'カテゴリー', table:'categories', label:r=>r.name, cols:[['name','カテゴリー名','text'],['short_name','略称','text'],['is_visible','表示','bool'],['is_industry_target','同業者モードの対象','bool']], newRow:()=>({store_id:store.id,name:'新しいカテゴリー',is_visible:true,is_industry_target:false}) },
   { key:'products', name:'メニュー', table:'products', label:r=>`${r.name}`, sub:r=>yen(r.price), cols:[['name','メニュー名','text'],['short_name','略称','text'],['category_id','カテゴリー','cat'],['price','販売価格（税抜）','number'],['cast_subtotal_price','小計価格（'+KL+'小計に入る額）','number'],['back_amount','バック金額','number'],['back_points','バックポイント','number'],['is_service_target','サービス料の対象','bool'],['is_keepable','キープ可','bool'],['in_stock','在庫あり','bool'],['is_visible','表示','bool']], newRow:()=>({store_id:store.id,name:'新メニュー',category_id:categories[0]?.id,price:0,cast_subtotal_price:0,back_amount:0,back_points:0,is_service_target:true,is_keepable:false,in_stock:true,is_visible:true}) },
-  { key:'print', name:'印刷設定', local:true, cols:[['print_method','印刷方法','select',[['tmpa','プリンター（TM Print Assistant）'],['browser','ブラウザ印刷（PDF）']]]] },
   { key:'pos', name:'料金設定', table:'pos_settings', single:true, ro:true, cols:[['set_minutes','最初のセット時間（分）','number'],['set_unit_price','セット1名単価','number'],['ext_minutes','延長単位（分）','number'],['ext_unit_price','延長1名単価','number'],['service_rate','サービス料率 %','number'],['tax_rate','消費税率 %','number'],['total_round_unit','合計の切り上げ単位','number'],['auto_hc_amount','自動で人数分つけるHC','amt'],['auto_bc_amount','自動で人数分つけるBC','amt'],['douhan_punch_limit_min','同伴の準備時間の目安（分）：伝票の立ち上げ〜出勤打刻がこれを超えるとタイムカードで本人に警告（0＝警告しない）','number'],['advance_cap_cast','日払（立替）の上限（キャスト）円','number'],['advance_cap_hall','日払（立替）の上限（黒服）円','number'],['trial_withholding_rate','体験入店の日払（立替）から引く源泉（%）','number'],['douhan_is_kakari','同伴にしたら自動で'+KL+'にする（ON＝同伴の人は自動で'+KL+'にもなる。ほかの'+KL+'も追加でき、売上は'+KL+'全員で等分／OFF＝同伴と'+KL+'は別々）','bool'],['cust_auto_kakari','お客様を伝票に登録したら、そのお客様の'+KL+'を自動で追加する','bool'],['set_point','セット1名あたりのポイント（人数分かけて、'+KL+'で均等に分ける）','number'],['ext_point','延長1回・1名あたりのポイント（人数分かけて、'+KL+'で均等に分ける）','number']] },
-  { key:'bills', name:'伝票一覧', bills:true },
-  { key:'closing', name:'閉店作業', closing:true },
+  { key:'print', name:'印刷設定', local:true, cols:[['print_method','印刷方法','select',[['tmpa','プリンター（TM Print Assistant）'],['browser','ブラウザ印刷（PDF）']]]] },
   { key:'audit', name:'操作ログ', audit:true },
 ];
-let setCur='tables', setSel=null, setEditMode=false, setCatFilter=null, auDate=null;
+let setCur='chorei', setSel=null, setEditMode=false, setCatFilter=null, auDate=null;
 $('navSettings').onclick=()=>{ renderSettings(setCur); show('v-settings'); };
 
 // ---------- ボトル（全ボトルの一覧・ご来店のないお客様の抽出・期限切れ） ----------
@@ -1358,6 +1359,58 @@ async function clChkRender(d){ const el=$('clChk'); if(!el) return; if(!staffAll
   const upd=()=>{ $('clChkSave').disabled=!($('clChkBox').checked&&$('clChkWho').value); }; $('clChkBox').onchange=upd; $('clChkWho').onchange=upd;
   $('clChkOpen').onclick=()=>{ setCur='bills'; renderSettings('bills'); };
   $('clChkSave').onclick=async()=>{ $('clChkSave').disabled=true; const s=staffAll.find(x=>x.id===$('clChkWho').value); await logOp(CL_CHK,{by:s?.display_name||'',staff_id:s?.id||null,business_date:d},null,true); clChkRender(d); }; }
+// ---------- 朝礼 v11.58・SQL 129（オーナー 2026-10-16「本日来店予定のお客様のメモは必ず確認。パーソナライズされたサービスが OLIVE の命。お客様に何度も言わせない」）
+// 朝礼は黒服だけ。お客様を押すとメモが開き、読んだら「確認」。天気は Open-Meteo（20時〜翌1時。降水確率50%以上で傘の準備）
+let chOpen=new Set();
+const WX=c=>c==null?'—':c<=1?'晴':c<=3?'くもり':c<=48?'霧':c<=67?'雨':c<=77?'雪':c<=82?'雨':c<=86?'雪':'雷雨';
+async function chWeather(C){ if(C.lat==null||C.lon==null) return '<div class="muted">店の場所が未設定です</div>';
+  try{ const u=`https://api.open-meteo.com/v1/forecast?latitude=${C.lat}&longitude=${C.lon}&hourly=weather_code,precipitation_probability,temperature_2m&timezone=Asia%2FTokyo&forecast_days=3`;
+    const j=await (await fetch(u)).json(); const H=j.hourly; const nx=(()=>{ const d=new Date(C.date+'T00:00:00+09:00'); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
+    const want=[[C.date,20],[C.date,21],[C.date,22],[C.date,23],[nx,0],[nx,1]].map(([d,h])=>{ const k=`${d}T${String(h).padStart(2,'0')}:00`, i=H.time.indexOf(k); return {h:h===0?24:h, c:H.weather_code[i], p:H.precipitation_probability[i], t:H.temperature_2m[i]}; });
+    const rain=want.find(x=>(x.p??0)>=50);
+    return `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;text-align:center">${want.map(x=>`<div style="border:1px solid var(--line);border-radius:8px;padding:6px 0;line-height:1.4;${(x.p??0)>=50?'background:var(--warn-soft)':''}"><div class="muted" style="font-size:13px">${x.h===25?'1':x.h}時</div><b>${WX(x.c)}</b><div style="font-size:14px;${(x.p??0)>=50?'color:var(--warn);font-weight:700':''}">${x.p??'—'}%</div><div class="muted" style="font-size:13px">${x.t==null?'—':Math.round(x.t)+'℃'}</div></div>`).join('')}</div>
+      ${rain?`<div style="background:var(--warn-soft);color:var(--warn);font-weight:700;border-radius:8px;padding:8px 10px;margin-top:8px">傘の準備（${rain.h}時から${WX(rain.c)==='雪'?'雪':'雨'}）</div>`:''}`;
+  }catch(e){ return '<div class="muted">天気を読み込めません</div>'; } }
+async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class="muted">読み込み中…</div>';
+  if(!staffAll?.length) await loadStaffAll(); const [cr,ar,sr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today')]);
+  if(setCur!=='chorei') return;
+  if(cr.error){ box.innerHTML=`<div class="err">${/pos_chorei/.test(cr.error.message)?'SQL 129 が未実行です：':'読み込めません：'}${esc(cr.error.message)}</div>`; return; }
+  const C=cr.data, G=C.guests||[], d=new Date(C.date+'T00:00:00+09:00'), WD='日月火水木金土', md=x=>{ const t=new Date(x+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}（${WD[t.getDay()]}）`; };
+  const card=(t,inner,extra='')=>`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--card)"><div style="font-size:15px;color:var(--muted);font-weight:700;margin-bottom:8px">${t}${extra}</div>${inner}</div>`;
+  const row=(a,b,st='')=>`<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--line);${st}">${a}${b}</div>`;
+  const tag='<span style="display:inline-block;background:var(--pri);color:#fff;border-radius:4px;padding:1px 6px;font-size:14px;font-weight:700;line-height:1.4;vertical-align:2px">同伴</span> ';
+  const left=G.filter(g=>g.customer&&!g.ok_at).length;
+  const guest=g=>{ const cu=g.customer, op=chOpen.has(g.id)&&cu;
+    const st=!cu?'<span class="muted" style="font-size:14px">顧客未登録（はじめて）</span>':g.ok_at?`<span class="muted" style="font-size:14px">確認済み ${new Date(g.ok_at).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false})}</span>`:'<span style="color:var(--warn);font-weight:700;font-size:14px">未確認</span>';
+    const head=`<div ${cu?`data-cho="${g.id}"`:''} style="display:flex;align-items:center;gap:10px;${cu?'cursor:pointer':''}"><b style="font-size:18px;min-width:56px">${g.time}</b><div style="flex:1;font-size:18px;font-weight:700">${g.douhan?tag:''}${esc(g.name)} 様 ${g.guests}名 <small class="muted" style="font-weight:400">${g.douhan?'同伴 '+esc(g.by):'係 '+esc(g.kakari||'—')+(g.by&&g.by!==g.kakari?'・誘客 '+esc(g.by):'')}</small></div>${st}${cu?`<span class="muted" style="font-size:20px">${op?'▲':'▼'}</span>`:''}</div>`;
+    if(!op) return `<div style="border-top:1px solid var(--line);padding:12px 0">${head}</div>`;
+    const bd=cu.birthday?`${esc(cu.birthday)}${cu.bday_in===0?'（本日お誕生日）':cu.bday_in!=null&&cu.bday_in<=7?`（あと${cu.bday_in}日）`:''}`:'—';
+    const bt=(cu.bottles||[]).map(b=>`${esc(b.name)}（残り ${b.remaining}/10）`).join('、')||'—';
+    const ls=cu.last?`${md(cu.last.date)} ${cu.last.guests}名${cu.last.casts?'・'+esc(cu.last.casts):''}`:'—';
+    return `<div style="border-top:1px solid var(--line);padding:12px 0">${head}<div style="margin-left:66px">
+      <div style="display:grid;grid-template-columns:80px 1fr 90px 1fr;gap:2px 10px;font-size:14px;margin-top:6px"><span class="muted">誕生日</span><span ${cu.bday_in!=null&&cu.bday_in<=7?'style="color:var(--warn);font-weight:700"':''}>${bd}</span><span class="muted">反応◎</span><span>${esc(cu.good||'—')}</span><span class="muted">ボトル</span><span>${bt}</span><span class="muted">前回の来店</span><span>${ls}</span></div>
+      <div style="background:var(--gold-soft);border-radius:8px;padding:8px 10px;margin-top:6px;font-size:15px;line-height:1.7;white-space:pre-wrap"><span class="muted" style="font-size:13px">メモ</span>\n${esc(cu.memo||'なし')}</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">${g.ok_at?`<button class="sm" data-chu="${g.id}">確認の取消</button>`:`<button class="primary" data-chk="${g.id}" style="padding:0 48px;height:52px;font-size:17px">確認</button>`}</div></div></div>`; };
+  const SH={}; (C.shifts||[]).forEach(x=>{ (SH[x.time]=SH[x.time]||[]).push(esc(x.name)+(x.douhan?'（同伴）':'')); });
+  const abs=(ar.error?[]:ar.data||[]), hm=t=>new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
+  const sl=(sr.error?[]:sr.data.rows||[]).filter(x=>x.worked&&x.count==null).map(x=>esc(staffAll.find(z=>z.id===x.staff_id)?.display_name||'')).filter(Boolean);
+  const todo=[sl.length?row('<span style="min-width:110px">営業連絡</span>',`<span>${sl.join('・')} <small class="muted">（未連絡）</small></span>`):'',
+    ...(C.docs||[]).length?[row('<span style="min-width:110px">書類未提出</span>',`<span>${C.docs.map(x=>`${esc(x.name)}<small class="muted">（${esc(x.miss)}）</small>`).join('・')}</span>`)]:[],
+    (C.dress||[]).length?row('<span style="min-width:110px">ドレス新調日</span>',`<span>${C.dress.map(x=>esc(x.name)).join('・')} <small class="muted">${md(C.dress[0].due).replace(/（.）/,'')} まで・未提出</small></span>`):''].join('');
+  const y=new Date(d); y.setDate(y.getDate()-1);
+  box.innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><b style="font-size:22px">${md(C.date)}</b>${C.event?'<span style="background:var(--gold-soft);border:1px solid var(--line);border-radius:4px;padding:1px 8px;font-size:14px">イベント日</span>':''}${C.off?'<span style="background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 8px;font-size:14px">休</span>':''}</div>
+    ${card(`本日来店予定のお客様 ${G.length}組`,G.length?G.map(guest).join('')+'<div class="muted" style="font-size:13px;margin-top:6px">お客様を押すとメモが開きます。読んだら「確認」</div>':'<div class="muted">なし</div>',left?`　<span style="color:var(--warn)">未確認 ${left}組</span>`:'')}
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:14px">${card(`天気（${esc(C.place||'')}）`,'<div id="chWx" class="muted">読み込み中…</div>')}
+        ${card(`本日の出勤 ${(C.shifts||[]).length}人`,(Object.keys(SH).sort().map(t=>row(`<b style="min-width:52px">${t}</b>`,`<span>${SH[t].join('・')}</span>`)).join('')||'<div class="muted">シフトなし</div>')+abs.map(a=>row('<b style="min-width:52px;color:var(--warn)">欠勤</b>',`<span style="color:var(--warn);font-weight:700">${esc(staffAll.find(z=>z.id===a.staff_id)?.display_name||'')}（${hm(a.at)}・${esc(a.reason)}）</span>`)).join(''))}</div>
+      <div style="display:flex;flex-direction:column;gap:14px">${card('売上',row(`<span style="flex:1">昨日 ${y.getMonth()+1}/${y.getDate()}（${WD[y.getDay()]}）</span>`,`<b>${yen(C.sales_y||0)}</b>`)+(C.sales_m==null?'':row(`<span style="flex:1">今月（${d.getMonth()+1}/1〜${y.getMonth()+1}/${y.getDate()}）</span>`,`<b>${yen(C.sales_m)}</b>`)))}
+        ${card('お客様の誕生日（7日以内）',(C.bdays||[]).map(b=>row(`<b style="min-width:64px;${b.in===0?'color:var(--warn)':''}">${b.in===0?'本日':'あと'+b.in+'日'}</b>`,`<span style="flex:1">${esc(b.name)} 様 <small class="muted">${esc(b.birthday)}</small></span><span class="muted">${b.kakari?'係 '+esc(b.kakari):''}</span>`)).join('')||'<div class="muted">なし</div>')}
+        ${card('キャストのやること',todo||'<div class="muted">なし</div>')}</div></div>`;
+  box.querySelectorAll('[data-cho]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cho; chOpen.has(k)?chOpen.delete(k):chOpen.add(k); renderChorei(); });
+  box.querySelectorAll('[data-chk],[data-chu]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const ok=!!b.dataset.chk, id=b.dataset.chk||b.dataset.chu; b.disabled=true;
+    const q=await sb.rpc('pos_chorei_ok',{p_resv:id,p_ok:ok}); if(q.error){ b.disabled=false; await uiAlert(q.error.message); return; } if(ok) chOpen.delete(id); renderChorei(); });
+  const wx=await chWeather(C); if($('chWx')) $('chWx').outerHTML=`<div>${wx}</div>`;
+}
 async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=today; } if(!clMonth) clMonth=clDate.slice(0,7); const d=clDate; const box=$('setList'); box.innerHTML='<div class="muted">読み込み中…</div>'; const [from,to]=clRange(d);
   const [mv,adv,pay,cls,prev,bc,rq,od,lat]=await Promise.all([
     sb.from('cash_movements').select('*').eq('store_id',store.id).eq('business_date',d).order('created_at'),
@@ -1490,12 +1543,13 @@ async function renderSettings(key, keepSel){ if(key!==setCur){ setSel=null; setE
   $('setMenu').innerHTML=SET.map(s=>`<button class="${s.key===key?'on':''}" data-k="${s.key}">${s.name}</button>`).join('')+'<button class="ghost" id="setLogout">ログアウト</button>';
   $('setMenu').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>renderSettings(b.dataset.k));
   $('setLogout').onclick=async()=>{ if(!await uiConfirm('ログアウトしますか？')) return; await sb.auth.signOut(); location.reload(); };
-  $('setList').parentElement.style.gridColumn=(def.audit||def.bills||def.closing)?'2 / 4':''; $('setForm').parentElement.style.display=(def.audit||def.bills||def.closing)?'none':'';
+  $('setList').parentElement.style.gridColumn=(def.audit||def.bills||def.closing||def.chorei)?'2 / 4':''; $('setForm').parentElement.style.display=(def.audit||def.bills||def.closing||def.chorei)?'none':'';
   $('setAdd').style.display=def.single?'none':''; $('setEdit').style.display=(def.single||def.nosort)?'none':''; $('setEdit').textContent=setEditMode?'完了':'編集'; $('setEdit').classList.toggle('on',setEditMode);
   $('setFilter').style.display=def.single?'none':'';
   if (def.local) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setList').innerHTML='';
     $('setForm').innerHTML=`<label>印刷方法<select id="pmSel"><option value="tmpa" ${PRINT.method==='tmpa'?'selected':''}>プリンター（Epson TM Print Assistant）</option><option value="browser" ${PRINT.method==='browser'?'selected':''}>ブラウザ印刷（PDF）</option></select></label><div class="muted hint">プリンター印刷には「Epson TM Print Assistant」アプリが要ります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">プリンター印刷はタブレットに「Epson TM Print Assistant」アプリを入れ、TM-m30IIIとBluetoothまたはWi-Fiで接続しておく必要があります。設定はこの端末だけに保存されます。</div></div>`;
     $('pmSel').onchange=e=>{ PRINT.method=e.target.value; localStorage.setItem('print_method',PRINT.method); toast('保存しました'); }; return; }
+  if (def.chorei) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; await renderChorei(); return; }
   if (def.closing) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; await renderClosing(); return; }
   if (def.bills) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; $('setList').innerHTML='<div class="muted">読み込み中…</div>';
     const today=businessDate(); const BSEL='id,status,table_id,guest_count,opened_at,closed_at,business_date,bill_customers(customer_id),bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)';
