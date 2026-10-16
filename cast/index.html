@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.28 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.29 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -130,7 +130,7 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
-    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','報酬明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','営業連絡','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('req','申請','変更')}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('shift','シフト','提出・確定',true)}</div>`);
+    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','報酬明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','営業連絡','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('shift','シフト','提出・確定',true)}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   $('main').querySelector('[data-go=att]').onclick = () => attend(null);
@@ -673,6 +673,7 @@ function salesShot(){
 }
 
 // v0.22・SQL 122：⑧シフト（オーナーにヒアリングして決めた形 2026-10-16）。毎月10日までに来月の「出勤できない日」を提出（1日5人まで先着・10日を過ぎたら変更できない）
+// v0.29：シフトの変更は申請の仕組みを作らず公式 LINE で黒服に（オーナー 2026-10-16）。ホームの「申請（変更）」は外して、シフトの画面に「シフト変更（メッセージにてご相談ください）」。押すとお店のトークに戻る
 // v0.28：シフトのカレンダーは左揃え（オーナー 2026-10-16）
 // v0.27：確定のカレンダーは時刻を出さず「予約1」「係予約2」の件数だけ（時刻は日を押すと出る。オーナー 2026-10-16）
 // v0.26・SQL 128：お店の休みの日は「休」（押せない）
@@ -701,9 +702,10 @@ function shiftPaint(ng){
       return `<div ${S.closed||fu?'':`data-ng="${iso}"`} style="${box};${S.closed||fu?'':'cursor:pointer;'}${on?'background:var(--soft)':''}${fu?';color:var(--muted);background:var(--bg)':''}">${d}${on?(OK?'<small style="display:block;color:var(--ok);font-size:12px">○</small>':'<small style="display:block;color:var(--warn);font-size:12px">×</small>'):fu?`<small style="display:block;font-size:10px">${of?'休':'満'}</small>`:''}</div>`; })}
     <div class="muted sm" style="margin-top:6px">${OK?'○ 出勤できる日':'× 出勤できない日（1日5人まで）・満 5人に達した日'}${OFF.size?'・休 お店の休み':''}</div>
     ${S.closed?'<div class="sm" style="margin-top:6px">提出期限を過ぎました。変更は黒服にご連絡ください</div>':''}</div>
-    ${S.closed?'':`<button class="btn" id="shGo">${S.submitted?'再提出':'提出'}</button>`}`);
+    ${S.closed?'':`<button class="btn" id="shGo">${S.submitted?'再提出':'提出'}</button>`}<button class="btn g" id="shChg" style="margin-top:10px">シフト変更（メッセージにてご相談ください）</button>`);
   $('main').querySelectorAll('[data-ng]').forEach(b => b.onclick = () => { const k = b.dataset.ng; ng.has(k) ? ng.delete(k) : ng.add(k); const y = window.scrollY; shiftPaint(ng); window.scrollTo(0, y); });
   $('main').querySelectorAll('[data-sd]').forEach(b => b.onclick = () => shiftDay(b.dataset.sd));
+  $('shChg').onclick = async () => { try{ if(liff.isInClient()){ liff.closeWindow(); return; } }catch(e){} await uiAlert('公式 LINE のトークからご連絡ください'); }; // v0.29：お店のトークに戻る
   if($('shGo')) $('shGo').onclick = async () => {
     const days = [...ng].sort();
     if(!await uiConfirm(`${mo}月の${OK?'出勤できる日':'出勤できない日'} ${days.length}日を提出しますか？${days.length?'\n'+days.map(mdDay).join('、'):''}`)) return;
