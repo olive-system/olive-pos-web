@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.54 -->
+<title>OLIVE 会計</title><!-- v11.55 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -575,10 +575,18 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; if(!s){ f.innerHTML
     <div class="c-cast" data-disp="block" style="font-size:13px;color:var(--muted);padding:0 6px">反応◎　<span id="cGoodMb" style="cursor:pointer;text-decoration:underline dotted">今月 <b style="color:var(--ink)" id="cGoodM">…</b></span>　<span id="cGoodAb" style="cursor:pointer;text-decoration:underline dotted">累計 <b style="color:var(--ink)" id="cGoodA">…</b></span></div>
     <div id="cFineRow" style="font-size:13px;color:var(--muted);padding:0 6px">罰金　<span id="cFineMb" style="cursor:pointer;text-decoration:underline dotted">今月 <b style="color:var(--ink)" id="cFineM">…</b></span>　<span id="cFineAb" style="cursor:pointer;text-decoration:underline dotted">累計 <b style="color:var(--ink)" id="cFineA">…</b></span></div>
     ${s._new?'':`<div id="cLineRow" style="font-size:13px;color:var(--muted);padding:0 6px;display:none">LINEマイページ　<b style="color:var(--ink)" id="cLine">…</b>　<button class="ghost sm" id="cLineBtn" style="display:none"></button></div>`}
+    ${s._new?'':`<div class="c-cast" data-disp="block" id="cDocRow" style="font-size:13px;color:var(--muted);padding:0 6px">書類　<span id="cDocs"></span></div>`}
     <div class="c-hall" data-disp="grid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px;font-size:13px;color:var(--muted)"><div>担当キャスト売上<br><b style="color:var(--ink);font-size:15px" id="cMgrSum">…</b></div><div>売上シェア<br><b style="color:var(--ink);font-size:15px" id="cMgrPct">…</b></div></div>
     <label class="sw" id="cNoTcBox" style="display:none"><input type="checkbox" data-k="no_timecard" ${s.no_timecard?'checked':''}>タイムカードを打たない（売上歩合の人。在籍リストの下に手当の欄が出ます）</label>
     <div id="cTrialBox" style="display:none"><label>体験の報酬<select data-k="trial_pay_type"><option value="hourly" ${s.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input type="number" inputmode="numeric" data-k="trial_pay_amount" value="${s.trial_pay_amount||''}"></label><div class="muted" style="font-size:13px">在籍リストで日払（立替）を自動計算します（源泉 ${Number(settings?.trial_withholding_rate??10)}% を引いた全額）</div></div>
     <div class="bar"><button class="primary" id="cSave">${s._new?'登録':'保存'}</button><button class="ghost sm" id="cDel" style="color:var(--muted);${s._new?'display:none':''}">削除</button>${s._new?'':'<span class="muted" style="font-size:13px">削除すると一覧・タイムカードから消えます</span>'}</div>`;
+  // v11.55・SQL 120：書類（3点セット）の提出済み。店で受け取ったら黒服がチェック（契約書は LINEマイページで同意すると自動）。オーナー 2026-10-16
+  if(!s._new){ const DOCS=[['contract_done','契約書'],['doc_id_ok','本人確認書類'],['doc_roster_ok','従業者名簿']]; const paint=()=>{ const box=$('cDocs'); if(!box||cSel!==s) return;
+      box.innerHTML=DOCS.map(([k,l])=>`<button type="button" class="chip ${s[k]?'on':''}" data-doc="${k}" style="padding:4px 10px;font-size:13px;margin:2px 4px 2px 0">${s[k]?'☑':'☐'} ${l}</button>`).join('');
+      box.querySelectorAll('[data-doc]').forEach(b=>b.onclick=async()=>{ const k=b.dataset.doc, l=DOCS.find(x=>x[0]===k)[1], on=!s[k];
+        if(!await uiConfirm(`${s.display_name} の${l}を${on?'提出済み':'未提出'}にしますか？`)) return; b.disabled=true;
+        const u=await sb.from('staff').update({[k]:on}).eq('id',s.id).select('id'); if(u.error||!(u.data||[]).length){ b.disabled=false; toast(u.error?.message||'保存できませんでした'); return; }
+        s[k]=on; await logOp('書類の提出',{name:s.display_name,doc:l,on}); toast(`${l}を${on?'提出済み':'未提出'}にしました`); paint(); }); }; paint(); }
   // v11.48・SQL 096：LINEマイページの LINE連携（キャストの画面の4桁の番号を入力）。SQL 096 が無い時は出さない。v11.49：言葉を熟語に（オーナー 2026-10-15）
   if(!s._new) sb.rpc('pos_cast_links').then(r=>{ const row=$('cLineRow'); if(!row||cSel!==s||r.error) return; row.style.display=''; const l=(r.data||[]).find(x=>x.staff_id===s.id), b=$('cLineBtn');
     $('cLine').textContent=l?(l.line_name||'LINE 名なし'):'未連携'; /* 連携中は LINE の名前だけ（オーナー 2026-10-15） */ b.style.display=''; b.textContent=l?'連携解除':'LINE連携';
