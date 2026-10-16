@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.00 -->
+<title>OLIVE 管理</title><!-- admin v1.01 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1587,12 +1587,15 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const tg=d=>M.day_targets?.[d]??M.targets?.[String(new Date(d+'T00:00:00+09:00').getDay())]??0;
   const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)), first=new Date(y,mo-1,1).getDay(), nd=new Date(y,mo,0).getDate(), iso=d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}`;
   const ord=x=>C.findIndex(c=>c.id===x.staff_id);
+  // v1.01・SQL 123：マスには主要メンバー（その月の出勤日数が多い子 → 在籍期間の長い子）を4人まで、残りは「他○名」（オーナー 2026-10-16）
+  const mCnt={}; (M.shifts||[]).forEach(x=>{ mCnt[x.staff_id]=(mCnt[x.staff_id]||0)+1; }); const since=id=>C.find(c=>c.id===id)?.since||'9999-12-31';
+  const mainOrd=(a,b)=>(mCnt[b.staff_id]||0)-(mCnt[a.staff_id]||0)||since(a.staff_id).localeCompare(since(b.staff_id))||ord(a)-ord(b);
   let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+SH_WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){ const k=iso(d), L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
     cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
       <div style="display:flex;justify-content:space-between"><b>${d}</b>${EV.has(k)?'<small style="color:var(--ok)">イベント</small>':''}</div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>${L.length}／${tg(k)}人</span>${e<need?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}</span>`:''}</div>
-      <div style="font-size:11px;word-break:keep-all">${L.map(x=>esc(cName(x.staff_id))).join('・')}</div>
+      <div style="font-size:11px;word-break:keep-all">${(()=>{ const P=L.slice().sort(mainOrd); return P.slice(0,4).map(x=>esc(cName(x.staff_id))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div>
       ${R.length?`<div style="font-size:11px;color:var(--muted)">予約${R.length-dn}${dn?'・同伴'+dn:''}</div>`:''}</div>`; }
   cal+='</div>';
   const sub=C.filter(c=>c.submitted).length;
