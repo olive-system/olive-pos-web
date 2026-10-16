@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.05 -->
+<title>OLIVE 管理</title><!-- admin v1.06 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -926,9 +926,10 @@ PAGES.set_cast=async()=>{
   $('main').innerHTML=`<h1>スタッフ設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>${ed?'':'<div class="muted" style="margin-bottom:10px">閲覧のみ</div>'}
   <div class="row" style="margin-bottom:12px"><select id="csM" style="width:auto" ${csEdit?'disabled':''}>${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select></div>
   <div id="csCastBox"><h2 style="margin:0 0 8px">キャスト</h2><div class="card muted">読み込み中…</div></div>
+  <div id="csShBox" style="margin-top:28px"><h2 style="margin:0 0 8px">シフト</h2><div class="card muted">読み込み中…</div></div>
   <div id="csHallBox" style="margin-top:28px"><h2 style="margin:0 0 8px">黒服</h2><div class="card muted">読み込み中…</div></div>`;
   $('csM').onchange=()=>{ csMonth=$('csM').value; PAGES.set_cast(); };
-  await Promise.all([csCastPart($('csCastBox'),st,ed,m), csHallPart($('csHallBox'),st,ed,m)]); };
+  await Promise.all([csCastPart($('csCastBox'),st,ed,m), csShiftPart($('csShBox'),st,ed,m), csHallPart($('csHallBox'),st,ed,m)]); };
 async function csCastPart(box,st,ed,m){
   const [sf,tm,ft,nt,stb]=await Promise.all([csList(st), sbAll(()=>sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m).order('id')),
     sb.from('fine_types').select('name').eq('store_id',st).order('sort_order'), sbAll(()=>sb.from('cast_notes').select('staff_id').eq('store_id',st).eq('is_void',false).order('id')), /* v0.67：1000行で切れないように分けて読む */
@@ -946,7 +947,7 @@ async function csCastPart(box,st,ed,m){
   const fines=[...new Set([...(ft.data||[]).map(x=>x.name),'同伴ノルマ','新調日',CS_PUNCH])];
   const rows=casts.map(s=>({s,t:csTerms(s,tm.data||[],m)}));
   const hallName=id=>halls.find(h=>h.id===id)?.display_name||'—';
-  const E=csEdit==='cast', lock=csEdit==='hall';
+  const E=csEdit==='cast', lock=!!csEdit&&!E;
   const sel=(k,v,os,dis)=>`<select data-k="${k}" ${dis?'disabled':''}>${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
   const inp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
   const yn=v=>v==null?'—':v;
@@ -1030,6 +1031,37 @@ async function csCastPart(box,st,ed,m){
     csEdit=false; toast('保存しました'); PAGES.set_cast(); });
 };
 
+// v1.06・SQL 127：キャストのシフトの設定（希望出勤日数・出勤可能時間・出勤できる日のみ・入店日）。月に関係なし。POS のキャストの詳細からも入れられる
+// 出勤できる日のみ：可＝LINEマイページで「出勤できる日」を出す（自動作成で先に入れる）。不可＝「出勤できない日」を出す
+// 入店日が空の子は、最初に出勤した日を入店日の代わりに使う（入店から2か月は売り出し中で先に入れる）
+async function csShiftPart(box,st,ed,m){
+  const r=await sb.rpc('admin_shift_staff',{p_store:st});
+  if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
+  if(r.error){ box.innerHTML=`<h2 style="margin:0 0 8px">シフト</h2><div class="card err">${esc(/admin_shift_staff/.test(r.error.message)?'SQL 127 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  const rows=r.data||[], E=csEdit==='shift', lock=!!csEdit&&!E;
+  const sel=(k,v,os)=>`<select data-k="${k}">${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
+  const cell=c=>!E?[c.week?`週 ${c.week}日`:'<span class="badge warnb">未設定</span>', c.earliest?`${c.earliest}〜`:'<span class="badge warnb">未設定</span>', c.ok_only?'可':'不可',
+      c.joined?csDate(c.joined):c.since?`<span class="muted">${csDate(c.since)}（初出勤）</span>`:'—']
+    :[sel('w',c.week??'',[['','未設定'],...[1,2,3,4,5,6,7].map(n=>[n,`週 ${n}日`])]), sel('e',c.earliest??'',[['','未設定'],...SH_TIMES.map(t=>[t,t+'〜'])]),
+      sel('o',String(!!c.ok_only),[['false','不可'],['true','可']]), `<input type="date" data-k="j" value="${esc(c.joined||'')}" style="width:auto">`];
+  const HD=['希望出勤日数','出勤可能時間','出勤できる日のみ','入店日'];
+  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">シフト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="cshCancel">キャンセル</button><button class="primary" id="cshSave">保存</button>':`<button class="ghost" id="cshEd" ${lock?'disabled':''}>編集</button>`):''}</div>
+  ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
+  ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${esc(c.name)}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
+  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">出勤できる日のみ　可：出勤できる日を提出（自動作成で優先）／不可：出勤できない日を提出<br>入店日の空欄＝初出勤の日。入店から2か月は売り出し中（自動作成で優先）${ed&&!E?'。修正は「編集」から':''}</div>`;
+  if(!ed) return;
+  if(!E){ $('cshEd').onclick=()=>{ csEdit='shift'; PAGES.set_cast(); }; return; }
+  $('cshCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
+  const sv=$('cshSave'); sv.onclick=guard(sv,async()=>{
+    const out=[];
+    for(const c of rows){ const tr=box.querySelector(`tr[data-sid="${c.id}"]`), q=k=>tr.querySelector(`[data-k=${k}]`);
+      const x={id:c.id,week:q('w').value?Number(q('w').value):null,earliest:q('e').value||null,ok_only:q('o').value==='true',joined:q('j').value||null};
+      if(x.week!==(c.week??null)||x.earliest!==(c.earliest||null)||x.ok_only!==!!c.ok_only||x.joined!==(c.joined||null)) out.push(x); }
+    if(!out.length){ csEdit=false; toast('変更はありません'); PAGES.set_cast(); return; }
+    const q=await rpc('admin_shift_staff_save',{p_store:st,p_rows:out}); if(!q.ok) return;
+    csEdit=false; toast('保存しました'); PAGES.set_cast(); });
+}
+
 // ---------- スタッフ設定・黒服 v0.24・SQL 064：報酬形態（月給・時給・日給）と金額・源泉徴収・消費税・厚生費は cast_terms に月ごと（○月以降／○月のみ）。日払い・契約書は staff ----------
 const CS_HPAY={monthly:'月給',hourly:'時給',daily:'日給'};
 function csHallTerms(s,rows,m){ const t=rows.filter(r=>r.staff_id===s.id&&r.month<=m&&(r.month===m||!r.only_month)).sort((a,b)=>a.month<b.month?1:-1)[0];
@@ -1045,7 +1077,7 @@ async function csHallPart(box,st,ed,m){
   const halls=(sf.data||[]).filter(x=>x.kind==='hall'&&(me?.is_owner||me?.staff_id===undefined||x.id===me.staff_id)), tr0=tm.data||[];
   const sql064=!tr0.length||'monthly_wage' in tr0[0];
   const rows=halls.map(s=>({s,t:csHallTerms(s,tr0,m)}));
-  const E=csEdit==='hall', lock=csEdit==='cast';
+  const E=csEdit==='hall', lock=!!csEdit&&!E;
   const sel=(k,v,os)=>`<select data-k="${k}">${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
   const inp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
   const own=!!me?.is_owner, hm5=v=>v?String(v).slice(0,5):''; // v0.34・SQL 074：出勤・退勤の時刻（遅刻・早退の計算に使う。変えられるのはオーナーだけ）
@@ -1562,6 +1594,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   $('main').querySelectorAll('[data-ne]').forEach(b=>b.onclick=()=>{ ntEdit=b.dataset.ne; PAGES.notice(); });
   $('main').querySelectorAll('[data-nd]').forEach(b=>b.onclick=guard(b,async()=>{ const x=L.find(z=>z.id===b.dataset.nd); if(!await uiConfirm(`「${x.title}」を削除しますか？`,'削除','danger')) return;
     const q=await rpc('admin_notice_delete',{p_store:st,p_id:x.id}); if(!q.ok) return; toast('削除しました'); if(ntEdit===x.id) ntEdit=null; PAGES.notice(); })); };
+// v1.06・SQL 127：目安より少ない日は「3／6人」を赤（オーナー 2026-10-16「足りない日は 3/6 の部分を赤くして警告」）
 // v1.05・SQL 126：同伴の申請があればシフトに自動で入るので、赤の札（同伴なのにシフトなし）は外した。色の見本は実際と同じ形（オーナー 2026-10-16）
 // v1.03・SQL 124：曜日別の目安人数は「シフト設定」へ（オーナー 2026-10-16「設定から行くように」）。「下書き作成」→「自動作成」。色の見本をカレンダーの上に
 // v1.00・SQL 122：⑧シフト（オーナーにヒアリングして決めた形 2026-10-16）。上に本日の出勤・同伴・予約、下に月のカレンダー（名前だけ・人数／目安・19:50〜20:15 の不足・予約と同伴の数）。
@@ -1597,7 +1630,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   for(let d=1;d<=nd;d++){ const k=iso(d), L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
     cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>${d}</b>${R.length?`<small style="color:var(--muted);font-size:11px">予約${R.length-dn}${dn?'・同伴'+dn:''}</small>`:''}</div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>${L.length}／${tg(k)}人</span>${e<need?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}</span>`:''}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">${L.length<tg(k)?`<b style="color:var(--warn)">${L.length}／${tg(k)}人</b>`:`<span>${L.length}／${tg(k)}人</span>`}${e<need?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}</span>`:''}</div>
       <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).map(r=>r.by)), isD=x=>DH.has(cName(x.staff_id)); const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
         return (P.slice(0,4).map(x=>isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
   cal+='</div>';
@@ -1609,7 +1642,8 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
       <span style="background:var(--gold-soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--ink)">イベント日</span>
       <b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>
       <b style="color:var(--warn)">19:50 不足</b>
-      <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--ink);font-weight:400">6／8人</b>出勤人数／目安</span>${Object.keys(M.targets||{}).length?'':'<button class="ghost sm" id="shGoSet">目安人数の入力（シフト設定）</button>'}</div>${cal}
+      <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--ink);font-weight:400">6／8人</b>出勤人数／目安</span>
+      <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--warn)">3／6人</b>人数不足</span>${Object.keys(M.targets||{}).length?'':'<button class="ghost sm" id="shGoSet">目安人数の入力（シフト設定）</button>'}</div>${cal}
     <div class="muted" style="font-size:12px;margin-top:6px">日を押すと、その日の詳細（時刻の変更・追加・イベント日）</div></div>`;
   $('shM').onchange=()=>{ shMonth=$('shM').value; PAGES.shift(); };
   $('main').querySelectorAll('[data-shd]').forEach(b=>b.onclick=()=>shiftDayEdit(st,M,b.dataset.shd,ed));
