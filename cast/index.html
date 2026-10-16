@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.22 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.23 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -690,7 +690,7 @@ function shiftPaint(ng){
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:center;padding:5px 0;font-size:13px;line-height:1.25;min-height:44px';
   const fixed = (S.fixed || []).map(F => { const D = {}; (F.days||[]).forEach(x => D[x.day] = x.time); const M = {}; (F.marks||[]).forEach(x => (M[x.day] = M[x.day] || []).push(x));
     return `<div class="card"><div class="gh">${Number(String(F.month).slice(5,7))}月の出勤（確定）${(F.days||[]).length}日</div>${calGrid(F.month, (iso, d) => { const t = D[iso], k = M[iso];
-      return `<div data-sd="${iso}" style="${box};cursor:pointer;${t?'background:var(--gold-soft);font-weight:700':''}">${d}${t?`<small style="display:block;font-size:10px;color:var(--pri)">${t}</small>`:''}${k?`<small style="display:block;font-size:10px;color:var(--ok);font-weight:400">${[...new Set(k.map(x => x.kind))].join('・')}</small>`:''}</div>`; })}</div>`; }).join('');
+      return `<div data-sd="${iso}" style="${box};cursor:pointer;${t?'background:var(--gold-soft);font-weight:700':''}">${d}${t?`<small style="display:block;font-size:10px;color:var(--pri)">出勤<br>${t}</small>`:(k?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">出勤なし</small>':'')}${(k||[]).slice(0,2).map(x => `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">${x.kind}<br>${x.time}</small>`).join('')}${(k||[]).length>2?`<small style="display:block;font-size:10px;color:var(--ok);font-weight:400">他${k.length-2}件</small>`:''}</div>`; })}</div>`; }).join('');
   show(`<div class="ttl">シフト</div>${fixed}
     <div class="card"><div class="sm" style="font-weight:700;margin-bottom:8px">${mo}月分　提出期限 ${dueD}</div>
     ${calGrid(S.month, (iso, d) => { const on = ng.has(iso), fu = full.has(iso) && !on;
