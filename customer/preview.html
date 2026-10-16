@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.42 -->
+<title>OLIVE 顧客</title><!-- customer v1.43 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -270,6 +270,11 @@ async function openDetail(id){ curId=id; cur=null; const c=custs.find(x=>x.id===
   try{ const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id) return; cur=d; renderDetail(); }catch(e){ if(curId===id){ $('detail').innerHTML=''; } await fail(e); if(e.code==='CS_NOTFOUND'){ show('vList'); loadList(); } } }
 async function reloadDetail(){ if(!curId) return; try{ const d=await rpc('cs_detail',{p_token:token,p_id:curId}); cur=d; renderDetail(); }catch(e){ await fail(e); } }
 
+// v1.43・SQL 117：連絡先交換（LINEマイページからキャストが提出）。交換したキャストの名前。顧客は自動では選ばないので、編集中に黒服がわかる時だけ「顧客を選んでいない連絡先交換」から選ぶ（POS と同じ。オーナー 2026-10-16）
+async function cxLoad(c){ let d; try{ d=await rpc('cs_contacts',{p_token:token,p_customer:c.id}); }catch(e){ const x=$('dCx'); if(x) x.textContent='—'; return; } const box=$('dCx'); if(!box||!cur||cur.customer.id!==c.id) return;
+  const key=x=>String(x||'').replace(/[\s　]/g,''), un=((d&&d.unlinked)||[]).slice().sort((a,b)=>(key(b.name)===key(c.name))-(key(a.name)===key(c.name)));
+  box.innerHTML=`${((d&&d.casts)||[]).length?d.casts.map(esc).join('・'):'<span class="muted">なし</span>'}`+(editing()&&un.length?`<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><select id="cxSel" style="flex:1;min-width:0;padding:8px 6px"><option value="">顧客を選んでいない連絡先交換から選ぶ</option>${un.map(x=>`<option value="${x.id}">${esc(x.name)} 様（${esc(x.cast)} ${md(x.date)}）</option>`).join('')}</select><button class="ghost sm" id="cxGo" style="flex:none">このお客様にする</button></div>`:'');
+  const go=$('cxGo'); if(go) go.onclick=async()=>{ const id=$('cxSel').value; if(!id){ await uiAlert('連絡先交換を選んでください'); return; } const x=un.find(z=>z.id===id); if(!await uiConfirm(`${x.name} 様（${x.cast}）の連絡先交換を\n${c.name} 様にしますか？`)) return; if(!await needEdit()) return; go.disabled=true; try{ await rpc('cs_contact_link',{p_token:token,p_edit_token:editTok,p_id:id,p_customer:c.id}); toast('連絡先交換のお客様を選びました'); cxLoad(c); }catch(e){ go.disabled=false; await fail(e); } }; }
 function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $('dName').textContent=c.name+' 様';
   const bts=(cur.bottles||[]).slice().sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); /* v1.25：開けた日の新しい順（POS と同じ） */ const open=bts.filter(b=>!b.is_finished&&!b.expired_on), fin=bts.filter(b=>b.is_finished&&!b.expired_on), exp=bts.filter(b=>b.expired_on);
   const kakari=c.kakari_staff_id?sname(c.kakari_staff_id):'';
@@ -285,6 +290,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
       <dt>${KL}</dt><dd>${esc(kakari||'—')}</dd>
       <dt>会社住所</dt><dd>${esc(c.company_address||'—')}</dd>
       <dt>反応◎</dt><dd>${good}</dd>
+      <dt>連絡先交換</dt><dd id="dCx"><span class="muted">…</span></dd>
     </dl></div>
   <div class="card"><h2>キープボトル ${open.length}本</h2>
     ${open.map(b=>`<div class="bt"><div class="b1"><span class="nm">${esc(b.name)}<small>${md(b.opened_on)}〜</small></span><select data-rem="${b.id}" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>
@@ -301,7 +307,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
     ${visYears((cur.visits||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||jaCmp(a.table,b.table)||(a.guests-b.guests)),v=>v.date,v=>`<div class="vis"><span>${md(v.date)}　${v.store?`【${esc(v.store)}】`:esc(v.table||'')}　${v.guests}名${v.open?' <span class="badge">来店中</span>':''}${v.oki?' <span class="badge gray">置き</span>':''}</span><span class="amt">${v.amount!=null?yen(v.amount):''}</span></div>`)||'<div class="muted">まだありません</div>'}
     ${(cur.visits||[]).length<cur.visit_total?'<div class="muted" style="font-size:12px;margin-top:6px">直近30回を表示しています</div>':''}</div>`;
 
-  const D=$('detail'); fitLine(D);
+  const D=$('detail'); fitLine(D); cxLoad(c);
   $('editInfo').onclick=async()=>{ if(await needEdit()) editForm(false); };
   $('editMemo').onclick=async()=>{ if(await needEdit()) editForm(true); };
   $('reqBtn').onclick=()=>reqForm();
