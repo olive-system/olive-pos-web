@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.18 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.19 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -129,7 +129,7 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
-    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','給与明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('contact','連絡先交換','',true)}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('req','申請','変更')}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('shift','シフト','提出・確定')}</div>`);
+    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('att','打刻一覧','',true)}${tile('pay','報酬明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('contact','連絡先交換','',true)}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('req','申請','変更')}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('shift','シフト','提出・確定')}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   $('main').querySelector('[data-go=att]').onclick = () => attend(null);
@@ -158,7 +158,7 @@ function perf(){
     <div class="card">${r('罰金（今月）', fines.length?yen(fsum):'なし')}${fl}</div>`);
 }
 
-// v0.03・SQL 098：当日欠勤。理由は自由入力。罰金のルールは本人の給与（時給／日給）の分だけ出し、今の時刻に当たる行を赤くする
+// v0.03・SQL 098：当日欠勤。理由は自由入力。罰金のルールは本人の報酬（時給／日給）の分だけ出し、今の時刻に当たる行を赤くする
 const WD = ['日','月','火','水','木','金','土'];
 const dTxt = d => { const x = new Date(d + 'T00:00:00+09:00'); return `${x.getMonth()+1}月${x.getDate()}日（${WD[x.getDay()]}）`; };
 const tTxt = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
@@ -195,7 +195,7 @@ function absentDone(date, at, fine, already, lineOk = true){
   $('abHome').onclick = home;
 }
 
-// v0.04・SQL 099：勤怠（月ごとの打刻の履歴。時刻は丸め後＝給与計算と同じ）
+// v0.04・SQL 099：勤怠（月ごとの打刻の履歴。時刻は丸め後＝報酬計算と同じ）
 const ym = d => String(d).slice(0,7), mAdd = (m, n) => { const [y, mo] = m.split('-').map(Number); const x = new Date(y, mo - 1 + n, 1); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-01`; };
 async function attend(month){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
@@ -206,11 +206,11 @@ async function attend(month){
   const rows = (A.days||[]).map(d => `<tr><td>${Number(d.date.slice(5,7))}/${Number(d.date.slice(8,10))}（${WD[new Date(d.date+'T00:00:00+09:00').getDay()]}）</td><td>${d.in?tTxt(d.in):'—'}</td><td>${d.out?tTxt(d.out):'—'}</td><td>${d.hours!=null?HM(d.hours).replace('時間',':').replace('分',''):'—'}</td><td class="mk">${[d.douhan?'同伴':'', d.after?'アフター':''].filter(Boolean).join('・')}</td></tr>`).join('');
   show(`<div class="mon"><button id="mP" ${prevOk?'':'disabled'} aria-label="前の月">‹</button><b>${y}年${mo}月</b><button id="mN" ${nextOk?'':'disabled'} aria-label="次の月">›</button></div>
     <div class="card"><div class="row"><span>出勤日数</span><b>${Number(A.total_days)}日</b></div><div class="row"><span>稼働時間</span><b>${HM(A.total_hours)}</b></div></div>
-    <div class="card" style="padding:0;overflow:hidden">${rows?`<table class="t"><tr><th>日付</th><th>出勤</th><th>退勤</th><th>稼働</th><th></th></tr>${rows}</table>`:'<div class="muted" style="padding:12px">打刻はありません</div>'}<div class="muted sm" style="padding:8px 10px">時刻は15分丸め後（給与計算と同じ）</div></div>`);
+    <div class="card" style="padding:0;overflow:hidden">${rows?`<table class="t"><tr><th>日付</th><th>出勤</th><th>退勤</th><th>稼働</th><th></th></tr>${rows}</table>`:'<div class="muted" style="padding:12px">打刻はありません</div>'}<div class="muted sm" style="padding:8px 10px">時刻は15分丸め後（報酬計算と同じ）</div></div>`);
   $('mP').onclick = () => attend(mAdd(m, -1)); $('mN').onclick = () => attend(mAdd(m, 1));
 }
 
-// v0.04・SQL 099：給与明細（前月分だけ。管理サイトの報酬支払明細書と同じ中身）・PDF・受取確認（15日から、手書きサイン）
+// v0.04・SQL 099：報酬明細（前月分だけ。管理サイトの報酬支払明細書と同じ中身）・PDF・受取確認（15日から、手書きサイン）
 const N = v => Number(v||0), cm = v => N(v) ? N(v).toLocaleString('ja-JP') : '--';
 function slipHtml(P){
   const x = P.slip, L = (k, v, c='') => `<div class="row ${c}"><span>${esc(k)}</span><b>${v}</b></div>`, B = k => N(x.backs?.[k]?.amount);
@@ -223,7 +223,7 @@ function slipHtml(P){
     <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
     <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
 }
-// v0.07・SQL 101：サインの画像を置いて、店から送信。置けなかった・送れなかった時は、次に給与明細を開いた時に送り直す
+// v0.07・SQL 101：サインの画像を置いて、店から送信。置けなかった・送れなかった時は、次に報酬明細を開いた時に送り直す
 async function pushSign(id, png, uploaded){
   try{
     if(!uploaded){ const blob = await (await fetch(png)).blob(); const up = await sb.storage.from('pay-signs').upload(`${id}.png`, blob, { contentType:'image/png', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) return false; }
@@ -241,7 +241,7 @@ async function payslip(){
   const adv = (P.advances||[]).map(a => `<div class="row"><span>${md(a.date)}（${WD[new Date(a.date+'T00:00:00+09:00').getDay()]}）</span><b>${yen(a.amount)}</b></div>`).join('');
   const fl = (P.fines||[]).map(f => `<div class="row"><span>${md(f.date)} ${esc(f.reason||'')}</span><b>${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</b></div>`).join('');
   const rc = P.receipt ? `<div class="card c"><div class="big">受取確認済み</div><p>${mo}月分　${new Date(P.receipt.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</p></div>`
-    : P.can_sign ? `<div class="card"><div class="gh">受取確認（給与を受け取ったらサイン）</div><canvas class="sign" id="sg"></canvas><div class="row" style="margin-top:8px;gap:8px"><button class="btn g" id="sgClr" style="width:auto;padding:10px 16px">再入力</button><button class="btn" id="sgOk" style="flex:1">受取確認</button></div></div>`
+    : P.can_sign ? `<div class="card"><div class="gh">受取確認（報酬を受け取ったらサイン）</div><canvas class="sign" id="sg"></canvas><div class="row" style="margin-top:8px;gap:8px"><button class="btn g" id="sgClr" style="width:auto;padding:10px 16px">再入力</button><button class="btn" id="sgOk" style="flex:1">受取確認</button></div></div>`
     : `<div class="card muted sm">受取確認は15日からです</div>`;
   show(`<div class="mon"><span></span><b>${y}年${mo}月分</b><span></span></div><div id="slip">${slipHtml(P)}</div>
     <div class="card"><div class="gh">日払（立替）</div>${adv||'<div class="muted sm">なし</div>'}</div><div class="card"><div class="gh">罰金</div>${fl||'<div class="muted sm">なし</div>'}</div>
@@ -258,14 +258,14 @@ async function payslip(){
   $('sgClr').onclick = clear;
   $('sgOk').onclick = async () => {
     if(!drawn){ await uiAlert('サインを入力してください'); return; }
-    if(!await uiConfirm(`${mo}月分の給与を受け取りましたか？\n受取確認は取消できません`)) return;
+    if(!await uiConfirm(`${mo}月分の報酬を受け取りましたか？\n受取確認は取消できません`)) return;
     $('sgOk').disabled = true;
     const png = cv.toDataURL('image/png');
     const q = await sb.rpc('cast_pay_sign', { p_token: TOKEN, p_signature: png });
     if(q.error){ $('sgOk').disabled = false; await uiAlert(q.error.message); return; }
     const net = N(q.data.net), at = new Date(q.data.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    try{ await liff.sendMessages([{ type:'text', text:`${y}年${mo}月分の給料として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${at}）` }]); }catch(e){ await uiAlert('公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください'); }
-    // v0.06・SQL 100：サインの画像を保存して、店（公式 LINE）から本人のトークへ「○月分 給料 ○円 の受取サイン」＋画像を送信
+    try{ await liff.sendMessages([{ type:'text', text:`${y}年${mo}月分の報酬として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${at}）` }]); }catch(e){ await uiAlert('公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください'); }
+    // v0.06・SQL 100：サインの画像を保存して、店（公式 LINE）から本人のトークへ「○月分 報酬 ○円 の受取サイン」＋画像を送信
     await pushSign(q.data.id, png, false);
     payslip();
   };
@@ -281,12 +281,12 @@ async function slipPdf(P){
     const c = await html2canvas($('slip'), { scale: 2, backgroundColor: getComputedStyle(document.body).backgroundColor });
     const pdf = new window.jspdf.jsPDF({ unit:'mm', format:'a4' }), k = Math.min(190 / c.width, 277 / c.height), w = c.width * k, h = c.height * k;
     pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', (210 - w) / 2, 10, w, h);
-    pdf.save(`給与明細_${ym(P.month)}_${P.name}.pdf`);
+    pdf.save(`報酬明細_${ym(P.month)}_${P.name}.pdf`);
   }catch(e){ await uiAlert('PDF を作成できませんでした：' + (e.message||e)); }
   finally{ b.disabled = false; b.textContent = 'PDF ダウンロード'; }
 }
 
-// v0.09・SQL 105：名刺発注。v0.10・SQL 107：印刷する名前は苗字と名前（両方必須）、「前回と同じ」ボタンで前回の名前を入れる。店の Gmail から印刷屋さんへメール。名刺代は給与から控除
+// v0.09・SQL 105：名刺発注。v0.10・SQL 107：印刷する名前は苗字と名前（両方必須）、「前回と同じ」ボタンで前回の名前を入れる。店の Gmail から印刷屋さんへメール。名刺代は報酬から控除
 async function cardOrder(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_card_info', { p_token: TOKEN });
@@ -299,13 +299,13 @@ async function cardOrder(){
       <div class="row" style="margin-top:10px"><span>印刷する名前（フルネーム）</span>${lf?'<button class="btn g" id="cnLast" style="width:auto;padding:6px 12px;font-size:14px">前回と同じ</button>':''}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px"><label class="f">苗字<input id="cnF" maxlength="20" placeholder="例：一ノ瀬" style="${fld}"></label><label class="f">名前<input id="cnG" maxlength="20" placeholder="例：美緒" style="${fld}"></label></div>
       <div class="row" style="margin-top:10px"><span>枚数</span><b>${C.qty}枚 ${yen(C.price)}</b></div></div>
-    <div class="err sm" style="margin:0 2px 12px">名刺代 ${yen(C.price)}は、給与から控除されます。</div>
+    <div class="err sm" style="margin:0 2px 12px">名刺代 ${yen(C.price)}は、報酬から控除されます。</div>
     <button class="btn" id="cnGo">名刺発注</button>${hist?`<div class="card" style="margin-top:12px"><div class="gh">発注履歴</div>${hist}</div>`:''}`);
   if(lf) $('cnLast').onclick = () => { $('cnF').value = lf; $('cnG').value = lg; }; /* 初回は出さない（オーナー 2026-10-15） */
   $('cnGo').onclick = async () => {
     const f = $('cnF').value.trim(), g = $('cnG').value.trim(), nm = `${f}　${g}`;
     if(!f || !g){ await uiAlert('苗字と名前を両方入力してください'); return; }
-    if(!await uiConfirm(`名刺 ${C.qty}枚（${nm}）を発注しますか？\n名刺代 ${yen(C.price)}は給与から控除されます`)) return;
+    if(!await uiConfirm(`名刺 ${C.qty}枚（${nm}）を発注しますか？\n名刺代 ${yen(C.price)}は報酬から控除されます`)) return;
     $('cnGo').disabled = true;
     const q = await sb.rpc('cast_card_order', { p_token: TOKEN, p_family: f, p_given: g });
     if(q.error){ $('cnGo').disabled = false; await uiAlert(q.error.message); return; }
