@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.58 -->
+<title>OLIVE 会計</title><!-- v11.59 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1346,6 +1346,14 @@ function clOrderHtml(od){ if(od.error) return `<div class="muted">${esc(od.error
 const clNum=v=>{ const n=parseInt(String(v??'').replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; };
 // v10.61：閉店作業④ 係・同伴・反応◎の登録に間違いがないかを伝票一覧で確認し、確認者を記録する（操作ログに残る。誰が確認したかで責任の所在が分かる）
 const CL_CHK='伝票の確認（係・同伴・反応◎）';
+// v11.59・SQL 130：⑤ 着物（ドレス新調日の免除。オーナー 2026-10-16「閉店作業で、着物の項目。本日出勤のキャストの中から選ぶ形で」）
+// 出勤したキャストから着物の子を押す → その月のドレス新調日が免除（付いた罰金は取消）。もう一度押すと取消。ドレス新調日をしない店は出さない
+async function clKmRender(d){ const el=$('clKmBox'); if(!el) return; const q=await sb.rpc('pos_kimono_day',{p_day:d}); if(!$('clKmBox')||clDate!==d) return;
+  if(q.error||!q.data?.enabled){ el.innerHTML=''; return; } const C=q.data.casts||[], mo=Number(d.slice(5,7)), md=x=>{ const [,m,dd]=String(x).split('-').map(Number); return `${m}/${dd}`; };
+  el.innerHTML=`<h2 style="margin:18px 0 8px">⑤ 着物（ドレス新調日の免除）</h2>${C.length?`<div style="display:flex;flex-wrap:wrap;gap:8px">${C.map(c=>`<button type="button" class="${c.kimono?'primary':''}" data-km="${c.id}" ${c.done||c.other_day?'disabled':''} style="min-width:96px">${esc(c.name)}${c.kimono?'　着物':''}${c.done?'<br><small>新調済み</small>':''}${c.other_day?`<br><small>着物 ${md(c.other_day)}</small>`:''}</button>`).join('')}</div>
+    <div class="muted hint" style="margin-top:6px">着物で出勤した子を押す → ${mo}月のドレス新調日は免除（もう一度押すと取消）</div>`:'<div class="muted">この日に出勤したキャストがいません</div>'}`;
+  el.querySelectorAll('[data-km]').forEach(b=>b.onclick=async()=>{ const c=C.find(x=>x.id===b.dataset.km), on=!c.kimono; b.disabled=true;
+    const r=await sb.rpc('pos_kimono_set',{p_staff:c.id,p_day:d,p_on:on}); if(r.error){ b.disabled=false; await uiAlert(r.error.message); return; } toast(on?`${c.name}：着物（${mo}月のドレス新調日は免除）`:`${c.name}：着物を取消しました`); clKmRender(d); }); }
 async function clChkRender(d){ const el=$('clChk'); if(!el) return; if(!staffAll.length) await loadStaffAll();
   const r=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',store.id).eq('action',CL_CHK).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clChk')||clDate!==d) return;
   const done=(r.data||[])[0]; if(done){ const x=new Date(done.created_at); el.innerHTML=`<div style="font-size:16px">✅ 伝票一覧で確認済　<b>${esc(done.detail?.by||'')}</b>　<small class="muted">${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}</small></div>`; return; }
@@ -1449,9 +1457,10 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   ${rq.error?`<div class="muted">${esc(rq.error.message)}</div>`:`<div class="list">${(rq.data||[]).map(r=>`<div class="item" style="flex-wrap:wrap;gap:6px"><span class="n" style="flex:1 1 100%">${esc(cn(r.customer_id))} 様　<small>${esc(reqMd(r.business_date))}　${esc(nm(r.author_staff_id))}</small><br><span style="white-space:pre-wrap">${esc(r.body)}</span></span><button class="ok sm" data-clrqok="${r.id}">メモに追記</button><button class="ghost sm" data-clrqno="${r.id}">却下</button></div>`).join('')||'<div class="muted">申請なし</div>'}</div>`}
   ${H('④ '+KL+'・同伴・反応◎の確認')}
   <div id="clChk"><div class="muted">読み込み中…</div></div>
-  ${H('⑤ 今日出たお酒・ドリンク（発注用）')}
+  <div id="clKmBox"></div>
+  ${H('⑥ 今日出たお酒・ドリンク（発注用）')}
   ${clOrderHtml(od)}
-  ${H('⑥ レジ金合わせ')}
+  ${H('⑦ レジ金合わせ')}
   <div style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(280px,1fr);gap:18px;align-items:start">
     <div><div style="display:grid;grid-template-columns:1fr 90px 1fr;gap:6px;align-items:center"><b>金種</b><b style="text-align:center">枚数</b><b style="text-align:right">金額</b>${DENOMS.map(([v,n])=>`<span>${n}</span><input type="number" inputmode="numeric" min="0" data-den="${v}" value="${cnt[v]??''}" ${saved?'disabled':''} style="text-align:right"><span class="right" data-denamt="${v}"></span>`).join('')}<b>合計金額</b><span></span><b class="right" id="clCounted"></b></div></div>
     <div class="totals" style="display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center">
@@ -1466,7 +1475,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
       <span>翌日釣銭準備金</span><span class="right" id="clNext"></span>
     </div></div>
   <div class="bar" style="margin-top:12px">${saved||future?'':later?'<span class="muted">後の日の精算があるため保存できません</span>':`<button class="primary" id="clSave">精算を保存</button>`}</div>
-  ${H('⑦ その日のメモ')}<div class="muted" style="font-size:14px;margin-bottom:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後でも修正できます</div>
+  ${H('⑧ その日のメモ')}<div class="muted" style="font-size:14px;margin-bottom:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後でも修正できます</div>
   <textarea id="clDayMemo" rows="3" maxlength="1000" placeholder="例：カード売上照合 コウ ¥384,200" style="width:100%;min-height:96px;flex-shrink:0;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea>
   <div class="bar" style="margin-top:8px"><button class="primary" id="clDayMemoSave">メモを保存</button></div>
   ${H('月間一覧')}<div style="margin-bottom:8px"><input type="month" id="clMonthIn" value="${clMonth}"></div><div id="clMonthBox" style="overflow-x:auto;flex-shrink:0"></div>`;
@@ -1484,6 +1493,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   box.querySelectorAll('[data-mvdel]').forEach(x=>x.onclick=async()=>{ const m=moves.find(z=>z.id===x.dataset.mvdel); if(!m||!await uiConfirm(`${m.kind==='out'?'出金':'入金'} ${yen(m.amount)}（${m.memo}）を削除しますか？`))return; const r=await sb.from('cash_movements').delete().eq('id',m.id); if(r.error){ toast(r.error.message); return; } if(!DBLOG) await logOp('レジ入出金の削除',{date:d,kind:m.kind,amount:m.amount,memo:m.memo},null,true); renderClosing(); });
   box.querySelectorAll('[data-clrem]').forEach(x=>x.onchange=async()=>{ const b=bottles.find(z=>z.id===x.dataset.clrem); const v=Number(x.value); const r=await sb.from('customer_bottles').update({remaining:v,updated_at:new Date().toISOString()}).eq('id',b.id); if(r.error){ toast(r.error.message); return; } await logOp('ボトル残量変更',{customer:cn(b.customer_id),bottle:b.name,before:b.remaining,after:v},null,true); b.remaining=v; toast('残量を保存しました'); });
   clChkRender(d); // v10.61
+  clKmRender(d); // v11.59
   // v11.22・SQL 073：その日のメモ（店・営業日ごとに1つ。管理サイトの収支の Excel の日次「メモ」に入る）
   sb.from('daily_memos').select('memo').eq('store_id',store.id).eq('business_date',d).maybeSingle().then(r=>{ if(setCur!=='closing'||clDate!==d||!$('clDayMemo')) return; if(r.error){ $('clDayMemo').placeholder=/daily_memos/.test(r.error.message)?'SQL 073 が未実行です':r.error.message; return; } $('clDayMemo').value=r.data?.memo||''; });
   $('clDayMemoSave').onclick=async()=>{ const b=$('clDayMemoSave'); b.disabled=true; const r=await sb.from('daily_memos').upsert({store_id:store.id,business_date:d,memo:$('clDayMemo').value.trim(),updated_at:new Date().toISOString()},{onConflict:'store_id,business_date'}); b.disabled=false; toast(r.error?(/daily_memos/.test(r.error.message)?'SQL 073 が未実行です：':'')+r.error.message:'メモを保存しました'); };
