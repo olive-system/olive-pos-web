@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.16 -->
+<title>OLIVE 管理</title><!-- admin v1.17 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -379,12 +379,13 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
   const box=(l,v,c)=>`<div style="display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;flex:1 1 220px"><span style="background:${c};padding:12px 16px;font-weight:700;white-space:nowrap">${l}</span><b style="flex:1;text-align:right;padding:12px 16px;font-size:20px">${v}</b></div>`;
   // v1.11：上に「まとめ」の月間（売上・来店・経費・入金の4つの箱。オーナー 2026-10-17「収支の上にまとめの月間を。かさばらないように」→ 見本ア、客単価のあとで改行）
   const Nn=v=>Number(v||0), per=(a,b)=>Nn(b)?Math.round(Nn(a)/Nn(b)).toLocaleString('ja-JP'):'0', cm=v=>Nn(v).toLocaleString('ja-JP'), lab=plLabor(T), ex=lab+Nn(T.cash_out);
-  const kb=(k,v,sub)=>`<div class="card" style="margin:0;padding:10px 12px"><div class="muted" style="font-size:12px">${k}</div><div style="font-size:20px;font-weight:700;margin:2px 0 4px">${v}</div><div class="muted" style="font-size:12px;line-height:1.6">${sub}</div></div>`;
-  $('main').innerHTML=head+`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px">
-      ${kb('売上',plYen(T.sales),`現金 ${cm(T.cash)}<br>カード ${cm(T.card)}<br>請求 ${cm(T.invoice)}・置き <span id="plOki">…</span>`)}
-      ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,`ユニーク <span id="plUq">…</span><br>客単価 ${per(T.sales,T.guests)}<br>組単価 ${per(T.sales,T.groups)}`)}
-      ${kb('経費',plYen(ex),`キャスト ${cm(Nn(T.cast_pay)+Nn(T.cast_adv))}<br>黒服 ${cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))}<br>諸経費 ${cm(T.cash_out)}`)}
-      ${kb('入金',plYen(T.cash_in),'')}</div>
+  // v1.17：箱の中は「名前（左）｜数字（右）」の表の形（オーナー「現金 98,000／カード 4,243,000 …こんな感じ。他の枠も」）
+  const kb=(k,v,rows)=>`<div class="card" style="margin:0;padding:10px 12px"><div class="muted" style="font-size:12px">${k}</div><div style="font-size:20px;font-weight:700;margin:2px 0 6px">${v}</div>${rows.length?`<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px">${rows.map(([a,b])=>`<span class="muted">${a}</span><span style="text-align:right;font-variant-numeric:tabular-nums">${b}</span>`).join('')}</div>`:''}</div>`;
+  $('main').innerHTML=head+`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px">
+      ${kb('売上',plYen(T.sales),[['現金',cm(T.cash)],['カード',cm(T.card)],['請求',cm(T.invoice)],['置き','<span id="plOki">…</span>']])}
+      ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[['ユニーク','<span id="plUq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]])}
+      ${kb('経費',plYen(ex),[['キャスト',cm(Nn(T.cast_pay)+Nn(T.cast_adv))],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))],['諸経費',cm(T.cash_out)]])}
+      ${kb('入金',plYen(T.cash_in),[])}</div>
     <div id="invBox" style="margin-bottom:14px"><div class="card muted">請求書の未入金を読み込み中…</div></div>${(plFill(st,m),'')}
     <div class="muted" style="font-size:13px;margin-bottom:6px">日付を押すと、その日の収支（日次）を開きます</div>
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
