@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.22 -->
+<title>OLIVE 管理</title><!-- admin v1.23 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -196,7 +196,7 @@ const SCREENS=[
   {k:'hist_del',n:'削除履歴'},
 ];
 // v0.21：パスワードはオーナーだけ（「アカウント」の見出しをやめて、オーナーの下へ）
-const OWNER_SCREENS=[{grp:'オーナー'},{k:'o_perms',n:'表示設定'},{k:'o_share',n:'顧客情報の共有'},{k:'o_contract',n:'契約書'},{k:'o_square',n:'Square 連携'},{k:'o_ids',n:'管理サイトのID'},{k:'pw',n:'パスワード'}];
+const OWNER_SCREENS=[{grp:'オーナー'},{k:'o_perms',n:'表示設定'},{k:'o_share',n:'顧客情報の共有'},{k:'o_contract',n:'契約書'},{k:'o_square',n:'Square 連携'},{k:'o_daily',n:'日報メール'},{k:'o_ids',n:'管理サイトのID'},{k:'pw',n:'パスワード'}];
 const PERM_LABEL={none:'非表示',view:'閲覧',edit:'編集'};
 
 let me=null, storeId=null, page=null;
@@ -2022,6 +2022,21 @@ PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class
   $('sqSave').onclick=guard($('sqSave'),async()=>{ const t=$('sqTok').value.trim(); if(!t){ await uiAlert('アクセストークンを入力してください'); return; }
     const q=await rpc('admin_square_save',{p_store:st,p_token:t}); $('sqTok').value=''; if(!q.ok) return; toast('つなぎました'); PAGES.o_square(); });
   if($('sqOff')) $('sqOff').onclick=guard($('sqOff'),async()=>{ if(!await uiConfirm('Square 連携を解除しますか？\nカード売上の照合ができなくなります','解除','danger')) return; const q=await rpc('admin_square_off',{p_store:st}); if(!q.ok) return; toast('解除しました'); PAGES.o_square(); }); };
+// v1.23・SQL 138：日報メール（オーナー 2026-10-17。店ごとに1通・毎朝7時・店の Gmail から）。宛先はオーナーだけが変える
+PAGES.o_daily=async()=>{ const st=storeId, head=`<h1>日報メール <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+  $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
+  const r=await sb.rpc('admin_daily_mail_get',{p_store:st}); if(page!=='o_daily'||storeId!==st) return;
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_daily_mail_get/.test(r.error.message)?'SQL 138 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  const D=r.data||{}, L=D.last;
+  $('main').innerHTML=head+`<div class="card"><div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:center;max-width:560px">
+      <span class="muted">送る時刻</span><span>毎朝 7:00（前の営業日の分）</span>
+      <span class="muted">送り主</span><span>${D.ready?'店の Gmail':'<span class="badge warnb">店の Gmail の準備なし</span>'}</span>
+      <span class="muted">前回</span><span>${L?`${esc(fmtDT(L.at))}　${esc(L.result||'')}`:'なし'}</span></div>
+    <div style="margin-top:14px"><label style="display:block">宛先（1行に1つ）<textarea id="dmTo" rows="4" style="display:block;margin-top:4px;width:100%;max-width:520px;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc((D.to||'').split(',').filter(Boolean).join('\n'))}</textarea></label></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="dmSave">保存</button><button class="ghost" id="dmTest">試しに送る（昨日の分）</button></div></div>
+    <div class="card"><b>中身</b><div style="margin-top:6px;line-height:1.9;font-size:14px">売上（月累計）／来店一覧／出退勤／連絡先交換／黒服の報告／その日のメモ</div></div>`;
+  $('dmSave').onclick=guard($('dmSave'),async()=>{ const q=await rpc('admin_daily_mail_save',{p_store:st,p_to:$('dmTo').value.split(/\n/).map(x=>x.trim()).filter(Boolean).join(',')}); if(!q.ok) return; toast('保存しました'); PAGES.o_daily(); });
+  $('dmTest').onclick=guard($('dmTest'),async()=>{ if(unsavedNow()){ await uiAlert('先に宛先を保存してください'); return; } const q=await rpc('admin_daily_mail_test',{p_store:st}); if(!q.ok) return; await uiAlert(q.data==='送信'?'送りました':String(q.data)); PAGES.o_daily(); }); };
 PAGES.o_contract=async()=>{ const head='<h1>契約書</h1>';
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_contract_get'); if(page!=='o_contract') return;
