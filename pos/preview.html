@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.68 -->
+<title>OLIVE 会計</title><!-- v11.69 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -597,7 +597,7 @@ function gDefault(){ const [y,m]=businessDate().split('-').map(Number); const d=
 // v10.46：今月（会計済）の係小計を人ごとに集計（係が複数なら等分）。only＝この人たちが係の伝票だけ計算する
 // v10.68：今月のポイント（会計済）。セット・延長のポイントは 人数×設定値 を係で均等に分け、商品のポイントは振り分けた人に付く（SQL 042）
 /* v11.43・SQL 090：決定時給は、管理サイトの報酬の計算と同じ値を出す（折半・時給加算・ポイントも同じになる）。関数が無い時は画面の計算のまま */
-function posWage(s){ sb.rpc('pos_cast_wage',{p_staff:s.id}).then(r=>{ if(cSel!==s||r.error||!r.data||r.data.wage==null) return; txt('cWage',yen(r.data.wage)); }); }
+function posWage(s){ sb.rpc('pos_cast_wage',{p_staff:s.id}).then(r=>{ if(cSel!==s||r.error||!r.data||r.data.wage==null) return; const e=$('cWage'); if(e) e.textContent=yen(r.data.wage); }); } /* v11.69：通しチェックで直した。txt は別の関数の中だけにあり、ここでエラーになっていた（管理サイトと同じ決定時給が出ていなかった） */
 async function monthPoints(only){ const bd=businessDate(), m1=bd.slice(0,7)+'-01'; const sp=Number(settings.set_point||0), ep=Number(settings.ext_point||0); const r=await sb.from('bills').select('id,guest_count,set_guest_count,bill_casts(staff_id,is_kakari),bill_extensions(qty),bill_items(is_void,bill_item_splits(staff_id,back_points))').eq('store_id',store.id).eq('status','closed').gte('business_date',m1).lte('business_date',bd); if(r.error) return null; const m={}; const add=(id,v)=>{ if(only&&!only.has(id)) return; m[id]=Math.round(((m[id]||0)+v)*10)/10; };
   (r.data||[]).forEach(b=>{ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id); const base=sp*(b.set_guest_count??b.guest_count??0)+ep*(b.bill_extensions||[]).reduce((a,e)=>a+Number(e.qty||0),0); if(ks.length&&base) ks.forEach(id=>add(id,base/ks.length)); (b.bill_items||[]).filter(x=>!x.is_void).forEach(x=>(x.bill_item_splits||[]).forEach(z=>{ const v=Number(z.back_points||0); if(v) add(z.staff_id,v); })); });
   return m; }
