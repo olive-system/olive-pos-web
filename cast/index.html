@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.36 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.37 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -265,11 +265,56 @@ async function hallLoad(){
 function hallHome(){
   setBack(null);
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('daily','日報','',!!ME.form)}${tile('pay','報酬明細','明細・受取確認',true)}</div>`);
+  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('daily','日報','',!!ME.form)}${tile('todo','TODO','今日の分',true)}${tile('pay','報酬明細','明細・受取確認',true)}</div>`);
+  $('main').querySelector('[data-go=todo]').onclick = hallTodo;
+  sb.rpc('hall_todos', { p_token: TOKEN }).then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length; b.textContent = L.length ? (n ? `未 ${n}` : '全部済') : 'なし'; if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
+}
+// v0.37・SQL 145：黒服の TODO（オーナー 2026-10-18。TimeTree の「todoリスト写メ報告」の代わり）。その日の出勤の黒服がやる。写真が要る項目は撮らないと完了にならない。できない時は理由
+const TODO_SLOT = { open:'開店作業', close:'閉店作業', by17:'17時まで', none:'' };
+async function hallTodo(){
+  setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
+  const r = await sb.rpc('hall_todos', { p_token: TOKEN }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
+  const D = r.data, L = D.items || [], d = new Date(D.day+'T00:00:00+09:00');
+  const st = x => x.status === 'done' ? `<b style="color:var(--pri)">済　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')}</b>` : '<b style="color:var(--warn)">未</b>';
+  show(`<div class="ttl">TODO　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>${L.map((x,i) => `<button class="card" data-td="${i}" style="display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(x.name)}</b>${TODO_SLOT[x.slot]?`<small class="muted" style="border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap">${TODO_SLOT[x.slot]}</small>`:''}</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:14px"><span class="muted">${[x.need_photo?'写真':'', x.need_note?'書く':''].filter(Boolean).join('・')}</span>${st(x)}</div></button>`).join('') || '<div class="card muted">今日の TODO はありません</div>'}`);
+  $('main').querySelectorAll('[data-td]').forEach(b => b.onclick = () => hallTodoOne(L[+b.dataset.td]));
+}
+function hallTodoOne(x){
+  setBack(hallTodo);
+  const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
+  const done = x.status === 'done';
+  show(`<div class="ttl">${esc(x.name)}</div><div class="card">${TODO_SLOT[x.slot]?`<div class="muted" style="font-size:13px;margin-bottom:6px">${TODO_SLOT[x.slot]}</div>`:''}<div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps||'手順なし')}</div></div>
+    ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${x.photo?`<img src="${esc(x.photo)}" style="width:100%;border-radius:8px;margin-top:8px">`:''}</div>` : `
+    ${x.status === 'skip' ? `<div class="card"><b class="muted">できない　${esc(x.by||'')}</b><div style="margin-top:4px">${esc(x.reason||'')}</div></div>` : ''}
+    ${x.need_note ? `<label class="f" style="display:block;margin-top:8px">${esc(x.note_hint||'内容')}<textarea id="tdN" maxlength="2000" style="${fld};min-height:120px">${esc(x.note||'')}</textarea></label>` : ''}
+    ${x.need_photo ? `<label class="btn g" style="display:block;text-align:center;margin-top:10px">写真を撮る<input type="file" id="tdP" accept="image/*" capture="environment" style="display:none"></label><div id="tdPv" class="muted" style="text-align:center;margin-top:4px"></div>` : ''}
+    <button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`);
+  if(done) return;
+  if($('tdP')) $('tdP').onchange = () => { $('tdPv').textContent = $('tdP').files[0] ? '写真を選びました' : ''; };
+  $('tdGo').onclick = async () => {
+    const note = $('tdN') ? $('tdN').value.trim() : null, file = $('tdP') ? $('tdP').files[0] : null;
+    if(x.need_note && !note){ await uiAlert(`${x.note_hint||'内容'}を書いてください`); return; }
+    if(x.need_photo && !file){ await uiAlert('写真を撮ってください'); return; }
+    $('tdGo').disabled = true;
+    try{
+      if(x.need_photo){ const p = await sb.rpc('hall_todo_photo', { p_token: TOKEN, p_item: x.id }); if(p.error) throw p.error;
+        const blob = await shrinkJpeg(file); const up = await sb.storage.from('todo-photos').upload(`${p.data}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }
+      const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note }); if(q.error) throw q.error;
+      await uiAlert('完了しました'); hallTodo();
+    }catch(e){ $('tdGo').disabled = false; await uiAlert(e.message || String(e)); }
+  };
+  $('tdNo').onclick = () => {
+    show(`<div class="ttl">${esc(x.name)}</div><label class="f" style="display:block">できない理由<textarea id="tdR" maxlength="500" style="${fld};min-height:100px">${esc(x.reason||'')}</textarea></label><button class="btn" id="tdRGo">送る</button>`);
+    setBack(() => hallTodoOne(x));
+    $('tdRGo').onclick = async () => { const rs = $('tdR').value.trim(); if(!rs){ await uiAlert('理由を書いてください'); return; }
+      $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs }); if(q.error){ $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
+  };
 }
 function hallSlipHtml(P){
   const x = P.slip, L = (k, v, c='') => `<div class="row ${c}"><span>${esc(k)}</span><b>${v}</b></div>`, PT = { monthly:'月給', hourly:'時給', daily:'日給' };
