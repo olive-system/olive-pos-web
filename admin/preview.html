@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.25 -->
+<title>OLIVE 管理</title><!-- admin v1.26 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -837,11 +837,11 @@ function stWire(st){ const grid=$('stGrid'); if(!grid) return;
 PAGES.set_pay=async()=>{
   const st=storeId, ed=perm('set_pay')==='edit';
   $('main').innerHTML=`<h1>報酬項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
-  const [ps,hb,pos,ft,ax,stb,srw,ctm]=await Promise.all([ sb.from('pay_slides').select('kind,threshold,wage').eq('store_id',st).order('threshold'),
+  const [ps,hb,pos,ft,ax,stb,srw,ctm,rwt]=await Promise.all([ sb.from('pay_slides').select('kind,threshold,wage').eq('store_id',st).order('threshold'),
     sb.from('hall_bonus_slides').select('*').eq('store_id',st).order('sales_man'), sb.from('pos_settings').select('*').eq('store_id',st).maybeSingle(),
     sb.from('fine_types').select('name,target,calc,value,per_unit,sort_order').eq('store_id',st).order('sort_order'), sb.rpc('admin_get_after_ext',{p_store:st}),
     sb.from('slide_tables').select('*').eq('store_id',st).eq('is_active',true).order('sort_order'), sb.from('slide_rows').select('table_id,threshold,amount').eq('store_id',st).order('threshold'),
-    sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).lte('month',csNowMonth()).order('id')) ]);
+    sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).lte('month',csNowMonth()).order('id')), sb.rpc('admin_reward_types',{p_store:st}) ]);
   if(page!=='set_pay'||storeId!==st) return;
   const er=ps.error||hb.error||pos.error; if(er){ $('main').innerHTML=`<h1>報酬項目</h1><div class="card err">${esc(/hall_bonus_slides/.test(er.message)&&/does not exist|schema cache/.test(er.message)?'SQL 050 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
   $('main').innerHTML=`<h1>報酬項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
@@ -851,6 +851,8 @@ PAGES.set_pay=async()=>{
   ${payAdvCard(pos,ed)}
   <div class="psec">罰金</div>
   ${ft.error?`<div class="card err">${esc(/fine_types/.test(ft.error.message)&&/does not exist|schema cache/.test(ft.error.message)?'SQL 052 が未実行です：':'罰金の種類を読み込めません：')}${esc(ft.error.message)}</div>`:fineCard(ft.data||[],ed,pos.data?.daily_hours)}
+  <div class="psec">報酬</div>
+  ${rwt.error?`<div class="card err">${esc(/admin_reward_types/.test(rwt.error.message)?'SQL 140 が未実行です：':'報酬の種類を読み込めません：')}${esc(rwt.error.message)}</div>`:rwCard(rwt.data||{},ed)}
   <div class="psec">キャスト</div>
   ${stb.error?`<div class="card err">${esc(/slide_tables/.test(stb.error.message)&&/does not exist|schema cache/.test(stb.error.message)?'SQL 058 が未実行です：':'スライド表を読み込めません：')}${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed)}
   ${payPtCard(pos,ed)}
@@ -862,6 +864,7 @@ PAGES.set_pay=async()=>{
   cardFold(st,ed);
   dressFold(st,ed);
   fineListWire(st,ed);
+  rwWire(st,ed);
   if(!ed) return;
   payNumWire(st);
   { const ac=$('main').querySelector('[data-after]'); if(ac){ let on=!!ax.data?.on; ac.querySelectorAll('#afOn button').forEach(b=>b.onclick=()=>{ on=b.dataset.v==='true'; ac.querySelectorAll('#afOn button').forEach(x=>x.classList.toggle('on',x===b)); });
@@ -882,6 +885,28 @@ PAGES.set_pay=async()=>{
 };
 
 // v0.11・SQL 052：罰金の種類（店舗ごと）。POS の在籍リスト「＋罰金」で選ぶ。金額が決まっているものはそのまま登録、時給の％は月末の時給で計算、日給の％はその人の日給で計算
+// v1.26・SQL 140：報酬の種類（オーナー 2026-10-17「罰金の種類だけではなく、報酬の種類も作れ」「広島はポイントの加算でスライド表作ってる」）
+// 名前・手当（円）かポイント・1回の数・自動（連絡先交換の提出）。ポイントはその月のポイント（ポイントスライド）に、手当は報酬の手当に足す。POS の在籍リストの「手当」で選ぶ
+let RWT=[], RWPS=false;
+const rwTxt=x=>`${x.value!=null?`${Number(x.value).toLocaleString('ja-JP')}${x.kind==='point'?'P':'円'}／1回`:'<span class="muted">数 未設定</span>'}${x.auto==='contact'?'　自動':''}`;
+function rwCard(d,ed){ RWT=d.rows||[]; RWPS=!!d.point_slide; return foldCard('rewards','報酬の種類','',`${RWT.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS：在籍リストの「手当」${RWPS?'（手当／ポイント）':''}　自動：連絡先交換の提出1件ごと</div>
+  <div style="border:1px solid var(--line);border-radius:10px;background:#fff">${RWT.map((x,i)=>`<div ${ed?`data-rwi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(x.name)}　<small class="muted">${x.kind==='point'?'ポイント':'手当'}</small></span><b style="font-weight:600">${rwTxt(x)}</b></div>`).join('')||'<div class="muted" style="padding:10px 14px">なし</div>'}</div>
+  ${ed?'<div class="fend"><button class="ghost sm" data-rwadd>＋ 報酬を追加</button></div>':''}`,'data-rewards'); }
+function rwEdit(st,i){ const x=i==null?{name:'',kind:RWPS?'point':'yen',value:null,auto:null}:RWT[i];
+  const md=modal(`<h2 style="margin:0">${i==null?'報酬の追加':esc(x.name)}</h2><label>名前<input id="rwN" value="${esc(x.name)}"></label>
+    <label>種類<select id="rwK"><option value="yen" ${x.kind==='yen'?'selected':''}>手当（円）</option><option value="point" ${x.kind==='point'?'selected':''}>ポイント</option></select></label>
+    <label>1回<span style="display:flex;gap:6px;align-items:center"><input id="rwV" inputmode="numeric" value="${x.value??''}" style="width:120px;text-align:right"><span id="rwU">${x.kind==='point'?'P':'円'}</span></span></label>
+    <label>自動<select id="rwA"><option value="">なし（POS で付ける）</option><option value="contact" ${x.auto==='contact'?'selected':''}>連絡先交換の提出1件ごと</option></select></label>
+    <div class="bar">${i==null?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
+  const q=id=>md.querySelector('#'+id); q('rwK').onchange=()=>{ q('rwU').textContent=q('rwK').value==='point'?'P':'円'; };
+  md.querySelector('[data-k=no]').onclick=()=>md.remove();
+  const save=async L=>{ const r=await rpc('admin_reward_types_save',{p_store:st,p_rows:L}); return r.ok; };
+  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を報酬の一覧から消しますか？\n今までに付けたものは消えません`,'削除','danger')) return; if(!await save(RWT.filter((_,k)=>k!==i))) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
+  md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('rwN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
+    if(RWT.some((y,k)=>k!==i&&y.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }
+    const v=q('rwV').value.trim()===''?null:slNum(q('rwV').value); if(v!=null&&!(v>0)){ await uiAlert('1回の数は1以上にするか、空けてください'); return; }
+    const y={name,kind:q('rwK').value,value:v,auto:q('rwA').value||null}; const L=RWT.slice(); if(i==null) L.push(y); else L[i]=y; if(!await save(L)) return; md.remove(); toast('保存しました'); PAGES.set_pay(); }); }
+function rwWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-rwi]').forEach(e=>e.onclick=()=>rwEdit(st,Number(e.dataset.rwi))); const a=document.querySelector('[data-rewards] [data-rwadd]'); if(a) a.onclick=()=>rwEdit(st,null); }
 // v0.17：罰金1つを1行にして、時給の人・日給の人の決め方を横に並べる（表は今と同じ fine_types。時給と日給が同じ「円」か「その都度」なら target='all' の1行＝黒服にもかかる。違えば hourly・daily の2行）
 const FINE_H=[['','なし'],['hourly_pct','％'],['yen','円'],['input','その都度']], FINE_D=[['','なし'],['daily_pct','％'],['yen','円'],['input','その都度'],['daily_late','遅刻（時間分）'],['daily_early','早上がり（時間分）']];
 const FINE_TIME=c=>c==='daily_late'||c==='daily_early';
