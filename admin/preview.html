@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.15 -->
+<title>OLIVE 管理</title><!-- admin v1.16 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -982,14 +982,14 @@ async function csCastPart(box,st,ed,m){
       `<button class="ghost sm" data-k="ex" data-v="${esc(JSON.stringify(t.exempt_fines))}">${t.exempt_fines.length?esc(t.exempt_fines.join('・')):'—'}</button>`,
       sel('dp',s.day_pay_ok==null?'':String(s.day_pay_ok),[['','—'],['true','可'],['false','不可']]), sel('ct2',s.contract_done==null?'':String(s.contract_done),[['','—'],['true','済'],['false','未']])]; };
   const HD=['担当黒服','報酬','スライド表','日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払（立替）','契約書','メモ'];
-  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">キャスト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="csCancel">キャンセル</button><button class="primary" id="csSave">保存</button>':`<button class="ghost" id="csEd" ${lock?'disabled':''}>編集</button>`):''}</div>
+  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">キャスト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="csCancel">キャンセル</button><button class="primary" id="csSave">保存</button>':`<button class="ghost" id="csAdd" ${lock?'disabled':''}>＋追加</button><button class="ghost" id="csEd" ${lock?'disabled':''}>編集</button>`):''}</div>
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${E?esc(r.s.display_name):`<a data-open="${r.s.id}">${esc(r.s.display_name)}</a>`}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}<td>${nc[r.s.id]?nc[r.s.id]+'件':'—'}</td></tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍のキャストがいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'担当黒服・日払（立替）・契約書以外を変更すると、保存の時に「○月以降／○月のみ」を選びます':'名前を押すと、メモと個別設定が開きます'}${ed&&!E?'。修正は「編集」から':''}</div>`;
   box.querySelectorAll('[data-open]').forEach(a=>a.onclick=()=>{ const s=casts.find(x=>x.id===a.dataset.open); csDetail={store:st,s}; csTab='memo'; PAGES.set_cast(); }); // v0.44：メモを最初に開く
   if(!ed) return;
-  if(!E){ $('csEd').onclick=()=>{ csEdit='cast'; PAGES.set_cast(); }; return; }
+  if(!E){ $('csEd').onclick=()=>{ csEdit='cast'; PAGES.set_cast(); }; $('csAdd').onclick=()=>staffEdit(st,null,'cast'); return; }
   $('csCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
   const tb=box.querySelector('table.cs');
   tb.querySelectorAll('tr[data-sid]').forEach(tr=>{ const q=k=>tr.querySelector(`[data-k=${k}]`);
@@ -1076,6 +1076,31 @@ async function csShiftPart(box,st,ed,m){
     csEdit=false; toast('保存しました'); PAGES.set_cast(); });
 }
 
+// v1.16・SQL 136：キャスト・黒服の追加・基本情報の変更・在籍から外す（オーナー 2026-10-17「管理サイトでキャストや黒服を追加できるように。POS にもタイムカードにも」）
+// 項目は POS の新規登録と同じ。名簿は POS・タイムカードと同じなので、ここで変えるとすべてに出る。報酬（時給／日給）は新規の時だけ（あとはスタッフ設定の表で月ごと）
+async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const halls=(q.data||[]).filter(x=>x.kind==='hall'&&(!s||x.id!==s.id));
+  const k0=s?(s.kind==='hall'?'hall':s.kakari_only?'kakari':s.is_seppan?'seppan':s.is_trial?'trial':'cast'):kd;
+  const KD=[['cast','キャスト'],['hall','黒服'],['trial','体験'],['seppan','折半'],['kakari',`${KL}専用（店・ママなど。タイムカードに出ない）`]];
+  const md=modal(`<h2 style="margin:0">${isNew?(kd==='hall'?'黒服の追加':'キャストの追加'):esc(s.display_name)+'　基本情報'}</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>源氏名<input id="seN" value="${esc(s?.display_name||'')}"></label><label>本名<input id="seR" value="${esc(s?.real_name||'')}"></label></div>
+    <label>区分<select id="seK">${KD.map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
+    <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬<select id="seP"><option value="hourly">時給</option><option value="daily">日給</option></select></label><label id="seDwB">日給（円）<input id="seDw" inputmode="numeric"></label></div>
+    <div id="seTr" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>体験の報酬<select id="seTp"><option value="hourly" ${s?.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s?.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input id="seTa" inputmode="numeric" value="${s?.trial_pay_amount||''}"></label></div>
+    <label id="seMgB">担当黒服<select id="seMg"><option value="">未選択</option>${halls.filter(h=>h.is_active).map(h=>`<option value="${h.id}" ${s?.manager_staff_id===h.id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select></label>
+    <label>インボイス番号<input id="seIv" value="${esc(s?.invoice_number||'')}" placeholder="T1234567890123" autocapitalize="characters"></label>
+    <div class="muted" style="font-size:13px">${isNew?'追加すると、POS の在籍リストとタイムカードにも出ます':'変更は POS・タイムカードにもすぐ出ます'}${isNew&&kd!=='hall'?'。保証時給・スライド表などはスタッフ設定の表で':''}</div>
+    <div class="bar">${isNew?'':'<button class="ghost" data-k="out" style="color:var(--warn);margin-right:auto">在籍から外す</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">${isNew?'追加':'保存'}</button></div>`);
+  const v=id=>md.querySelector('#'+id), paint=()=>{ const k=v('seK').value; v('sePay').style.display=isNew&&(k==='cast'||k==='seppan')?'grid':'none'; v('seDwB').style.visibility=v('seP').value==='daily'?'':'hidden'; v('seTr').style.display=k==='trial'?'grid':'none'; v('seMgB').style.display=k==='hall'||k==='kakari'?'none':''; };
+  v('seK').onchange=paint; v('seP').onchange=paint; paint();
+  md.querySelector('[data-k=no]').onclick=()=>md.remove();
+  const out=md.querySelector('[data-k=out]'); if(out) out.onclick=async()=>{ if(!await uiConfirm(`${s.display_name} を在籍から外しますか？\n過去のデータは残ります（POS・タイムカードから消えます）`,'在籍から外す','danger')) return; const x=await rpc('admin_staff_retire',{p_store:st,p_id:s.id}); if(!x.ok) return; md.remove(); toast('在籍から外しました'); csDetail=null; PAGES.set_cast(); };
+  md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const row={display_name:v('seN').value.trim(),real_name:v('seR').value.trim(),kind:v('seK').value,pay_type:v('seP').value,daily_wage:v('seDw').value.replace(/[^0-9]/g,''),
+      trial_pay_type:v('seTp').value,trial_pay_amount:v('seTa').value.replace(/[^0-9]/g,''),manager_staff_id:v('seMg').value,invoice_number:v('seIv').value};
+    if(!row.display_name){ await uiAlert('源氏名を入力してください'); return; }
+    let restore=null; if(isNew){ const rr=await sb.rpc('admin_staff_retired',{p_store:st,p_name:row.display_name}); const R=rr.error?[]:(rr.data||[]);
+      if(R.length){ if(await uiConfirm(`在籍から外した人に「${row.display_name}」がいます。その人を戻しますか？\n（戻すと、前の記録がつながります）`,'戻す')) restore=R[0].id; else if(!await uiConfirm(`別の人として「${row.display_name}」を追加しますか？`,'追加')) return; } }
+    const x=await rpc('admin_staff_save',{p_store:st,p_id:s?s.id:null,p_row:row,p_restore:restore}); if(!x.ok) return;
+    md.remove(); toast(restore?'戻しました':isNew?'追加しました':'保存しました'); if(csDetail&&s) csDetail.s={...s,display_name:row.display_name}; PAGES.set_cast(); }); }
 // ---------- スタッフ設定・黒服 v0.24・SQL 064：報酬形態（月給・時給・日給）と金額・源泉徴収・消費税・厚生費は cast_terms に月ごと（○月以降／○月のみ）。日払い・契約書は staff ----------
 const CS_HPAY={monthly:'月給',hourly:'時給',daily:'日給'};
 function csHallTerms(s,rows,m){ const t=rows.filter(r=>r.staff_id===s.id&&r.month<=m&&(r.month===m||!r.only_month)).sort((a,b)=>a.month<b.month?1:-1)[0];
@@ -1104,15 +1129,15 @@ async function csHallPart(box,st,ed,m){
       sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct??'',50)+' %',
       sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount')]; };
   const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーだけ</small>':''),'日払（立替）','契約書','源泉徴収','消費税','厚生費'];
-  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':`<button class="ghost" id="chEd" ${lock?'disabled':''}>編集</button>`):''}</div>
+  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':`<button class="ghost" id="chAdd" ${lock?'disabled':''}>＋追加</button><button class="ghost" id="chEd" ${lock?'disabled':''}>編集</button>`):''}</div>
   ${sql064?'':'<div class="card err">SQL 064 が未実行です（黒服の月給・時給を保存できません）</div>'}
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
-  ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
+  ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${ed&&!E?`<a data-hed="${r.s.id}">${esc(r.s.display_name)}</a>`:esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍の黒服がいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}</div>
 `;
   if(!ed) return;
-  if(!E){ $('chEd').onclick=()=>{ csEdit='hall'; PAGES.set_cast(); }; return; }
+  if(!E){ $('chEd').onclick=()=>{ csEdit='hall'; PAGES.set_cast(); }; $('chAdd').onclick=()=>staffEdit(st,null,'hall'); box.querySelectorAll('[data-hed]').forEach(a=>a.onclick=()=>staffEdit(st,halls.find(h=>h.id===a.dataset.hed),'hall')); return; }
   $('chCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
   const tb=box.querySelector('table.cs');
   tb.querySelectorAll('tr[data-sid]').forEach(tr=>{ const q=k=>tr.querySelector(`[data-k=${k}]`);
@@ -1149,10 +1174,10 @@ async function csHallPart(box,st,ed,m){
 
 // 名前を押した時：その人だけの条件・メモ
 async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast')==='edit';
-  const head=`<div class="row" style="margin-bottom:12px"><button class="ghost" id="csBack">← 一覧に戻る</button><h1 style="margin:0">${esc(s.display_name)}</h1></div>
+  const head=`<div class="row" style="margin-bottom:12px"><button class="ghost" id="csBack">← 一覧に戻る</button><h1 style="margin:0">${esc(s.display_name)}</h1><span style="flex:1"></span>${ed?'<button class="ghost" id="csBase">基本情報の変更</button>':''}</div>
    <div class="cs-tabs"><button data-t="memo" class="${csTab==='memo'?'on':''}">メモ</button><button data-t="sp" class="${csTab==='sp'?'on':''}">個別設定</button><button data-t="ord" class="${csTab==='ord'?'on':''}">注文集計</button></div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const wire=()=>{ $('csBack').onclick=()=>{ csDetail=null; PAGES.set_cast(); }; $('main').querySelectorAll('.cs-tabs button').forEach(b=>b.onclick=()=>{ csTab=b.dataset.t; csDetailPage(); }); };
+  const wire=()=>{ $('csBack').onclick=()=>{ csDetail=null; PAGES.set_cast(); }; if($('csBase')) $('csBase').onclick=()=>staffEdit(st,s,'cast'); $('main').querySelectorAll('.cs-tabs button').forEach(b=>b.onclick=()=>{ csTab=b.dataset.t; csDetailPage(); }); };
   wire();
   const t=csTab;
   if(t==='sp'){
