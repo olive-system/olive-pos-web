@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.35 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.36 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -102,6 +102,7 @@ async function loadMe(){
   ME = r.data; KL = ME.kakari_label || '係';
   { const d = await sb.rpc('cast_dress_info', { p_token: TOKEN }); ME.dress = d.error ? null : d.data; }
   await docsLoad(); /* v0.20・SQL 120：書類の未提出の数 */
+  { const b = await sb.rpc('cast_bill_months', { p_token: TOKEN }); ME.billMonths = b.error ? null : (b.data || []); } /* v0.36・SQL 134：伝票一覧の件数 */
   { const n = await sb.rpc('cast_notice_list', { p_token: TOKEN }); NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; } /* v0.18・SQL 118：お知らせの未確認の数 */ /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
   $('tStore').textContent = ME.store_name || 'OLIVE';
   home();
@@ -132,9 +133,10 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>
-    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('shift','シフト','提出・確定',true)}${tile('att','打刻一覧','',true)}${tile('pay','報酬明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','営業連絡','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
+    <div class="tiles">${tile('perf','成績','今月の実績',true)}${tile('shift','シフト','提出・確定',true)}${ME.billMonths?tile('bills','伝票一覧',`今月 ${(ME.billMonths[0]||{}).count||0}件`,true):''}${tile('att','打刻一覧','',true)}${tile('pay','報酬明細','明細・日払い',true)}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','営業連絡','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
+  { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
   $('main').querySelector('[data-go=att]').onclick = () => attend(null);
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
@@ -229,6 +231,31 @@ function slipHtml(P){
       ${L('稼働日数', `${N(x.days)}日`)}${L('稼働時間', HM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給', x.wage?yen(x.wage):'--')}</div>
     <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
     <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
+}
+// v0.36・SQL 134：伝票一覧（自分が係の伝票。今月の分・前月の分は翌月3日まで。オーナー 2026-10-17）。お客様を押すと明細が開く
+let billOpen = new Set();
+const PAYN = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
+async function castBills(month){
+  setBack(home); if(!$('blBox')) show('<div class="card c muted">読み込み中…</div>');
+  const ms = await sb.rpc('cast_bill_months', { p_token: TOKEN }); if(ms.error){ fail(ms.error.message); return; }
+  const M = ms.data || [], m = month || (M[0] && M[0].month);
+  const r = await sb.rpc('cast_bills', { p_token: TOKEN, p_month: m }); if(r.error){ fail(r.error.message); return; }
+  const B = r.data || [], mo = x => `${Number(String(x).slice(5,7))}月`, tm = t => t ? new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+  const L = (k, v, c='') => `<div class="row ${c}" style="font-size:14px"><span>${k}</span><span>${v}</span></div>`;
+  const bill = b => { const c = b.calc || {}, op = billOpen.has(b.id), d = new Date(b.date+'T00:00:00+09:00');
+    let h = `<div class="card" data-bl="${b.id}" style="cursor:pointer"><div class="row"><b>${esc(b.customers||'お客様')} 様</b><b>${yen(c.amount_due)}</b></div>
+      <div class="muted sm">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　${esc(b.table||'')}${b.table?'・':''}${N(b.guests)}名　${tm(b.open)}〜${tm(b.close)}</div>`;
+    if(op){ const items = (b.items||[]).map(i => L(`${esc(i.name)}${N(i.qty)>1?` ×${N(i.qty)}`:''}`, (N(i.qty)*N(i.price)).toLocaleString('ja-JP'))).join('');
+      h += `<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:6px">${N(c.set)+N(c.vip_set)?L(`セット${c.set_guests?` ${N(c.set_guests)}名`:''}`, (N(c.set)+N(c.vip_set)).toLocaleString('ja-JP')):''}${N(c.extension)+N(c.vip_ext)?L('延長', (N(c.extension)+N(c.vip_ext)).toLocaleString('ja-JP')):''}${items}
+        ${N(c.adjustment)?L(N(c.adjustment)<0?'値引':'値増', N(c.adjustment).toLocaleString('ja-JP')):''}${N(c.service)?L(`サービス料${c.service_rate?`（${N(c.service_rate)}%）`:''}`, N(c.service).toLocaleString('ja-JP')):''}${N(c.tax)?L('消費税', N(c.tax).toLocaleString('ja-JP')):''}
+        ${L('<b>合計</b>', `<b>${yen(c.amount_due)}</b>`, 's')}<div class="row muted sm"><span>お支払い</span><span>${(b.pays||[]).map(p => `${PAYN[p.method]||esc(p.method)} ${yen(p.amount)}`).join('・')||'—'}</span></div></div>`; }
+    return h + '</div>'; };
+  show(`<div id="blBox"><div class="ttl">伝票一覧</div>
+    ${M.length > 1 ? `<div style="display:flex;gap:6px;margin-bottom:8px">${M.map(x => `<button class="btn ${x.month===m?'':'g'}" data-bm="${x.month}" style="flex:1;padding:8px">${mo(x.month)} ${N(x.count)}件</button>`).join('')}</div>` : ''}
+    <div class="muted sm" style="margin:0 2px 8px">${esc(KL)}の伝票・前月分は翌月3日まで</div>
+    ${B.map(bill).join('') || '<div class="card c muted">伝票はありません</div>'}</div>`);
+  $('main').querySelectorAll('[data-bm]').forEach(b => b.onclick = () => castBills(b.dataset.bm));
+  $('main').querySelectorAll('[data-bl]').forEach(e => e.onclick = () => { const k = e.dataset.bl; billOpen.has(k) ? billOpen.delete(k) : billOpen.add(k); const y = window.scrollY; castBills(m).then(() => window.scrollTo(0, y)); });
 }
 // ---------- 黒服マイページ v0.33・SQL 133（オーナー 2026-10-17）：日報（今の Google フォーム）・報酬明細（キャストと同じ形・受取確認）・担当キャスト・朝礼
 async function hallLoad(){
