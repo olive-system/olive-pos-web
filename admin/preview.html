@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.11 -->
+<title>OLIVE 管理</title><!-- admin v1.12 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -381,9 +381,9 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
   const Nn=v=>Number(v||0), per=(a,b)=>Nn(b)?Math.round(Nn(a)/Nn(b)).toLocaleString('ja-JP'):'0', cm=v=>Nn(v).toLocaleString('ja-JP'), lab=plLabor(T), ex=lab+Nn(T.cash_out);
   const kb=(k,v,sub)=>`<div class="card" style="margin:0;padding:10px 12px"><div class="muted" style="font-size:12px">${k}</div><div style="font-size:20px;font-weight:700;margin:2px 0 4px">${v}</div><div class="muted" style="font-size:12px;line-height:1.6">${sub}</div></div>`;
   $('main').innerHTML=head+`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px">
-      ${kb('売上',plYen(T.sales),`現金 ${cm(T.cash)}・カード ${cm(T.card)}<br>請求 ${cm(T.invoice)}・置き <span id="plOki">…</span>`)}
+      ${kb('売上',plYen(T.sales),`現金 ${cm(T.cash)}<br>カード ${cm(T.card)}<br>請求 ${cm(T.invoice)}・置き <span id="plOki">…</span>`)}
       ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,`ユニーク <span id="plUq">…</span><br>客単価 ${per(T.sales,T.guests)}<br>組単価 ${per(T.sales,T.groups)}`)}
-      ${kb('経費',plYen(ex),`キャスト ${cm(Nn(T.cast_pay)+Nn(T.cast_adv))}・黒服 ${cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))}<br>諸経費 ${cm(T.cash_out)}`)}
+      ${kb('経費',plYen(ex),`キャスト ${cm(Nn(T.cast_pay)+Nn(T.cast_adv))}<br>黒服 ${cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))}<br>諸経費 ${cm(T.cash_out)}`)}
       ${kb('入金',plYen(T.cash_in),`粗利 ${plYen(Nn(T.sales)+Nn(T.cash_in)-ex)}`)}</div>
     <div id="invBox" style="margin-bottom:14px"><div class="card muted">請求書の未入金を読み込み中…</div></div>${(plFill(st,m),'')}
     <div class="muted" style="font-size:13px;margin-bottom:6px">日付を押すと、その日の収支（日次）を開きます</div>
