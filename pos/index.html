@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.64 -->
+<title>OLIVE 会計</title><!-- v11.65 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -730,11 +730,11 @@ async function fineDlg(id){ const st=staffAll.find(x=>x.id===id); const nm=st?.d
   const m1=bd.slice(0,7)+'-01', [ftR,ctR]=await Promise.all([sb.from('fine_types').select('*').eq('store_id',store.id).order('sort_order'), isHall?Promise.resolve({data:[]}):sb.from('cast_terms').select('month,only_month,exempt_fines').eq('staff_id',id).lte('month',m1).order('month',{ascending:false})]);
   const exempt=new Set(((ctR.data||[]).find(x=>x.month===m1||!x.only_month)?.exempt_fines)||[]); const types=(ftR.error?[]:(ftR.data||[])).filter(t=>isHall?(t.target==='all'&&(t.calc==='yen'||t.calc==='input')):(t.target==='all'||t.target===(daily?'daily':'hourly')));
   const hrs=Number(settings?.daily_hours||5);
-  const tAmt=t=>t.calc==='daily_late'||t.calc==='daily_early'?`時間分${t.value?`＋日給×${t.value}%`:''}`:t.calc==='yen'?`${Number(t.value).toLocaleString()}円${t.per_unit?'／1個':''}`:t.calc==='hourly_pct'?`時給×${t.value}%`:t.calc==='daily_pct'?(dw?`${Math.round(dw*t.value/100).toLocaleString()}円（日給×${t.value}%）`:`日給×${t.value}%`):'金額を入れる';
+  const tAmt=t=>t.calc==='daily_late'||t.calc==='daily_early'?`時間分${t.value?`＋日給×${t.value}%`:''}`:t.calc==='yen'?`${Number(t.value).toLocaleString()}円${t.per_unit?'／1回':''}`:t.calc==='hourly_pct'?`時給×${t.value}%`:t.calc==='daily_pct'?(dw?`${Math.round(dw*t.value/100).toLocaleString()}円（日給×${t.value}%）`:`日給×${t.value}%`):'金額を入れる';
   const ins=async(o)=>{ const e=(await sb.from('staff_fines').insert({store_id:store.id,staff_id:id,business_date:bd,source:'manual',...o})).error; if(e){ toast('保存エラー：'+e.message); return false; } await logOp('罰金',{name:nm,amount:o.amount,reason:o.reason,...(o.wage_pct?{wage_pct:o.wage_pct}:{})},null,true); toast('罰金を保存しました'); return true; };
   const ask=async(r0,a0)=>{ const rs0=await uiPrompt(`${nm}　罰金の理由`,r0); if(rs0==null) return null; const rs=rs0.trim(); if(!rs){ toast('理由を入力してください'); return null; } const v=await uiPrompt(`${nm}　罰金の金額（円）`,String(a0)); if(v==null) return null; const a=numIn(v); if(!a){ toast('金額を入力してください'); return null; } return {rs,a}; };
   const pick=async t=>{ if(!t){ const q=await ask('',0); return q?ins({amount:q.a,reason:q.rs}):false; }
-    if(t.calc==='yen'){ let n=1; if(t.per_unit){ const v=await uiPrompt(`${nm}　${t.name}\n個数（1個 ${Number(t.value).toLocaleString()}円）`,'1'); if(v==null) return false; n=numIn(v); if(!n){ toast('個数を入力してください'); return false; } } return ins({amount:t.value*n,reason:t.per_unit?`${t.name}（${n}個）`:t.name}); }
+    if(t.calc==='yen'){ let n=1; if(t.per_unit){ const v=await uiPrompt(`${nm}　${t.name}\n回数（1回 ${Number(t.value).toLocaleString()}円）`,'1'); if(v==null) return false; n=numIn(v); if(!n){ toast('回数を入力してください'); return false; } } return ins({amount:t.value*n,reason:t.per_unit&&n>1?`${t.name}（${n}回）`:t.name}); } /* v11.65：個数→回数（管理サイトの罰金は円ならいつも回数を入れられる） */
     if(t.calc==='daily_pct'){ if(!dw){ await uiAlert(`${nm} の日給が入っていません。\nキャストの詳細で日給の金額を入力してから、再度選んでください`); return false; } return ins({amount:Math.round(dw*t.value/100),reason:`${t.name}（日給×${t.value}%）`}); }
     if(t.calc==='hourly_pct') return ins({amount:0,wage_pct:t.value,reason:t.name});
     // v11.04・SQL 053：日給の人の遅刻・早上がり。決まった時刻と打刻の差 × 時間給（日給÷所定時間）＋ 日給の○%（無断の時）
