@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.17 -->
+<title>OLIVE 管理</title><!-- admin v1.18 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -842,17 +842,16 @@ PAGES.set_pay=async()=>{
   foldWire($('main'));
   cardFold(st,ed);
   dressFold(st,ed);
-  $('main').querySelectorAll('tr[data-fr]').forEach(tr=>fineRowWire(tr,ed));
+  fineListWire(st,ed);
   if(!ed) return;
   payNumWire(st);
   { const ac=$('main').querySelector('[data-after]'); if(ac){ let on=!!ax.data?.on; ac.querySelectorAll('#afOn button').forEach(b=>b.onclick=()=>{ on=b.dataset.v==='true'; ac.querySelectorAll('#afOn button').forEach(x=>x.classList.toggle('on',x===b)); });
     const sv=$('afSave'); sv.onclick=guard(sv,async()=>{ const m=slNum($('afM').value); if(m==null||!Number.isInteger(m)||m<1||m>180){ await uiAlert('何分前かは 1〜180 の整数で入力してください'); return; } const cl=closeTxt(ax.data.close);
       if(!await uiConfirm(on?`閉店（${cl}）の ${m}分前を過ぎたアフターは、閉店まで働いたことにしますか？\nこれから押す打刻から変わります`:'アフターの延長を「しない」にしますか？\nこれから押す打刻から変わります')) return;
       const r=await rpc('admin_set_after_ext',{p_store:st,p_on:on,p_minutes:m}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); }); } }
-  { const fc=$('main').querySelector('[data-fines]'); if(fc){ fc.querySelector('[data-fadd]').onclick=()=>{ const tb=fc.querySelector('table.fn'); fc.querySelector('[data-fempty]')?.remove(); tb.insertAdjacentHTML('beforeend',fineRowHtml({},true)); const last=[...tb.querySelectorAll('tr[data-fr]')].pop(); fineRowWire(last,true); last.querySelector('[data-f=name]').focus(); };
+  { const fc=$('main').querySelector('[data-fines]'); if(fc){
     const hs=$('dHoursSave'); if(hs) hs.onclick=guard(hs,async()=>{ const h=slNum($('dHours').value); if(h==null||!(h>0&&h<=24)){ await uiAlert('所定時間は0より大きく24以下の数にしてください'); return; } if(!await uiConfirm(`日給の人の所定時間を ${h}時間 にしますか？\n時間給 ＝ 日給 ÷ ${h}時間 になります`)) return; const r=await rpc('admin_set_daily_hours',{p_store:st,p_hours:h}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); });
-    const sv=fc.querySelector('[data-fsave]'); sv.onclick=guard(sv,async()=>{ const g=fineRead(fc); if(g.err){ await uiAlert(g.err); return; } if(!await uiConfirm(`罰金の種類を保存しますか？（${g.n}種類）\nPOS の「＋罰金」の一覧も変わります。今までに登録した罰金は変わりません`)) return;
-      const r=await rpc('admin_save_fine_types',{p_store:st,p_rows:g.rows}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); }); } }
+  } }
   stWire(st);
   $('main').querySelectorAll('[data-sl]').forEach(card=>{ const kind=card.dataset.sl, d=SLIDE_DEF[kind];
     card.querySelector('[data-add]').onclick=()=>{ const tb=card.querySelector('table.sl'); const ph=tb.querySelector('td[colspan]'); if(ph) ph.parentElement.remove(); const i=tb.querySelectorAll('tr[data-i]').length+Date.now(); const tr=document.createElement('tr'); tr.dataset.i=i; tr.innerHTML=d.cols.map(c=>`<td><input inputmode="decimal" data-c="${c.k}"></td>`).join('')+`<td class="x"><button class="ghost sm" aria-label="行を削除">✕</button></td>`; tr.querySelector('button').onclick=()=>tr.remove(); tb.appendChild(tr); tr.querySelector('input').focus(); };
@@ -880,12 +879,40 @@ function fineRowHtml(r,ed){ return `<tr data-fr><td><input data-f="name" value="
 function fineRowWire(tr,ed){ for(const k of ['h','d']){ const q=f=>tr.querySelector(`[data-f=${k}${f}]`), cl=q('c'), v=q('v'), pu=q('p'), u=q('u');
     const upd=()=>{ const c=cl.value; u.textContent=c==='yen'?'円':(c===''||c==='input')?'':'%'; v.disabled=!ed||c===''||c==='input'; if(c===''||c==='input') v.value=''; v.placeholder=FINE_TIME(c)?'加算（%）':''; pu.disabled=!ed||c!=='yen'; if(c!=='yen') pu.checked=false; }; cl.onchange=upd; upd(); }
   const d=tr.querySelector('[data-fdel]'); if(d) d.onclick=()=>tr.remove(); }
-function fineCard(rows,ed,hours){ const gs=fineGroup(rows); return foldCard('fines','罰金の種類','',`${gs.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:6px">POS の在籍リストの「＋罰金」で選びます</div>
-  <div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">時給の人・日給の人のそれぞれで決め方を選びます（かからない方は「なし」）<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">％：時給は月末に決まった時給の％、日給はその人の日給の％<br>円：選ぶとその金額で登録します（「個数」にすると 金額×個数）<br>その都度：選んだ時に金額を入れます<br>遅刻・早上がり（時間分）：決まった時刻と打刻（15分丸め）の差 × 時間給（日給 ÷ 下の所定時間）。「加算（%）」を入れると日給のその％を加算します（無断の時など）<br>時給と日給が同じ「円」か「その都度」の罰金は、黒服にもかかります<br>一覧にないものは、POS で「その他」を選んで理由と金額を入れられます</div></div>
+// v1.18：罰金の種類は「一覧は文、押して小窓で変える」（オーナー 2026-10-17。見本ア）。時給・日給の2列と「個数」のチェックをやめた。円の罰金は POS でいつも回数を入れられる（per_unit を全部 true）
+let FINES=[];
+const fineTxt=c=>!c?'かからない':c.calc==='yen'?`${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='hourly_pct'?(c.value%100===0?`時給×${c.value/100}時間`:`時給の${c.value}%`):c.calc==='daily_pct'?(c.value===50?'日給の半分':c.value===100?'日給':`日給の${c.value}%`):c.calc==='input'?'その都度':c.calc==='daily_late'?`遅刻の時間分${c.value?`＋日給の${c.value}%`:''}`:c.calc==='daily_early'?`早上がりの時間分${c.value?`＋日給の${c.value}%`:''}`:'—';
+const fineSame=(a,b)=>!!a&&!!b&&a.calc===b.calc&&(a.value??null)===(b.value??null);
+function fineCard(rows,ed,hours){ FINES=fineGroup(rows); return foldCard('fines','罰金の種類','',`${FINES.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS の在籍リストの「＋罰金」で選びます。${ed?'押すと変えられます':''}</div>
   <div class="row" style="margin-bottom:10px;font-size:14px">日給の人の所定時間<input id="dHours" inputmode="decimal" value="${hours??''}" ${ed&&hours!=null?'':'disabled'} style="width:80px;text-align:right">時間${ed&&hours!=null?'<button class="ghost sm" id="dHoursSave">保存</button>':''}${hours==null?'<span class="muted" style="font-size:13px">SQL 053 が未実行です</span>':''}</div>
-  <div class="slw"><table class="fn"><tr><th rowspan="2" style="vertical-align:bottom">名前</th><th colspan="3" class="gh">時給</th><th class="sep"></th><th colspan="3" class="gh">日給</th>${ed?'<th></th>':''}</tr>
-  <tr><th>決め方</th><th>金額・％</th><th></th><th class="sep"></th><th>決め方</th><th>金額・％</th><th></th>${ed?'<th></th>':''}</tr>${gs.map(r=>fineRowHtml(r,ed)).join('')}</table>${gs.length?'':'<div class="muted" data-fempty style="padding:8px 4px">まだ入っていません</div>'}</div>
-  ${ed?'<div class="fend"><button class="ghost sm" data-fadd>＋ 行を追加</button><span class="sp"></span><button class="primary sm" data-fsave>保存</button></div>':''}`,'data-fines'); }
+  <div id="fnList">${fineListHtml(ed)}</div>${ed?'<div class="fend"><button class="ghost sm" data-fadd>＋ 罰金を追加</button></div>':''}`,'data-fines'); }
+function fineListHtml(ed){ return `<div style="border:1px solid var(--line);border-radius:10px;background:#fff">${FINES.map((g,i)=>{ const same=fineSame(g.h,g.d)||(!g.d&&g.h&&(g.h.calc==='yen'||g.h.calc==='input'));
+    return `<div ${ed?`data-fi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(g.name)}</span><span style="text-align:right">${!g.h?`<b>${fineTxt(g.d)}</b><br><span class="muted" style="font-size:12px">日給の人だけ</span>`:`<b>${fineTxt(g.h)}</b>${same?'':`<br><span class="muted" style="font-size:12px">日給の人は${fineTxt(g.d)}</span>`}`}</span></div>`; }).join('')||'<div class="muted" style="padding:10px 14px">まだ入っていません</div>'}</div>`; }
+function fineEdit(st,i){ const g=i==null?{name:'',h:{calc:'yen',value:null},d:null}:FINES[i], hc=g.h?.calc||'none', same=fineSame(g.h,g.d)||(!g.d&&g.h&&(g.h.calc==='yen'||g.h.calc==='input'))||(g.h&&g.d&&g.h.calc==='yen'&&g.d.calc==='yen'&&g.h.value===g.d.value);
+  const dSel=same?'same':g.d?g.d.calc:'none';
+  const md=modal(`<h2 style="margin:0">${i==null?'罰金の追加':esc(g.name)}</h2><label>名前<input id="fnN" value="${esc(g.name)}"></label>
+    <div><div class="muted" style="font-size:13px;margin-bottom:4px">時給の人</div>${[['yen','金額',`<input id="fnHy" inputmode="numeric" value="${hc==='yen'?g.h.value??'':''}" style="width:110px;text-align:right"> 円`],['hourly_pct','時給の',`<input id="fnHp" inputmode="decimal" value="${hc==='hourly_pct'?g.h.value/100:''}" style="width:80px;text-align:right"> 時間分`],['input','その都度（POS で金額を入れる）',''],['none','かからない','']].map(([v,n,x])=>`<label style="display:flex;align-items:center;gap:8px;flex-direction:row;margin:4px 0;color:var(--ink);font-size:15px"><input type="radio" name="fnH" value="${v}" ${hc===v?'checked':''} style="width:auto">${n} ${x}</label>`).join('')}</div>
+    <div><div class="muted" style="font-size:13px;margin-bottom:4px">日給の人</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="fnD" style="width:auto">${[['same','時給の人と同じ'],['yen','金額'],['daily_pct','日給の'],['input','その都度'],['daily_late','遅刻の時間分'],['daily_early','早上がりの時間分'],['none','かからない']].map(([v,n])=>`<option value="${v}" ${dSel===v?'selected':''}>${n}</option>`).join('')}</select><span id="fnDv"><input id="fnDn" inputmode="numeric" value="${g.d&&!same?g.d.value??'':''}" style="width:100px;text-align:right"> <span id="fnDu"></span></span></div></div>
+    <div class="bar">${i==null?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
+  const q=id=>md.querySelector('#'+id), dp=()=>{ const v=q('fnD').value; q('fnDv').style.display=['yen','daily_pct','daily_late','daily_early'].includes(v)?'':'none'; q('fnDu').textContent=v==='yen'?'円':v==='daily_pct'?'%':'＋日給の %（空けてよい）'; }; q('fnD').onchange=dp; dp();
+  md.querySelector('[data-k=no]').onclick=()=>md.remove();
+  const save=async list=>{ const rows=[]; for(const x of list){ const same=fineSame(x.h,x.d); if(x.h&&x.d&&same&&(x.h.calc==='yen'||x.h.calc==='input')) rows.push({name:x.name,target:'all',...x.h,per_unit:x.h.calc==='yen'}); else { if(x.h) rows.push({name:x.name,target:'hourly',...x.h,per_unit:x.h.calc==='yen'}); if(x.d) rows.push({name:x.name,target:'daily',...x.d,per_unit:x.d.calc==='yen'}); } }
+    const r=await rpc('admin_save_fine_types',{p_store:st,p_rows:rows}); if(!r.ok) return false; return true; };
+  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${g.name}」を罰金の一覧から消しますか？\n今までに付けた罰金は消えません`,'削除','danger')) return; const L=FINES.filter((_,k)=>k!==i); if(!await save(L)) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
+  md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('fnN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
+    if(FINES.some((x,k)=>k!==i&&x.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }
+    const hv=md.querySelector('input[name=fnH]:checked')?.value||'none'; let h=null;
+    if(hv==='yen'){ const v=slNum(q('fnHy').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert('時給の人の金額を入力してください'); return; } h={calc:'yen',value:v}; }
+    else if(hv==='hourly_pct'){ const v=slNum(q('fnHp').value); if(!(v>0)){ await uiAlert('時給の何時間分かを入力してください'); return; } h={calc:'hourly_pct',value:Math.round(v*100)}; }
+    else if(hv==='input') h={calc:'input',value:null};
+    const dv=q('fnD').value; let d=null;
+    if(dv==='same'){ if(!h){ await uiAlert('時給の人が「かからない」の時は、日給の人を選んでください'); return; } if(h.calc==='hourly_pct'){ await uiAlert('時給の時間分は日給の人には使えません。日給の人を選んでください'); return; } d={...h}; }
+    else if(dv==='yen'||dv==='daily_pct'){ const v=slNum(q('fnDn').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert(dv==='yen'?'日給の人の金額を入力してください':'日給の何%かを入力してください'); return; } d={calc:dv,value:v}; }
+    else if(dv==='input') d={calc:'input',value:null};
+    else if(dv==='daily_late'||dv==='daily_early'){ const v=slNum(q('fnDn').value); if(v!=null&&(!(v>0)||!Number.isInteger(v))){ await uiAlert('加算の%は1以上の整数にするか、空けてください'); return; } d={calc:dv,value:v}; }
+    if(!h&&!d){ await uiAlert('時給の人か日給の人のどちらかを選んでください'); return; }
+    const L=FINES.slice(); const x={name,h,d}; if(i==null) L.push(x); else L[i]=x; if(!await save(L)) return; md.remove(); toast('保存しました'); PAGES.set_pay(); }); }
+function fineListWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-fi]').forEach(e=>e.onclick=()=>fineEdit(st,Number(e.dataset.fi))); const a=document.querySelector('[data-fines] [data-fadd]'); if(a) a.onclick=()=>fineEdit(st,null); }
 function fineRead(card){ const out=[]; let i=0, n=0; const names=new Set();
   for(const tr of card.querySelectorAll('tr[data-fr]')){ i++; const g=k=>tr.querySelector(`[data-f=${k}]`); const name=g('name').value.trim();
     const side=k=>{ const calc=g(k+'c').value; if(!calc) return {}; const vs=g(k+'v').value; let value=null, lb=k==='h'?'時給':'日給';
