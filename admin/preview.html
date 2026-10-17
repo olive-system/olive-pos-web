@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.08 -->
+<title>OLIVE 管理</title><!-- admin v1.09 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1544,7 +1544,7 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     ${f('siAddr','住所',d.address)}
     ${f('siTel','電話番号',d.phone,{type:'tel',ph:'03-0000-0000'})}
     ${f('siMail','メールアドレス',d.email,{type:'email',ph:'info@example.com'})}
-    ${f('siInv','インボイス番号（T＋数字13桁）',d.invoice,{ph:'T1234567890123',ml:20})}
+    ${f('siInv','インボイス番号',d.invoice,{ph:'T1234567890123',ml:20})}
     ${f('siRcpt','領収書メールの宛先',d.receipt_mail,{type:'email'})}
     ${f('siKL','係/担当/指名',curStore()?.kakari_label,{ph:'係',ml:6})}
   </div>
