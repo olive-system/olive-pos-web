@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.18 -->
+<title>OLIVE 管理</title><!-- admin v1.19 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -881,13 +881,13 @@ function fineRowWire(tr,ed){ for(const k of ['h','d']){ const q=f=>tr.querySelec
   const d=tr.querySelector('[data-fdel]'); if(d) d.onclick=()=>tr.remove(); }
 // v1.18：罰金の種類は「一覧は文、押して小窓で変える」（オーナー 2026-10-17。見本ア）。時給・日給の2列と「個数」のチェックをやめた。円の罰金は POS でいつも回数を入れられる（per_unit を全部 true）
 let FINES=[];
-const fineTxt=c=>!c?'かからない':c.calc==='yen'?`${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='hourly_pct'?(c.value%100===0?`時給×${c.value/100}時間`:`時給の${c.value}%`):c.calc==='daily_pct'?(c.value===50?'日給の半分':c.value===100?'日給':`日給の${c.value}%`):c.calc==='input'?'その都度':c.calc==='daily_late'?`遅刻の時間分${c.value?`＋日給の${c.value}%`:''}`:c.calc==='daily_early'?`早上がりの時間分${c.value?`＋日給の${c.value}%`:''}`:'—';
+const fineTxt=c=>!c?'なし':c.calc==='yen'?`${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='hourly_pct'?(c.value%100===0?`時給×${c.value/100}時間`:`時給の${c.value}%`):c.calc==='daily_pct'?`日給 ${c.value}%`:c.calc==='input'?'その都度':c.calc==='daily_late'?`遅刻時間分${c.value?`＋日給 ${c.value}%`:''}`:c.calc==='daily_early'?`早上がり時間分${c.value?`＋日給 ${c.value}%`:''}`:'—';
 const fineSame=(a,b)=>!!a&&!!b&&a.calc===b.calc&&(a.value??null)===(b.value??null);
 function fineCard(rows,ed,hours){ FINES=fineGroup(rows); return foldCard('fines','罰金の種類','',`${FINES.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS の在籍リストの「＋罰金」で選びます。${ed?'押すと変えられます':''}</div>
   <div class="row" style="margin-bottom:10px;font-size:14px">日給の人の所定時間<input id="dHours" inputmode="decimal" value="${hours??''}" ${ed&&hours!=null?'':'disabled'} style="width:80px;text-align:right">時間${ed&&hours!=null?'<button class="ghost sm" id="dHoursSave">保存</button>':''}${hours==null?'<span class="muted" style="font-size:13px">SQL 053 が未実行です</span>':''}</div>
   <div id="fnList">${fineListHtml(ed)}</div>${ed?'<div class="fend"><button class="ghost sm" data-fadd>＋ 罰金を追加</button></div>':''}`,'data-fines'); }
 function fineListHtml(ed){ return `<div style="border:1px solid var(--line);border-radius:10px;background:#fff">${FINES.map((g,i)=>{ const same=fineSame(g.h,g.d)||(!g.d&&g.h&&(g.h.calc==='yen'||g.h.calc==='input'));
-    return `<div ${ed?`data-fi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(g.name)}</span><span style="text-align:right">${!g.h?`<b>${fineTxt(g.d)}</b><br><span class="muted" style="font-size:12px">日給の人だけ</span>`:`<b>${fineTxt(g.h)}</b>${same?'':`<br><span class="muted" style="font-size:12px">日給の人は${fineTxt(g.d)}</span>`}`}</span></div>`; }).join('')||'<div class="muted" style="padding:10px 14px">まだ入っていません</div>'}</div>`; }
+    return `<div ${ed?`data-fi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(g.name)}</span><span style="text-align:right">${!g.h?`<b>${fineTxt(g.d)}</b><br><span class="muted" style="font-size:12px">日給のみ</span>`:`<b>${fineTxt(g.h)}</b>${same?'':`<br><span class="muted" style="font-size:12px">${g.d&&g.d.calc==='daily_pct'?fineTxt(g.d):'日給 '+fineTxt(g.d)}</span>`}`}</span></div>`; }).join('')||'<div class="muted" style="padding:10px 14px">まだ入っていません</div>'}</div>`; }
 function fineEdit(st,i){ const g=i==null?{name:'',h:{calc:'yen',value:null},d:null}:FINES[i], hc=g.h?.calc||'none', same=fineSame(g.h,g.d)||(!g.d&&g.h&&(g.h.calc==='yen'||g.h.calc==='input'))||(g.h&&g.d&&g.h.calc==='yen'&&g.d.calc==='yen'&&g.h.value===g.d.value);
   const dSel=same?'same':g.d?g.d.calc:'none';
   const md=modal(`<h2 style="margin:0">${i==null?'罰金の追加':esc(g.name)}</h2><label>名前<input id="fnN" value="${esc(g.name)}"></label>
