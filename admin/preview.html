@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.13 -->
+<title>OLIVE 管理</title><!-- admin v1.14 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1059,8 +1059,10 @@ async function csShiftPart(box,st,ed,m){
   const HD=['希望出勤日数','出勤可能時間','出勤できる日のみ','入店日'];
   box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">シフト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="cshCancel">キャンセル</button><button class="primary" id="cshSave">保存</button>':`<button class="ghost" id="cshEd" ${lock?'disabled':''}>編集</button>`):''}</div>
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
-  ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${esc(c.name)}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
+  ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${E?esc(c.name):`<a data-shopen="${c.id}">${esc(c.name)}</a>`}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">出勤できる日のみ　可：出勤できる日を提出（自動作成で優先）／不可：出勤できない日を提出<br>入店日の空欄＝初出勤の日。入店から2か月は売り出し中（自動作成で優先）${ed&&!E?'。修正は「編集」から':''}</div>`;
+  // v1.14：シフトの表の名前からも、メモと個別設定を開く（キャストの表と同じ）
+  box.querySelectorAll('[data-shopen]').forEach(a=>a.onclick=async()=>{ const q=await csList(st); const s=(q.data||[]).find(x=>x.id===a.dataset.shopen); if(!s) return; csDetail={store:st,s}; csTab='memo'; PAGES.set_cast(); });
   if(!ed) return;
   if(!E){ $('cshEd').onclick=()=>{ csEdit='shift'; PAGES.set_cast(); }; return; }
   $('cshCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
