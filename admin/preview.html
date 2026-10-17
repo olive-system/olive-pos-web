@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.10 -->
+<title>OLIVE 管理</title><!-- admin v1.11 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -357,6 +357,11 @@ PAGES.summary=async()=>{ const st=storeId, now=csNowMonth(); if(!smMonth) smMont
 let plMonth=null, plDate=null;
 const plYen=v=>Number(v||0)?yen(v).replace(/^-/,'−'):'—';
 const plRate=(a,b)=>Number(b||0)?(Math.round(Number(a||0)/Number(b)*10000)/100).toFixed(2)+'%':'—%';
+// v1.11：収支の上の「置き」と「ユニーク数」（まとめと同じ数え方）。あとから入れる
+async function plFill(st,m){ setTimeout(async()=>{
+  const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); if($('plOki')) $('plOki').textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP');
+  try{ const set=new Set(); for(let i=0;i<20;i++){ const q=await sb.from('bills').select('bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').range(i*1000,i*1000+999); if(q.error) throw 0; (q.data||[]).forEach(b=>(b.bill_customers||[]).forEach(c=>c.customer_id&&set.add(c.customer_id))); if((q.data||[]).length<1000) break; }
+    if($('plUq')) $('plUq').textContent=set.size+'名'; }catch(e){ if($('plUq')) $('plUq').textContent='—'; } },0); }
 const plLabor=x=>Number(x.cast_pay||0)+Number(x.cast_adv||0)+(x.hall_pay==null?Number(x.hall_adv||0):Math.max(Number(x.hall_pay||0),Number(x.hall_adv||0))); // 総人件費
 function plTotals(d){ const D=d.days||[], S=k=>D.reduce((a,x)=>a+Number(x[k]||0),0); const t={date:'合計',cash:S('cash'),invoice:S('invoice'),card:S('card'),sales:S('sales'),kakari_sub:S('kakari_sub'),douhan_sub:S('douhan_sub'),groups:S('groups'),guests:S('guests'),
   cast_pay:Number(d.cast_net||0),cast_adv:S('cast_adv'),hall_adv:S('hall_adv'),hall_pay:Number(d.hall_pay||0),cash_in:S('cash_in'),cash_out:S('cash_out')}; t.cast_gross=t.cast_pay+t.cast_adv; return t; }
@@ -372,8 +377,15 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_pl_month|cast_month_calc/.test(r.error.message)?'SQL 070 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; wire(); return; }
   data=r.data; const T=plTotals(data), cols=PL_COLS.flatMap(([g,cs])=>cs);
   const box=(l,v,c)=>`<div style="display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;flex:1 1 220px"><span style="background:${c};padding:12px 16px;font-weight:700;white-space:nowrap">${l}</span><b style="flex:1;text-align:right;padding:12px 16px;font-size:20px">${v}</b></div>`;
-  $('main').innerHTML=head+`<div class="row" style="gap:10px;margin-bottom:12px;flex-wrap:wrap">${box('売上',plYen(T.sales),'var(--soft)')}${box('総人件費',plYen(plLabor(T)),'var(--soft)')}${box('経費',plYen(T.cash_out),'var(--soft)')}</div>
-    <div id="invBox" style="margin-bottom:14px"><div class="card muted">請求書の未入金を読み込み中…</div></div>
+  // v1.11：上に「まとめ」の月間（売上・来店・経費・入金の4つの箱。オーナー 2026-10-17「収支の上にまとめの月間を。かさばらないように」→ 見本ア、客単価のあとで改行）
+  const Nn=v=>Number(v||0), per=(a,b)=>Nn(b)?Math.round(Nn(a)/Nn(b)).toLocaleString('ja-JP'):'0', cm=v=>Nn(v).toLocaleString('ja-JP'), lab=plLabor(T), ex=lab+Nn(T.cash_out);
+  const kb=(k,v,sub)=>`<div class="card" style="margin:0;padding:10px 12px"><div class="muted" style="font-size:12px">${k}</div><div style="font-size:20px;font-weight:700;margin:2px 0 4px">${v}</div><div class="muted" style="font-size:12px;line-height:1.6">${sub}</div></div>`;
+  $('main').innerHTML=head+`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px">
+      ${kb('売上',plYen(T.sales),`現金 ${cm(T.cash)}・カード ${cm(T.card)}<br>請求 ${cm(T.invoice)}・置き <span id="plOki">…</span>`)}
+      ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,`ユニーク <span id="plUq">…</span><br>客単価 ${per(T.sales,T.guests)}<br>組単価 ${per(T.sales,T.groups)}`)}
+      ${kb('経費',plYen(ex),`キャスト ${cm(Nn(T.cast_pay)+Nn(T.cast_adv))}・黒服 ${cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))}<br>諸経費 ${cm(T.cash_out)}`)}
+      ${kb('入金',plYen(T.cash_in),`粗利 ${plYen(Nn(T.sales)+Nn(T.cash_in)-ex)}`)}</div>
+    <div id="invBox" style="margin-bottom:14px"><div class="card muted">請求書の未入金を読み込み中…</div></div>${(plFill(st,m),'')}
     <div class="muted" style="font-size:13px;margin-bottom:6px">日付を押すと、その日の収支（日次）を開きます</div>
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     <tr class="kst"><td class="nm"><b>合計</b></td>${cols.map(([k])=>`<td>${plCell(k,T)}</td>`).join('')}</tr>
