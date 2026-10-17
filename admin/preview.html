@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.23 -->
+<title>OLIVE 管理</title><!-- admin v1.24 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1091,7 +1091,7 @@ async function csCastPart(box,st,ed,m){
 };
 
 // v1.06・SQL 127：キャストのシフトの設定（希望出勤日数・出勤可能時間・出勤できる日のみ・入店日）。月に関係なし。POS のキャストの詳細からも入れられる
-// 出勤できる日のみ：可＝LINEマイページで「出勤できる日」を出す（自動作成で先に入れる）。不可＝「出勤できない日」を出す
+// 提出（v1.24 オーナー 2026-10-17「出勤できる日のみ」→「提出」）：出勤希望＝LINEマイページで「出勤できる日」を出す（自動作成で先に入れる）。休み希望＝「出勤できない日」を出す
 // 入店日が空の子は、最初に出勤した日を入店日の代わりに使う（入店から2か月は売り出し中で先に入れる）
 async function csShiftPart(box,st,ed,m){
   const r=await sb.rpc('admin_shift_staff',{p_store:st});
@@ -1099,15 +1099,15 @@ async function csShiftPart(box,st,ed,m){
   if(r.error){ box.innerHTML=`<h2 style="margin:0 0 8px">シフト</h2><div class="card err">${esc(/admin_shift_staff/.test(r.error.message)?'SQL 127 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const rows=r.data||[], E=csEdit==='shift', lock=!!csEdit&&!E;
   const sel=(k,v,os)=>`<select data-k="${k}">${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
-  const cell=c=>!E?[c.week?`週 ${c.week}日`:'<span class="badge warnb">未設定</span>', c.earliest?`${c.earliest}〜`:'<span class="badge warnb">未設定</span>', c.ok_only?'可':'不可',
+  const cell=c=>!E?[c.week?`週 ${c.week}日`:'<span class="badge warnb">未設定</span>', c.earliest?`${c.earliest}〜`:'<span class="badge warnb">未設定</span>', c.ok_only?'出勤希望':'休み希望',
       c.joined?csDate(c.joined):c.since?csDate(c.since):'—']
     :[sel('w',c.week??'',[['','未設定'],...[1,2,3,4,5,6,7].map(n=>[n,`週 ${n}日`])]), sel('e',c.earliest??'',[['','未設定'],...SH_TIMES.map(t=>[t,t+'〜'])]),
-      sel('o',String(!!c.ok_only),[['false','不可'],['true','可']]), `<input type="date" data-k="j" value="${esc(c.joined||'')}" style="width:auto">`];
-  const HD=['希望出勤日数','出勤可能時間','出勤できる日のみ','入店日'];
+      sel('o',String(!!c.ok_only),[['false','休み希望'],['true','出勤希望']]), `<input type="date" data-k="j" value="${esc(c.joined||'')}" style="width:auto">`];
+  const HD=['希望出勤日数','出勤可能時間','提出','入店日'];
   box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">シフト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="cshCancel">キャンセル</button><button class="primary" id="cshSave">保存</button>':`<button class="ghost" id="cshEd" ${lock?'disabled':''}>編集</button>`):''}</div>
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${E?esc(c.name):`<a data-shopen="${c.id}">${esc(c.name)}</a>`}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
-  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">出勤できる日のみ　可：出勤できる日を提出（自動作成で優先）／不可：出勤できない日を提出<br>入店から2か月は売り出し中（自動作成で優先）${ed&&!E?'。修正は「編集」から':''}</div>`;
+  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">提出　休み希望：休む日を提出／出勤希望：出られる日を提出（自動作成で優先）<br>入店から2か月は売り出し中（自動作成で優先）${ed&&!E?'。修正は「編集」から':''}</div>`;
   // v1.14：シフトの表の名前からも、メモと個別設定を開く（キャストの表と同じ）
   box.querySelectorAll('[data-shopen]').forEach(a=>a.onclick=async()=>{ const q=await csList(st); const s=(q.data||[]).find(x=>x.id===a.dataset.shopen); if(!s) return; csDetail={store:st,s}; csTab='memo'; PAGES.set_cast(); });
   if(!ed) return;
