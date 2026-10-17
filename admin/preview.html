@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.21 -->
+<title>OLIVE 管理</title><!-- admin v1.22 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -236,7 +236,7 @@ async function refreshMe(){ const m=await loadMe(); if(!m){ await sb.auth.signOu
 function renderStoreSel(){
   if(me.is_owner){ $('storeSel').classList.remove('hide'); $('storeName').classList.add('hide');
     $('storeSel').innerHTML=stores().map(s=>`<option value="${s.id}" ${s.id===storeId?'selected':''}>${esc(s.name)}</option>`).join('');
-    $('storeSel').onchange=()=>{ storeId=$('storeSel').value; try{ localStorage.setItem('olive_admin_store',storeId); }catch(e){} renderAll(); };
+    $('storeSel').onchange=async()=>{ const v=$('storeSel').value; $('storeSel').value=storeId; if(!await leaveOk()) return; $('storeSel').value=v; storeId=v; try{ localStorage.setItem('olive_admin_store',storeId); }catch(e){} renderAll(); };
   } else { $('storeSel').classList.add('hide'); $('storeName').classList.remove('hide'); $('storeName').textContent=curStore()?.name||''; }
 }
 function renderAll(){ kSet(curStore()?.kakari_label); renderAlert(); renderNav(); const ok=page&&visible(page); go(ok?page:firstPage()); rtSub(); }
@@ -262,6 +262,25 @@ function rtRefresh(force){ if(!page||RT_SKIP.has(page)||!PAGES[page]) return;
   Promise.resolve(PAGES[page](page)).then(()=>{ window.scrollTo(0,y); $('main').scrollTop=my; }).catch(e=>console.warn('refresh',e)); }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rtWait){ rtWait=false; rtRefresh(); } });
 $('main').addEventListener('input',()=>{ mainDirty=true; }); $('main').addEventListener('change',()=>{ mainDirty=true; });
+// v1.22：保存忘れのお知らせ（オーナー 2026-10-17「編集したのに保存を押し忘れて次に行こうとした時に、保存してないけど進みますか、すぐ保存できるポップアップ」）
+// 入力を変えた所の近くに「保存」ボタンがあれば、それを覚える。保存して画面が描き直されるとボタンが消える＝保存済み。月や店の切り替えの選択は数えない
+let unsavedBtn=null;
+const UNSAVED_SKIP=/^(plM|shM|ssM|csM|smM|ntM|stM|cuM|plDate)$/;
+function unsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')||UNSAVED_SKIP.test(t.id||'')||t.dataset?.nodirty!=null) return; if(t.type==='search') return;
+  let el=t.parentElement; while(el&&el!==$('main')){ const b=[...el.querySelectorAll('button')].find(x=>/^保存$/.test(x.textContent.trim())); if(b){ unsavedBtn=b; return; } el=el.parentElement; } }
+$('main').addEventListener('input',unsavedMark,true); $('main').addEventListener('change',unsavedMark,true);
+const unsavedNow=()=>!!(unsavedBtn&&unsavedBtn.isConnected&&!unsavedBtn.disabled);
+async function leaveOk(){ if(!unsavedNow()) return true;
+  const ans=await new Promise(res=>{ const m=modal(`<h2 style="margin:0">保存していない変更があります</h2>
+      <div style="display:flex;flex-direction:column;gap:8px"><button class="primary" data-v="save">保存して進む</button><button class="ghost" data-v="go">保存せずに進む</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">戻る</button></div>`);
+    m.querySelectorAll('button').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); });
+  if(!ans) return false;
+  if(ans==='go'){ unsavedBtn=null; return true; }
+  const b=unsavedBtn; b.click();
+  // 保存が終わるのを待つ（確認の小窓は人が押す）。ボタンが消えたら保存済み。小窓が無いのにボタンが残ったら、保存できなかった
+  for(let i=0,idle=0;i<1200;i++){ await new Promise(r=>setTimeout(r,100)); if(!b.isConnected){ unsavedBtn=null; return true; } if(document.querySelector('.modal')||b.disabled) idle=0; else if(++idle>15) return false; }
+  return false; }
+window.addEventListener('beforeunload',e=>{ if(unsavedNow()){ e.preventDefault(); e.returnValue=''; } });
 new MutationObserver(()=>{ mainDirty=false; rtBar(false); }).observe($('main'),{childList:true});
 
 // ---------- 黒服を削除した時の警告 ----------
@@ -300,7 +319,7 @@ function renderNav(){
     html+=`<a data-go="${s.k}" class="${s.k===page?'on':''}">${esc(s.n)}${tag}</a>`;
   }
   $('nav').innerHTML=html;
-  $('nav').querySelectorAll('[data-go]').forEach(a=>a.onclick=()=>{ $('nav').classList.remove('open'); go(a.dataset.go); });
+  $('nav').querySelectorAll('[data-go]').forEach(a=>a.onclick=async()=>{ $('nav').classList.remove('open'); if(!await leaveOk()) return; go(a.dataset.go); });
 }
 function go(k){ page=k; $('nav').querySelectorAll('[data-go]').forEach(a=>a.classList.toggle('on',a.dataset.go===(k==='set_shift'?'shift':k)));
   const f=PAGES[k]||pagePending; f(k); $('main').scrollTop=0; window.scrollTo(0,0); }
@@ -1752,7 +1771,7 @@ function jpHolidays(y){ const H=new Set(), k=(m,d)=>`${y}-${String(m).padStart(2
   return H; }
 let ssMode='ev';
 // v1.07・SQL 128：定休日（毎週）と、日ごとの休・営業（祝日・年末年始・定休日でも営業する日）。カレンダーは「イベント」「休」を選んで日を押す（オーナー 2026-10-16）
-document.addEventListener('click',e=>{ if(e.target&&e.target.id==='ssBack') go('shift'); }); // v1.21：シフト設定から シフトに戻る
+document.addEventListener('click',async e=>{ if(e.target&&e.target.id==='ssBack'){ if(!await leaveOk()) return; go('shift'); } }); // v1.21：シフト設定から シフトに戻る
 PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm('shift')==='edit', now=csNowMonth(); if(!setMonth) setMonth=csAddMonth(now,1); const m=setMonth;
   const head=`<div class="row" style="margin-bottom:12px;align-items:center"><button class="ghost" id="ssBack">← シフト</button><h1 style="margin:0">シフト設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1></div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
