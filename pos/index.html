@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.69 -->
+<title>OLIVE 会計</title><!-- v11.70 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -649,7 +649,7 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; if(!s){ f.innerHTML
       const k=await sb.rpc('pos_cast_link',{p_staff:s.id,p_code:code}); if(k.error){ await uiAlert(k.error.message); return; } toast(`連携しました（${k.data?.line_name||'LINE'}）`); renderCasts(); }; });
   $('cDel').onclick=async()=>{ if(!await uiConfirm(`${s.display_name} を削除しますか？（在籍から外します。過去のデータは残ります）`))return; const { error } = await sb.from('staff').update({is_active:false}).eq('id',s.id); if(!error) await logOp('キャスト削除',{name:s.display_name},null,true); toast(error?error.message:'削除しました'); if(!error){ cSel=null; renderCasts(); } };
   // v11.09・SQL 058：時給（日給）＝その人が管理サイト「スタッフ設定」で選んだスライド表（月ごと）と保証時給のうち一番高いもの。日給の人は日給の表と、設定の日給のうち一番高いもの
-  // 表は管理サイト「報酬項目」で作る（slide_tables・slide_rows。何で決まるか＝係小計／ポイント／同伴数／稼働日数）。ここは表示だけ
+  // 表は管理サイト「報酬・罰金項目」で作る（slide_tables・slide_rows。何で決まるか＝係小計／ポイント／同伴数／稼働日数）。ここは表示だけ
   // v11.10・SQL 059：反応数（反応◎の回数。取り消し伝票は除く）・組数（その人が係の会計済伝票の数）・人数（その伝票の客数の合計）を追加
   // v11.14・SQL 063：報酬形態・日給も今月の条件（cast_terms）で決める。条件に無ければ staff の値
   if(s.kind!=='hall') (async()=>{ const bd=businessDate(), m1=bd.slice(0,7)+'-01'; const box=$('cSlRows'); let daily=s.pay_type==='daily'&&!s.is_seppan, unit=daily?'daily':'hourly', dwSet=s.daily_wage;
@@ -750,7 +750,7 @@ async function renderGood(b){ const box=$('bGood'), sel=$('goodAdd'); if(!box||!
   sel.onchange=async()=>{ const id=sel.value; if(!id) return; sel.disabled=true; const ins=await sb.from('good_reactions').insert({store_id:store.id,bill_id:b.id,staff_id:id}); sel.disabled=false; if(ins.error&&!ins.error.message.includes('duplicate')) toast(ins.error.message); else if(!ins.error) await logOp('反応◎',{name:nm(id)}); renderGood(cur); }; }
 // v10.66：罰金（staff_fines・SQL 041）。1件ごとに理由と金額を残す。取消は消さずに is_void。操作ログあり
 const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0);
-// v11.03：罰金の種類（fine_types・SQL 052。管理サイト「報酬項目」で店舗ごとに決める）から選ぶ。円＝そのまま登録（個数を入れる種類は 金額×個数）／日給の％＝その人の日給で計算／時給の％＝「時給×○%」で記録し、月末に確定した時給で計算／その都度入れる・その他＝金額を入れる
+// v11.03：罰金の種類（fine_types・SQL 052。管理サイト「報酬・罰金項目」で店舗ごとに決める）から選ぶ。円＝そのまま登録（個数を入れる種類は 金額×個数）／日給の％＝その人の日給で計算／時給の％＝「時給×○%」で記録し、月末に確定した時給で計算／その都度入れる・その他＝金額を入れる
 const fineAmt=x=>x.wage_pct?`時給×${x.wage_pct}%`:`${Number(x.amount||0).toLocaleString()}円`;
 const fineSumTxt=(y,p)=>p?`${y?Number(y).toLocaleString()+'円＋':''}時給×${p}%`:`${Number(y||0).toLocaleString()}円`;
 async function fineDlg(id){ const st=staffAll.find(x=>x.id===id); const nm=st?.display_name||''; const bd=businessDate(); const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=50; document.body.appendChild(m); const close=()=>{ m.remove(); renderCasts(); };
@@ -1681,9 +1681,9 @@ function renderForm(def){ const r=setSel; const f=$('setForm');
     if(!error&&def.key==='pos'){ for(const t of tables){ const a=Number(f.querySelector(`[data-vipset="${t.id}"]`)?.value||0), b=Number(f.querySelector(`[data-vipext="${t.id}"]`)?.value||0); if(a!==(t.vip_set_fee||0)||b!==(t.vip_ext_fee||0)){ const r=await sb.from('tables').update({vip_set_fee:a,vip_ext_fee:b}).eq('id',t.id); if(r.error){ error=r.error; break; } await logOp('設定変更',{kind:'VIP料金',name:t.name,fields:[`VIP代:${t.vip_set_fee||0}→${a}`,`VIP延長:${t.vip_ext_fee||0}→${b}`]},null,true); } } }
     toast(error?error.message:'保存しました'); if(!error) renderSettings(def.key,true); };
 }
-// v11.13：料金設定は見るだけ（変えるのは管理サイト：料金は「POS設定」、日払の上限・源泉・ポイント・同伴の準備時間は「報酬項目」）
+// v11.13：料金設定は見るだけ（変えるのは管理サイト：料金は「POS設定」、日払の上限・源泉・ポイント・同伴の準備時間は「報酬・罰金項目」）
 function renderFormRo(def,r){ const f=$('setForm'); const val=(k,type)=>type==='bool'?(r[k]?'する':'しない'):type==='amt'?(r[k]>0?yen(r[k]):'付けない'):(r[k]??'');
-  f.innerHTML=`<div class="muted hint" style="margin-bottom:10px">ここでは閲覧のみです<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">料金は管理サイト「POS設定」、日払（立替）の上限・体験の源泉・ポイント・同伴の準備時間は「報酬項目」で設定します</div></div>`+def.cols.map(([k,label,type])=>`<label>${label}<input value="${esc(String(val(k,type)))}" disabled></label>`).join('')+
+  f.innerHTML=`<div class="muted hint" style="margin-bottom:10px">ここでは閲覧のみです<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">料金は管理サイト「POS設定」、日払（立替）の上限・体験の源泉・ポイント・同伴の準備時間は「報酬・罰金項目」で設定します</div></div>`+def.cols.map(([k,label,type])=>`<label>${label}<input value="${esc(String(val(k,type)))}" disabled></label>`).join('')+
     `<h3 style="margin:16px 0 4px">VIP料金（卓ごと。0＝通常卓）</h3><table style="width:100%;margin-top:6px"><tr><th style="text-align:left">卓</th><th>VIP代</th><th>VIP${settings.ext_minutes}分延長</th></tr>${tables.map(t=>`<tr><td>${esc(t.name)}</td><td><input value="${t.vip_set_fee||0}" disabled></td><td><input value="${t.vip_ext_fee||0}" disabled></td></tr>`).join('')}</table>`; }
 $('setAdd').onclick=async()=>{ const def=SET.find(s=>s.key===setCur); const rows=setRows(def); const row=def.newRow(); if(!def.nosort) row.sort_order=(Math.max(0,...rows.map(r=>r.sort_order||0))+1); if(def.key==='products'&&setCatFilter) row.category_id=setCatFilter;
   const { data, error } = await sb.from(def.table).insert(row).select().single(); if(error){toast(error.message);return;} await logOp('設定の追加',{kind:def.name,name:def.label(data)},null,true); setSel=data; renderSettings(setCur,true); };
