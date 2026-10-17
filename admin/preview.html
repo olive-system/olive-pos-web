@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.14 -->
+<title>OLIVE 管理</title><!-- admin v1.15 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -175,7 +175,7 @@ const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numer
 // ---------- 画面の一覧（オーナー以外に見せるかは店舗ごとに設定） ----------
 const SCREENS=[
   {grp:'集計'},
-  {k:'summary',n:'まとめ'},
+  // v1.15：「まとめ」は外した（月間は収支の上へ。本日の箱と売上推移のグラフもなし。オーナー 2026-10-17）
   {k:'pl',n:'収支'},
   {k:'bills',n:'伝票一覧'},
   {k:'cast_sales',n:'スタッフ'},
