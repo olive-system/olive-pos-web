@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.79 -->
+<title>OLIVE 会計</title><!-- v11.80 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
@@ -156,7 +156,7 @@
 <section class="view" id="v-new"><div class="card">
   <div style="background:var(--ink);color:#fff;text-align:center;font-size:22px;padding:12px;border-radius:10px">卓：<span id="nTable"></span></div>
   <div style="display:flex;align-items:center;justify-content:center;gap:60px;min-height:46vh;flex-wrap:wrap">
-    <button class="ghost" id="nCust" style="font-size:26px;padding:24px 40px">👤 新規</button>
+    <button class="ghost" id="nCust" style="font-size:26px;padding:24px 40px">新規</button>
     <span style="display:flex;align-items:center;gap:18px"><span id="nCount" style="font-size:72px;font-weight:700;min-width:110px;text-align:right">0</span>
       <button id="nPlus" style="width:110px;height:110px;border-radius:50%;font-size:56px;background:var(--ok);color:#fff;padding:0">＋</button>
       <button id="nMinus" style="width:110px;height:110px;border-radius:50%;font-size:56px;background:var(--warn);color:#fff;padding:0">−</button></span>
@@ -288,6 +288,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
 <script>
+const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 // v11.25・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 let KL='係'; const kl=s=>KL==='係'?s:String(s??'').replace(/係/g,KL); const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v11.28：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */ const KT=[];
 function kReg(...os){ const walk=o=>{ for(const k of Object.keys(o)){ const v=o[k]; if(typeof v==='string'){ if(v.includes('係')) KT.push([o,k,v]); } else if(v&&typeof v==='object') walk(v); } }; os.forEach(walk); }
@@ -371,7 +372,7 @@ async function checkPwAlert(){ if(!store) return; try{
   const [a,s]=await Promise.all([sb.from('admin_store_settings').select('pw_alert,pw_alert_note').eq('store_id',store.id).maybeSingle(), sb.from('stores').select('id').limit(1)]);
   if(!s.error&&!(s.data||[]).length){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); /* v11.51：ブラウザの窓はアドレスが出るので画面の中の窓に */ return; }
   const el=$('pwAlert'); if(a.error||!a.data?.pw_alert){ el.style.display='none'; return; }
-  el.textContent=`⚠ 黒服（${a.data.pw_alert_note||''}）が削除されました。オーナーは管理サイトでパスワードを更新してください`; el.style.display='block';
+  el.innerHTML=`${FX('warningsign')} 黒服（${esc(a.data.pw_alert_note||'')}）が削除されました。オーナーは管理サイトでパスワードを更新してください`; el.style.display='block';
 }catch(e){ console.warn('pwAlert',e); } }
 let extOpen=false;
 const snm=id=>staffAll.find(x=>x.id===id)?.display_name||staff.find(x=>x.id===id)?.display_name||'';
@@ -416,7 +417,7 @@ const uiConfirm=msg=>uiDlg(msg,false), uiPrompt=(msg,def)=>uiDlg(msg,true,def); 
 function uiPick(msg, opts){ return new Promise(res=>{ $('uiDlgMsg').textContent=msg; $('uiDlgIn').style.display='none'; let box=$('uiDlgPick'); if(!box){ box=document.createElement('div'); box.id='uiDlgPick'; box.style.cssText='display:flex;flex-direction:column;gap:8px;margin:12px 0'; $('uiDlgMsg').after(box); } box.innerHTML=opts.map((o,i)=>`<button class="ghost" data-pk="${i}" style="font-size:18px;padding:12px">${esc(o.label)}</button>`).join(''); $('uiDlgOk').style.display='none'; $('uiDlg').classList.add('on');
   const done=v=>{ $('uiDlg').classList.remove('on'); box.innerHTML=''; $('uiDlgOk').style.display=''; $('uiDlgNo').onclick=null; res(v); }; box.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>done(opts[Number(b.dataset.pk)].value)); $('uiDlgNo').onclick=()=>done(null); }); }
 // v11.14・SQL 063：打刻の写真（タイムカードで撮ったもの）。在籍リストの時刻の横の📷で見る
-const phBtn=p=>p?`<button class="ghost sm" data-ph="${esc(p)}" style="min-height:0;padding:0 6px;font-size:14px;border:0;background:none" aria-label="写真">📷</button>`:'';
+const phBtn=p=>p?`<button class="ghost sm" data-ph="${esc(p)}" style="min-height:0;padding:0 6px;font-size:14px;border:0;background:none" aria-label="写真">${FX('camera',20)}</button>`:'';
 async function showSelfie(path){ const r=await sb.storage.from('selfies').createSignedUrl(path,600); if(r.error||!r.data?.signedUrl){ toast('写真を出せません：'+(r.error?.message||'')); return; }
   const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60; m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><img src="${esc(r.data.signedUrl)}" alt="" style="width:100%;border-radius:10px;display:block"><div class="bar" style="justify-content:flex-end"><button class="primary" data-x>閉じる</button></div></div>`; document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
 async function askReason(title){ const r=await uiPrompt(title+'\n理由を入力してください（必須・操作ログに残ります）'); if(r===null) return null; if(!r.trim()){ toast('理由が未入力のため中止しました'); return null; } return r.trim(); }
@@ -435,7 +436,7 @@ let handTags={};
 async function loadHand(){ const { data, error } = await sb.from('bill_tags').select('id,kind,tag_no,memo,bill_id,bills!inner(table_id,status)').is('returned_at',null).eq('bills.status','closed'); if(error){ console.warn('hand',error.message); return; } handTags={}; for(const t of data||[]){ const k=t.bills?.table_id; if(!k) continue; (handTags[k]=handTags[k]||[]).push(t); } }
 function tagLabel(t){ return `${TAGK[t.kind]||''}${t.tag_no?' #'+esc(t.tag_no):''}${t.memo?` <small>${esc(t.memo)}</small>`:''}`; }
 function openHand(t){ const tg=handTags[t.id]||[]; if(!tg.length) return; const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
-  m.innerHTML=`<div class="box" style="width:360px;text-align:center"><div style="font-size:18px;font-weight:700">${esc(t.name)}　お預かり品</div><div style="margin:14px 0;font-size:22px;font-weight:800;line-height:1.5;text-align:left">${tg.map(x=>'🏷 '+tagLabel(x)).join('<br>')}</div><div class="bar" style="justify-content:flex-end"><button class="ghost" data-h="no">閉じる</button><button class="primary" data-h="ok">お渡ししました</button></div></div>`;
+  m.innerHTML=`<div class="box" style="width:360px;text-align:center"><div style="font-size:18px;font-weight:700">${esc(t.name)}　お預かり品</div><div style="margin:14px 0;font-size:22px;font-weight:800;line-height:1.5;text-align:left">${tg.map(x=>FX('label')+' '+tagLabel(x)).join('<br>')}</div><div class="bar" style="justify-content:flex-end"><button class="ghost" data-h="no">閉じる</button><button class="primary" data-h="ok">お渡ししました</button></div></div>`;
   document.body.appendChild(m); m.querySelector('[data-h=no]').onclick=()=>m.remove();
   const ok=m.querySelector('[data-h=ok]'); ok.onclick=async()=>{ ok.disabled=true; const { error } = await sb.from('bill_tags').update({returned_at:new Date().toISOString()}).in('id',tg.map(x=>x.id)); if(error){ toast(error.message); ok.disabled=false; return; }
     try{ await sb.from('pos_audit_log').insert({store_id:store.id,bill_id:tg[0].bill_id,action:'お預かり返却（会計後）',detail:{table:t.name,items:tg.map(x=>TAGK[x.kind]+(x.tag_no?'#'+x.tag_no:''))},reason:null}); }catch(e){ console.warn('audit',e); }
@@ -452,16 +453,16 @@ function renderHall(totals){ const now=new Date(); const cnames=b=>(b.bill_custo
   $('bdHall').textContent=openBills.length;
   $('tables').innerHTML='';
   for (const t of tables.filter(t=>t.is_visible)) { const b=openBills.find(x=>x.table_id===t.id); const el=document.createElement('div'); const hd=handTags[t.id]||[];
-    if (hd.length) { el.className='tbl hand'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="hmsg">お預かり品をお返しください</div>${hd.map(x=>`<div class="hitem">🏷 ${tagLabel(x)}</div>`).join('')}`; el.onclick=()=>openHand(t); }
+    if (hd.length) { el.className='tbl hand'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="hmsg">お預かり品をお返しください</div>${hd.map(x=>`<div class="hitem">${FX('label')} ${tagLabel(x)}</div>`).join('')}`; el.onclick=()=>openHand(t); }
     else if (!b) { el.className='tbl'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="empty">空 席</div>`; el.onclick=()=>openNew(t); }
     else { const end=billEnd(b), remain=Math.round((end-now)/60000); el.className='tbl busy'+(remain<10?' over':'');
       const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?staff.find(s=>s.id===k.staff_id)?.display_name:'';
-      el.innerHTML=`<div class="name">${esc(t.name)}</div>${cnames(b)?`<div class="cust">${bdayLines(b).length?'🎂 ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>👤 ${b.guest_count}</span><span>残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分</span></div><div class="pill">${hm5(b.set_start)}〜${hm5(end)}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">🏷 お預かり ${n}</div>`:''})()}`;
+      el.innerHTML=`<div class="name">${esc(t.name)}</div>${cnames(b)?`<div class="cust">${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>${b.guest_count}名</span><span>残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分</span></div><div class="pill">${hm5(b.set_start)}〜${hm5(end)}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
       el.onclick=()=>{ billFrom='hall'; openBill(b.id); }; }
     $('tables').appendChild(el); }
   for (const b of okiBills) { const el=document.createElement('div'); const unpaid=(b.payments||[]).filter(p=>p.method==='oki'&&!p.received_at).reduce((a,p)=>a+p.amount,0);
     const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?staff.find(s=>s.id===k.staff_id)?.display_name:'';
-    const ml='置き'; el.className='tbl busy oki'; el.innerHTML=`<div class="name">未入金（${ml}）</div><div class="row"><span>👤 ${b.guest_count} ${esc(cnames(b)||b.memo||'')}</span></div><div class="row"><span>${b.business_date}</span></div><div class="total">${yen(unpaid)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>`;
+    const ml='置き'; el.className='tbl busy oki'; el.innerHTML=`<div class="name">未入金（${ml}）</div><div class="row"><span>${b.guest_count}名 ${esc(cnames(b)||b.memo||'')}</span></div><div class="row"><span>${b.business_date}</span></div><div class="total">${yen(unpaid)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>`;
     el.onclick=()=>{ billFrom='hall'; openBill(b.id); }; $('tables').appendChild(el); }
   updateCastBadge(); }
 async function updateCastBadge(){ const { data } = await sb.from('attendance_events').select('staff_id').eq('business_date',businessDate()).in('event_type',['clock_in','douhan']); const s=new Set((data||[]).map(e=>e.staff_id)); const act=new Set(staff.map(x=>x.id)); $('bdCasts').textContent=[...s].filter(i=>act.has(i)).length; return s; }
@@ -711,7 +712,7 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; if(!s){ f.innerHTML
     if(!error){ const ch=Object.keys(o).filter(k=>k!=='manager_staff_id'&&(s[k]??'')!==(o[k]??'')); if(ch.length) await logOp('キャスト情報変更',{name:s.display_name,fields:ch.map(k=>`${k}:${s[k]??''}→${o[k]??''}`)},null,true); } toast(error?error.message:'保存しました'); if(!error){ cSel=null; renderCasts(); } }; }
 let newT=null, newN=0, newCust=null;
 function openNew(t){ newT=t; newN=0; newCust=null; $('nTable').textContent=t.name; renderNew(); show('v-new'); }
-function renderNew(){ $('nCount').textContent=newN; $('nCust').textContent=newCust?'👤 '+newCust.name:'👤 新規'; }
+function renderNew(){ $('nCount').textContent=newN; $('nCust').textContent=newCust?newCust.name:'新規'; }
 $('nPlus').onclick=()=>{ if(newN<50) newN++; renderNew(); };
 $('nMinus').onclick=()=>{ if(newN>0) newN--; renderNew(); };
 $('nBack').onclick=()=>{ loadHall(); show('v-hall'); };
@@ -739,7 +740,7 @@ async function openBill(id){ if(!cur||cur.id!==id) extOpen=false;
 let present=new Set(); const TAGK={coat:'コート',bag:'バッグ',umbrella:'傘',other:'その他'};
 // お誕生日リマインド：前後21日以内なら伝票とホール状況に表示
 function bdayDiff(bd){ const m=String(bd||'').match(/^(\d{1,2})\/(\d{1,2})$/); if(!m) return null; const [y,mo,d]=businessDate().split('-').map(Number); const today=new Date(y,mo-1,d); let best=null; for(const yy of [y-1,y,y+1]){ const diff=Math.round((new Date(yy,+m[1]-1,+m[2])-today)/86400000); if(best===null||Math.abs(diff)<Math.abs(best)) best=diff; } return Math.abs(best)<=21?best:null; }
-function bdayLines(b){ return (b.bill_customers||[]).map(x=>customers.find(c=>c.id===x.customer_id)).filter(Boolean).map(c=>{ const n=bdayDiff(c.birthday); return n===null?null:`🎂 ${c.name} 様　お誕生日 ${c.birthday}（${n===0?'本日':n>0?`あと${n}日`:`${-n}日前`}）`; }).filter(Boolean); }
+function bdayLines(b){ return (b.bill_customers||[]).map(x=>customers.find(c=>c.id===x.customer_id)).filter(Boolean).map(c=>{ const n=bdayDiff(c.birthday); return n===null?null:`${c.name} 様　お誕生日 ${c.birthday}（${n===0?'本日':n>0?`あと${n}日`:`${-n}日前`}）`; }).filter(Boolean); }
 // v11.13：反応◎・同伴はその営業日に出勤した（出勤か同伴の打刻がある）キャストだけ
 async function attendedOn(bd){ const r=await sb.from('attendance_events').select('staff_id').eq('business_date',bd).in('event_type',['clock_in','douhan']); return new Set((r.data||[]).map(e=>e.staff_id)); }
 // v10.53：反応◎（お客様の反応が良かったキャスト。1伝票に同じ人は1回。営業中の伝票だけ付け外しできる。SQL 039）
@@ -840,11 +841,11 @@ async function billPeopleEdit(id){ let box=$('uiDlgList'); if(!box){ box=documen
       if(e){ toast(e.message); } else if(kak) await hc(); draw(); }); };
   await draw(); const tn=tables.find(z=>z.id===b?.table_id)?.name||''; try{ await uiAlert(`${tn}　${b?hm5(b.opened_at):''}〜　${KL}・同伴・反応◎`); } finally { box.remove(); } }
 function renderBill(){ const b=cur, t=tables.find(x=>x.id===b.table_id);
-  { let bb=$('bBday'); if(!bb){ bb=document.createElement('div'); bb.id='bBday'; $('v-bill').querySelector('.card').prepend(bb); } const ls=b.status==='void'?[]:bdayLines(b); bb.style.cssText=ls.length?'background:var(--gold-soft);border:2px solid var(--brand);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:20px;font-weight:700;color:var(--brand-d)':'display:none'; bb.innerHTML=ls.map(esc).join('<br>'); }
+  { let bb=$('bBday'); if(!bb){ bb=document.createElement('div'); bb.id='bBday'; $('v-bill').querySelector('.card').prepend(bb); } const ls=b.status==='void'?[]:bdayLines(b); bb.style.cssText=ls.length?'background:var(--gold-soft);border:2px solid var(--brand);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:20px;font-weight:700;color:var(--brand-d)':'display:none'; bb.innerHTML=ls.map(x=>FX('birthdaycake',22)+' '+esc(x)).join('<br>'); }
   $('bTable').innerHTML=`<small class="muted" style="font-size:14px;font-weight:400">卓</small> ${esc(t?.name||'')}`; $('bGuests').textContent=b.guest_count; $('bTime').textContent=`${hm5(b.set_start)}〜${hm5(billEnd(b))}`;
   const mode=modes.find(m=>m.id===b.pricing_mode_id); const T0=b.totals;
-  $('bFlags').innerHTML=(t?.vip_set_fee>0?'<span class="badge warnb">VIP卓</span>':'')+(b.status!=='open'&&!isOki(b)?`<span class="badge gray">${b.status==='void'?'削除済':'会計済'}</span>`:'')+(mode&&mode.code!=='normal'?`<span class="badge warnb">${esc(mode.name)}</span>`:'')+(b.service_rate_override!=null?`<span class="badge warnb">サ料 ${b.service_rate_override}%</span>`:'')+((b.bill_tags||[]).filter(t=>!t.returned_at).length?`<span class="badge tag">🏷 お預かり ${(b.bill_tags||[]).filter(t=>!t.returned_at).length}</span>`:'');
-  $('bTags').innerHTML=(b.bill_tags||[]).filter(t=>!t.returned_at).map(t=>`<div class="item"><span class="n">🏷 ${TAGK[t.kind]||esc(t.kind)} ${t.tag_no?'#'+esc(t.tag_no):''} <small>${esc(t.memo||'')}</small></span></div>`).join('');
+  $('bFlags').innerHTML=(t?.vip_set_fee>0?'<span class="badge warnb">VIP卓</span>':'')+(b.status!=='open'&&!isOki(b)?`<span class="badge gray">${b.status==='void'?'削除済':'会計済'}</span>`:'')+(mode&&mode.code!=='normal'?`<span class="badge warnb">${esc(mode.name)}</span>`:'')+(b.service_rate_override!=null?`<span class="badge warnb">サ料 ${b.service_rate_override}%</span>`:'')+((b.bill_tags||[]).filter(t=>!t.returned_at).length?`<span class="badge tag">${FX('label')} お預かり ${(b.bill_tags||[]).filter(t=>!t.returned_at).length}</span>`:'');
+  $('bTags').innerHTML=(b.bill_tags||[]).filter(t=>!t.returned_at).map(t=>`<div class="item"><span class="n">${FX('label')} ${TAGK[t.kind]||esc(t.kind)} ${t.tag_no?'#'+esc(t.tag_no):''} <small>${esc(t.memo||'')}</small></span></div>`).join('');
   $('bCust').innerHTML=(b.bill_customers||[]).map(c=>{ const cu=customers.find(x=>x.id===c.customer_id); return `<div class="item"><span class="n">${esc(cu?.name||'')}</span><button class="ghost sm" data-rmcust="${c.customer_id}">×</button></div>`; }).join('');
   $('bCust').querySelectorAll('[data-rmcust]').forEach(x=>x.onclick=async()=>{ await logOp('お客様を伝票から外す',{customer:customers.find(z=>z.id===x.dataset.rmcust)?.name}); await sb.from('bill_customers').delete().eq('bill_id',b.id).eq('customer_id',x.dataset.rmcust); openBill(b.id); });
   $('bCasts').innerHTML=(b.bill_casts||[]).map(c=>`<div class="item cast"><span class="n"><span class="nm">${present.has(c.staff_id)?'✓ ':''}${esc(snm(c.staff_id))}</span> ${c.is_kakari?'<span class="badge k">'+KL+'</span>':''} ${ROLE[c.role]?`<span class="badge">${ROLE[c.role]}</span>`:''}${present.has(c.staff_id)||staffAll.find(z=>z.id===c.staff_id)?.kakari_only?'':' <span class="badge gray">未出勤</span>'}</span><div class="btns"><button class="ghost sm" data-rmcast="${c.id}">×</button></div></div>`).join('');
@@ -945,7 +946,7 @@ let tagKind='coat';
 $('tagBtn').onclick=()=>{ renderTags(); $('tagModal').classList.add('on'); };
 $('tagCancel').onclick=()=>$('tagModal').classList.remove('on');
 function renderTags(){ const tags=(cur.bill_tags||[]).filter(t=>!t.returned_at);
-  $('tagList').innerHTML=tags.map(t=>`<div class="item"><span class="n">🏷 ${TAGK[t.kind]} ${t.tag_no?'#'+esc(t.tag_no):''} <small>${esc(t.memo||'')}</small></span><button class="sm" data-ret="${t.id}">返却</button></div>`).join('')||'<div class="muted">お預かり品なし</div>';
+  $('tagList').innerHTML=tags.map(t=>`<div class="item"><span class="n">${FX('label')} ${TAGK[t.kind]} ${t.tag_no?'#'+esc(t.tag_no):''} <small>${esc(t.memo||'')}</small></span><button class="sm" data-ret="${t.id}">返却</button></div>`).join('')||'<div class="muted">お預かり品なし</div>';
   $('tagList').querySelectorAll('[data-ret]').forEach(b=>b.onclick=async()=>{ const tg=tags.find(z=>z.id===b.dataset.ret); await logOp('お預かり返却',{kind:TAGK[tg?.kind],tag_no:tg?.tag_no}); await sb.from('bill_tags').update({returned_at:new Date().toISOString()}).eq('id',b.dataset.ret); await openBill(cur.id); renderTags(); });
   $('tagKinds').innerHTML=Object.entries(TAGK).map(([k,v])=>`<button class="kindbtn ${tagKind===k?'on':''}" data-k="${k}">${v}</button>`).join('');
   $('tagKinds').querySelectorAll('.kindbtn').forEach(b=>b.onclick=()=>{ tagKind=b.dataset.k; renderTags(); }); }
@@ -1164,7 +1165,7 @@ const isStale=e=>/もう1台/.test(e?.message||'');
 async function staleReload(msg){ toast(msg); if(!cur) return; const onPay=$('v-pay').classList.contains('on'); await openBill(cur.id); if(onPay&&cur.status==='open'){ renderPay(); show('v-pay'); } }
 async function stillOpen(){ const r=await sb.from('bills').select('status').eq('id',cur.id).single(); if(!r.error&&r.data?.status!=='open'){ await staleReload('もう1台で会計済です'); return false; } return true; }
 let okiBusy=false; async function closeAsOki(){ if(okiBusy||!cur||cur.status!=='open') return; const un=cur.totals?.unpaid??0; if(un<=0){ toast('未収がないため、置きにする金額がありません'); return; }
-  const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`⚠ お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
+  const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
   if(!await uiConfirm(`未収 ${yen(un)} を「置き」にして会計を終了しますか？`))return; okiBusy=true;
   try{ if(!await stillOpen()) return; const r=await sb.from('payments').insert({bill_id:cur.id,method:'oki',amount:un,revenue_date:cur.business_date,received_at:null}).select('id').single(); if(r.error){ if(isStale(r.error)){ await staleReload(r.error.message); return; } toast(r.error.message); return; } await logOp('入金',{method:METHOD.oki,amount:un});
     const { error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id); if(error){ await sb.from('payments').delete().eq('id',r.data.id); if(isStale(error)){ await staleReload(error.message); return; } toast(error.message); return; }
@@ -1179,7 +1180,7 @@ $('payAdd').onclick=guard($('payAdd'),async()=>{ const v=parseInt($('payAmount')
   if(error){ if(isStale(error)){ await staleReload(error.message); return; } toast(error.message);return;} await logOp(wasOki?'置きの入金':'入金',{method:METHOD[payMethod],amount:v}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
 $('payBack').onclick=()=>openBill(cur.id);
 $('payClose').onclick=guard($('payClose'),async()=>{ if(cur.totals.unpaid>0){toast(`未収 ${yen(cur.totals.unpaid)} があります。請求書か置きで登録してください`);return;}
-  const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`⚠ お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
+  const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
   if(!await uiConfirm(`請求額 ${yen(cur.totals.amount_due)} で会計を締めます。\n締めた後は変更できません。`))return;
   if(!await stillOpen()) return;
   const { error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id); if(error){ if(isStale(error)){ await staleReload(error.message); return; } toast(error.message); return; } await logOp('会計締め',{total:cur.totals.amount_due,payments:(cur.payments||[]).filter(p=>p.amount>0).map(p=>`${METHOD[p.method]}:${p.amount}`)}); toast('会計を締めました'); loadHall(); show('v-hall'); });
@@ -1427,7 +1428,7 @@ async function clKmRender(d){ const el=$('clKmBox'); if(!el) return; const q=awa
     const r=await sb.rpc('pos_kimono_set',{p_staff:c.id,p_day:d,p_on:on}); if(r.error){ b.disabled=false; await uiAlert(r.error.message); return; } toast(on?`${c.name}：着物（${mo}月のドレス新調日は免除）`:`${c.name}：着物を取消しました`); clKmRender(d); }); }
 async function clChkRender(d){ const el=$('clChk'); if(!el) return; if(!staffAll.length) await loadStaffAll();
   const r=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',store.id).eq('action',CL_CHK).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clChk')||clDate!==d) return;
-  const done=(r.data||[])[0]; if(done){ const x=new Date(done.created_at); el.innerHTML=`<div style="font-size:16px">✅ 伝票一覧で確認済　<b>${esc(done.detail?.by||'')}</b>　<small class="muted">${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}</small></div>`; return; }
+  const done=(r.data||[])[0]; if(done){ const x=new Date(done.created_at); el.innerHTML=`<div style="font-size:16px">${FX('ballotboxwithcheck')} 伝票一覧で確認済　<b>${esc(done.detail?.by||'')}</b>　<small class="muted">${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}</small></div>`; return; }
   if(d!==businessDate()){ el.innerHTML='<div class="muted">確認の記録なし</div>'; return; }
   const who=staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
   el.innerHTML=`<div style="margin-bottom:8px">${KL}・同伴・反応◎の登録に間違いがないか、伝票一覧で確認してください。</div>
@@ -1523,7 +1524,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   ${saved?'<div class="muted" style="margin-bottom:6px">精算済のため変更できません</div>':`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><select id="clKind"><option value="out">出金</option><option value="in">入金</option></select><input id="clAmt" type="number" inputmode="numeric" placeholder="金額" style="width:130px;text-align:right"><select id="clMemoSel"></select><input id="clMemo" placeholder="内容を入力" style="flex:1;min-width:160px;display:none"><button class="ok sm" id="clAdd">追加</button></div>`}
   <div class="list">${moves.map(m=>`<div class="item"><span class="badge ${m.kind==='out'?'gray':''}">${m.kind==='out'?'出金':'入金'}</span><span class="n">${esc(m.memo||'')}</span><span class="amt">${yen(m.amount)}</span>${saved?'':`<button class="ghost sm" data-mvdel="${m.id}">削除</button>`}</div>`).join('')||'<div class="muted">登録なし</div>'}
   <div class="item"><span class="badge gray">出金</span><span class="n">日払（立替）合計 <small>${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('、')):'なし'}（在籍リストで入力）</small></span><span class="amt">${yen(advSum)}</span></div></div>
-  <div class="bar" style="margin-top:10px"><button class="ghost" id="clMail">✉ 領収書をメールで送る</button></div>
+  <div class="bar" style="margin-top:10px"><button class="ghost" id="clMail">${FX('envelope')} 領収書をメールで送る</button></div>
   ${H('② ボトル残量（今日ご来店のお客様のキープボトル）')}
   <div class="list">${bottles.map(b=>`<div class="item"><span class="n">${esc(b.name)}<br><small>${esc(cn(b.customer_id))} 様${esc(knLabel(b,cn(b.customer_id)))}</small></span><select data-clrem="${b.id}">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>`).join('')||'<div class="muted">該当なし（伝票に「＋お客様」で登録された方のボトルが出ます）</div>'}</div>
   ${H('③ 顧客メモの更新申請')}
@@ -1583,7 +1584,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   if($('clSave')) $('clSave').onclick=async()=>{ const v=clRecalc(); { const tq=await sb.rpc('pos_todos',{p_day:d}); const n=tq.error?0:(tq.data||[]).filter(x=>x.status==='open').length; if(n){ await uiAlert(`終わっていない TODO が ${n}つあります（⑦ TODO）\n黒服マイページで済ませるか、できない理由を入れてください`); $('clTodo')?.scrollIntoView({block:'center'}); return; } } if(!await uiConfirm(`${d} のレジ精算を保存しますか？\nレジ内現金 ${yen(v.counted)}／過不足 ${v.diff>0?'+':''}${yen(v.diff)}`))return; $('clSave').disabled=true; const r=await sb.from('register_closings').insert({store_id:store.id,business_date:d,counts:clCounts,opening_float:v.opening,cash_sales:cashSales,cash_in:inSum,cash_out:outSum+advSum,expected:v.expected,counted:v.counted,diff:v.diff,deposit:v.deposit,next_float:v.next}); if(r.error){ toast(r.error.message); $('clSave').disabled=false; return; } await logOp('レジ精算を保存',{date:d,expected:v.expected,counted:v.counted,diff:v.diff,deposit:v.deposit,next_float:v.next},null,true); toast('精算を保存しました'); clCounts={}; clDeposit=0; renderClosing(); };
   clRecalc(); clRenderMonth(); clRenderWarn(d,prevRow?prevRow.business_date:null); }
 // 領収書メール：端末のメールアプリを開く（写真はメールアプリ側で添付する）
-function clMailUrl(who){ const to=String(settings?.receipt_mail_to||'').trim(); const subject=`【${store?.name||''}】現金払い（名前→${who}）`; const body='📎→書類をスキャン→フィルタ→白黒　で送信'; return `mailto:${encodeURIComponent(to).replace(/%40/g,'@')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
+function clMailUrl(who){ const to=String(settings?.receipt_mail_to||'').trim(); const subject=`【${store?.name||''}】現金払い（名前→${who}）`; const body='添付（クリップの印）→書類をスキャン→フィルタ→白黒　で送信'; return `mailto:${encodeURIComponent(to).replace(/%40/g,'@')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
 // v10.43：前回の精算の翌日〜前日のうち、未精算の日の現金の動き（現金売上＋入金−出金−日払い）の合計
 async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')), /* v11.30：1000行で切れないように分けて読む */
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')),

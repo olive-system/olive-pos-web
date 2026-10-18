@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.35 -->
+<title>OLIVE 管理</title><!-- admin v1.36 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
@@ -144,6 +144,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
 <script>
+const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 // v0.57・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 let KL='係'; const kl=s=>KL==='係'?s:String(s??'').replace(/係/g,KL); const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v0.64：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */ const KT=[];
 function kReg(...os){ const walk=o=>{ for(const k of Object.keys(o)){ const v=o[k]; if(typeof v==='string'){ if(v.includes('係')) KT.push([o,k,v]); } else if(v&&typeof v==='object') walk(v); } }; os.forEach(walk); }
@@ -291,8 +292,8 @@ function renderAlert(){
   if(!s.pw_alert){ box.innerHTML=''; return; }
   // v0.21：警告はパスワードを新しくするまで全員に出し続ける。ボタンはオーナーだけ
   box.innerHTML=me.is_owner
-    ? `<div class="alertbar"><span>⚠ 黒服（${esc(s.pw_alert_note||'')}）が削除されました。POS・タイムカード・顧客サイトのパスワードを変更してください</span><button class="danger" id="rotBtn">全パスワード更新</button></div>`
-    : `<div class="alertbar"><span>⚠ 黒服（${esc(s.pw_alert_note||'')}）が削除されました。オーナーにPOS・タイムカード・顧客サイトのパスワードを更新してもらってください</span></div>`;
+    ? `<div class="alertbar"><span>${FX('warningsign')} 黒服（${esc(s.pw_alert_note||'')}）が削除されました。POS・タイムカード・顧客サイトのパスワードを変更してください</span><button class="danger" id="rotBtn">全パスワード更新</button></div>`
+    : `<div class="alertbar"><span>${FX('warningsign')} 黒服（${esc(s.pw_alert_note||'')}）が削除されました。オーナーにPOS・タイムカード・顧客サイトのパスワードを更新してもらってください</span></div>`;
   if(me.is_owner) $('rotBtn').onclick=guard($('rotBtn'),()=>rotateAll());
 }
 async function rotateAll(){
