@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.82 -->
+<title>OLIVE 会計</title><!-- v11.83 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
@@ -97,7 +97,7 @@
   /* v10.89：会計後のお預かり返却リマインド（お渡しするまで卓いっぱいに点滅） */.tbl.hand{background:var(--warn);color:#fff;border-color:var(--warn-d);text-align:center;justify-content:center;gap:6px;animation:handBlink 1s steps(1) infinite}.tbl.hand .name{font-size:18px}.tbl.hand .hmsg{font-size:13px;font-weight:700;white-space:nowrap}.tbl.hand .hitem{text-align:left;font-size:22px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}.tbl.hand .hitem small{font-size:14px;font-weight:600}@keyframes handBlink{50%{background:var(--gold-soft);color:var(--warn-d)}}
   .rlist{display:flex;flex-direction:column;gap:8px}
   .rrow{display:flex;align-items:center;gap:12px;padding:10px 16px;min-height:67px;box-sizing:border-box;background:#fff;border:1px solid var(--line);border-radius:12px;font-size:20px;user-select:none;-webkit-user-select:none}
-  .rrow .nm{flex:1}.rrow .hd{color:var(--muted);font-size:24px;padding:0 6px;touch-action:none}.rrow.drag{opacity:.4}.rrow.inactive{opacity:.5}
+  .rrow .nm{flex:1 1 300px;min-width:0}.rrow{flex-wrap:wrap} /* v11.83：狭い画面では入力欄が次の行に回る（ゲネプロ 2026-10-18。打刻した人の行がはみ出して名前が隠れた） */.rrow .hd{color:var(--muted);font-size:24px;padding:0 6px;touch-action:none}.rrow.drag{opacity:.4}.rrow.inactive{opacity:.5}
   .pillbtn{border-radius:999px;padding:12px 22px;font-weight:700}.pillbtn.brown{background:var(--brand-d);color:#fff}.pillbtn.gray{background:var(--line);color:var(--muted)}
 #splitModal .box{width:min(980px,96vw);max-height:94vh}
 #splitTable .sp2{width:28px;border:none}
