@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.88 -->
+<title>OLIVE 会計</title><!-- v11.89 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
@@ -1120,6 +1120,7 @@ $('oConfirm').onclick=async()=>{ if(!oCart.length){ toast('メニューを選ん
   // キープ可の商品：伝票のお客様にボトルを自動登録する。お客様が未登録なら注文を入れない／複数なら誰のボトルか選ぶ
   const keepFor=new Map(); const keepLines=oCart.filter(l=>l.p.is_keepable); if(keepLines.length){ const bcs=[...new Set((cur.bill_customers||[]).map(x=>x.customer_id))]; if(!bcs.length){ await uiConfirm('先にお客様名を登録してください'); return; }
     for(const l of keepLines){ if(bcs.length===1){ keepFor.set(l,bcs[0]); continue; } const pick=await uiPick(`${l.p.name} はどなたのボトルですか？`, bcs.map(id=>({label:(customers.find(c=>c.id===id)?.name||'（不明）')+' 様',value:id}))); if(!pick) return; keepFor.set(l,pick); } }
+  /* v11.89：同じ品が3分以内にこの伝票に入っていたら聞く（ゲネプロ #52：画面が固まって入れ直したら二重になった） */ { const ids=[...new Set(oCart.map(l=>l.p.id))]; const r=await sb.from('bill_items').select('name,added_at').eq('bill_id',cur.id).eq('is_void',false).in('product_id',ids).gte('added_at',new Date(Date.now()-180000).toISOString()); if((r.data||[]).length){ const t=[...new Set(r.data.map(x=>`${x.name}（${new Date(x.added_at).toTimeString().slice(0,5)}）`))].join('・'); if(!await uiConfirm(`${t} がもう入っています。\nもう一度入れますか？`)) return; } }
   $('oConfirm').disabled=true;
   const done=new Set(), stop=async m=>{ toast(m); oCart=oCart.filter(x=>!done.has(x)); await openBill(cur.id); renderOrder(); }; /* v11.43：途中で失敗したら、入った行はカートから外す（押し直しても二重にならない） */
   try{ for(const l of oCart){ const p=l.p; const { data:item, error } = await sb.from('bill_items').insert({bill_id:cur.id,product_id:p.id,name:p.name,category_id:p.category_id,qty:l.qty,unit_price:p.price,cast_subtotal_price:p.cast_subtotal_price,back_amount:p.back_amount,back_points:p.back_points,is_service_target:p.is_service_target,is_keep:!!p.is_keepable}).select().single();
