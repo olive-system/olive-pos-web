@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.89 -->
+<title>OLIVE 会計</title><!-- v11.90 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
@@ -584,7 +584,10 @@ async function renderCasts(){ cMode='today'; { const ta=$('cTabAll'); if(ta) ta.
   $('cList').querySelectorAll('[data-alwp]').forEach(i=>i.onclick=async()=>{ if(clDone) return; await alwPoint(i.dataset.alwp); renderCasts(); }); // v10.72：精算済の日は立替・手当を変えられない（DB でも拒否）
   $('cList').querySelectorAll('[data-fine]').forEach(i=>i.onclick=()=>fineDlg(i.dataset.fine));
   $('cList').querySelectorAll('[data-ph]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); showSelfie(b.dataset.ph); });
-  $('cList').querySelectorAll('[data-fixin]').forEach(b=>b.onclick=()=>punchFix(b.dataset.fixin,'clock_in')); $('cList').querySelectorAll('[data-fixout]').forEach(b=>b.onclick=()=>punchFix(b.dataset.fixout,'clock_out'));
+  $('cList').querySelectorAll('[data-fixin]').forEach(b=>b.onclick=()=>punchFix(b.dataset.fixin,'clock_in')); $('cList').querySelectorAll('[data-fixout]').forEach(b=>b.onclick=async()=>{ const id=b.dataset.fixout, t=tev[id]; /* v11.90・SQL 160：まちがえて押した退勤は取り消せる（閉店作業の精算の前まで。理由は聞かない。オーナー 2026-10-18） */
+    if(t?.out&&!t.after&&!clDone){ const nm=snm(id); const k=await uiPick(`${nm}　退勤 ${hm(t.out)}`,[{label:'時刻を直す',value:'fix'},{label:'退勤を取り消す',value:'cancel'}]); if(!k) return;
+      if(k==='cancel'){ const r=await sb.rpc('punch_cancel_out',{p_staff_id:id}); if(r.error){ await uiAlert(/punch_cancel_out/.test(r.error.message)?'SQL 160 が未実行です':r.error.message); return; } await logOp('退勤の取消',{name:nm,out:hm(t.out)},null,true); toast(`${nm} の退勤を取り消しました`); renderCasts(); return; } }
+    punchFix(id,'clock_out'); });
   $('cList').querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pin,'clock_in')); $('cList').querySelectorAll('[data-pout]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pout,'clock_out')); $('cList').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{ const s=staffAll.find(x=>x.id===b.dataset.show); if(s) openTrialPay(s,tcalc[s.id],tev[s.id]||{},advX[s.id]||0,rcp[s.id]||null); });
   $('cList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ cSel=staffAll.find(s=>s.id===b.dataset.edit); renderCastForm(); });
   $('cList').querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ const s=staffAll.find(x=>x.id===b.dataset.del); if(!await uiConfirm(`${s.display_name} を削除しますか？（在籍から外します。過去のデータは残ります）`))return; const { error } = await sb.from('staff').update({is_active:false}).eq('id',s.id); if(!error) await logOp('キャスト削除',{name:s.display_name},null,true); toast(error?error.message:'削除しました'); renderCasts(); });
