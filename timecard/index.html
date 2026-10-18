@@ -148,6 +148,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
 <script>
+const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
+
 const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -265,7 +267,7 @@ document.querySelectorAll('.type').forEach(b => { b.onclick = () => setType(b.da
 function onStaffTap(staff){
   if (!currentType) {
     const g = document.getElementById('guide');
-    g.textContent = '⚠️ 先に「出勤 / 退勤 / アフター」を選んでください';
+    g.innerHTML = FX('warningsign',20) + ' 先に「出勤 / 退勤 / アフター」を選んでください';
     g.classList.remove('warn'); void g.offsetWidth; g.classList.add('warn');
     return;
   }
@@ -383,7 +385,7 @@ function fxDouhan(name){
     fx.appendChild(c);
   }
   return fxShow('douhan',
-    `<div class="big">🎉 おめでとう！ 🎉</div><div class="name">${esc(name)} さん、同伴お疲れさま</div><div class="sub">今日も素敵な一日に</div>`, 3200);
+    `<div class="big">${FX('partypopper',44)} おめでとう！ ${FX('partypopper',44)}</div><div class="name">${esc(name)} さん、同伴お疲れさま</div><div class="sub">今日も素敵な一日に</div>`, 3200);
 }
 function fxAfter(name){
   const fx = document.getElementById('fx');
@@ -400,7 +402,7 @@ function fxAfter(name){
     fx.appendChild(sh);
   }
   for (let i=0;i<14;i++){
-    const h = document.createElement('div'); h.className='heart'; h.textContent = ['💜','✨','💫'][i%3];
+    const h = document.createElement('div'); h.className='heart'; h.innerHTML = FX(['heartpurple','sparkles','dizzy'][i%3],28);
     h.style.left = rnd(0,100)+'%'; h.style.animationDuration = rnd(3,5)+'s'; h.style.animationDelay = rnd(0,1.5)+'s';
     fx.appendChild(h);
   }
