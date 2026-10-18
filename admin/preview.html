@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.33 -->
+<title>OLIVE 管理</title><!-- admin v1.34 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
@@ -183,13 +183,12 @@ const SCREENS=[
   {k:'register',n:'現金管理'},
   {k:'punches',n:'打刻一覧'},
   {k:'shift',n:'シフト'},
-  {k:'todo',n:'TODO'}, // v1.29・SQL 145：黒服の TODO（オーナー 2026-10-18）
   {k:'cust',n:'顧客サイト'},
   {grp:'設定'},
   {k:'set_cast',n:'スタッフ設定'},
   {k:'set_pay',n:'報酬・罰金項目'},
   {k:'set_pos',n:'POS設定'},
-  {k:'set_todo',n:'TODO'}, // v1.30：TODO の項目は設定の中（オーナー 2026-10-18）。その日の TODO は集計の「TODO」
+  {k:'set_todo',n:'TODO'}, // v1.30・v1.34：TODO は設定の中の1つだけ（カレンダーと項目。オーナー 2026-10-18）
   {k:'set_shift',n:'シフト設定',nav:false}, // v1.21：左には出さない。シフトの画面の「設定」から開く（オーナー 2026-10-17。表示設定の権限は今まで通り）
   {k:'notice',n:'お知らせ'},
   {grp:'履歴'},
@@ -2060,28 +2059,50 @@ const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',non
 const TODO_KIND=[['daily','毎日'],['weekly','毎週'],['biweekly','隔週'],['monthly','毎月（日にち）'],['nth','毎月（第◯ ◯曜日）'],['month_end','月末（最終日）'],['yearly','毎年'],['once','その日だけ']];
 const todoMd=d=>String(d||'').slice(5).split('-').map(Number).join('/'), todoWds=x=>(x.rule_dows||[]).map(d=>TODO_WD[d]).join('・');
 const todoWhen=x=>x.rule_kind==='daily'?'毎日':x.rule_kind==='weekly'?`毎週 ${todoWds(x)}`:x.rule_kind==='biweekly'?`隔週 ${todoWds(x)}`:x.rule_kind==='monthly'?`毎月 ${(x.rule_days||[]).join('・')}日`:x.rule_kind==='nth'?`毎月 第${(x.rule_nth||[]).join('・')} ${todoWds(x)}`:x.rule_kind==='month_end'?'月末':x.rule_kind==='yearly'?`毎年 ${todoMd(x.rule_date)}`:`${todoMd(x.rule_date)} だけ`;
-let todoDay=null;
-PAGES.todo=async()=>{ const st=storeId, head=`<h1>TODO <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
-  if(!todoDay) todoDay=businessDate();
-  $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const dy=await sb.rpc('admin_todo_day',{p_store:st,p_day:todoDay}); if(page!=='todo'||storeId!==st) return;
-  if(dy.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_todo/.test(dy.error.message)?'SQL 145 が未実行です：':'読み込めません：')}${esc(dy.error.message)}</div>`; return; }
-  const D=dy.data||[];
-  const stt=x=>x.status==='done'?`<span class="badge k">済</span> ${esc(x.by||'')}`:x.status==='skip'?`<span class="badge">できない</span> ${esc(x.by||'')}`:'<span class="badge warnb">未</span>';
-  $('main').innerHTML=head+`<div class="card"><div class="row" style="align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="tdD" value="${todoDay}" style="width:auto"></div>
-    ${D.length?`<table class="reg"><tr><th style="text-align:left">TODO</th><th>時間</th><th style="text-align:left">状態</th><th style="text-align:left">書いたこと・理由</th><th>写真</th></tr>${D.map(x=>`<tr><td style="text-align:left">${esc(x.name)}</td><td>${TODO_SLOT[x.slot]||''}</td><td style="text-align:left;white-space:nowrap">${stt(x)}</td><td style="text-align:left;white-space:pre-wrap">${esc(x.status==='skip'?x.reason||'':x.note||'')}</td><td>${x.photo?`<a href="${esc(x.photo)}" target="_blank" rel="noopener"><img src="${esc(x.photo)}" style="width:64px;height:64px;object-fit:cover;border-radius:6px"></a>`:''}</td></tr>`).join('')}</table>`:'<div class="muted">この日の TODO はありません</div>'}
-    <div class="muted" style="font-size:13px;margin-top:8px">写真は30日で消えます。項目は「設定」の「TODO」</div></div>`;
-  $('tdD').onchange=()=>{ if($('tdD').value){ todoDay=$('tdD').value; PAGES.todo(); } }; };
-PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit', head=`<h1>TODO の項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+// v1.34・SQL 153：TODO は設定の中の1つだけ（オーナー 2026-10-18「わざわざタブ一つつくる必要ある？」）。上＝その日の TODO（済・できない・未・写真）、下＝月のカレンダー（TimeTree のように）。「項目」で足す・変える
+let todoDay=null, todoMon=null, todoView='cal';
+PAGES.todo=()=>{ page='set_todo'; return PAGES.set_todo(); };
+PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
+  if(!todoDay) todoDay=businessDate(); if(!todoMon) todoMon=todoDay.slice(0,7);
+  const head=`<div class="row" style="align-items:center;gap:10px;margin-bottom:12px"><h1 style="margin:0">TODO <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><span style="flex:1"></span>
+    <span class="seg"><button class="${todoView==='cal'?'on':''}" data-tv="cal">カレンダー</button><button class="${todoView==='items'?'on':''}" data-tv="items">項目</button></span>${ed&&todoView==='items'?'<button class="ghost sm" id="tdAdd">＋ TODO を追加</button>':''}</div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const it=await sb.rpc('admin_todo_items',{p_store:st}); if(page!=='set_todo'||storeId!==st) return;
   if(it.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_todo/.test(it.error.message)?'SQL 146 が未実行です：':'読み込めません：')}${esc(it.error.message)}</div>`; return; }
-  const I=it.data||[];
-  $('main').innerHTML=head+`<div class="card"><div class="row" style="align-items:center;margin-bottom:8px"><span class="muted" style="font-size:13px">黒服マイページに出る。その日の出勤の黒服がやる</span><span style="flex:1"></span>${ed?'<button class="ghost sm" id="tdAdd">＋ TODO を追加</button>':''}</div>
-    <div style="border:1px solid var(--line);border-radius:10px;background:#fff">${I.map((x,i)=>`<div ${ed?`data-tdi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(x.name)}</span><span class="muted" style="text-align:right;font-size:14px;white-space:nowrap">${todoWhen(x)}　${x.slot!=='none'?TODO_SLOT[x.slot]:''}${x.need_photo?'　写真':''}${x.need_note?'　書く':''}</span></div>`).join('')||'<div class="muted" style="padding:10px 14px">なし</div>'}</div></div>`;
-  if(!ed) return;
-  $('tdAdd').onclick=()=>todoEdit(st,null);
-  $('main').querySelectorAll('[data-tdi]').forEach(e=>e.onclick=()=>todoEdit(st,I[+e.dataset.tdi])); };
+  const I=it.data||[], byId=Object.fromEntries(I.map(x=>[x.id,x]));
+  const wire=()=>{ $('main').querySelectorAll('[data-tv]').forEach(b=>b.onclick=()=>{ todoView=b.dataset.tv; PAGES.set_todo(); }); const ad=$('tdAdd'); if(ad) ad.onclick=()=>todoEdit(st,null); };
+  if(todoView==='items'){
+    $('main').innerHTML=head+`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">黒服マイページに出る。その日の出勤の黒服がやる</div>
+      <div style="border:1px solid var(--line);border-radius:10px;background:#fff">${I.map((x,i)=>`<div ${ed?`data-tdi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(x.name)}</span><span class="muted" style="text-align:right;font-size:14px;white-space:nowrap">${todoWhen(x)}　${x.slot!=='none'?TODO_SLOT[x.slot]:''}${x.need_photo?'　写真':''}${x.need_note?'　書く':''}</span></div>`).join('')||'<div class="muted" style="padding:10px 14px">なし</div>'}</div></div>`;
+    wire(); if(ed) $('main').querySelectorAll('[data-tdi]').forEach(e=>e.onclick=()=>todoEdit(st,I[+e.dataset.tdi])); return; }
+  const mo=await sb.rpc('admin_todo_month',{p_store:st,p_month:todoMon+'-01'}); if(page!=='set_todo'||storeId!==st) return;
+  if(mo.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_todo_month/.test(mo.error.message)?'SQL 153 が未実行です：':'読み込めません：')}${esc(mo.error.message)}</div>`; return; }
+  const M=mo.data||{}, today=businessDate();
+  if(todoDay.slice(0,7)!==todoMon) todoDay=todoMon===today.slice(0,7)?today:todoMon+'-01';
+  const stOf=(x,d)=>x.status==='done'?'done':x.status==='skip'?'skip':d>today?'fut':'open';
+  const CHS={done:'background:var(--gold-soft)',skip:'background:var(--soft);color:var(--muted)',open:'background:var(--warn-soft);color:var(--warn);font-weight:700',fut:'background:#fff;border:1px solid var(--line)'};
+  const D=M[todoDay]||[], hm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+  const wdN=d=>TODO_WD[new Date(d+'T00:00:00+09:00').getDay()], cnt=k=>D.filter(x=>stOf(x,todoDay)===k).length;
+  const badge=k=>`<span style="font-size:12px;border-radius:999px;padding:1px 8px;white-space:nowrap;${CHS[k]}">${({done:'済',skip:'できない',open:'未',fut:'これから'})[k]}</span>`;
+  const dayCard=`<div class="card"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px"><b style="font-size:20px">${Number(todoDay.slice(5,7))}/${Number(todoDay.slice(8))}（${wdN(todoDay)}）${todoDay===today?'　本日':''}</b><span class="muted" style="font-size:13px">TODO ${D.length}件${D.length?`　済 ${cnt('done')}・できない ${cnt('skip')}・未 ${cnt('open')}`:''}</span></div>
+    ${D.map((x,i)=>{ const k=stOf(x,todoDay); return `<div style="border-top:1px solid var(--line);padding:9px 0"><div style="display:flex;gap:8px;align-items:center">${badge(k)}<b style="flex:1;font-weight:500">${esc(x.name)}</b><span class="muted" style="font-size:12px;white-space:nowrap">${esc(TODO_SLOT[x.slot]&&x.slot!=='none'?TODO_SLOT[x.slot]:'')}${x.by?'　'+esc(x.by):''}${x.at?' '+hm(x.at):''}</span>${ed&&byId[x.id]?`<button class="ghost sm" data-tde="${x.id}" style="padding:0 8px">変える</button>`:''}</div>
+      ${x.photo?`<a href="${esc(x.photo)}" target="_blank" rel="noopener"><img src="${esc(x.photo)}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;margin-top:8px"></a>`:''}
+      ${x.status==='skip'&&x.reason?`<div style="font-size:13px;margin-top:4px">理由：${esc(x.reason)}</div>`:''}${x.note?`<div style="font-size:13px;margin-top:4px;white-space:pre-wrap">${esc(x.note_hint||'書いたこと')}：${esc(x.note)}</div>`:''}
+      ${x.steps?`<details style="margin-top:4px"><summary class="muted" style="font-size:13px;cursor:pointer">手順</summary><div style="font-size:13px;white-space:pre-wrap;margin-top:4px">${esc(x.steps)}</div></details>`:''}</div>`; }).join('')||'<div class="muted">この日の TODO はありません</div>'}
+    <div class="muted" style="font-size:12px;margin-top:6px">写真は30日で消えます</div></div>`;
+  const [yy,mm]=todoMon.split('-').map(Number), f=new Date(yy,mm-1,1), st0=new Date(yy,mm-1,1-f.getDay()), ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const weeks=Math.ceil((f.getDay()+new Date(yy,mm,0).getDate())/7); let cells='';
+  for(let i=0;i<weeks*7;i++){ const d=new Date(st0); d.setDate(st0.getDate()+i); const k=ymd(d), inM=d.getMonth()===mm-1, L=inM?(M[k]||[]):[];
+    cells+=`<div data-tdd="${inM?k:''}" style="border:1px solid var(--line);margin:-1px 0 0 -1px;min-height:112px;padding:4px;min-width:0;${inM?'cursor:pointer;background:#fff':'background:var(--soft)'};${k===todoDay?'outline:3px solid var(--ok);outline-offset:-3px':''}">
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px;${d.getDay()===0?'color:var(--warn)':''}">${k===today?`<span style="background:var(--head);color:#fff;border-radius:999px;padding:0 6px">${d.getDate()}</span>`:d.getDate()}</div>
+      ${L.slice(0,4).map(x=>`<div style="font-size:12px;line-height:1.35;border-radius:4px;padding:1px 4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${CHS[stOf(x,k)]}">${esc(x.name)}</div>`).join('')}${L.length>4?`<div class="muted" style="font-size:12px">ほか ${L.length-4}</div>`:''}</div>`; }
+  const sw=k=>`<span style="display:inline-block;width:14px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:3px;${CHS[k]}"></span>`;
+  $('main').innerHTML=head+dayCard+`<div class="card" style="margin-top:14px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><button class="ghost sm" id="tdmP">‹</button><b style="font-size:18px">${yy}年${mm}月</b><button class="ghost sm" id="tdmN">›</button><span style="flex:1"></span><span class="muted" style="font-size:12px">${sw('done')}済　${sw('open')}未　${sw('skip')}できない　${sw('fut')}これから</span></div>
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${TODO_WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px;padding:3px">${w}</div>`).join('')}${cells}</div></div>`;
+  wire();
+  const mv=n=>{ const d=new Date(yy,mm-1+n,1); todoMon=ymd(d).slice(0,7); PAGES.set_todo(); }; $('tdmP').onclick=()=>mv(-1); $('tdmN').onclick=()=>mv(1);
+  $('main').querySelectorAll('[data-tdd]').forEach(c=>{ if(c.dataset.tdd) c.onclick=()=>{ todoDay=c.dataset.tdd; PAGES.set_todo(); window.scrollTo(0,0); }; });
+  $('main').querySelectorAll('[data-tde]').forEach(b=>b.onclick=()=>todoEdit(st,byId[b.dataset.tde])); };
 function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekly',rule_dows:[],rule_days:[],rule_nth:[],rule_date:null,slot:'open',need_photo:false,need_note:false,note_hint:''};
   const md=modal(`<h2 style="margin:0">${isNew?'TODO の追加':esc(x.name)}</h2><label>名前<input id="tdN" value="${esc(x.name)}"></label>
     <label>いつ<select id="tdK">${TODO_KIND.map(([v,n])=>`<option value="${v}" ${x.rule_kind===v?'selected':''}>${n}</option>`).join('')}</select></label>
