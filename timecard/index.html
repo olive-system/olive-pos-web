@@ -152,7 +152,7 @@ const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;he
 
 const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ storageKey:'olive-tc-auth' } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 // 名前などを画面に入れる時は、タグとして動かないように必ずこれを通す
 const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
