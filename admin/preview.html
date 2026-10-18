@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.34 -->
+<title>OLIVE 管理</title><!-- admin v1.35 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
@@ -2138,7 +2138,7 @@ PAGES.o_daily=async()=>{ const st=storeId, head=`<h1>日報メール <small clas
     <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="dmSave">保存</button><button class="ghost" id="dmTest">試しに送る（昨日の分）</button></div></div>
     <div class="card"><b>中身</b><div style="margin-top:6px;line-height:1.9;font-size:14px">売上（月累計）／来店一覧／出退勤／連絡先交換／黒服の報告／その日のメモ</div></div>`;
   $('dmSave').onclick=guard($('dmSave'),async()=>{ const q=await rpc('admin_daily_mail_save',{p_store:st,p_to:$('dmTo').value.split(/\n/).map(x=>x.trim()).filter(Boolean).join(',')}); if(!q.ok) return; toast('保存しました'); PAGES.o_daily(); });
-  $('dmTest').onclick=guard($('dmTest'),async()=>{ if(unsavedNow()){ await uiAlert('先に宛先を保存してください'); return; } const q=await rpc('admin_daily_mail_test',{p_store:st}); if(!q.ok) return; await uiAlert(q.data==='送信'?'送りました':String(q.data)); PAGES.o_daily(); }); };
+  $('dmTest').onclick=guard($('dmTest'),async()=>{ if(unsavedNow()){ await uiAlert('先に宛先を保存してください'); return; } await sb.rpc('admin_daily_mail_prepare'); /* v1.35・SQL 156：写真を先に準備（別の呼び出しで） */ const q=await rpc('admin_daily_mail_test',{p_store:st}); if(!q.ok) return; await uiAlert(q.data==='送信'?'送りました':String(q.data)); PAGES.o_daily(); }); };
 PAGES.o_contract=async()=>{ const head='<h1>契約書</h1>';
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_contract_get'); if(page!=='o_contract') return;
