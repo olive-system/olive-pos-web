@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.30 -->
+<title>OLIVE 管理</title><!-- admin v1.31 -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -2055,7 +2055,10 @@ PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class
 // v1.23・SQL 138：日報メール（オーナー 2026-10-17。店ごとに1通・毎朝7時・店の Gmail から）。宛先はオーナーだけが変える
 // v1.29・SQL 145：黒服の TODO（オーナー 2026-10-18。TimeTree の「todoリスト写メ報告」の代わり）。上＝その日の TODO（済・できない・未・写真）、下＝項目（押すと小窓で変える）
 const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',none:'なし'}, TODO_WD=['日','月','火','水','木','金','土'];
-const todoWhen=x=>x.rule_kind==='daily'?'毎日':x.rule_kind==='weekly'?`毎週 ${(x.rule_dows||[]).map(d=>TODO_WD[d]).join('・')}`:x.rule_kind==='monthly'?`毎月 ${(x.rule_days||[]).join('・')}日`:x.rule_kind==='month_end'?'月末':`${String(x.rule_date||'').slice(5).replace('-','/')} だけ`;
+// v1.31・SQL 148：いつ に「隔週」「毎月 第◯ ◯曜日」「毎年」（オーナー 2026-10-18。TimeTree の TODO を入れるため）
+const TODO_KIND=[['daily','毎日'],['weekly','毎週'],['biweekly','隔週'],['monthly','毎月（日にち）'],['nth','毎月（第◯ ◯曜日）'],['month_end','月末（最終日）'],['yearly','毎年'],['once','その日だけ']];
+const todoMd=d=>String(d||'').slice(5).split('-').map(Number).join('/'), todoWds=x=>(x.rule_dows||[]).map(d=>TODO_WD[d]).join('・');
+const todoWhen=x=>x.rule_kind==='daily'?'毎日':x.rule_kind==='weekly'?`毎週 ${todoWds(x)}`:x.rule_kind==='biweekly'?`隔週 ${todoWds(x)}`:x.rule_kind==='monthly'?`毎月 ${(x.rule_days||[]).join('・')}日`:x.rule_kind==='nth'?`毎月 第${(x.rule_nth||[]).join('・')} ${todoWds(x)}`:x.rule_kind==='month_end'?'月末':x.rule_kind==='yearly'?`毎年 ${todoMd(x.rule_date)}`:`${todoMd(x.rule_date)} だけ`;
 let todoDay=null;
 PAGES.todo=async()=>{ const st=storeId, head=`<h1>TODO <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   if(!todoDay) todoDay=businessDate();
@@ -2078,24 +2081,25 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit', head=`
   if(!ed) return;
   $('tdAdd').onclick=()=>todoEdit(st,null);
   $('main').querySelectorAll('[data-tdi]').forEach(e=>e.onclick=()=>todoEdit(st,I[+e.dataset.tdi])); };
-function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekly',rule_dows:[],rule_days:[],rule_date:null,slot:'open',need_photo:false,need_note:false,note_hint:''};
+function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekly',rule_dows:[],rule_days:[],rule_nth:[],rule_date:null,slot:'open',need_photo:false,need_note:false,note_hint:''};
   const md=modal(`<h2 style="margin:0">${isNew?'TODO の追加':esc(x.name)}</h2><label>名前<input id="tdN" value="${esc(x.name)}"></label>
-    <label>いつ<select id="tdK">${[['daily','毎日'],['weekly','毎週'],['monthly','毎月'],['month_end','月末'],['once','その日だけ']].map(([v,n])=>`<option value="${v}" ${x.rule_kind===v?'selected':''}>${n}</option>`).join('')}</select></label>
+    <label>いつ<select id="tdK">${TODO_KIND.map(([v,n])=>`<option value="${v}" ${x.rule_kind===v?'selected':''}>${n}</option>`).join('')}</select></label>
+    <div id="tdKn" style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(n=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-nth="${n}" ${(x.rule_nth||[]).includes(n)?'checked':''} style="width:auto">第${n}</label>`).join('')}</div>
     <div id="tdKw" style="display:flex;gap:6px;flex-wrap:wrap">${TODO_WD.map((w,i)=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-dw="${i}" ${(x.rule_dows||[]).includes(i)?'checked':''} style="width:auto">${w}</label>`).join('')}</div>
     <label id="tdKm">日（「1,15」のように）<input id="tdDays" value="${esc((x.rule_days||[]).join(','))}" inputmode="numeric"></label>
-    <label id="tdKo">日付<input type="date" id="tdDt" value="${esc(x.rule_date||'')}"></label>
+    <label id="tdKo"><span id="tdKoL">日付</span><input type="date" id="tdDt" value="${esc(x.rule_date||'')}"></label>
     <label>時間<select id="tdS">${Object.entries(TODO_SLOT).map(([v,n])=>`<option value="${v}" ${x.slot===v?'selected':''}>${n}</option>`).join('')}</select></label>
     <label>写真<select id="tdP"><option value="false">要らない</option><option value="true" ${x.need_photo?'selected':''}>要る</option></select></label>
     <label>書く欄<select id="tdW"><option value="false">なし</option><option value="true" ${x.need_note?'selected':''}>あり</option></select></label>
     <label id="tdHw">書く欄の見出し<input id="tdH" value="${esc(x.note_hint||'')}" placeholder="例：在庫の数"></label>
     <label>手順（黒服に見せる）<textarea id="tdT" rows="6" style="width:100%;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(x.steps||'')}</textarea></label>
     <div class="bar">${isNew?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">外す</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
-  const q=id=>md.querySelector('#'+id), paint=()=>{ const k=q('tdK').value; q('tdKw').style.display=k==='weekly'?'flex':'none'; q('tdKm').style.display=k==='monthly'?'':'none'; q('tdKo').style.display=k==='once'?'':'none'; q('tdHw').style.display=q('tdW').value==='true'?'':'none'; };
+  const q=id=>md.querySelector('#'+id), paint=()=>{ const k=q('tdK').value; q('tdKw').style.display=['weekly','biweekly','nth'].includes(k)?'flex':'none'; q('tdKn').style.display=k==='nth'?'flex':'none'; q('tdKm').style.display=k==='monthly'?'':'none'; q('tdKo').style.display=['biweekly','yearly','once'].includes(k)?'':'none'; q('tdKoL').textContent=k==='biweekly'?'初めの日（この日から隔週）':k==='yearly'?'日付（毎年この月日）':'日付'; q('tdHw').style.display=q('tdW').value==='true'?'':'none'; };
   q('tdK').onchange=paint; q('tdW').onchange=paint; paint();
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を TODO から外しますか？\n今までの記録は残ります`,'外す','danger')) return; const r=await rpc('admin_todo_remove',{p_store:st,p_id:x.id}); if(!r.ok) return; md.remove(); toast('外しました'); PAGES.set_todo(); };
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{
-    const row={name:q('tdN').value.trim(),rule_kind:q('tdK').value,rule_dows:[...md.querySelectorAll('[data-dw]:checked')].map(e=>+e.dataset.dw),rule_days:q('tdDays').value.split(/[,、\s]+/).map(v=>parseInt(v,10)).filter(v=>v>=1&&v<=31),rule_date:q('tdDt').value||null,
+    const row={name:q('tdN').value.trim(),rule_kind:q('tdK').value,rule_dows:[...md.querySelectorAll('[data-dw]:checked')].map(e=>+e.dataset.dw),rule_days:q('tdDays').value.split(/[,、\s]+/).map(v=>parseInt(v,10)).filter(v=>v>=1&&v<=31),rule_nth:[...md.querySelectorAll('[data-nth]:checked')].map(e=>+e.dataset.nth),rule_date:q('tdDt').value||null,
       slot:q('tdS').value,need_photo:q('tdP').value==='true',need_note:q('tdW').value==='true',note_hint:q('tdH').value.trim(),steps:q('tdT').value};
     if(!row.name){ await uiAlert('名前を入力してください'); return; }
     const r=await rpc('admin_todo_save',{p_store:st,p_id:isNew?null:x.id,p_row:row}); if(!r.ok) return; md.remove(); toast('保存しました'); PAGES.set_todo(); }); }
