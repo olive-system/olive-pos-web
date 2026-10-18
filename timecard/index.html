@@ -152,7 +152,7 @@ const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;he
 
 const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ storageKey:'olive-tc-auth' } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 // 名前などを画面に入れる時は、タグとして動かないように必ずこれを通す
 const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
@@ -183,7 +183,7 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
   start();
 });
 
-const TC_KEY = 'olive_tc_terminal';
+const TC_KEY = 'olive_tc_terminal' + ((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : ''); /* ?slot= で同じブラウザに別の店の端末も（ゲネプロ 2026-10-18） */
 const tcGet = () => { try { return localStorage.getItem(TC_KEY); } catch(e) { return null; } };
 const tcSet = v => { try { v == null ? localStorage.removeItem(TC_KEY) : localStorage.setItem(TC_KEY, v); } catch(e) {} };
 function showReg(msg){ document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.remove('hidden');
