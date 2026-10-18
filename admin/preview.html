@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 管理</title><!-- admin v1.36 -->
+<title>OLIVE 管理</title><!-- admin v1.37 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--h:44px}
@@ -1985,6 +1985,10 @@ async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId
     <div style="margin-top:10px;display:grid;grid-template-columns:auto 1fr auto;column-gap:10px;row-gap:4px;align-items:center"><span class="muted" style="font-size:13px">① タイムカード専用ID</span><span class="muted" style="font-size:13px">② 端末名</span><span></span>
       <span style="height:44px;display:flex;align-items:center">${tcHasId?'<span class="badge k">作成済</span>':'<button class="ghost" id="tcIdAdd">作成</button>'}</span><input id="tcLabel" placeholder="例：入口の iPad" maxlength="30" style="height:44px;margin:0"><button class="primary" id="tcAdd" style="height:44px">登録コード発行</button></div>`; /* v0.77：① と ② の見出しと中身の行をそろえる（オーナー「列がそろってない」） */
   /* v0.66・SQL 084：タイムカードの端末でログインするための ID（POS のデータは読めない・書けない）。作った ID とパスワードは上の「今のパスワード」に出る */
+  /* v1.37・SQL 157：POS の ID もここで作る（2026-10-18 ゲネプロ。広島に POS の ID が無かった） */
+  { const ph=await sb.rpc('admin_pos_account_has',{p_store:st}); if(!ph.error&&page==='pw'&&$('tcBox')){ const d=document.createElement('div'); d.style.cssText='margin-top:14px;display:flex;align-items:center;gap:10px'; d.innerHTML=`<span class="muted" style="font-size:13px">POS の ID</span>${ph.data?'<span class="badge k">作成済</span>':'<button class="ghost" id="posIdAdd">作成</button>'}`; $('tcBox').appendChild(d);
+    const pa=$('posIdAdd'); if(pa) pa.onclick=guard(pa,async()=>{ if(!await uiConfirm('この店の POS の ID を作成しますか？','作成')) return; const x=await sb.rpc('admin_pos_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_pos_account_create/.test(x.error.message)?'SQL 157 が未実行です':x.error.message); return; }
+      await uiAlert(`POS の ID を作成しました\n\nログイン用メール：${x.data.email}\nパスワード：${x.data.pw}`); if(page==='pw') PAGES.pw(); }); } }
   const ia=$('tcIdAdd'); if(ia) ia.onclick=guard(ia,async()=>{ if(!await uiConfirm('タイムカード専用IDを作成しますか？','作成')) return;
     const x=await sb.rpc('admin_tc_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_tc_account_create/.test(x.error.message)?'SQL 084 が未実行です':x.error.message); return; }
     await uiAlert(`IDを作成しました\n\nログイン用メール：${x.data.email}\nパスワード：${x.data.pw}`); if(page==='pw') PAGES.pw(); });
