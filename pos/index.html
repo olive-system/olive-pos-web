@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.90 -->
+<title>OLIVE 会計</title><!-- v11.91 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
@@ -203,6 +203,7 @@
     <div class="totals" id="pTotals" style="align-content:start;align-self:start"></div>
     <div><div class="chips" id="payMethods"></div>
       <input id="payAmount" type="number" inputmode="numeric" placeholder="金額" style="width:100%;font-size:24px;text-align:right;margin-top:10px">
+      <div id="payChange" class="hidden" style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;margin-top:10px;font-size:18px"><span>お預かり</span><input id="payRecv" type="number" inputmode="numeric" placeholder="0" style="font-size:22px;text-align:right"><span>お釣り</span><b id="payChg" style="text-align:right;font-size:26px">―</b></div><!-- v11.91：現金の時だけ、お預かりからお釣りを出す（記録はしない。ゲネプロ #19・見本 キ） -->
       <div class="bar"><button id="payAdjDiscount">値引</button><button id="payAdjSurcharge">値増</button><button class="ok" id="payAdd" style="margin-left:auto">入金</button></div>
       <div class="list" id="payList" style="margin-top:10px"></div></div>
   </div>
@@ -1163,6 +1164,7 @@ function renderPay(){ const b=cur,T=b.totals; $('pTable').textContent=tables.fin
 
   $('payAmount').value=isOki(b)?okiRemain(b):(T.unpaid>0?T.unpaid:'');
   $('payList').innerHTML=[...(b.payments||[]).filter(p=>p.amount>0).map(p=>`<div class="item"><span class="n">${METHOD[p.method]}${p.method==='oki'?(p.received_at?` <small>入金済 ${new Date(p.received_at).getMonth()+1}/${new Date(p.received_at).getDate()}</small>`:' <small>未入金</small>'):''}${invTag(p)}</span><span class="amt">${yen(p.amount)}</span>${(isOki(b)&&p.method==='oki')||b.depPays?.has(p.id)?'':`<button class="ghost sm" data-pay="${p.id}">×</button>`}</div>`),...(b.bill_adjustments||[]).map(a=>`<div class="item"><span class="n">${a.kind==='discount'?'値引':'値増'} <small>${esc(a.reason||'')}</small></span><span class="amt">${yen(a.amount)}</span><button class="ghost sm" data-adj="${a.id}">×</button></div>`)].join('');
+  /* v11.91：お釣り（現金の時だけ。入金は「金額」の欄の額で記録し、お預かりは記録しない） */ { const on=payMethod==='cash'&&!(b.status!=='open'&&!isOki(b)); $('payChange').classList.toggle('hidden',!on); $('payRecv').value=''; const calc=()=>{ const amt=parseInt($('payAmount').value||'0',10), rv=parseInt($('payRecv').value||'0',10), el=$('payChg'); if(!rv){ el.textContent='―'; el.style.color=''; return; } if(rv<amt){ el.textContent=`${yen(amt-rv)} 足りません`; el.style.color='var(--warn)'; return; } el.textContent=yen(rv-amt); el.style.color=''; }; $('payRecv').oninput=calc; $('payAmount').oninput=calc; calc(); }
   const okiP=isOki(b); const ro=b.status!=='open'&&!okiP; ['payAdd','payAdjDiscount','payAdjSurcharge','payClose'].forEach(i=>$(i).disabled=ro); $('payClose').style.display=okiP?'none':''; $('prReceipt').style.display=hasReceived(b)?'':'none'; $('payList').querySelectorAll('[data-adj],[data-pay]').forEach(x=>x.disabled=ro);
   $('payList').querySelectorAll('[data-pay]').forEach(x=>x.onclick=async()=>{ const p=(cur.payments||[]).find(z=>z.id===x.dataset.pay); if(!p||cur.depPays?.has(p.id))return; if(!await uiConfirm(`${METHOD[p.method]} ${yen(p.amount)} の入金を取り消しますか？`))return; const wasOki=isOki(cur); const r=await sb.from('payments').delete().eq('id',p.id); if(r.error){ toast('取り消せません：'+r.error.message); return; } if(!DBLOG) await logOp('入金取消',{method:METHOD[p.method],amount:p.amount,table:tables.find(t=>t.id===cur.table_id)?.name||null}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
   $('payList').querySelectorAll('[data-adj]').forEach(x=>x.onclick=async()=>{ const a=(cur.bill_adjustments||[]).find(z=>z.id===x.dataset.adj); await logOp('値引・値増の削除',{kind:a?.kind,amount:a?.amount,reason:a?.reason}); const wasOki=isOki(cur); await sb.from('bill_adjustments').delete().eq('id',x.dataset.adj); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); }); }
