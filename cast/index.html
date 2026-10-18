@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.43 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.46 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -24,7 +24,7 @@
   .bar{height:10px;background:var(--soft);border-radius:6px;margin:8px 0 6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--brand)}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .tile{position:relative;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 12px;min-height:84px;font:inherit;color:var(--ink);cursor:pointer}
-  .tile b{display:block;font-size:17px}.tile small{color:var(--muted)}
+  .tile{display:flex;align-items:center}.tile b{display:block;font-size:17px}.tile small{position:absolute;top:8px;right:8px;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px;white-space:nowrap} /* v0.46：説明の小さい字は右上に。タイトルの位置は同じ（オーナー 2026-10-18） */
   .tile[disabled]{cursor:default;opacity:.55}.tile .soon{position:absolute;top:8px;right:8px;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
   .subh{color:var(--muted);margin:0 2px 8px;font-size:14px}
   .warnbox{background:var(--warn-soft);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
@@ -136,9 +136,9 @@ function home(){
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   const bdRow = b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}" style="display:inline-block;min-width:5.6em">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>${esc(b.name)}${cu?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; };
   const bdCard = (ME.bdays||[]).length ? `<div class="card"><div class="gh">お誕生日（前後2週間）</div>${ME.bdays.map(bdRow).join('')}</div>` : '';
-  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button><button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41：成績と報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
+  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41・v0.44：成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
-    <div class="tiles">${tile('shift','シフト','提出・確定・打刻',true)}${ME.billMonths?tile('bills','伝票一覧',`今月 ${(ME.billMonths[0]||{}).count||0}件`,true):''}${tile('absent','欠勤連絡','',true)}${tile('resv','予約・同伴','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','営業連絡','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
+    <div class="tiles">${tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤連絡','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','アプローチ','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
@@ -340,7 +340,7 @@ async function hallCasts(){
   // 10人まで並ぶので、1人2行（1行目：名前・当日欠勤／2行目：成績・未提出）
   show(`<div class="ttl">担当キャスト ${C.length}人</div>${C.length ? `<div class="card" style="padding:4px 12px">${C.map((c, i) => { const st = c.stats || {};
     const att = c.absent ? `<b class="err">当日欠勤</b>` : '';   // 出退勤の時刻は閉店作業で確かめる（オーナー 2026-10-17）
-    const todo = [c.sales_left ? '営業連絡' : '', c.docs ? esc(c.docs) : '', c.dress ? `ドレス ${mdj(c.dress).replace(/（.）/,'')}まで` : ''].filter(Boolean);
+    const todo = [c.sales_left ? 'アプローチ' : '', c.docs ? esc(c.docs) : '', c.dress ? `ドレス ${mdj(c.dress).replace(/（.）/,'')}まで` : ''].filter(Boolean);
     return `<div style="padding:8px 0;${i?'border-top:1px solid var(--line)':''}"><div class="row" style="padding:0"><b>${esc(c.name)}</b><span class="sm">${att}</span></div>
       <div class="sm muted" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>${esc(KL)}小計 ${Math.round(N(st.sales)/10000).toLocaleString('ja-JP')}万・同伴${N(st.douhan)}・反応◎${N(st.reactions)}</span>${todo.length?`<span class="err">未提出：${todo.join('・')}</span>`:''}</div>
       ${c.absent?`<div class="sm err">${hm2(c.absent.at)}・${esc(c.absent.reason||'')}</div>`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
@@ -511,7 +511,7 @@ async function dressReport(){
   };
 }
 
-// v0.14・SQL 113：予約・同伴申請と予約一覧（自分が取った予約＋自分が係の予約）。お客様はフルネーム1つの欄・係はキャストから選ぶ・変更と取消は取った本人がその場で（承認なし。2026-10-15 オーナー）
+// v0.14・SQL 113：予約／同伴申請と予約一覧（自分が取った予約＋自分が係の予約）。お客様はフルネーム1つの欄・係はキャストから選ぶ・変更と取消は取った本人がその場で（承認なし。2026-10-15 オーナー）
 //   申請・変更・取消をすると、お店（公式 LINE のトーク）と係のキャストに LINE が届く。POS に出す所は後で
 const resvLine = r => `${Number(String(r.date).slice(5,7))}/${Number(String(r.date).slice(8,10))}（${WD[new Date(r.date+'T00:00:00+09:00').getDay()]}）${r.time}　${r.name} 様 ${r.guests}名`;
 // LINE の文（SQL 114 の resv_text と同じ形。2026-10-15 オーナーの見本：【同伴】／日時　人数／お客様 様　係／誘客／（待ち合わせ）／メモ）
@@ -527,7 +527,7 @@ async function resvList(){
     ${x.mine&&x.thanked?`<div class="sm" style="color:var(--ok);margin-top:2px">ありがとう ${esc(x.kakari_name||'')}${x.thanks_note?`「${esc(x.thanks_note)}」`:''}</div>`:''}
     ${!x.mine?(x.thanked?'<div class="sm" style="color:var(--ok);margin-top:2px">ありがとう済み</div>':`<div style="margin-top:6px"><button class="btn g" data-th="${i}" style="width:auto;padding:6px 16px">ありがとう</button></div>`):''}
     ${x.mine?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn g" data-ed="${i}" style="width:auto;padding:6px 16px">変更</button><button class="btn g" data-cx="${i}" style="width:auto;padding:6px 16px;color:var(--warn)">取消</button></div>`:''}</div>`).join('');
-  show(`<button class="btn" id="rvNew" style="margin-bottom:12px">予約・同伴申請</button><div class="card"><div class="gh">予約一覧</div>${rows||'<div class="muted sm" style="padding:8px 0">予約はありません</div>'}</div>`);
+  show(`<button class="btn" id="rvNew" style="margin-bottom:12px">予約／同伴申請</button><div class="card"><div class="gh">予約一覧</div>${rows||'<div class="muted sm" style="padding:8px 0">予約はありません</div>'}</div>`);
   $('rvNew').onclick = () => resvForm(null);
   $('main').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => resvForm(RESV[b.dataset.ed]));
   $('main').querySelectorAll('[data-cx]').forEach(b => b.onclick = () => resvCancel(RESV[b.dataset.cx]));
@@ -577,7 +577,7 @@ async function resvForm(ed){
   const me = (st.data||[]).find(s => s.name === ME.name), kk = ed ? ed.kakari : me?.id;
   const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('');
   let dh = ed ? !!ed.douhan : false, cid = ed ? ed.customer_id || null : null, cTimer = null;
-  show(`<div class="ttl">${ed?'予約の変更':'予約・同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label>
+  show(`<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label>
       <label class="f" style="margin-top:8px">来店時刻<input type="time" id="rvT" value="${ed?ed.time:'21:00'}" style="${fld}"></label>
       <label class="f" style="margin-top:8px">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
@@ -586,7 +586,7 @@ async function resvForm(ed){
       <div class="f" style="margin-top:8px">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 18px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 18px">あり</button></div>
       <label class="f hide" id="rvMw" style="margin-top:8px">待ち合わせの時刻<input type="time" id="rvM" value="${ed&&ed.meet?ed.meet:'19:30'}" style="${fld}"></label>
       <label class="f" style="margin-top:8px">メモ（任意）<textarea id="rvMemo" maxlength="300" style="min-height:60px">${ed&&ed.memo?esc(ed.memo):''}</textarea></label></div>
-    <button class="btn" id="rvGo">${ed?'変更':'予約・同伴申請'}</button><p class="muted sm" style="margin:10px 2px">${ed?'変更':'申請'}すると、お店と係のキャストに LINE が届きます</p>`);
+    <button class="btn" id="rvGo">${ed?'変更':'予約／同伴申請'}</button><p class="muted sm" style="margin:10px 2px">${ed?'変更':'申請'}すると、お店と係のキャストに LINE が届きます</p>`);
   const setDh = v => { dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; $('rvMw').classList.toggle('hide', !v); };
   // 同伴ありは来店時刻 20:30、なしは 21:00（オーナー 2026-10-15。自分で時刻を変えていたら、そのまま）
   const setDhT = v => { const t = $('rvT'); if(t.value === (v ? '21:00' : '20:30')) t.value = v ? '20:30' : '21:00'; setDh(v); };
@@ -612,7 +612,7 @@ async function resvForm(ed){
     const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: dh ? m : null, p_memo: memo || null, p_customer: cid });
     if(q.error){ $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
     try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){}
-    await uiAlert(`${ed?'予約を変更しました':'予約・同伴申請を受付しました'}${q.data.notified?`\n係のキャストにも LINE で送りました`:''}`);
+    await uiAlert(`${ed?'予約を変更しました':'予約／同伴申請を受付しました'}${q.data.notified?`\n係のキャストにも LINE で送りました`:''}`);
     resvList();
   };
 }
@@ -775,7 +775,7 @@ async function contractPdf(){
   finally{ b.disabled = false; b.textContent = 'PDF ダウンロード'; }
 }
 
-// v0.21・SQL 121：⑦営業連絡（オーナーにヒアリングして決めた形 2026-10-16）。提案はあくまで目安（連絡先交換のお客様から30名・最後の来店が古い順・名前だけ・敬称略）
+// v0.21・SQL 121：⑦アプローチ（オーナーにヒアリングして決めた形 2026-10-16）。提案はあくまで目安（連絡先交換のお客様から30名・最後の来店が古い順・名前だけ・敬称略）
 //   →「次へ（連絡済リスト共有）」→ 連絡したお客様を選ぶ（提案と同じ並び・提案以外も可・一覧にないお客様はフルネーム）→ ランダムで1名のスクショを送信 → 係（本人が係なら担当黒服）へ。スクショは次の日に消える
 let SALES = null;
 const g2 = 'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px';
@@ -785,8 +785,8 @@ async function salesHome(){
   if(!await salesLoad()) return;
   const S = SALES, R = S.report;
   if(R){ salesShot(); return; }
-  if(S.off){ show('<div class="ttl">営業連絡</div><div class="card c muted">本日は出勤日ではありません</div>'); return; } /* v0.22・SQL 122：シフトが確定した月は出勤の日だけ */
-  show(`<div class="ttl">営業連絡</div><div class="card"><div class="gh">${mdDay(S.date)}（${WD[new Date(S.date+'T00:00:00+09:00').getDay()]}）の提案 ${S.plan.length}名（敬称略）</div>
+  if(S.off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日は出勤日ではありません</div>'); return; } /* v0.22・SQL 122：シフトが確定した月は出勤の日だけ */
+  show(`<div class="ttl">アプローチ</div><div class="card"><div class="gh">${mdDay(S.date)}（${WD[new Date(S.date+'T00:00:00+09:00').getDay()]}）の提案 ${S.plan.length}名（敬称略）</div>
     ${S.plan.length?`<div style="${g2}">${S.plan.map(n => `<div style="padding:6px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div>`).join('')}</div>`:'<div class="muted sm" style="padding:6px 0">連絡先交換の提出がありません</div>'}</div>
     <button class="btn" id="slNext">次へ（連絡済リスト共有）</button>`);
   $('slNext').onclick = salesPick;
@@ -818,7 +818,7 @@ function salesPick(){
 function salesShot(){
   setBack(home);
   const R = SALES.report;
-  show(`<div class="ttl">営業連絡</div><div class="card"><div class="c" style="padding:6px;color:var(--ok);font-weight:700">連絡済リスト共有済み ${R.count}名</div></div>
+  show(`<div class="ttl">アプローチ</div><div class="card"><div class="c" style="padding:6px;color:var(--ok);font-weight:700">連絡済リスト共有済み ${R.count}名</div></div>
     <div class="card"><div class="gh">スクショ</div><div style="font-weight:700;font-size:17px">${esc(R.pick)}</div>
     ${R.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済み${R.to?`（${esc(R.to)}）`:''}</div>`:`<input type="file" id="slP" accept="image/*" style="margin-top:10px;width:100%"><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?'係':'担当黒服'}${R.to?`（${esc(R.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
     ${R.sent?'':'<button class="btn" id="slShot">送信</button>'}`);
