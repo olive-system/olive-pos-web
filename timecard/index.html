@@ -50,6 +50,16 @@
   /* ---- 通常トースト（出勤・退勤） ---- */
   .toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#1a1a1a;color:#fff;padding:26px 40px;border-radius:18px;font-size:30px;font-weight:700;display:none;z-index:20;text-align:center;line-height:1.4}
   .toast.show{display:block}
+  /* 2026-10-18：出勤から30分より短い退勤を確かめる（ゲネプロ #13） */
+  .ask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:22;align-items:center;justify-content:center}
+  .ask.show{display:flex}
+  .ask .box{background:var(--card);border-radius:18px;padding:28px 36px;text-align:center;min-width:380px;font-size:20px}
+  .ask .nm{font-size:30px;font-weight:700;margin-bottom:8px}
+  .ask .w{color:var(--out);font-weight:700;margin:6px 0 18px}
+  .ask .bt{display:flex;gap:14px;justify-content:center}
+  .ask button{height:56px;padding:0 30px;border-radius:28px;font-size:20px;font-weight:700}
+  .ask .no{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+  .ask .yes{background:var(--out);color:#fff;border:none}
   .toast small{display:block;font-size:16px;font-weight:400;opacity:.8;margin-top:8px}
 
   /* ---- 演出オーバーレイ ---- */
@@ -143,6 +153,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="ask" id="ask"><div class="box"><div class="nm" id="askNm"></div><div id="askMsg"></div><div class="w">退勤でよいですか？</div><div class="bt"><button class="no" id="askNo">やめる</button><button class="yes" id="askYes">退勤する</button></div></div></div>
 <div class="fx" id="fx"><div class="msg" id="fxMsg"></div></div>
 <canvas id="canvas" class="hidden"></canvas>
 
@@ -299,6 +310,11 @@ async function punch(staff){
   const type = currentType;
   document.getElementById('grid').classList.add('busy');
   try {
+    if (type === 'clock_out') { /* 2026-10-18・SQL 161：出勤から30分より短い時は聞く（まちがえて押すのを防ぐ） */
+      const q = await sb.rpc('tc_in_at', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
+      const min = q.data ? Math.floor((Date.now() - new Date(q.data).getTime()) / 60000) : null;
+      if (min != null && min < 30 && !await tcAsk(staff.display_name, min)) return;
+    }
     let photoPath = null;
     const blob = await capture();
     if (!blob) { await showToast('写真が撮れません', 'カメラを許可してから、再度押してください', 3000); return; }
@@ -323,6 +339,14 @@ async function punch(staff){
     document.getElementById('grid').classList.remove('busy');
     setType(null);   // 毎回、未選択に戻す
   }
+}
+
+function tcAsk(name, min){
+  return new Promise(res => { const el = document.getElementById('ask');
+    document.getElementById('askNm').textContent = name; document.getElementById('askMsg').innerHTML = `出勤から <b>${min}分</b> です`;
+    const done = v => { el.classList.remove('show'); res(v); };
+    document.getElementById('askNo').onclick = () => done(false); document.getElementById('askYes').onclick = () => done(true);
+    el.classList.add('show'); });
 }
 
 function showToast(main, sub, ms){
