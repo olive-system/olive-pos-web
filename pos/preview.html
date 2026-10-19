@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.92 -->
+<title>OLIVE 会計</title><!-- v11.93 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
@@ -168,7 +168,7 @@
 <section class="view" id="v-bill"><div class="card">
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
     <b id="bTable" style="font-size:20px"></b><span id="bTime" class="muted"></span>
-    <span>客数 <span class="num"><button id="gMinus">−</button><span id="bGuests">1</span><button id="gPlus">＋</button></span></span><button class="ghost sm" id="gLeave">途中退店</button>
+    <span>客数 <span class="num"><button id="gMinus">−</button><span id="bGuests">1</span><button id="gPlus">＋</button></span></span><button class="ghost sm" id="gLeave">途中退店</button><button class="ghost sm" id="bMove">席移動</button>
     <span id="bFlags" style="margin-left:auto;display:flex;gap:6px"></span>
   </div>
   <div class="cols" style="margin-top:12px">
@@ -923,6 +923,16 @@ function renderPaidBox(b,T){ const pb=$('bPaid'); const md=d=>{ const x=new Date
 $('gPlus').onclick=async()=>{ const n=cur.guest_count+1; await logOp('客数変更',{before:cur.guest_count,after:n}); const left=cur.set_guest_count!=null; await sb.from('bills').update(left?{guest_count:n,set_guest_count:cur.set_guest_count+1}:{guest_count:n}).eq('id',cur.id); if(!left) await syncAutoHc(n); openBill(cur.id); };
 $('gMinus').onclick=async()=>{ if(cur.guest_count<=1)return; const n=cur.guest_count-1; await logOp('客数変更',{before:cur.guest_count,after:n}); await sb.from('bills').update({guest_count:n}).eq('id',cur.id); if(cur.set_guest_count==null) await syncAutoHc(n); openBill(cur.id); };
 // 途中退店（v10.41）：過去のセット・延長・h.c・b.c はそのまま。次の延長から新しい人数。入金は通常の入金と同じ
+/* v11.93：卓の名前に「卓」を足す（「1卓」はそのまま、「B」は「B卓」） */ const tk=n=>/卓$/.test(String(n||''))?String(n):`${n||''}卓`;
+/* v11.93・SQL 163：席移動。空いている卓へ移す／お客様がいる卓なら伝票をまとめる（ゲネプロ #43・見本 ウ） */
+$('bMove').onclick=guard($('bMove'),async()=>{ if(!cur||cur.status!=='open') return; const from=tables.find(t=>t.id===cur.table_id)?.name||'';
+  const ob=await sb.from('bills').select('id,table_id,guest_count,bill_customers(customers(name))').eq('store_id',store.id).eq('status','open'); if(ob.error){ toast(ob.error.message); return; }
+  const at=new Map((ob.data||[]).map(x=>[x.table_id,x])); const list=tables.filter(t=>t.id!==cur.table_id&&t.is_active!==false&&(!t.store_id||t.store_id===store.id));
+  const tid=await uiPick('どの卓へ移しますか？',list.map(t=>{ const x=at.get(t.id); const nm=x?.bill_customers?.[0]?.customers?.name; return {label:x?`${t.name}　${nm?nm+' 様 ':''}${x.guest_count}名`:`${t.name}　空席`,value:t.id}; })); if(!tid) return;
+  const to=tables.find(t=>t.id===tid)?.name||'', x=at.get(tid);
+  if(!x){ if(!await uiConfirm(`${tk(from)} → ${tk(to)} に移しますか？`)) return; const r=await sb.rpc('pos_bill_move',{p_bill:cur.id,p_table:tid}); if(r.error){ await uiAlert(/pos_bill_move/.test(r.error.message)?'SQL 163 が未実行です':r.error.message); return; } toast(`${tk(to)}に移しました`); await openBill(cur.id); return; }
+  if(!await uiConfirm(`${tk(to)}にはお客様がいます。\n${tk(to)}の伝票とまとめますか？\n（${x.guest_count}名＋${cur.guest_count}名＝${x.guest_count+cur.guest_count}名。セットは${tk(to)}の来店の時刻のまま）`)) return;
+  const r=await sb.rpc('pos_bill_merge',{p_from:cur.id,p_to:x.id}); if(r.error){ await uiAlert(/pos_bill_merge/.test(r.error.message)?'SQL 163 が未実行です':r.error.message); return; } toast(`${tk(to)}の伝票にまとめました`); await openBill(x.id); });
 $('gLeave').onclick=guard($('gLeave'),async()=>{ if(!cur||cur.status!=='open'||cur.guest_count<2) return; const gb=cur.guest_count, up=x=>Math.ceil(x/1000)*1000; const due=up(cur.totals?.amount_due??0), unpaid=Math.max(0,cur.totals?.unpaid??0); let n=1; if(gb>2){ n=await uiPick('退店人数',Array.from({length:gb-1},(_,k)=>({label:`${k+1}名`,value:k+1}))); if(!n) return; } const share=Math.min(unpaid,up(unpaid/gb)*n);
   const av=await uiPrompt(`途中退店（${gb}名→${gb-n}名）\n今の請求額 ${yen(due)}\nお支払い金額`,share); if(av===null) return; const v=parseInt(String(av).replace(/[^0-9]/g,'')||'0',10); if(isNaN(v)||v<0){ toast('金額が正しくありません'); return; } if(v>unpaid){ toast(`未収は ${yen(unpaid)} です`); return; }
   let method=null; if(v>0){ method=await uiPick('お支払い方法',[{label:METHOD.cash,value:'cash'},{label:METHOD.card,value:'card'}]); if(!method) return; }
@@ -1041,7 +1051,7 @@ $('extAdd').textContent=`${settings?.ext_minutes||30}分延長`;
 $('extAdd').onclick=guard($('extAdd'),async()=>{ const { error } = await sb.from('bill_extensions').insert({bill_id:cur.id,minutes:settings.ext_minutes,unit_price:settings.ext_unit_price,qty:cur.guest_count,is_auto:false}); if(error){ toast(error.message); return; } await logOp('延長追加（手動）',{minutes:settings.ext_minutes,amount:settings.ext_unit_price*cur.guest_count}); await openBill(cur.id); });
 $('bBack').onclick=()=>{ if(billFrom==='bills'){ renderSettings('bills'); show('v-settings'); return; } loadHall(); show('v-hall'); };
 // v11.12：先に「削除しますか？」を出す（やめられる）。続けて理由（必須）
-$('bVoid').onclick=async()=>{ const tn=tables.find(t=>t.id===cur.table_id)?.name||''; if(!await uiConfirm(`卓${tn}の伝票を削除しますか？\n履歴は残ります`))return; const by=await askBy(); if(by===null) return; const why0=await askReason(`卓${tn}の伝票を削除します。`); if(!why0)return; const why=by?`${why0}（${by}）`:why0; const vb=$('bVoid'); if(vb.disabled) return; vb.disabled=true; /* v11.27：取消できたのを確かめてから操作ログに書く（前はログが先で、失敗しても「取消」が残った） */
+$('bVoid').onclick=async()=>{ const tn=tables.find(t=>t.id===cur.table_id)?.name||''; if(!await uiConfirm(`${tk(tn)}の伝票を削除しますか？\n履歴は残ります`))return; const by=await askBy(); if(by===null) return; const why0=await askReason(`${tk(tn)}の伝票を削除します。`); if(!why0)return; const why=by?`${why0}（${by}）`:why0; const vb=$('bVoid'); if(vb.disabled) return; vb.disabled=true; /* v11.27：取消できたのを確かめてから操作ログに書く（前はログが先で、失敗しても「取消」が残った） */
   try{ const u=await sb.from('bills').update({status:'void',closed_at:new Date().toISOString(),...(DBLOG?{void_reason:why}:{})}).eq('id',cur.id).neq('status','void').select('id');
     if(u.error||!(u.data||[]).length){ await uiAlert(u.error?'伝票を削除できませんでした：'+u.error.message:'伝票を削除できませんでした（ほかの端末で変更されています）'); }
     else if(!DBLOG) await logOp('伝票取消',{total:cur.totals?.amount_due??null,guest_count:cur.guest_count,items:(cur.bill_items||[]).filter(i=>!i.is_void).map(i=>`${i.name}×${i.qty}`)},why);
