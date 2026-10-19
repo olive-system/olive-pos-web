@@ -40,7 +40,7 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
     ${(data.days||[]).map(x=>{ const wd=new Date(x.date+'T00:00:00').getDay(); return `<tr><td class="nm"><a data-pld="${x.date}" style="color:var(--blue);cursor:pointer">${md(x.date)}</a> <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WJ[wd]}</span></td>${cols.map(([k])=>`<td>${plCell(k,x)}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済の伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金日に、入金方法（現金・カード）で入ります<br>キャスト報酬：日ごとは その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は集計「キャスト」の残り支給額の合計）<br>総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の報酬（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の報酬」と同じ）も入ります。黒服日払いは黒服の報酬の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`;
   wire(); invRender(st); }
-async function plExcel(d){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
+async function plExcel(d){ /* 請求書がある月は、フォルダのいちばん上に 00_請求書_… を入れる（plInvoices） */ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const T=plTotals(d), cols=PL_COLS.flatMap(([g,cs])=>cs.map(c=>[g,...c])), [y,mo]=String(d.month).split('-').map(Number);
   const val=(k,x)=>k==='rate'?(Number(x.sales||0)?Math.round(plLabor(x)/Number(x.sales)*10000)/100:0):k==='labor'?plLabor(x):k==='adv'?Number(x.cast_adv||0)+Number(x.hall_adv||0):Number(x[k]||0);
   const aoa=[[`収支明細（月次）${y}年${mo}月`],['日付',...cols.map(c=>c[1])],['',...cols.map(c=>c[2]+(c[1]==='rate'?'(%)':''))],['合計',...cols.map(c=>val(c[1],T))],...(d.days||[]).map(x=>[x.date,...cols.map(c=>val(c[1],x))])];
@@ -53,6 +53,7 @@ async function plExcel(d){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@
   const ex=await sb.rpc('admin_pl_export',{p_store:storeId,p_month:d.month}); if(ex.error){ await uiAlert((/admin_pl_export/.test(ex.error.message)?'SQL 073 が未実行です：':'')+ex.error.message); return; }
   const E=ex.data||{}, zip=new JSZip(), dir=zip.folder(base), out=w=>XLSX.write(w,{bookType:'xlsx',type:'array'});
   dir.file(`月次収支明細-${ym}.xlsx`,out(wb));
+  if(!await plInvoices(dir,d.month)) return;
   const hm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
   const dur=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
   const sheet=(aoa,w,mg)=>{ const x=XLSX.utils.aoa_to_sheet(aoa); x['!cols']=w.map(n=>({wch:n})); if(mg) x['!merges']=mg; return x; };
@@ -68,6 +69,48 @@ async function plExcel(d){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@
     const memo=(E.memos||[]).find(x=>x.date===dd)?.memo||''; XLSX.utils.book_append_sheet(w,sheet([['メモ'],[memo]],[80]),'メモ');
     dir.file(`日次収支明細-${dd}.xlsx`,out(w)); }
   const blob=await zip.generateAsync({type:'blob'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${base}.zip`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); toast('ダウンロードしました'); }
+// v1.38・SQL 171：請求書（オーナー 2026-10-19「請求がある月は、収支のDLで、月次の上（最初）につけてほしい」「その月の分を、会社ごとに1枚」）
+// オーナーの今の請求書と同じ形。その月に「請求書」で会計した分を、売上日ごとに1行（ご飲食代）。宛先は POS で選んだ請求先（会社名・住所・宛名）。請求先ごとに1枚。請求先が無い前の会計は、お客様の会社名・会社住所
+// 画像（ロゴ）を入れるため、ここだけ ExcelJS で作る。ファイル名は 00_ で始めて、フォルダのいちばん上に並べる
+async function plInvoices(dir,month){
+  const r=await sb.rpc('admin_invoice_month',{p_store:storeId,p_month:month}); if(r.error){ await uiAlert((/admin_invoice_month/.test(r.error.message)?'SQL 171 が未実行です：':'')+r.error.message); return false; }
+  const I=r.data||{}, rows=I.rows||[]; if(!rows.length) return true;
+  try{ await ksLoad('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'); }catch(e){ await uiAlert(e.message); return false; }
+  let logo=null; try{ const b=new Uint8Array(await (await fetch('img/olive_logo.png')).arrayBuffer()); let t=''; for(let i=0;i<b.length;i+=8192) t+=String.fromCharCode(...b.subarray(i,i+8192)); logo=btoa(t); }catch(e){}
+  const G='FF4B5320', LG='FF6B7436', who=x=>(x.company?'c:'+x.company+'|':'n:')+(x.attn||x.receipt_name||x.name||''), groups=[];
+  rows.forEach(x=>{ let g=groups.find(z=>z.k===who(x)); if(!g){ g={k:who(x),h:x,days:[]}; groups.push(g); } const dd=g.days.find(z=>z.date===x.date); if(dd) dd.amount+=Number(x.amount||0); else g.days.push({date:x.date,amount:Number(x.amount||0)}); });
+  const zipSplit=a=>{ const m=String(a||'').match(/^(〒?\s*\d{3}-?\d{4})[\s　]+(.*)$/s); return (m?[m[1].replace(/\s/g,''),m[2]]:[String(a||'')]).flatMap(l=>l.split(/\n/)).map(l=>l.trim()).filter(Boolean); };
+  const used={};
+  for(const g of groups){ const h=g.h, nm=(h.attn||h.receipt_name||h.name||'').trim(), wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('請求書',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.5,right:0.5,top:0.6,bottom:0.6,header:0.3,footer:0.3}},views:[{showGridLines:false}]});
+    ws.columns=[{width:2},{width:30},{width:12},{width:10},{width:15},{width:2}];
+    const font=(c,o={})=>{ c.font={size:10,...o}; }, bar=r=>{ ['B','C','D'].forEach(k=>{ ws.getCell(k+r).fill={type:'pattern',pattern:'solid',fgColor:{argb:G}}; }); ws.getRow(r).height=5; };
+    bar(2);
+    const L=[...(h.company?zipSplit(h.company_address).map(t=>({t})):[]),...(h.company?[{t:''},{t:h.company}]:[]),{t:nm?nm.replace(/\s+/,'　')+'　様':'',b:true}];
+    const R=[{t:'請求書',big:true},{logo:true},{logo:true},{t:I.reg?'登録番号…'+I.reg:'',g:true},{t:''}];
+    (I.stores||[]).forEach(st=>{ zipSplit(st.address).forEach(t=>R.push({t,g:true})); if(st.phone) R.push({t:st.phone,g:true}); R.push({t:''}); });
+    String(I.bank||'').split(/\n/).map(t=>t.trimEnd()).filter(Boolean).forEach(t=>R.push({t}));
+    const top=4, n=Math.max(L.length,R.length);
+    for(let i=0;i<n;i++){ const row=top+i, l=L[i], rr=R[i];
+      if(l){ const c=ws.getCell('B'+row); c.value=l.t; font(c,l.b?{size:12,bold:true}:{}); }
+      if(rr&&!rr.logo){ const c=ws.getCell('C'+row); c.value=rr.t; font(c,rr.big?{size:16}:rr.g?{size:8,color:{argb:LG}}:{size:9}); if(rr.big) ws.getRow(row).height=24; }
+      if(rr&&rr.logo) ws.getRow(row).height=18; }
+    if(logo){ const id=wb.addImage({base64:logo,extension:'png'}); ws.addImage(id,{tl:{col:2,row:top},ext:{width:120,height:38}}); }
+    let r0=top+n+1; ['B','C','D','E'].forEach(k=>{ ws.getCell(k+r0).border={bottom:{style:'dotted',color:{argb:'FF888888'}}}; });
+    r0+=2; const hd=ws.getRow(r0); ['詳細','日付','単価','金額'].forEach((t,i)=>{ const c=hd.getCell(i+2); c.value=t; c.font={size:10,color:{argb:'FFFFFFFF'}}; c.alignment={horizontal:'center',vertical:'middle'}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:G}}; }); hd.height=18;
+    const dl={style:'dotted',color:{argb:'FF999999'}}, lines=Math.max(8,g.days.length);
+    g.days.sort((a,b)=>a.date<b.date?-1:1);
+    for(let i=0;i<lines;i++){ const rw=ws.getRow(r0+1+i), x=g.days[i]; rw.height=20;
+      if(x){ rw.getCell(2).value=i===0?'ご飲食代':''; const [,mm,dd]=x.date.split('-').map(Number); rw.getCell(3).value=`${mm}月${dd}日`; rw.getCell(5).value=x.amount; rw.getCell(5).numFmt='#,##0'; }
+      [2,3,4,5].forEach(k=>{ const c=rw.getCell(k); font(c,{size:11}); c.alignment={horizontal:k===2?'left':'right',vertical:'middle',indent:k===2?1:0}; c.border={bottom:dl,...(k>2?{left:dl}:{})}; }); }
+    const tr=ws.getRow(r0+1+lines); tr.height=22; [2,3,4,5].forEach(k=>{ const c=tr.getCell(k); c.border={top:{style:'medium'},bottom:dl,...(k>2?{left:dl}:{})}; font(c,{size:11}); c.alignment={horizontal:'right',vertical:'middle'}; });
+    tr.getCell(4).value='合計'; tr.getCell(5).value=g.days.reduce((a,x)=>a+x.amount,0); tr.getCell(5).numFmt='"¥"#,##0';
+    const nt=ws.getCell('E'+(r0+2+lines)); nt.value='（10%対象 消費税込み）'; font(nt,{size:8}); nt.alignment={horizontal:'right'};
+    ['いつもありがとうございます。','上記の通り、ご請求申し上げます。','今後ともよろしくお願い致しますm(__)m'].forEach((t,i)=>{ const c=ws.getCell('B'+(r0+3+lines+i)); c.value=t; font(c); });
+    bar(r0+7+lines);
+    ws.pageSetup.printArea=`A1:F${r0+8+lines}`;
+    const fn=`00_請求書_${[h.company,nm?nm.split(/[\s　]+/)[0]+'様':''].filter(Boolean).join('_')||'お名前なし'}`.replace(/[\\/:*?"<>|]/g,'_'); used[fn]=(used[fn]||0)+1;
+    dir.file(`${fn}${used[fn]>1?'_'+used[fn]:''}.xlsx`,await wb.xlsx.writeBuffer()); }
+  return true; }
 async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', m=d.slice(0,7)+'-01';
   const jd=x=>{ const t=new Date(x+'T00:00:00'); return `${t.getFullYear()}年${t.getMonth()+1}月${t.getDate()}日(${WJ[t.getDay()]})`; };
   const head=`<h1>収支 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px"><button class="ghost" id="plBack">◀ 月次へ</button><button class="ghost" id="plPrev">前の日</button><input type="date" id="plDate" value="${d}" style="width:auto"><button class="ghost" id="plNext">次の日</button>${ed?'':'<span class="muted" style="font-size:13px">閲覧のみ</span>'}</div>`;
