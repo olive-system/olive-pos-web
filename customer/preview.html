@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.45 -->
+<title>OLIVE 顧客</title><!-- customer v1.46 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -293,6 +293,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
       <dt>反応◎</dt><dd>${good}</dd>
       <dt>連絡先交換</dt><dd id="dCx"><span class="muted">…</span></dd>
     </dl></div>
+  <div class="card"><h2>請求先</h2><div id="dBt"><span class="muted">…</span></div></div>
   <div class="card"><h2>キープボトル ${open.length}本</h2>
     ${open.map(b=>`<div class="bt"><div class="b1"><span class="nm">${esc(b.name)}<small>${md(b.opened_on)}〜</small></span><select data-rem="${b.id}" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>
       <div class="b2"><div class="kn"><span class="muted">キープ名</span><input data-kn="${b.id}" value="${esc(b.keep_name||c.name)}" aria-label="キープ名"></div><div class="b3"><button class="ghost sm" data-fin="${b.id}">飲切</button><button class="ghost sm" data-exp="${b.id}">期限切</button><button class="ghost sm" data-mv="${b.id}">移動</button></div></div></div>`).join('')||'<div class="muted" style="margin-bottom:8px">なし</div>'}
@@ -308,7 +309,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
     ${visYears((cur.visits||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||jaCmp(a.table,b.table)||(a.guests-b.guests)),v=>v.date,v=>`<div class="vis"><span>${md(v.date)}　${v.store?`【${esc(v.store)}】`:esc(v.table||'')}　${v.guests}名${v.open?' <span class="badge">来店中</span>':''}${v.oki?' <span class="badge gray">置き</span>':''}</span><span class="amt">${v.amount!=null?yen(v.amount):''}</span></div>`)||'<div class="muted">まだありません</div>'}
     ${(cur.visits||[]).length<cur.visit_total?'<div class="muted" style="font-size:12px;margin-top:6px">直近30回を表示しています</div>':''}</div>`;
 
-  const D=$('detail'); fitLine(D); cxLoad(c);
+  const D=$('detail'); fitLine(D); cxLoad(c); btcLoad(c);
   $('editInfo').onclick=async()=>{ if(await needEdit()) editForm(false); };
   $('editMemo').onclick=async()=>{ if(await needEdit()) editForm(true); };
   $('reqBtn').onclick=()=>reqForm();
@@ -342,6 +343,31 @@ function reqForm(){ const c=cur.customer; const ppl=(boot.staff||[]).filter(s=>s
     s.querySelector('[data-ok]').onclick=async e=>{ const who=s.querySelector('#rqWho').value, body=s.querySelector('#rqBody').value.trim(); if(!who){ toast('書いた人を選んでください'); return; } if(!body){ toast('気づきを入力してください'); return; }
       e.target.disabled=true; try{ await rpc('cs_request',{p_token:token,p_customer:c.id,p_author:who,p_body:body}); LS.set('olive_cs_author',who); done(true); toast('申請しました'); await reloadDetail(); }catch(err){ e.target.disabled=false; await fail(err); } }; }); }
 
+// v1.46・SQL 171：請求先（オーナー 2026-10-19「顧客サイトにも登録」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」）
+// POS で「請求書」にした時に選んだ・入れた請求先が並ぶ。ここで足す・直す・消すと、POS の請求先に出る。直しても消しても、もう会計した分の請求先は変わらない
+async function btcLoad(c){ const box=()=>$('dBt'); let rows;
+  try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(/cs_bill_tos/.test(e.message||'')?'SQL 171 が未実行です':'読み込めません')}</span>`; return; }
+  if(!cur||cur.customer.id!==c.id||!box()) return;
+  const dt=d=>d?String(d).slice(5,10).split('-').map(Number).join('/'):'';
+  box().innerHTML=(rows.length?rows.map((x,i)=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px"><b>${esc(x.company)}</b>${x.attn?`　${esc(x.attn)} 様`:''}
+    <div class="muted" style="font-size:13px;white-space:pre-line">${esc(x.address||'')}${x.address?'\n':''}${x.last_used_on?`最後に使った日 ${dt(x.last_used_on)}・${x.use_count}回`:'まだ使っていません'}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="ghost sm" data-bte="${i}">直す</button><button class="ghost sm" data-btd="${i}" style="color:var(--warn)">消す</button></div></div>`).join('')
+    :'<div class="muted" style="font-size:13px;margin-bottom:8px">まだありません（POS で「請求書」にした時に入れた請求先も、ここに出ます）</div>')
+    +'<button class="ok" id="btAdd" style="width:100%">＋ 請求先を足す</button>';
+  $('btAdd').onclick=async()=>{ if(await needEdit()) btcForm(c,null); };
+  box().querySelectorAll('[data-bte]').forEach(b=>b.onclick=async()=>{ if(await needEdit()) btcForm(c,rows[+b.dataset.bte]); });
+  box().querySelectorAll('[data-btd]').forEach(b=>b.onclick=async()=>{ const x=rows[+b.dataset.btd]; if(!await needEdit()) return; if(!await uiConfirm(`請求先「${x.company}」を消しますか？\nもう会計した分の請求先は変わりません`,'消す','danger')) return;
+    try{ await rpc('cs_bill_to_delete',{p_token:token,p_edit_token:editTok,p_customer:c.id,p_id:x.id}); toast('消しました'); btcLoad(c); }catch(e){ await fail(e); } }); }
+function btcForm(c,x){ return sheet(`<h3>${esc(c.name)} 様　${x?'請求先を直す':'請求先を足す'}</h3>
+  <label class="f">会社名（部署も書ける）<input id="bfCo" maxlength="100" value="${esc(x?.company||'')}"></label>
+  <label class="f">住所（〒から）<textarea id="bfAd" rows="3" maxlength="200">${esc(x?.address||'')}</textarea></label>
+  <label class="f">宛名（様の前）<input id="bfAt" maxlength="60" value="${esc(x?x.attn||'':c.receipt_name||c.name)}"></label>
+  ${x?'<div class="muted" style="font-size:12px">直しても、もう会計した分の請求先は変わりません</div>':''}
+  <div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{
+    s.querySelector('[data-x]').onclick=()=>done(false);
+    s.querySelector('[data-ok]').onclick=async e=>{ const co=s.querySelector('#bfCo').value.trim(); if(!co){ toast('会社名を入れてください'); return; }
+      e.target.disabled=true; try{ await rpc('cs_bill_to_save',{p_token:token,p_edit_token:editTok,p_customer:c.id,p_id:x?.id||null,p_company:co,p_address:s.querySelector('#bfAd').value.trim(),p_attn:s.querySelector('#bfAt').value.trim()}); done(true); toast('保存しました'); btcLoad(c); }
+      catch(err){ e.target.disabled=false; if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); return; } await fail(err); } }; }); }
 // 基本情報・メモの編集（編集パスワードが必要）
 const EF=[['name','お名前'],['birthday','お誕生日'],['company','会社名'],['receipt_name','領収書名'],['kakari_staff_id',''+KL+''],['company_address','会社住所']];
 function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draft)?draft[k]:c[k]; const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const curK=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?staffBy(c.kakari_staff_id):null;
