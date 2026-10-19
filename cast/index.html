@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.48 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.49 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -584,7 +584,7 @@ async function resvForm(ed){
       <label class="f" style="margin-top:8px">来店時刻<input type="time" id="rvT" value="${ed?ed.time:'21:00'}" style="${fld}"></label>
       <label class="f" style="margin-top:8px">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
-      <label class="f" style="margin-top:8px">係<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>
+      <label class="f" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>
       <label class="f" style="margin-top:8px">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label>
       <div class="f" style="margin-top:8px">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 18px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 18px">あり</button></div>
       <label class="f hide" id="rvMw" style="margin-top:8px">待ち合わせの時刻<input type="time" id="rvM" value="${ed&&ed.meet?ed.meet:'19:30'}" style="${fld}"></label>
@@ -641,7 +641,7 @@ async function contactForm(today){
   show(`<div class="ttl">連絡先交換</div><div class="card"><div class="f">交換した日</div><div style="${fld};display:flex;align-items:center;background:var(--bg);color:var(--muted)">${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）　今日</div>
       <label class="f" style="margin-top:8px">お客様（フルネーム）<input id="cxN" maxlength="30" placeholder="例：孫 正義" style="${fld}"></label>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/25))">ニックネームではなく、フルネームで入力してください</div>
-      <label class="f" style="margin-top:8px">係<select id="cxK" style="${fld}"><option value="">選んでください</option>${(st.data||[]).map(s => `<option value="${s.id}">${s.id===me?.id?'自分':esc(s.name)}</option>`).join('')}<option value="unknown">わからない</option><option value="none">なし</option></select></label>
+      <label class="f" style="margin-top:8px">${esc(KL)}<select id="cxK" style="${fld}"><option value="">選んでください</option>${(st.data||[]).map(s => `<option value="${s.id}">${s.id===me?.id?'自分':esc(s.name)}</option>`).join('')}<option value="unknown">わからない</option><option value="none">なし</option></select></label>
       <label class="f" style="margin-top:8px">メモ（任意）<textarea id="cxM" maxlength="300" style="min-height:60px"></textarea></label></div>
     <button class="btn" id="cxGo">提出</button><p class="muted sm" style="margin:10px 2px">提出をすると係に共有されます</p>`);
   $('cxGo').onclick = async () => {
