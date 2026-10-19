@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v0.46 -->
+<title>OLIVE LINEマイページ</title><!-- cast v0.47 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -271,7 +271,7 @@ function hallHome(){
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('daily','日報','',!!ME.form)}${tile('todo','TODO','今日の分',true)}${tile('pay','報酬明細','明細・受取確認',true)}</div>`);
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
-  sb.rpc('hall_todos', { p_token: TOKEN }).then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length; b.textContent = L.length ? (n ? `未 ${n}` : '全部済') : 'なし'; if(n) b.style.color = 'var(--warn)'; });
+  sb.rpc('hall_todos', { p_token: TOKEN }).then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length; const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (n ? `未 ${n}` : sk ? `済（できない ${sk}）` : '全部済') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
@@ -283,7 +283,7 @@ async function hallTodo(){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
   const r = await sb.rpc('hall_todos', { p_token: TOKEN }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
   const D = r.data, L = D.items || [], d = new Date(D.day+'T00:00:00+09:00');
-  const st = x => x.status === 'done' ? `<b style="color:var(--pri)">済　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')}</b>` : '<b style="color:var(--warn)">未</b>';
+  const st = x => x.status === 'done' ? `<b style="color:var(--pri)">済　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : '<b style="color:var(--warn)">未</b>';
   show(`<div class="ttl">TODO　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>${L.map((x,i) => `<button class="card" data-td="${i}" style="display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(x.name)}</b>${TODO_SLOT[x.slot]?`<small class="muted" style="border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap">${TODO_SLOT[x.slot]}</small>`:''}</div>
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:14px"><span class="muted">${[x.need_photo?'写真':'', x.need_note?'書く':''].filter(Boolean).join('・')}</span>${st(x)}</div></button>`).join('') || '<div class="card muted">今日の TODO はありません</div>'}`);
@@ -323,7 +323,7 @@ function hallTodoOne(x){
 function hallSlipHtml(P){
   const x = P.slip, L = (k, v, c='') => `<div class="row ${c}"><span>${esc(k)}</span><b>${v}</b></div>`, PT = { monthly:'月給', hourly:'時給', daily:'日給' };
   const ded = N(x.ctax) + N(x.fines) + N(x.welfare) + N(x.special_deduct);
-  const pay = [L(`報酬（${PT[x.pay_type]||'—'}）`, cm(x.base)), ...(N(x.late_deduct)?[L('遅刻・早退', '−'+cm(x.late_deduct))]:[]), L('ボーナス', cm(x.bonus)), L('手当など、その他', cm(N(x.allowance)+N(x.special_pay))), L('合計', cm(x.taxable), 's')];
+  const pay = [L(PT[x.pay_type]?`報酬（${PT[x.pay_type]}）`:'報酬', cm(x.base)), ...(N(x.late_deduct)?[L('遅刻・早退', '−'+cm(x.late_deduct))]:[]), L('ボーナス', cm(x.bonus)), L('手当など、その他', cm(N(x.allowance)+N(x.special_pay))), L('合計', cm(x.taxable), 's')];
   const dd = [L('消費税', cm(x.ctax)), L('罰金', cm(x.fines)), L('厚生費', cm(x.welfare)), L('個別控除', cm(x.special_deduct)), L('合計', cm(ded), 's')];
   const [y, mo] = String(P.month).split('-').map(Number), net = N(x.net);
   return `<div class="card"><div class="ttl">報酬支払明細書</div><div class="muted sm" style="text-align:center;margin-bottom:6px">${y}年${mo}月分　${esc(P.store_name)}　${esc(P.name)}${P.real_name?'/'+esc(P.real_name):''}</div>
@@ -787,7 +787,7 @@ async function salesHome(){
   if(R){ salesShot(); return; }
   if(S.off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日は出勤日ではありません</div>'); return; } /* v0.22・SQL 122：シフトが確定した月は出勤の日だけ */
   show(`<div class="ttl">アプローチ</div><div class="card"><div class="gh">${mdDay(S.date)}（${WD[new Date(S.date+'T00:00:00+09:00').getDay()]}）の提案 ${S.plan.length}名（敬称略）</div>
-    ${S.plan.length?`<div style="${g2}">${S.plan.map(n => `<div style="padding:6px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div>`).join('')}</div>`:'<div class="muted sm" style="padding:6px 0">連絡先交換の提出がありません</div>'}</div>
+    ${S.plan.length?`<div style="${g2}">${S.plan.map(n => `<div style="padding:6px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div>`).join('')}</div>`:((S.contacts||[]).length?'<div class="muted sm" style="padding:6px 0">今日の提案はありません。「次へ」の連絡済リストから選べます</div>':'<div class="muted sm" style="padding:6px 0">連絡先交換の提出がありません</div>') /* v0.47：連絡先があるのに「提出がありません」と出ていた（ゲネプロ マイページ #2） */}</div>
     <button class="btn" id="slNext">次へ（連絡済リスト共有）</button>`);
   $('slNext').onclick = salesPick;
 }
