@@ -1,0 +1,119 @@
+  :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri);--tile-a:#eef0e0;--tile-b:#d3d8b0;--tile-bd:#8a9150;--busy-a:#f5e6b0;--busy-b:#c9a94f;--oki-a:#e8e8e8;--oki-b:#bdbdbd;--warn-d:#8b1e1b}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
+  body{display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:1px solid var(--line)}
+  header .store{font-weight:700;font-size:18px}
+  header .clock{margin-left:auto;font-variant-numeric:tabular-nums;font-size:18px}
+  main{flex:1;overflow:auto;padding:16px 20px}
+  .view{display:none}.view.on{display:block}
+  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 16px;background:var(--soft);color:var(--ink)}
+  button.primary{background:var(--blue);color:#fff}button.ok{background:var(--acc);color:#fff}
+  button.danger{background:var(--warn);color:#fff}button.gold{background:var(--gold);color:#fff}
+  button.ghost{background:transparent;border:1px solid var(--line)}button.sm{padding:6px 10px;font-size:13px}
+  button.on{background:var(--ink);color:#fff}
+  input,select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .tbl{background:var(--soft);border-radius:14px;min-height:150px;padding:12px;text-align:center;display:flex;flex-direction:column;justify-content:center;cursor:pointer;border:2px solid transparent}
+  .tbl .name{font-weight:700;font-size:16px}.tbl .empty{font-size:26px;color:var(--head);margin-top:10px}
+  .tbl.busy{background:var(--gold-soft);text-align:left;justify-content:flex-start;gap:4px}.tbl.busy.over{border-color:var(--warn)}
+  .tbl .row{display:flex;justify-content:space-between;font-size:14px}.tbl .total{font-size:22px;font-weight:700;text-align:right}.tbl .casts{font-size:13px;color:var(--ink)}
+  .alert{background:var(--warn-soft);color:var(--warn);padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:700}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .cols{display:grid;grid-template-columns:.85fr .85fr 1fr 1.1fr;gap:12px}
+  .item.cast{flex-direction:row;align-items:center;gap:6px}.item.cast .n{flex:1;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:17px;font-weight:700}.item.cast .nm{white-space:nowrap}.badge{white-space:nowrap}.item.cast .btns{display:flex;gap:6px}.item.cast .btns button{flex:1;padding-left:6px;padding-right:6px;white-space:nowrap}.item.cast .btns button[data-rmcast]{flex:none}
+  h2{margin:0 0 10px;font-size:15px;color:var(--muted)}
+  .cols>div,#bOrders>div{min-width:0}.cols .item{flex-wrap:wrap}.cols .item .n{flex:1 1 90px;min-width:0;overflow-wrap:anywhere}#bCust .item .n{flex:1 1 40px}.tbl .cust{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cols .item.cast .n{flex:1 1 0;min-width:0}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .pillbtn.brown.on{background:var(--head);box-shadow:0 0 0 3px var(--brand)}
+  .list{display:flex;flex-direction:column;gap:6px}
+  .item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--soft);border:1px solid var(--line)}
+  .item .n{flex:1}.item .amt{font-variant-numeric:tabular-nums;min-width:90px;text-align:right}.item small{color:var(--muted)}
+  .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--gold);color:#fff}.badge.k{background:var(--ink)}
+  .totals{display:grid;grid-template-columns:auto auto;gap:4px 20px;font-variant-numeric:tabular-nums;justify-content:end}.totals .big{font-size:28px;font-weight:800}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:10px 14px;border-radius:999px;background:var(--soft);font-size:15px}.chip.on{background:var(--ink);color:#fff}
+  .prodgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+  .ord4{display:grid;grid-template-columns:minmax(150px,1fr) minmax(200px,1.3fr) minmax(170px,1.2fr) minmax(170px,1.1fr);gap:10px;height:calc(100vh - 170px);min-height:420px}
+  .ord4 .col{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--soft);display:flex;flex-direction:column;min-height:0}
+  .ord4 .col h3{margin:0;padding:8px 10px;font-size:14px;border-bottom:1px solid var(--line);background:var(--soft);border-radius:10px 10px 0 0}
+  .ord4 .body{overflow:auto;padding:8px;flex:1;display:flex;flex-direction:column;gap:6px}
+  .ord4 .ocat{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:12px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);text-align:left;font-size:15px}.ord4 .ocat.on{background:var(--ink);color:#fff}
+  .ord4 .oprod{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);text-align:left;font-size:15px}
+  .ord4 .oprod .pb{background:var(--soft);border-radius:999px;padding:2px 10px;font-size:13px;white-space:nowrap}
+  .ord4 .ocast{padding:11px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);text-align:left;font-size:15px}.ord4 .ocast.on{background:var(--pri);color:#fff;border-color:var(--pri)}.ord4 .ocgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .ord4 .oline{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}.ord4 .oline.sel{border:2px solid var(--ink)}
+  .ord4 .oline .r1{display:flex;justify-content:space-between;align-items:center;gap:6px}.ord4 .oline small{color:var(--muted)}.ord4 .oline small.none{color:var(--warn)}
+  .ord4 .qty{display:flex;align-items:center;gap:6px}.ord4 .qty button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:18px}
+  .prod{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:left;min-height:64px}.prod .p{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+  .num{display:inline-flex;align-items:center;gap:8px;font-size:22px;font-weight:700}.num button{width:40px;height:40px;border-radius:50%;font-size:22px;padding:0}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}.modal.on{display:flex}
+  .modal .box{background:#fff;border-radius:16px;padding:18px;width:min(760px,92vw);max-height:88vh;overflow:auto}
+  table.t{width:100%;border-collapse:collapse}table.t td,table.t th{padding:6px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}table.t input{width:100%}table.t input.n{width:110px;text-align:right}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;display:none;z-index:80}.toast.on{display:block}
+  .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
+  .login form{width:360px;background:#fff;padding:32px;border-radius:16px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+  .hidden{display:none!important}.muted{color:var(--muted)}.right{text-align:right}
+  .badge.warnb{background:var(--warn)}.badge.gray{background:var(--muted)}.badge.tag{background:var(--muted)}
+  .cast-line{display:flex;align-items:center;gap:8px;padding:4px 0 4px 12px;font-size:15px}
+  .kindbtn{padding:10px 14px;border-radius:10px;background:var(--soft)}.kindbtn.on{background:var(--ink);color:#fff}
+  .tbl .tags{font-size:13px;color:var(--muted)}
+  @media print{ @page{margin:0} body>*{display:none!important} #printArea{display:block!important;font-family:"Hiragino Sans",sans-serif;font-size:13px;width:72mm;padding:3mm 0} } /* v11.51：@page の余白0＝ブラウザの印刷で紙の端にサイトのアドレスと日付を出さない */
+  #printArea{display:none}
+  .settings{display:grid;grid-template-columns:170px 1fr 1.2fr;gap:12px;min-height:70vh}.settings .menu{display:flex;flex-direction:column;gap:6px}.settings .menu button{text-align:left}
+  .lst{display:flex;flex-direction:column;gap:6px}.lst .row{display:flex;align-items:center;gap:8px;padding:12px;border-radius:10px;background:#fff;border:1px solid var(--line);font-size:16px;user-select:none;-webkit-user-select:none}
+  .lst .row.on{background:var(--soft);border-color:var(--blue);color:var(--ink)}#v-cust .card>div{min-width:0}#cuBtSel{min-width:0}.lst .row .nm{flex:1}.lst .row .hd{color:var(--muted);font-size:20px;padding:0 6px;touch-action:none}.lst .row.drag{opacity:.4}
+  .form{display:flex;flex-direction:column;gap:10px}.form label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}.form input,.form select{font-size:16px}
+  .form .sw{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink)}.form .sw input{width:22px;height:22px}
+  #v-settings .settings{height:calc(100dvh - 150px);min-height:420px}#v-settings .settings>div{min-height:0;overflow-y:auto}#v-settings .settings>div:nth-child(2){display:flex;flex-direction:column;overflow:hidden}#setList{flex:1;overflow-y:auto;min-height:0;padding-bottom:24px}#setCat{position:sticky;top:0;z-index:1;flex:none}.form label.sw{flex-direction:row;align-items:center;font-size:15px;color:var(--ink)}.lst .row small{white-space:nowrap}
+
+  header{background:var(--head);color:#fff;padding:8px 16px;gap:10px}
+  header .store{background:var(--head2);color:#fff;padding:10px 40px;border-radius:10px;font-size:20px}
+  header .dt{background:var(--head2);color:#fff;padding:6px 12px;border-radius:10px;text-align:center;line-height:1.2;font-variant-numeric:tabular-nums}
+  header .dt small{display:block;font-size:12px}
+  header .nav{margin-left:auto;display:flex;gap:8px}
+  header .nav button{position:relative;background:var(--brand);color:#fff;font-weight:700;padding:10px 14px;border-radius:50%;min-width:74px;height:74px;font-size:14px;line-height:1.1}
+  header .nav button.on{background:var(--brand-d)}
+  header .nav .bd{position:absolute;top:-4px;right:-4px;background:var(--warn);color:#fff;border-radius:999px;font-size:12px;padding:2px 7px;font-weight:700}
+  header .menuBtn{background:var(--brand);color:#fff;border-radius:50%;width:74px;height:74px;font-weight:700}
+  .tables{grid-template-columns:repeat(5,1fr);gap:16px}
+  .tbl{background:linear-gradient(var(--tile-a),var(--tile-b));color:var(--ink);border:2px solid var(--tile-bd);min-height:170px}
+  /* v10.81〜82（82＝.pill・.casts を .tbl.busy に効くよう修正）：来店中の卓も170pxに収めて段の高さをそろえる */.tables .tbl{gap:2px}.tables .tbl.busy .pill{margin:2px 0}.tables .tbl .total{line-height:1.15}.tables .tbl.busy .casts{padding:2px 8px}.tables .tbl .name,.tables .tbl .cust,.tables .tbl .row{line-height:1.25}
+  .tbl .empty{color:var(--head);font-size:28px;font-weight:600}
+  .tbl.busy{background:linear-gradient(var(--busy-a),var(--busy-b));border-color:var(--brand-d)}
+  .tbl.busy .pill{background:rgba(255,255,255,.55);border-radius:999px;text-align:center;padding:2px 8px;font-size:14px;margin:4px 0}
+  .tbl.busy .casts{background:rgba(120,90,30,.35);border-radius:8px;padding:4px 8px;margin-top:auto;color:var(--ink)}
+  .tbl.busy.over{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn)}
+  .tbl.busy.oki{background:linear-gradient(var(--oki-a),var(--oki-b));border-color:var(--muted)}
+  /* v10.89：会計後のお預かり返却リマインド（お渡しするまで卓いっぱいに点滅） */.tbl.hand{background:var(--warn);color:#fff;border-color:var(--warn-d);text-align:center;justify-content:center;gap:6px;animation:handBlink 1s steps(1) infinite}.tbl.hand .name{font-size:18px}.tbl.hand .hmsg{font-size:13px;font-weight:700;white-space:nowrap}.tbl.hand .hitem{text-align:left;font-size:22px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}.tbl.hand .hitem small{font-size:14px;font-weight:600}@keyframes handBlink{50%{background:var(--gold-soft);color:var(--warn-d)}}
+  .rlist{display:flex;flex-direction:column;gap:8px}
+  .rrow{display:flex;align-items:center;gap:12px;padding:10px 16px;min-height:67px;box-sizing:border-box;background:#fff;border:1px solid var(--line);border-radius:12px;font-size:20px;user-select:none;-webkit-user-select:none}
+  .rrow .nm{flex:1 1 300px;min-width:0}.rrow{flex-wrap:wrap} /* v11.83：狭い画面では入力欄が次の行に回る（ゲネプロ 2026-10-18。打刻した人の行がはみ出して名前が隠れた） */.rrow .hd{color:var(--muted);font-size:24px;padding:0 6px;touch-action:none}.rrow.drag{opacity:.4}.rrow.inactive{opacity:.5}
+  .pillbtn{border-radius:999px;padding:12px 22px;font-weight:700}.pillbtn.brown{background:var(--brand-d);color:#fff}.pillbtn.gray{background:var(--line);color:var(--muted)}
+#splitModal .box{width:min(980px,96vw);max-height:94vh}
+#splitTable .sp2{width:28px;border:none}
+#splitTable td{padding:4px 6px}
+#splitTable select{padding-top:6px;padding-bottom:6px}
+/* v10.75：顧客画面の入力枠の高さを係の枠（40px）にそろえる。ボトル欄は小さく */
+#cuForm input:not([type=checkbox]):not([type=radio]),#cuForm select,#cuForm .chip{height:40px;box-sizing:border-box;padding-top:0;padding-bottom:0}
+#cuSide .item{padding:8px 10px;gap:4px 6px!important}
+#cuSide .item input,#cuSide .item select,#cuBtSel,#cuBtRem{height:30px;box-sizing:border-box;padding-top:0;padding-bottom:0;font-size:13px!important}
+#cuSide .item select{flex:none;width:auto}
+#cuSide .item button.sm,#cuBtAdd{height:30px;box-sizing:border-box;padding:0 8px;font-size:12px}
+/* v10.76〜81：右の列を整理（v10.81＝列の幅を元の 280px｜1.25｜1 に戻し、文字の大きさで収める（銘柄14px・日付は銘柄の下）。「○か月以上」と両側のボタンは40px。v10.80＝顧客一覧の期間（○か月〜）を常に表示し［全員］と［ご来店なし］の間に。左の列 230px。v10.79＝ボトル欄を 銘柄・日付・残量・✕（削除）／キープ名／飲切・期限切・ボトル移動 に。列の幅は 200px｜1｜1.25。v10.78＝列の幅を 230px｜1｜1.1 にして右の列を広げ、ボトル欄を3段に＝銘柄＋日付／キープ名＋残量／飲み切り・期限切れ・ボトル移動・削除）。来店履歴は全行同じ形（上＝日付・下＝卓・人数・右＝金額、日付は今年なら M/D）。ボトル1本の欄を6段→4段に（銘柄＋日付／キープ名／残量＋飲み切り／期限切れ・ボトル移動・削除） */
+#cuSide .item.bt{display:flex;flex-direction:column;align-items:stretch;gap:6px!important}
+#cuSide .bt1{display:flex;align-items:center;gap:8px}#cuSide .bt1 .n{flex:1 1 0;min-width:0;overflow-wrap:anywhere;font-size:16px;font-weight:600;line-height:1.35}#cuSide .bt1 .n small{font-size:12px;font-weight:400;margin-left:6px;white-space:nowrap;color:var(--muted)}#cuSide .bt1 select{flex:none;width:auto;padding-left:6px!important;padding-right:2px!important}#cuSide .bt1 button.bx{flex:none;width:30px;padding:0;color:var(--muted);font-size:14px}
+#cuSide .bt2{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;margin:0}#cuSide .bt2 .kn{flex:1 1 90px;min-width:0;display:flex;align-items:center;gap:4px}#cuSide .bt2 .kn span{font-size:10px}/* v10.85：キープ名の文字を小さく・ボタンは「移動」にして2段に収める */#cuSide .bt2 span{white-space:nowrap}#cuSide .bt2 input{flex:1 1 0;min-width:0;width:0}#cuSide .bt2 .bt3{flex:none;margin-left:auto}
+#cuModes{gap:4px!important;flex-wrap:nowrap!important}#cuModes .chip,#cuMonths{height:40px;box-sizing:border-box;font-size:14px;white-space:nowrap;padding:0 10px}#cuMonths{width:auto;padding:0 2px 0 8px}
+#cuSide .cvis{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}#cuSide .cvis:last-child{border-bottom:none}#cuSide .cvis .fit1{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#cuSide .cvis .amt{font-variant-numeric:tabular-nums;white-space:nowrap}
+/* v10.91：来店履歴の年まとめ（顧客サイトと同じ） */.vyr{border-top:1px solid var(--line)}.vyr>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;padding:9px 0;font-size:14px;font-weight:600}.vyr>summary::-webkit-details-marker{display:none}.vyr>summary::after{content:'▾';color:var(--muted)}.vyr[open]>summary::after{content:'▴'}.vyr>div{padding-left:12px}#cuSide .vyr>.cvis{padding-left:12px}
+#cuSide .item.hv{padding:6px 10px;font-size:14px;flex-wrap:nowrap!important}#cuSide .item.hv .n{flex:1 1 0;min-width:0;line-height:1.3}#cuSide .item.hv .n small{display:block;font-size:12px}#cuSide .item.hv .amt{min-width:0;white-space:nowrap}
+/* v10.83：期限切れ・ボトル移動の行は1行に収まるまで文字を小さくする（fitLine） */
+#cuSide .item .n.fit1{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cuSide .bt3{display:flex;flex-wrap:wrap;align-items:center;gap:4px}#cuSide .bt3 button.sm{padding:0 8px;white-space:nowrap}
+  /* 15番：長い説明は1行＋「？」で詳しく（押すとその場で下に開く）。入力欄の高さは全部 44px */
+  .hint .qm{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px!important;min-height:0!important;min-width:0;padding:0!important;margin:0 0 0 6px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--muted);font-size:12px;line-height:1;vertical-align:middle;cursor:pointer}
+  .hint .more{display:none;margin-top:4px}.hint.open .more{display:block}.hint.open .qm{background:var(--line)}
+  input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
+  #cInfo select{height:32px!important;min-height:0!important;font-size:13px!important;padding:0 26px 0 8px!important} /* v11.61：在籍キャストの詳細の選択は小さく（オーナー 2026-10-17「でかい」） */
+  #cuForm .chip,#cuBtAdd,#cuSide .item button{height:44px!important;box-sizing:border-box;padding-top:0;padding-bottom:0} /* 入力欄の横のボタンも 44px */
