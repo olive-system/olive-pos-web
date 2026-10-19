@@ -117,3 +117,7 @@
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
   #cInfo select{height:32px!important;min-height:0!important;font-size:13px!important;padding:0 26px 0 8px!important} /* v11.61：在籍キャストの詳細の選択は小さく（オーナー 2026-10-17「でかい」） */
   #cuForm .chip,#cuBtAdd,#cuSide .item button{height:44px!important;box-sizing:border-box;padding-top:0;padding-bottom:0} /* 入力欄の横のボタンも 44px */
+
+/* v11.98：在籍キャスト（ゲネプロ #8）。「罰金」などの名前と欄を離さない。横幅 900 以下（iPad の縦向き）は1列にして、詳細は選んだ時だけ一覧の上に出す */
+.cgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px}.lp{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+@media (max-width:900px){.cgrid{grid-template-columns:minmax(0,1fr)}.cgrid>.cside{order:-1}.cgrid>.cside:has(#cForm.empty){display:none}}
