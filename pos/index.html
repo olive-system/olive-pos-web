@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v11.97 -->
+<title>OLIVE 会計</title><!-- v11.98 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <link rel="stylesheet" href="pos.css"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
@@ -106,9 +106,9 @@
     <input id="cSearch" placeholder="キャスト検索" style="flex:1;font-size:18px">
     
   </div>
-  <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px">
+  <div class="cgrid">
     <div class="rlist" id="cList"></div>
-    <div><h2>詳細</h2><div class="form" id="cForm"><div class="muted">一覧の「編集」を押してください</div></div></div>
+    <div class="cside"><h2>詳細</h2><div class="form" id="cForm"><div class="muted">一覧の「編集」を押してください</div></div></div>
   </div>
 </div></section>
 
