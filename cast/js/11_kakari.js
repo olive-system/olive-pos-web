@@ -42,7 +42,7 @@ async function resvForm(ed){
   const me = (st.data||[]).find(s => s.name === ME.name), kk = ed ? ed.kakari : me?.id;
   const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('');
   let dh = ed ? !!ed.douhan : false, cid = ed ? ed.customer_id || null : null, cTimer = null;
-  show(`<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label>
+  show(`<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label><div id="rvOff" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div>
       <label class="f" style="margin-top:8px">来店時刻<input type="time" id="rvT" value="${ed?ed.time:'21:00'}" style="${fld}"></label>
       <label class="f" style="margin-top:8px">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
@@ -64,9 +64,14 @@ async function resvForm(ed){
   $('rvC').oninput = () => { cid = null; clearTimeout(cTimer); const v = $('rvC').value.trim(); if(!v){ candPaint([]); return; }
     cTimer = setTimeout(async () => { const q = await sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: v }); if($('rvC').value.trim() === v) candPaint(q.error ? [] : q.data); }, 300); };
   candPaint([]);
+  // v0.50・SQL 173：来店日を選んだ時に、お店の休みならすぐ出す（ゲネプロ マイページ #5。前は申請を押した後にわかった）
+  let offs = new Set(); const offPaint = () => { const d = $('rvD')?.value, b = $('rvOff'); if(!b) return; const on = !!d && offs.has(d); b.classList.toggle('hide', !on); b.textContent = on ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください` : ''; };
+  const dft = ed ? null : draftBind('resv', ['rvD','rvT','rvC','rvK','rvN','rvMemo']); if(dft?.had){ const n = document.createElement('div'); n.className = 'muted sm'; n.style.margin = '0 2px 8px'; n.textContent = '途中の入力を戻しました'; $('rvD').closest('.card').before(n); }
+  $('rvD').addEventListener('change', offPaint); sb.rpc('cast_off_days', { p_token: TOKEN }).then(r => { if(!r.error){ offs = new Set(r.data || []); offPaint(); } });
   $('rvGo').onclick = async () => {
     const d = $('rvD').value, t = $('rvT').value, c = $('rvC').value.trim().replace(/[\s　]+/g, ' '), k = $('rvK').value, n = parseInt($('rvN').value, 10), m = $('rvM').value, memo = $('rvMemo').value.trim();
     if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return; }
+    if(offs.has(d)){ await uiAlert(`${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください`); return; }
     if(!c){ await uiAlert('お客様のフルネームを入力してください'); return; }
     if(!k){ await uiAlert('係を選んでください'); return; }
     if(!(n >= 1)){ await uiAlert('人数を入力してください'); return; }
@@ -76,6 +81,7 @@ async function resvForm(ed){
     $('rvGo').disabled = true;
     const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: dh ? m : null, p_memo: memo || null, p_customer: cid });
     if(q.error){ $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
+    dft?.clear();
     try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){}
     await uiAlert(`${ed?'予約を変更しました':'予約／同伴申請を受付しました'}${q.data.notified?`\n係のキャストにも LINE で送りました`:''}`);
     resvList();

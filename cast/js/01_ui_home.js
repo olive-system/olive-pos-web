@@ -38,11 +38,12 @@ async function loadMe(){
   const r = await sb.rpc('cast_me', { p_token: TOKEN });
   if(r.error){ fail(r.error.message); return; }
   ME = r.data; KL = ME.kakari_label || '係';
-  { const d = await sb.rpc('cast_dress_info', { p_token: TOKEN }); ME.dress = d.error ? null : d.data; }
-  await docsLoad(); /* v0.20・SQL 120：書類の未提出の数 */
-  { const b = await sb.rpc('cast_bill_months', { p_token: TOKEN }); ME.billMonths = b.error ? null : (b.data || []); } /* v0.36・SQL 134：伝票一覧の件数 */
-  { const b = await sb.rpc('cast_birthdays', { p_token: TOKEN }); ME.bdays = b.error ? [] : (b.data || []); } /* v0.40・SQL 150：トップに「お誕生日（前後2週間）」（オーナー 2026-10-18） */
-  { const n = await sb.rpc('cast_notice_list', { p_token: TOKEN }); NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; } /* v0.18・SQL 118：お知らせの未確認の数 */ /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
+  // v0.50：下の5つは同時に読む（ゲネプロ マイページ #11。前は1つずつ順番で、通信が遅いと待ちが何倍にもなった）
+  const [d, , bm, bd, n] = await Promise.all([sb.rpc('cast_dress_info', { p_token: TOKEN }), docsLoad() /* v0.20・SQL 120：書類の未提出の数 */,
+    sb.rpc('cast_bill_months', { p_token: TOKEN }) /* v0.36・SQL 134：伝票一覧の件数 */, sb.rpc('cast_birthdays', { p_token: TOKEN }) /* v0.40・SQL 150：トップに「お誕生日（前後2週間）」（オーナー 2026-10-18） */,
+    sb.rpc('cast_notice_list', { p_token: TOKEN })]);
+  ME.dress = d.error ? null : d.data; ME.billMonths = bm.error ? null : (bm.data || []); ME.bdays = bd.error ? [] : (bd.data || []);
+  { NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; } /* v0.18・SQL 118：お知らせの未確認の数 */ /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
   $('tStore').textContent = ME.store_name || 'OLIVE';
   home();
   { const th = thxParam(); if(th) resvThanksById(th); const nt = urlParam('notice'); if(nt) noticeOpen(nt); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時 */

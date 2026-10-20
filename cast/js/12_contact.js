@@ -22,6 +22,7 @@ async function contactForm(today){
       <label class="f" style="margin-top:8px">${esc(KL)}<select id="cxK" style="${fld}"><option value="">選んでください</option>${(st.data||[]).map(s => `<option value="${s.id}">${s.id===me?.id?'自分':esc(s.name)}</option>`).join('')}<option value="unknown">わからない</option><option value="none">なし</option></select></label>
       <label class="f" style="margin-top:8px">メモ（任意）<textarea id="cxM" maxlength="300" style="min-height:60px"></textarea></label></div>
     <button class="btn" id="cxGo">提出</button><p class="muted sm" style="margin:10px 2px">提出をすると係に共有されます</p>`);
+  const dft = draftBind('contact', ['cxN','cxK','cxM']); if(dft.had){ const n = document.createElement('div'); n.className = 'muted sm'; n.style.margin = '0 2px 8px'; n.textContent = '途中の入力を戻しました'; $('cxN').closest('.card').before(n); }
   $('cxGo').onclick = async () => {
     const n = $('cxN').value.trim().replace(/[\s　]+/g, ' '), k = $('cxK').value, m = $('cxM').value.trim();
     if(!n){ await uiAlert('お客様のフルネームを入力してください'); return; }
@@ -31,6 +32,7 @@ async function contactForm(today){
     const mode = k === 'unknown' || k === 'none' ? k : 'staff';
     const q = await sb.rpc('cast_contact_submit', { p_token: TOKEN, p_name: n, p_mode: mode, p_kakari: mode === 'staff' ? k : null, p_memo: m || null });
     if(q.error){ $('cxGo').disabled = false; await uiAlert(q.error.message); return; }
+    dft.clear();
     await uiAlert(q.data.notified ? '提出しました。\n係に LINE で共有しました' : '提出しました');
     contactList();
   };
