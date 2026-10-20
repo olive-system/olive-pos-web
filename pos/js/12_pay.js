@@ -6,7 +6,7 @@ function renderPay(){ const b=cur,T=b.totals; $('pTable').textContent=tables.fin
   $('payMethods').querySelectorAll('.chip[data-m]').forEach(c=>c.onclick=()=>{ if(c.dataset.m==='oki'){ closeAsOki(); return; } payMethod=c.dataset.m;renderPay();});
 
   $('payAmount').value=isOki(b)?okiRemain(b):(T.unpaid>0?T.unpaid:'');
-  $('payAdd').textContent=payMethod==='invoice'?'請求書にする':'入金'; btRender();
+  $('payAdd').textContent=payMethod==='invoice'?'請求書にする':'入金'; btRender(); splitApply();
   $('payList').innerHTML=[...(b.payments||[]).filter(p=>p.amount>0).map(p=>`<div class="item"><span class="n">${METHOD[p.method]}${p.method==='oki'?(p.received_at?` <small>入金済 ${new Date(p.received_at).getMonth()+1}/${new Date(p.received_at).getDate()}</small>`:' <small>未入金</small>'):''}${invTag(p)}</span><span class="amt">${yen(p.amount)}</span>${(isOki(b)&&p.method==='oki')||b.depPays?.has(p.id)?'':`<button class="ghost sm" data-pay="${p.id}">×</button>`}</div>`),...(b.bill_adjustments||[]).map(a=>`<div class="item"><span class="n">${a.kind==='discount'?'値引':'値増'} <small>${esc(a.reason||'')}</small></span><span class="amt">${yen(a.amount)}</span><button class="ghost sm" data-adj="${a.id}">×</button></div>`)].join('');
   /* v11.91：お釣り（現金の時だけ。入金は「金額」の欄の額で記録し、お預かりは記録しない） */ { const on=payMethod==='cash'&&!(b.status!=='open'&&!isOki(b)); $('payChange').classList.toggle('hidden',!on); $('payRecv').value=''; const calc=()=>{ const amt=parseInt($('payAmount').value||'0',10), rv=parseInt($('payRecv').value||'0',10), el=$('payChg'); if(!rv){ el.textContent='―'; el.style.color=''; return; } if(rv<amt){ el.textContent=`${yen(amt-rv)} 足りません`; el.style.color='var(--warn)'; return; } el.textContent=yen(rv-amt); el.style.color=''; }; $('payRecv').oninput=calc; $('payAmount').oninput=calc; calc(); }
   const okiP=isOki(b); const ro=b.status!=='open'&&!okiP; ['payAdd','payAdjDiscount','payAdjSurcharge','payClose'].forEach(i=>$(i).disabled=ro); $('payClose').style.display=okiP?'none':''; $('prReceipt').style.display=hasReceived(b)?'':'none'; $('payList').querySelectorAll('[data-adj],[data-pay]').forEach(x=>x.disabled=ro);
@@ -31,7 +31,7 @@ $('payAdd').onclick=guard($('payAdd'),async()=>{ const v=parseInt($('payAmount')
   const inv=payMethod==='invoice', bt=inv&&billTo&&billTo.bill===cur.id?billTo:null; if(inv&&!bt){ await uiAlert('請求先を選んでください'); return; }
   if(bt&&bt.fromCust&&bt.customer_id){ const r=await sb.from('customer_bill_tos').insert({customer_id:bt.customer_id,company:bt.company,address:bt.address||null,attn:bt.attn||null}).select('id').single(); if(r.error){ await uiAlert(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); return; } bt.id=r.data.id; bt.fromCust=false; btList.sig=''; }
   const { error } = await sb.from('payments').insert({bill_id:cur.id,method:payMethod,amount:v,revenue_date:cur.business_date,received_at:(payMethod==='cash'||payMethod==='card')?new Date().toISOString():null,...(bt?{bill_to_id:bt.id||null,bill_to_company:bt.company,bill_to_address:bt.address||null,bill_to_attn:bt.attn||null}:{})});
-  if(error){ if(isStale(error)){ await staleReload(error.message); return; } toast(/bill_to/.test(error.message)?'SQL 171 が未実行です：'+error.message:error.message);return;} await logOp(wasOki?'置きの入金':inv?'請求書にする':'入金',{method:METHOD[payMethod],amount:v,...(bt?{bill_to:bt.company+(bt.attn?' '+bt.attn+' 様':'')}:{})}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
+  if(error){ if(isStale(error)){ await staleReload(error.message); return; } toast(/bill_to/.test(error.message)?'SQL 171 が未実行です：'+error.message:error.message);return;} if(split&&split.bill===cur.id) split.done++; await logOp(wasOki?'置きの入金':inv?'請求書にする':'入金',{method:METHOD[payMethod],amount:v,...(bt?{bill_to:bt.company+(bt.attn?' '+bt.attn+' 様':'')}:{})}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
 // v11.97・SQL 171：請求先（オーナー 2026-10-19「請求の時に請求先を入力」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」「1回請求先にしたものは後で選べるように」）
 // 「請求書」を押すと、伝票のお客様の請求先（前に使ったもの・顧客サイトで足したもの）が並ぶ。選ぶか新しく入れないと「請求書にする」を押せない。会計には請求先の写しを残す
 let billTo=null, btList={bill:null,sig:'',rows:[]};
@@ -66,6 +66,21 @@ function btNew(){ const cs=btCusts(), c0=cs[0], m=document.createElement('div');
     const cid=cs.length>1?q('cust').value:(cs.length&&q('keep').checked?c0.id:''); let id=null;
     if(cid){ const r=await sb.from('customer_bill_tos').insert({customer_id:cid,company,address:address||null,attn:attn||null}).select('*').single(); if(r.error){ await uiAlert(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); return; } id=r.data.id; btList.rows.unshift(r.data); await logOp('請求先を足す',{customer:customers.find(c=>c.id===cid)?.name,company}); }
     billTo={id,customer_id:cid||null,company,address,attn,bill:cur.id}; m.remove(); btRender(); }); }
+// v11.99：割り勘（ゲネプロ #57。オーナー 2026-10-19「足す」）。未収を人数で割った1人分を金額の欄に入れる。割り切れない分は最後の人で合わせる。入金するたびに「あと n人」を出す
+let split=null;
+function splitApply(){ const b=cur, un=Math.max(0,b?.totals?.unpaid??0), open=b&&b.status==='open'&&!isOki(b); $('paySplit').style.display=open&&un>0?'':'none';
+  if(!split||split.bill!==b?.id||!open||un<=0||split.done>=split.n){ split=null; $('paySplitNote').classList.add('hidden'); return; }
+  const k=split.n-split.done; $('payAmount').value=k===1?un:Math.min(split.per,un);
+  $('paySplitTxt').innerHTML=`割り勘 ${split.n}人：あと <b>${k}人</b>・${yen(un)}`; $('paySplitNote').classList.remove('hidden'); }
+$('paySplit').onclick=()=>{ const un=Math.max(0,cur?.totals?.unpaid??0); if(!un) return; const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
+  m.innerHTML=`<div class="box" style="width:min(460px,92vw)"><h2 style="margin:0 0 6px">人数で割る</h2><div class="muted">未収 ${yen(un)}</div>
+    <div class="chips" style="margin:12px 0">${[2,3,4,5,6,7,8,9,10].map(n=>`<button class="chip" data-n="${n}">${n}人</button>`).join('')}</div><div id="spOut" style="min-height:1.6em;font-size:18px"></div>
+    <div class="bar" style="justify-content:flex-end"><button class="ghost" data-k="no">やめる</button><button class="primary" data-k="ok" disabled>この金額にする</button></div></div>`;
+  document.body.appendChild(m); let n=0; const per=x=>Math.floor(un/x);
+  m.querySelectorAll('[data-n]').forEach(c=>c.onclick=()=>{ n=+c.dataset.n; m.querySelectorAll('[data-n]').forEach(z=>z.classList.toggle('on',z===c)); const p=per(n), last=un-p*(n-1); m.querySelector('#spOut').innerHTML=`${n}人：1人 <b>${yen(p)}</b>${last!==p?`（最後の人 ${yen(last)}）`:''}`; m.querySelector('[data-k=ok]').disabled=false; });
+  m.querySelector('[data-k=no]').onclick=()=>m.remove();
+  m.querySelector('[data-k=ok]').onclick=()=>{ if(!n) return; split={bill:cur.id,n,per:per(n),done:0}; m.remove(); splitApply(); }; };
+$('paySplitEnd').onclick=()=>{ split=null; renderPay(); };
 $('payBack').onclick=()=>openBill(cur.id);
 $('payClose').onclick=guard($('payClose'),async()=>{ if(cur.totals.unpaid>0){toast(`未収 ${yen(cur.totals.unpaid)} があります。請求書か置きで登録してください`);return;}
   const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
