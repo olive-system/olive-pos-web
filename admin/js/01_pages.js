@@ -23,7 +23,9 @@ const SCREENS=[
   {k:'hist_del',n:'削除履歴'},
 ];
 // v0.21：パスワードはオーナーだけ（「アカウント」の見出しをやめて、オーナーの下へ）
-const OWNER_SCREENS=[{grp:'オーナー'},{k:'o_perms',n:'表示設定'},{k:'o_share',n:'顧客情報の共有'},{k:'o_contract',n:'契約書'},{k:'o_square',n:'Square 連携'},{k:'o_daily',n:'日報メール'},{k:'o_ids',n:'管理サイトのID'},{k:'pw',n:'パスワード'}];
+// v1.39：7つを4つのタブにまとめた（中の画面は nav:false で残す。27_owner_groups.js。オーナー 2026-10-21）
+const OWNER_SCREENS=[{grp:'オーナー'},{k:'o_view',n:'表示設定'},{k:'o_idpw',n:'ID・パスワード'},{k:'o_link',n:'連携・メール'},{k:'o_contract',n:'契約書'},
+  {k:'o_perms',n:'表示設定',nav:false},{k:'o_share',n:'顧客情報の共有',nav:false},{k:'o_ids',n:'管理サイトのID',nav:false},{k:'pw',n:'パスワード',nav:false},{k:'o_square',n:'Square 連携',nav:false},{k:'o_daily',n:'日報メール',nav:false}];
 const PERM_LABEL={none:'非表示',view:'閲覧',edit:'編集'};
 
 let me=null, storeId=null, page=null;

@@ -31,11 +31,12 @@ async function hallLoad(){
 function hallHome(){
   setBack(null);
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('daily','日報','',!!ME.form)}${tile('todo','TODO','今日の分',true)}${tile('pay','報酬明細','明細・受取確認',true)}</div>`);
+  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('daily','日報','',!!ME.form)}${tile('todo','TODO','今日の分',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21） */
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   sb.rpc('hall_todos', { p_token: TOKEN }).then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length; const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (n ? `未 ${n}` : sk ? `済（できない ${sk}）` : '全部済') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
+  $('main').querySelector('[data-go=card]').onclick = cardOrder;
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
 }
