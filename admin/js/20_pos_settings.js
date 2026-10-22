@@ -171,7 +171,8 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   </div></div>
   <div class="card"><h2>伝票</h2>
     <label class="ck"><input type="checkbox" id="psDk" ${d.douhan_is_kakari?'checked':''} ${dis}>同伴の人を自動で${KL}にする</label>
-    <label class="ck"><input type="checkbox" id="psCk" ${d.cust_auto_kakari!==false?'checked':''} ${dis}>お客様を登録したら、そのお客様の${KL}を自動で入れる</label></div>
+    <label class="ck"><input type="checkbox" id="psCk" ${d.cust_auto_kakari!==false?'checked':''} ${dis}>お客様を登録したら、そのお客様の${KL}を自動で入れる</label>
+    ${'sales_shot_manager' in d?`<label class="ck"><input type="checkbox" id="psSm" ${d.sales_shot_manager?'checked':''} ${dis}>アプローチのスクショは、お客様の${KL}ではなく、いつも担当の黒服に送る</label>`:''}</div>
   <div class="card"><h2>入金・出金の項目</h2><div class="muted" style="font-size:13px;margin-bottom:8px">POS の現金管理で、入金・出金する時に選ぶ項目です。「その他」はいつも出ます（自由に書けます）</div>
     ${'cash_out_items' in d?`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">${[['in','入金'],['out','出金']].map(([k,l])=>`<div style="flex:1 1 280px;min-width:0"><div style="font-weight:700;margin-bottom:6px">${l}</div><div class="ci-list" data-ci="${k}">${(d['cash_'+k+'_items']||[]).map(x=>`<span class="badge gray ci" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex;gap:6px;align-items:center"><span>${esc(x)}</span>${ed?'<a data-cirm style="cursor:pointer;color:var(--muted)">×</a>':''}</span>`).join('')}</div>
       ${ed?`<div class="row" style="margin-top:4px"><input data-ciin="${k}" maxlength="20" placeholder="${l}の項目（20字まで）" style="flex:1"><button class="ghost" data-ciadd="${k}">追加</button></div>`:''}</div>`).join('')}</div>
@@ -207,7 +208,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     if(!(v.set_minutes>0)||!(v.ext_minutes>0)){ await uiAlert('セット時間と延長単位は1分以上にしてください'); return; }
     if(v.service_rate>100||v.tax_rate>100){ await uiAlert('サービス料率・消費税率は100%までです'); return; }
     v.auto_hc_amount=$('psHc').value?Number($('psHc').value):null; v.auto_bc_amount=$('psBc').value?Number($('psBc').value):null;
-    v.douhan_is_kakari=$('psDk').checked; v.cust_auto_kakari=$('psCk').checked;
+    v.douhan_is_kakari=$('psDk').checked; v.cust_auto_kakari=$('psCk').checked; if($('psSm')) v.sales_shot_manager=$('psSm').checked; /* v1.42・SQL 187：担当制の店（広島） */
     const vip=[]; for(const t of tables){ const tr=$('main').querySelector(`tr[data-tb="${t.id}"]`); if(!tr){ vip.push({id:t.id,set:0,ext:0}); continue; } // 表に無い卓は通常卓（0円）
       const a=slNum(tr.querySelector('[data-v=set]').value)??0, b=slNum(tr.querySelector('[data-v=ext]').value)??0;
       if(!Number.isInteger(a)||!Number.isInteger(b)||a<0||b<0){ await uiAlert(`${tr.cells[0].textContent} のVIP料金は0以上の整数で入力してください`); return; } vip.push({id:t.id,set:a,ext:b}); }
