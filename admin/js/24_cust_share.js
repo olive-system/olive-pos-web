@@ -1,14 +1,13 @@
-// ---------- 顧客情報の共有（オーナー）v0.06・SQL 048 ----------
-// 「共有する」にした店舗どうしで、お客様の基本情報・来店履歴・キープ中のボトル（閲覧のみ）を見せ合う。「しない」に戻してもデータは消えない
+// ---------- OLIVE 顧客情報へのアクセス（オーナー）v1.45・SQL 197（前は「顧客情報の共有」v0.06・SQL 048） ----------
+// お客様は OLIVE の1つの名簿。「許可」の店は全部の店のお客様（基本情報・来店履歴・キープ）が見える。「しない」の店は自分の店のお客様だけ。データは消えない（オーナー 2026-10-22）
 PAGES.o_share=()=>{
   const on=id=>!!me?.settings?.[id]?.cust_share;
-  $('main').innerHTML=`<h1>顧客情報の共有</h1>
-  <div class="card"><div class="muted hint" style="font-size:14px;margin-bottom:8px">「共有する」にした店舗どうしで、お客様の情報を見せ合います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">「共有する」にした店舗どうしで、お客様の基本情報（閲覧・編集）・来店履歴・キープ中のボトル（閲覧のみ）を共有します。${KL}はそれぞれの店舗で決めます。<br>「しない」に戻しても、データは消えません（ほかの店舗から見えなくなるだけです）</div></div>
-  <table class="t">${stores().map(st=>`<tr><td>${esc(st.name)}</td><td style="text-align:right"><span class="seg" data-st="${st.id}">${[[true,'共有する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${on(st.id)===v?'on':''}">${n}</button>`).join('')}</span></td></tr>`).join('')}</table></div>`;
+  $('main').innerHTML=`<h1>OLIVE 顧客情報</h1>
+  <div class="card"><div class="muted" style="font-size:14px;margin-bottom:8px">許可した店は、OLIVE の顧客情報（全部の店のお客様）にアクセスできます</div>
+  <table class="t">${stores().map(st=>`<tr><td>${esc(st.name)}</td><td style="text-align:right"><span class="seg" data-st="${st.id}">${[[true,'許可'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${on(st.id)===v?'on':''}">${n}</button>`).join('')}</span></td></tr>`).join('')}</table></div>`;
   $('main').querySelectorAll('.seg').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=guard(b,async()=>{
     const v=b.dataset.v==='true', st=stores().find(x=>x.id===g.dataset.st); if(on(st.id)===v) return;
-    if(!await uiConfirm(v?`${st.name} の顧客情報を「共有する」にしますか？\n「共有する」のほかの店舗から見えるようになります`:`${st.name} の顧客情報を「しない」にしますか？\nデータは消えません。ほかの店舗から見えなくなります`)) return;
+    if(!await uiConfirm(v?`${st.name}：OLIVE 顧客情報へのアクセスを許可しますか？`:`${st.name}：アクセスを「しない」にしますか？\n自分の店のお客様だけになります`)) return;
     const r=await rpc('admin_set_cust_share',{p_store:st.id,p_on:v}); if(!r.ok) return;
     me=await loadMe()||me; toast('保存しました'); PAGES.o_share(); })));
 };
-
