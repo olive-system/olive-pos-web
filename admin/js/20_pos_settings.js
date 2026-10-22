@@ -67,18 +67,18 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
     const L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
     cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>${d}</b>${R.length?`<small style="color:var(--muted);font-size:11px">予約${R.length-dn}${dn?'・同伴'+dn:''}</small>`:''}</div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">${L.length<tg(k)?`<b style="color:var(--warn)">${L.length}／${tg(k)}人</b>`:`<span>${L.length}／${tg(k)}人</span>`}${e<need&&tg(k)>0?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}</span>`:''}</div>
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:6px;font-size:11px;color:var(--muted);white-space:nowrap">${L.length<tg(k)?`<b style="color:var(--warn)">${L.length}／${tg(k)}人</b>`:`<span>${L.length}／${tg(k)}人</span>`}${e<need&&tg(k)>0?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}人</span>`:''}</div>
       <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).map(r=>r.by)), isD=x=>DH.has(cName(x.staff_id)); const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
         return (P.slice(0,4).map(x=>isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
   cal+='</div>';
   const sub=C.filter(c=>c.submitted).length;
   $('main').innerHTML=head+today+`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="shM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
       <small class="muted">提出 ${sub}／${C.length}人・${M.fixed?'確定済み':'確定前'}</small><span style="flex:1"></span>
-      ${visible('set_shift')?'<button class="ghost sm" id="shSet">設定</button>':''}${ed?`${M.fixed?'':'<button class="ghost sm" id="shDr">自動作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>`:''}</div>
+      ${visible('set_shift')?'<button class="ghost sm" id="shSet">設定</button>':''}<button class="ghost sm" id="shNg">休希望</button>${ed?`${M.fixed?'':'<button class="ghost sm" id="shDr">自動作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>`:''}</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:8px">
       <span style="background:var(--gold-soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--ink)">イベント日</span>
-      <b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>
       <span style="background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px">休</span>
+      <b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>
       <b style="color:var(--warn)">19:50 不足</b>
       <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--ink);font-weight:400">6／8人</b>出勤人数／目安</span>
       <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--warn)">3／6人</b>人数不足</span>${Object.keys(M.targets||{}).length?'':'<button class="ghost sm" id="shGoSet">目安人数の入力（シフト設定）</button>'}</div>${cal}
@@ -88,6 +88,12 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   if($('shGoSet')) $('shGoSet').onclick=()=>{ setMonth=m; go('set_shift'); };
   if($('shSet')) $('shSet').onclick=()=>{ setMonth=m; go('set_shift'); };
   if(!ed) return;
+  /* v1.44：休希望（オーナー 2026-10-22「キャストからの休み希望を見れるボタンが欲しい」→ 並びは「休希望・自動作成・確定」）。提出した人を上、未提出を下 */
+  $('shNg').onclick=()=>{ const by={}; (M.ng||[]).forEach(x=>(by[x.staff_id]=by[x.staff_id]||[]).push(x.day)); const pm=csAddMonth(m,-1);
+    const row=c=>`<div style="display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.6"><b style="min-width:4.5em">${esc(c.name)}</b>${c.submitted?`<span>${c.week?`週${c.week}日・`:''}出勤できない日：${(by[c.id]||[]).sort().map(d=>`${Number(d.slice(8))}（${SH_WD[new Date(d+'T00:00:00+09:00').getDay()]}）`).join('・')||'なし'}</span>`:'<span style="color:var(--warn)">未提出</span>'}</div>`;
+    const L=C.filter(c=>c.submitted).concat(C.filter(c=>!c.submitted));
+    const w=modal(`<h2 style="margin:0">${mo}月の休み希望</h2><div class="muted" style="font-size:13px">提出 ${sub}／${C.length}人（締切 ${Number(pm.slice(5,7))}/10）</div><div style="max-height:60vh;overflow:auto">${L.map(row).join('')||'<div class="muted">キャストがいません</div>'}</div><div class="bar"><button class="primary" data-k="ok">閉じる</button></div>`);
+    w.querySelector('[data-k=ok]').onclick=()=>w.remove(); };
   if($('shDr')) $('shDr').onclick=guard($('shDr'),async()=>{ if(!await uiConfirm(`${mo}月のシフトを自動作成しますか？\n希望出勤日数・出勤できない日・目安人数から作成します。今の${mo}月のシフトは作り直しになります`)) return; const q=await rpc('admin_shift_draft',{p_store:st,p_month:m}); if(!q.ok) return; toast(`自動作成しました（${q.data}件）`); PAGES.shift(); });
   $('shFx').onclick=guard($('shFx'),async()=>{ const fx=!M.fixed; if(!await uiConfirm(fx?`${mo}月のシフトを確定しますか？\nマイページに表示します`:`${mo}月のシフトの確定を取消しますか？\nマイページに表示しなくなります`)) return; const q=await rpc('admin_shift_fix',{p_store:st,p_month:m,p_fix:fx}); if(!q.ok) return; toast(fx?'確定しました':'確定を取消しました'); PAGES.shift(); }); };
 // 日の詳細（出勤の名前と時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）
