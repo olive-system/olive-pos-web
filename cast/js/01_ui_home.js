@@ -46,7 +46,7 @@ async function loadMe(){
   { NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; } /* v0.18・SQL 118：お知らせの未確認の数 */ /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
   $('tStore').textContent = ME.store_name || 'OLIVE';
   home();
-  { const th = thxParam(); if(th) resvThanksById(th); const nt = urlParam('notice'); if(nt) noticeOpen(nt); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時 */
+  { const th = thxParam(); if(th) resvThanksById(th); const nt = urlParam('notice'); if(nt) noticeOpen(nt); else if(goParam() === 'contact') contactList(true); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時 */
 }
 
 // スライド表の「次の段」の文：あと○○で 時給○円
@@ -87,7 +87,7 @@ function home(){
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   { const b = $('main').querySelector('[data-go=docs]'); if(b) b.onclick = docsList; }
   $('main').querySelector('[data-go=resv]').onclick = resvList;
-  $('main').querySelector('[data-go=contact]').onclick = contactList;
+  $('main').querySelector('[data-go=contact]').onclick = () => contactList();
   $('main').querySelector('[data-go=sales]').onclick = salesHome;
   $('main').querySelector('[data-go=shift]').onclick = shiftHome;
   $('main').querySelector('[data-go=info]').onclick = noticeList;
