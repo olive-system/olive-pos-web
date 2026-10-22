@@ -23,7 +23,7 @@ PAGES.pw=async()=>{
   $('main').querySelectorAll('[data-tcid]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm(`タイムカード専用ID（${b.dataset.em}）を削除しますか？\nこのIDでログインしている端末は使えなくなります`,'削除','danger')) return;
     const x=await rpc('admin_tc_account_delete',{p_user:b.dataset.tcid}); if(!x.ok) return; toast('削除しました'); PAGES.pw(); }));
   $('main').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{ const v=b.previousElementSibling; const on=!b.classList.contains('on'); v.textContent=on?v.dataset.pwv:'••••••••'; b.classList.toggle('on',on); b.innerHTML=on?EYEOFF:EYE; b.setAttribute('aria-label',on?'非表示':'表示'); });
-  $('main').insertAdjacentHTML('beforeend','<div class="card" id="tcBox"><h2>タイムカードの端末</h2><div class="muted">読み込み中…</div></div>'); tcCard();
+  $('main').insertAdjacentHTML('beforeend','<div class="card" id="tcBox"><h2>タイムカードの端末</h2><div class="muted">読み込み中…</div></div><div class="card" id="ptBox"><h2>POS の端末</h2><div class="muted">読み込み中…</div></div>'); tcCard(); ptCard();
   if(O) $('rotAll').onclick=guard($('rotAll'),()=>rotateAll());
   $('main').querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>{ if(b.dataset.pw==='own:'){ $('myPw1').focus(); window.scrollTo(0,0); return; } changeOne(b.dataset.pw,b.dataset.label); });
 };

@@ -25,3 +25,20 @@ async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId
   box.querySelectorAll('[data-tcdel]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm(`${b.dataset.l} を削除しますか？\nこの端末では打刻できなくなります`,'削除','danger')) return;
     const x=await rpc('admin_tc_delete',{p_id:b.dataset.tcdel}); if(!x.ok) return; toast('削除しました'); tcCard(); })); }
 
+
+// ---------- POS の端末 v1.41・SQL 186（オーナーだけ）：登録した端末だけ POS を開く（タイムカードと同じ形。オーナー 2026-10-22） ----------
+async function ptCard(){ const box=$('ptBox'); if(!box) return; const st=storeId;
+  const r=await sb.rpc('admin_pos_term_list',{p_store:st}); if(page!=='pw'||storeId!==st||!$('ptBox')) return;
+  if(r.error){ box.innerHTML=`<h2>POS の端末</h2><div class="err">${esc(/admin_pos_term_list/.test(r.error.message)?'SQL 186 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  const L=r.data||[];
+  box.innerHTML=`<h2>POS の端末</h2><table class="t"><tr><th>端末</th><th>状態</th><th>最後に開いた</th><th></th></tr>
+    ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>
+      <td>${x.last_used_at?esc(fmtDT(x.last_used_at)):'—'}</td><td style="text-align:right;white-space:nowrap"><button class="ghost sm" data-ptre="${x.id}" data-l="${esc(x.label)}">再登録</button> <button class="ghost sm" data-ptdel="${x.id}" data-l="${esc(x.label)}">削除</button></td></tr>`).join('')||'<tr><td class="muted" colspan="4">まだありません</td></tr>'}</table>
+    <div style="margin-top:10px;display:flex;gap:10px;align-items:center"><input id="ptLabel" placeholder="例：レジの iPad" maxlength="30" style="height:44px;margin:0;flex:1"><button class="primary" id="ptAdd" style="height:44px">登録コード発行</button></div>`;
+  const show=(label,code)=>new Promise(res=>{ const m=modal(`<h2 style="margin:0">登録コード</h2><div>${esc(label)}</div><div class="tccode">${esc(code)}</div><div class="muted" style="font-size:14px">この端末の POS でログインしてから入力してください（30分有効・1回だけ使えます）</div><div class="bar"><button class="primary" data-k="ok">閉じる</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(); }; });
+  const add=$('ptAdd'); add.onclick=guard(add,async()=>{ const lb=$('ptLabel').value.trim(); if(!lb){ await uiAlert('端末名を入力してください'); return; }
+    const x=await rpc('admin_pos_term_code',{p_store:st,p_id:null,p_label:lb}); if(!x.ok) return; await show(lb,x.data.code); ptCard(); });
+  box.querySelectorAll('[data-ptre]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm(`${b.dataset.l} を再登録しますか？\n今の登録は無効になり、新しい登録コードを入れるまで、この端末では POS を開けません`)) return;
+    const x=await rpc('admin_pos_term_code',{p_store:st,p_id:b.dataset.ptre,p_label:null}); if(!x.ok) return; await show(b.dataset.l,x.data.code); ptCard(); }));
+  box.querySelectorAll('[data-ptdel]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm(`${b.dataset.l} を削除しますか？\nこの端末では POS を開けなくなります`,'削除','danger')) return;
+    const x=await rpc('admin_pos_term_delete',{p_id:b.dataset.ptdel}); if(!x.ok) return; toast('削除しました'); ptCard(); })); }

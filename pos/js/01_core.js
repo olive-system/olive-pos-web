@@ -27,10 +27,17 @@ setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHour
 $('loginForm').addEventListener('submit', async e => { e.preventDefault();
   const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('pw').value });
   if (error) { $('loginErr').textContent='ログインできません：'+error.message; return; } start(); });
+const PT_KEY='olive_pos_terminal'+SLOT; const ptGet=()=>{ try{ return localStorage.getItem(PT_KEY); }catch(e){ return null; } }; const ptSet=v=>{ try{ v==null?localStorage.removeItem(PT_KEY):localStorage.setItem(PT_KEY,v); }catch(e){} };
+$('posRegForm').addEventListener('submit', async e => { e.preventDefault(); const err=$('posRegErr'); err.textContent=''; const code=$('posRegCode').value.trim();
+  if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6けたの数字です'; return; }
+  const { data, error } = await sb.rpc('pos_term_register',{p_code:code}); if(error){ err.textContent=error.message; return; }
+  ptSet(data.token); $('posReg').style.display='none'; start(); });
 async function start(){ const { data:{ session } } = await sb.auth.getSession(); if (!session) return;
   /* v11.31・SQL 084：タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
   try{ const tc=await sb.rpc('is_timecard_user'); if(tc.data===true){ await sb.auth.signOut(); $('loginErr').textContent='タイムカード専用IDでは、POS は開けません'; return; }
     const dl=await sb.rpc('db_logs_on'); DBLOG=dl.data===true; }catch(e){}
+  /* v12.01・SQL 186：登録した端末だけ開く（関数がまだ無い時は今まで通り開く） */
+  { const pt=await sb.rpc('pos_term_check',{p_token:ptGet()||''}); if(!pt.error&&pt.data&&pt.data.ok===false){ ptSet(null); $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
   $('login').classList.add('hidden'); checkVersion(); await loadMasters(); rtSub(); await loadHall(); setInterval(loadHall,60000); show('v-hall'); }
 
 async function loadMasters(){

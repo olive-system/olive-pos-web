@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v12.00 -->
+<title>OLIVE 会計</title><!-- v12.01 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <link rel="stylesheet" href="pos.css"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
@@ -13,6 +13,13 @@
   <h1 style="margin:0;font-size:20px">店舗端末ログイン</h1>
   <input id="email" type="email" placeholder="端末メールアドレス" autocomplete="username" required><input id="pw" type="password" placeholder="パスワード" autocomplete="current-password" required>
   <button class="primary" type="submit">ログイン</button><div id="loginErr" style="color:var(--warn);font-size:14px;min-height:18px"></div>
+</form></div>
+<!-- v12.01・SQL 186：登録した端末だけ POS を開く（オーナー 2026-10-22）。管理サイト（オーナー）の「パスワード」画面で発行した登録コードを、この端末で1回入れる -->
+<div class="login" id="posReg" style="display:none"><form id="posRegForm">
+  <h1 style="margin:0;font-size:20px">この端末を登録</h1>
+  <div style="font-size:15px;color:var(--muted);line-height:1.6">管理サイトの「パスワード」画面で発行した登録コード（6けた）を入力してください</div>
+  <input id="posRegCode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="登録コード">
+  <button class="primary" type="submit">登録する</button><div id="posRegErr" style="color:var(--warn);font-size:14px;min-height:18px"></div>
 </form></div>
 
 <header>
