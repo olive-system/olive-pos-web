@@ -1,6 +1,6 @@
 // ---------- オーナーのタブをまとめる（admin v1.39・オーナー 2026-10-21「これだけのために1つタブを作るのは嫌」→ ア：4つ） ----------
 // 中の画面は今のまま。まとめたタブを開くと最初の画面を出し、上の切り替えでほかの画面へ（page は中の画面の名前のまま＝今までの確かめがそのまま動く）
-const OWNER_GROUPS={o_view:['o_perms'] /* v1.45：顧客情報の共有は外した（お客様は OLIVE の1つの名簿。SQL 193・オーナー 2026-10-22） */,o_idpw:['o_ids','pw'],o_link:['o_square','o_daily']};
+const OWNER_GROUPS={o_view:['o_perms','o_share'] /* v1.45：「顧客情報の共有」は「OLIVE 顧客情報」（アクセスの許可。SQL 197・オーナー 2026-10-22） */,o_idpw:['o_ids','pw'],o_link:['o_square','o_daily']};
 const ownerGroupOf=k=>Object.keys(OWNER_GROUPS).find(g=>OWNER_GROUPS[g].includes(k))||'';
 Object.keys(OWNER_GROUPS).forEach(g=>{ PAGES[g]=()=>go(OWNER_GROUPS[g][0]); });
 Object.values(OWNER_GROUPS).flat().forEach(k=>{ const f=PAGES[k]; if(!f) return;

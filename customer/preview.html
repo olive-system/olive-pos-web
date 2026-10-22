@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.46 -->
+<title>OLIVE 顧客</title><!-- customer v1.47 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -307,9 +307,12 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
   <div class="card"><h2>来店履歴</h2>
     <div class="muted" style="font-size:13px;margin-bottom:4px">今月 ${cur.month_count}回・${yen(cur.month_sum)}　／　累計 ${cur.visit_total}回</div>
     ${visYears((cur.visits||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||jaCmp(a.table,b.table)||(a.guests-b.guests)),v=>v.date,v=>`<div class="vis"><span>${md(v.date)}　${v.store?`【${esc(v.store)}】`:esc(v.table||'')}　${v.guests}名${v.open?' <span class="badge">来店中</span>':''}${v.oki?' <span class="badge gray">置き</span>':''}</span><span class="amt">${v.amount!=null?yen(v.amount):''}</span></div>`)||'<div class="muted">まだありません</div>'}
-    ${(cur.visits||[]).length<cur.visit_total?'<div class="muted" style="font-size:12px;margin-top:6px">直近30回を表示しています</div>':''}</div>`;
+    ${(cur.visits||[]).length<cur.visit_total?'<div class="muted" style="font-size:12px;margin-top:6px">直近30回を表示しています</div>':''}</div>
+  <div style="text-align:right;margin:4px 0 20px"><button class="danger sm" id="cuDel">削除</button></div>`; /* v1.47・SQL 196：お客様を削除（オーナー 2026-10-22。来店の履歴・キープボトルがある人は消さない） */
 
   const D=$('detail'); fitLine(D); cxLoad(c); btcLoad(c);
+  $('cuDel').onclick=async()=>{ if(!await needEdit()) return; if(!await uiConfirm(`${c.name} 様を削除しますか？`,'削除','danger')) return;
+    try{ await rpc('cs_customer_delete',{p_token:token,p_edit_token:editTok,p_id:c.id}); toast('削除しました'); curId=null; cur=null; show('vList'); renderList(); await loadList(); }catch(e){ await fail(e); } };
   $('editInfo').onclick=async()=>{ if(await needEdit()) editForm(false); };
   $('editMemo').onclick=async()=>{ if(await needEdit()) editForm(true); };
   $('reqBtn').onclick=()=>reqForm();
