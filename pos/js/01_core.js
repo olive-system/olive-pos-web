@@ -29,7 +29,7 @@ $('loginForm').addEventListener('submit', async e => { e.preventDefault(); $('lo
   const btn=e.target.querySelector('button[type=submit],button'); if(btn) btn.disabled=true;
   const slow=setTimeout(()=>{ if(!$('loginErr').textContent) $('loginErr').textContent='返事がありません。ほかのタブで開いている POS を閉じて、このページを開き直してください'; },15000);
   try { const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('pw').value });
-    if (error) { $('loginErr').textContent='ログインできません：'+error.message; return; }
+    if (error) { $('loginErr').textContent=/Invalid login credentials/.test(error.message)?'メールアドレスかパスワードが違います（自動で入った文字は消して、打ち直してください）':'ログインできません：'+error.message; return; }
     const { data:{ session } } = await sb.auth.getSession(); if(!session){ $('loginErr').textContent='ログインの記録が残りませんでした。プライベートブラウズを切ってから、もう一度'; return; }
     await start(); }
   catch(ex){ $('loginErr').textContent='ログインできません：'+(ex&&ex.message||ex)+'（ほかのタブで開いている POS を閉じてから、もう一度）'; }
