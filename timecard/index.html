@@ -163,7 +163,7 @@ const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;he
 
 const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n, t, fn) => await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように（札はタブごと） */, storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 // 名前などを画面に入れる時は、タグとして動かないように必ずこれを通す
 const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
@@ -186,12 +186,18 @@ setInterval(tick, 1000); tick();
 document.getElementById('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const err = document.getElementById('loginErr'); err.textContent = '';
-  const { error } = await sb.auth.signInWithPassword({
-    email: document.getElementById('email').value.trim(),
-    password: document.getElementById('pw').value
-  });
-  if (error) { err.textContent = 'ログインできません：' + error.message; return; }
-  start();
+  const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'ログイン中…';
+  /* 2026-10-22：押しても何も出ずに止まることがあった。止まった理由を必ず画面に出す */
+  const slow = setTimeout(() => { if (!err.textContent) err.textContent = '返事がありません。ほかのタブで開いているタイムカードを閉じて、このページを開き直してください'; }, 15000);
+  try {
+    const { error } = await sb.auth.signInWithPassword({
+      email: document.getElementById('email').value.trim(),
+      password: document.getElementById('pw').value
+    });
+    if (error) { err.textContent = 'ログインできません：' + error.message; return; }
+    await start(true);
+  } catch (ex) { err.textContent = 'ログインできません：' + (ex && ex.message || ex) + '（ほかのタブで開いているタイムカードを閉じてから、もう一度）'; }
+  finally { clearTimeout(slow); btn.disabled = false; btn.textContent = 'ログイン'; }
 });
 
 const TC_KEY = 'olive_tc_terminal' + ((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : ''); /* ?slot= で同じブラウザに別の店の端末も（ゲネプロ 2026-10-18） */
@@ -209,9 +215,9 @@ document.getElementById('regForm').addEventListener('submit', async e => {
   tcSet(data.token); document.getElementById('reg').classList.add('hidden'); start();
 });
 
-async function start(){
+async function start(fromLogin){
   const { data:{ session } } = await sb.auth.getSession();
-  if (!session) return;
+  if (!session) { if (fromLogin) document.getElementById('loginErr').textContent = 'ログインの記録が残りませんでした。プライベートブラウズを切ってから、もう一度'; return; }
   document.getElementById('login').classList.add('hidden');
   { const { data, error } = await sb.rpc('tc_check', { p_token: tcGet() || '' });
     if (error) { showReg(/tc_check/.test(error.message) ? 'SQL 063 が未実行です' : error.message); return; }
