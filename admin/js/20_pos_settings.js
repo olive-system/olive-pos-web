@@ -37,7 +37,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
 let shMonth=null; const SH_TIMES=['19:50','20:15','20:30','20:45','21:00'], SH_WD=['日','月','火','水','木','金','土'];
 PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMonth(); if(!shMonth) shMonth=csAddMonth(now,1); const m=shMonth;
   const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2)];
-  const head=`<h1>シフト <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+  const head=shSwitch('shift')+`<h1>シフト <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const [tr,mr]=await Promise.all([sb.rpc('admin_shift_today',{p_store:st}), sb.rpc('admin_shift_month',{p_store:st,p_month:m})]);
   if(page!=='shift'||storeId!==st||shMonth!==m) return;

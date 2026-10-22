@@ -12,7 +12,7 @@ function renderNav(){
   $('nav').innerHTML=html;
   $('nav').querySelectorAll('[data-go]').forEach(a=>a.onclick=async()=>{ $('nav').classList.remove('open'); if(!await leaveOk()) return; go(a.dataset.go); });
 }
-function go(k){ page=k; $('nav').querySelectorAll('[data-go]').forEach(a=>a.classList.toggle('on',a.dataset.go===(k==='set_shift'?'shift':(typeof ownerGroupOf==='function'&&ownerGroupOf(k))||k)));
+function go(k){ page=k; $('nav').querySelectorAll('[data-go]').forEach(a=>a.classList.toggle('on',a.dataset.go===((k==='set_shift'||k==='resv')?'shift':(typeof ownerGroupOf==='function'&&ownerGroupOf(k))||k)));
   const f=PAGES[k]||pagePending; f(k); $('main').scrollTop=0; window.scrollTo(0,0); }
 const nameOf=k=>[...SCREENS,...OWNER_SCREENS].find(s=>s.k===k)?.n||'';
 

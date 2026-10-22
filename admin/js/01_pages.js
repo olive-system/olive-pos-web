@@ -7,7 +7,7 @@ const SCREENS=[
   {k:'cast_sales',n:'スタッフ'},
   {k:'register',n:'現金管理'},
   {k:'punches',n:'打刻一覧'},
-  {k:'shift',n:'シフト'},
+  {k:'shift',n:'シフト・予約'}, {k:'resv',n:'予約',nav:false}, // v1.48：開くとシフトと予約を切り替え（オーナー 2026-10-23）
   {k:'cust',n:'顧客サイト'},
   {grp:'設定'},
   {k:'set_cast',n:'スタッフ設定'},
@@ -33,5 +33,5 @@ const stores=()=>me?.stores||[];
 const curStore=()=>stores().find(s=>s.id===storeId);
 const stSet=()=>me?.settings?.[storeId]||{perms:{},nippo_days:3};
 // v0.05：収支は月次・日次を1つの画面にまとめた（前の設定 pl_day／pl_month も読む）
-function perm(k){ if(me?.is_owner) return 'edit'; const p=stSet().perms||{}; if(k==='pl') return p.pl||p.pl_day||p.pl_month||'none'; if(k==='register') return p.register||p.register_month||'none'; /* v0.07：レジ精算も月次・日次を1つの画面に */ return p[k]||'none'; }
+function perm(k){ if(me?.is_owner) return 'edit'; if(k==='resv') k='shift'; /* v1.48：予約はシフトと同じ権限 */ const p=stSet().perms||{}; if(k==='pl') return p.pl||p.pl_day||p.pl_month||'none'; if(k==='register') return p.register||p.register_month||'none'; /* v0.07：レジ精算も月次・日次を1つの画面に */ return p[k]||'none'; }
 
