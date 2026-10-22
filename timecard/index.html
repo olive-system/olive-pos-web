@@ -13,7 +13,8 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;overflow:hidden}
-  #app{height:100%;display:flex;flex-direction:column;padding:18px 28px;gap:16px}
+  #app{height:100%;display:flex;flex-direction:column;padding:18px 28px}
+  #app>*+*{margin-top:16px} /* 古い iPad は flex の gap が効かないので margin で */
 
   .top{display:flex;align-items:center;justify-content:space-between}
   .store{font-size:18px;color:var(--muted);letter-spacing:.05em}
@@ -22,7 +23,7 @@
 
   .cam{align-self:center;width:300px;height:170px;border-radius:14px;overflow:hidden;background:#111;position:relative;border:2px solid var(--line)}
   .cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-  .cam .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;background:rgba(0,0,0,.45)}
+  .cam .hint{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;background:rgba(0,0,0,.45)}
 
   .types{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   .type{height:64px;border:none;border-radius:32px;color:#fff;font-size:22px;font-weight:700;opacity:.45;transition:opacity .15s,transform .1s}
@@ -51,19 +52,20 @@
   .toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#1a1a1a;color:#fff;padding:26px 40px;border-radius:18px;font-size:30px;font-weight:700;display:none;z-index:20;text-align:center;line-height:1.4}
   .toast.show{display:block}
   /* 2026-10-18：出勤から30分より短い退勤を確かめる（ゲネプロ #13） */
-  .ask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:22;align-items:center;justify-content:center}
+  .ask{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.45);display:none;z-index:22;align-items:center;justify-content:center}
   .ask.show{display:flex}
   .ask .box{background:var(--card);border-radius:18px;padding:28px 36px;text-align:center;min-width:380px;font-size:20px}
   .ask .nm{font-size:30px;font-weight:700;margin-bottom:8px}
   .ask .w{color:var(--out);font-weight:700;margin:6px 0 18px}
-  .ask .bt{display:flex;gap:14px;justify-content:center}
+  .ask .bt{display:flex;justify-content:center}
+  .ask .bt>*+*{margin-left:14px}
   .ask button{height:56px;padding:0 30px;border-radius:28px;font-size:20px;font-weight:700}
   .ask .no{background:var(--card);border:1px solid var(--line);color:var(--ink)}
   .ask .yes{background:var(--out);color:#fff;border:none}
   .toast small{display:block;font-size:16px;font-weight:400;opacity:.8;margin-top:8px}
 
   /* ---- 演出オーバーレイ ---- */
-  .fx{position:fixed;inset:0;z-index:25;display:none;align-items:center;justify-content:center;overflow:hidden}
+  .fx{position:fixed;top:0;right:0;bottom:0;left:0;z-index:25;display:none;align-items:center;justify-content:center;overflow:hidden}
   .fx.show{display:flex}
   .fx .msg{position:relative;z-index:2;text-align:center;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.35)}
   .fx .msg .big{font-size:76px;font-weight:800;letter-spacing:.04em;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
@@ -97,8 +99,9 @@
   @keyframes float{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:translateY(-110vh) scale(1.1);opacity:0}}
 
   /* login */
-  .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:30}
-  .login form{width:360px;background:var(--card);padding:32px;border-radius:16px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+  .login{position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:30}
+  .login form{width:360px;background:var(--card);padding:32px;border-radius:16px;border:1px solid var(--line);display:flex;flex-direction:column}
+  .login form>*+*{margin-top:12px}
   .login h1{margin:0 0 8px;font-size:20px}
   .login input{font-size:18px;padding:12px;border:1px solid var(--line);border-radius:8px}
   .login button{font-size:18px;padding:12px;border:none;border-radius:8px;background:var(--ink);color:#fff}
@@ -157,7 +160,8 @@
 <div class="fx" id="fx"><div class="msg" id="fxMsg"></div></div>
 <canvas id="canvas" class="hidden"></canvas>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
+<!-- 2026-10-22：古い iPad（iOS 12）でも動くように、supabase-js 2.116.0 を esbuild で safari12 向けに直したもの（作り方は olive-tools/legacy/make.sh） -->
+<script src="supabase-safari12.js"></script>
 <script>
 const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 
@@ -165,7 +169,7 @@ const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n, t, fn) => await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように（札はタブごと） */, storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 // 名前などを画面に入れる時は、タグとして動かないように必ずこれを通す
-const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 const TYPE_LABEL = { douhan:'同伴', after:'アフター', clock_in:'出勤', clock_out:'退勤' };
 let currentType = null;   // 未選択が初期状態
@@ -194,7 +198,7 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
       email: document.getElementById('email').value.trim(),
       password: document.getElementById('pw').value
     });
-    if (error) { err.textContent = 'ログインできません：' + error.message; return; }
+    if (error) { err.textContent = /Invalid login credentials/.test(error.message) ? 'メールアドレスかパスワードが違います（自動で入った文字は消して、打ち直してください）' : 'ログインできません：' + error.message; return; }
     await start(true);
   } catch (ex) { err.textContent = 'ログインできません：' + (ex && ex.message || ex) + '（ほかのタブで開いているタイムカードを閉じてから、もう一度）'; }
   finally { clearTimeout(slow); btn.disabled = false; btn.textContent = 'ログイン'; }
@@ -224,7 +228,7 @@ async function start(fromLogin){
     if (!data || !data.ok) { tcSet(null); showReg(); return; } }
   document.getElementById('app').classList.remove('hidden');
   const { data: stores } = await sb.from('stores').select('id,name').limit(1);
-  store = stores?.[0] || null;
+  store = (stores && stores[0]) || null;
   document.getElementById('storeName').textContent = store ? store.name : '店舗未設定';
   await loadStaff();
   initCamera();
@@ -326,7 +330,7 @@ async function punch(staff){
     if (!blob) { await showToast('写真が撮れません', 'カメラを許可してから、再度押してください', 3000); return; }
     {
       const d = new Date();
-      photoPath = `${store?.id || 'store'}/${d.toISOString().slice(0,10)}/${staff.id}_${type}_${d.getTime()}.jpg`;
+      photoPath = `${(store && store.id) || 'store'}/${d.toISOString().slice(0,10)}/${staff.id}_${type}_${d.getTime()}.jpg`;
       const { error: upErr } = await sb.storage.from('selfies').upload(photoPath, blob, { contentType:'image/jpeg' });
       if (upErr) { console.warn('upload failed', upErr); await showToast('写真を保存できません', '通信を確認して、再度押してください', 3000); return; }
     }
@@ -367,15 +371,15 @@ async function checkDouhanLate(staff){
   try {
     // SQL 085：関数 tc_douhan（決めた分数と、同伴の伝票を立ち上げてからの分数）。関数が無い時は今までどおり表から
     const rd = await sb.rpc('tc_douhan', { p_staff: staff.id });
-    if (!rd.error) { const lim = Number(rd.data?.limit ?? 10); if (lim > 0 && rd.data?.mins != null && rd.data.mins > lim) await fxLate(lim); return; }
+    if (!rd.error) { const rdd = rd.data || {}; const lim = Number(rdd.limit == null ? 10 : rdd.limit); if (lim > 0 && rdd.mins != null && rd.data.mins > lim) await fxLate(lim); return; }
     let q = sb.from('pos_settings').select('douhan_punch_limit_min');
-    if (store?.id) q = q.eq('store_id', store.id);
+    if (store && store.id) q = q.eq('store_id', store.id);
     const st = await q.limit(1);
-    const limit = Number(st.data?.[0]?.douhan_punch_limit_min ?? 10);
+    const st0 = (st.data && st.data[0]) || {}; const limit = Number(st0.douhan_punch_limit_min == null ? 10 : st0.douhan_punch_limit_min);
     if (!(limit > 0)) return;
     const since = new Date(Date.now() - 20*3600*1000).toISOString();
     const { data, error } = await sb.from('bill_casts').select('role, bills!inner(opened_at,status)').eq('staff_id', staff.id).in('role', ['douhan1','douhan2','douhan']).neq('bills.status','void').gte('bills.opened_at', since);
-    if (error || !data?.length) return;
+    if (error || !data || !data.length) return;
     const first = Math.min(...data.map(r => new Date(r.bills.opened_at).getTime()));
     const mins = Math.floor((Date.now() - first) / 60000);
     if (mins <= limit) return;
