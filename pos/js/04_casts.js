@@ -127,6 +127,7 @@ async function renderCasts(){ cMode='today'; { const ta=$('cTabAll'); if(ta) ta.
   $('cList').querySelectorAll('[data-adv]').forEach(inp=>inp.onchange=async()=>{ const v=parseInt(inp.value||'0',10)||0; const st=staffAll.find(x=>x.id===inp.dataset.adv); const cap=Number(st?.kind==='hall'?(settings?.advance_cap_hall??5000):(settings?.advance_cap_cast??10000)); if(v>cap){ toast(`日払（立替）の上限は ${cap.toLocaleString()}円 です`); inp.value=adv[inp.dataset.adv]??''; return; } if(v<0){ inp.value=adv[inp.dataset.adv]??''; return; } adv[inp.dataset.adv]=v; const { error } = await sb.from('daily_advances').upsert({store_id:store.id,staff_id:inp.dataset.adv,business_date:businessDate(),amount:v},{onConflict:'staff_id,business_date'}); if(!error) await logOp('日払い',{name:snm(inp.dataset.adv),amount:v},null,true); toast(error?('日払（立替）保存エラー：'+error.message):`日払（立替） ${v.toLocaleString()}円 を保存しました`); });
   if (cSorting) dragSort($('cList'),'.rrow',async ids=>{ const rs=await Promise.all(ids.map((id,i)=>sb.from('staff').update({sort_order:(i+1)*10}).eq('id',id))); const er=rs.find(r=>r.error); toast(er?('並び順を保存できませんでした：'+er.error.message):'並び順を保存しました'); renderCasts(); });
   renderCastForm(); }
+const MYPAGE_URL={ ginza:'https://liff.line.me/2012027414-zlSsSUTA', hiroshima:'https://liff.line.me/2012027414-BSyLe8IB' }; /* LINEマイページの入口（店ごと） */
 const FOREVER='9999-12-31'; // v10.46：保証時給の期限「永久」
 // v10.48：保証時給があって期限が空欄なら、初期値は3か月後の月末（営業日から）
 function gDefault(){ const [y,m]=businessDate().split('-').map(Number); const d=new Date(y,m-1+4,0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -180,7 +181,12 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; f.classList.toggle(
   if(!s._new) sb.rpc('pos_cast_links').then(r=>{ const row=$('cLineRow'); if(!row||cSel!==s||r.error) return; row.style.display='contents'; const l=(r.data||[]).find(x=>x.staff_id===s.id), b=$('cLineBtn');
     $('cLine').textContent=l?(l.line_name||'LINE 名なし'):'未連携'; /* 連携中は LINE の名前だけ（オーナー 2026-10-15） */ b.style.display=''; b.textContent=l?'連携解除':'LINE連携';
     b.onclick=async()=>{ if(l){ if(!await uiConfirm(`${s.display_name} の LINE連携を解除しますか？\nLINEマイページに入れなくなります（再連携できます）`)) return; const u=await sb.rpc('pos_cast_unlink',{p_staff:s.id}); toast(u.error?u.error.message:'解除しました'); if(!u.error) renderCasts(); return; }
-      const v=await uiPrompt('LINEマイページに表示された4桁の番号'); if(v===null) return; const code=String(v).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\D/g,''); if(code.length!==4){ toast('4桁の番号を入力してください'); return; }
+      /* v12.05：その店のマイページの入口の QR も出す（オーナー 2026-10-22「それぞれのリンクに飛ぶQRもつけてくれるとたすかる」） */
+      const qu=MYPAGE_URL[store?.code], qb=document.createElement('div'); qb.id='uiDlgQr';
+      if(qu&&window.qrcode){ const q=qrcode(0,'M'); q.addData(qu); q.make(); qb.style.cssText='text-align:center;margin:10px 0 4px';
+        qb.innerHTML=`<div style="display:inline-block;background:#fff;padding:6px;border-radius:8px">${q.createSvgTag({cellSize:5,margin:2})}</div><div style="font-size:13px;color:var(--muted);line-height:1.5;margin-top:4px">まだ番号が出ていない時：キャストの LINE のカメラでこの QR を読むと、${esc(store?.name||'')} のマイページが開きます</div>`;
+        $('uiDlgMsg').after(qb); }
+      let v; try{ v=await uiPrompt('LINEマイページに表示された4桁の番号'); } finally{ qb.remove(); } if(v===null) return; const code=String(v).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\D/g,''); if(code.length!==4){ toast('4桁の番号を入力してください'); return; }
       const k=await sb.rpc('pos_cast_link',{p_staff:s.id,p_code:code}); if(k.error){ await uiAlert(k.error.message); return; } toast(`連携しました（${k.data?.line_name||'LINE'}）`); renderCasts(); }; });
   $('cDel').onclick=async()=>{ if(!await uiConfirm(`${s.display_name} を削除しますか？（在籍から外します。過去のデータは残ります）`))return; const { error } = await sb.from('staff').update({is_active:false}).eq('id',s.id); if(!error) await logOp('キャスト削除',{name:s.display_name},null,true); toast(error?error.message:'削除しました'); if(!error){ cSel=null; renderCasts(); } };
   // v11.09・SQL 058：時給（日給）＝その人が管理サイト「スタッフ設定」で選んだスライド表（月ごと）と保証時給のうち一番高いもの。日給の人は日給の表と、設定の日給のうち一番高いもの
