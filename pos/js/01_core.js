@@ -6,7 +6,7 @@ function kSet(v){ KL=(v&&String(v).trim())||'係'; KT.forEach(([o,k,v])=>{ o[k]=
 function kDom(){ const a=$('castAddBtn'); if(a) a.textContent='＋ '+KL+'／同伴'; const t=$('castAddTtl'); if(t) t.textContent=KL+'／同伴を追加'; const c=document.querySelector('#castRole [data-cr=kakari]'); if(c) c.textContent=KL; }
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
 const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 const $ = id => document.getElementById(id);
 const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const yen = n => (n ?? 0).toLocaleString('ja-JP') + '円';
@@ -24,9 +24,16 @@ function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remo
 function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; const bd=businessDate(d); $('hdDate').textContent=`${+bd.slice(5,7)}月${+bd.slice(8,10)}日`; /* v11.95：0時〜朝8時は前の日の営業日を出す（ゲネプロ #59） */ },1000);
 
-$('loginForm').addEventListener('submit', async e => { e.preventDefault();
-  const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('pw').value });
-  if (error) { $('loginErr').textContent='ログインできません：'+error.message; return; } start(); });
+$('loginForm').addEventListener('submit', async e => { e.preventDefault(); $('loginErr').textContent='';
+  /* 2026-10-22：押しても何も出ずに止まることがあった（タイムカード）。止まった理由を必ず画面に出す */
+  const btn=e.target.querySelector('button[type=submit],button'); if(btn) btn.disabled=true;
+  const slow=setTimeout(()=>{ if(!$('loginErr').textContent) $('loginErr').textContent='返事がありません。ほかのタブで開いている POS を閉じて、このページを開き直してください'; },15000);
+  try { const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('pw').value });
+    if (error) { $('loginErr').textContent='ログインできません：'+error.message; return; }
+    const { data:{ session } } = await sb.auth.getSession(); if(!session){ $('loginErr').textContent='ログインの記録が残りませんでした。プライベートブラウズを切ってから、もう一度'; return; }
+    await start(); }
+  catch(ex){ $('loginErr').textContent='ログインできません：'+(ex&&ex.message||ex)+'（ほかのタブで開いている POS を閉じてから、もう一度）'; }
+  finally{ clearTimeout(slow); if(btn) btn.disabled=false; } });
 const PT_KEY='olive_pos_terminal'+SLOT; const ptGet=()=>{ try{ return localStorage.getItem(PT_KEY); }catch(e){ return null; } }; const ptSet=v=>{ try{ v==null?localStorage.removeItem(PT_KEY):localStorage.setItem(PT_KEY,v); }catch(e){} };
 $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); const err=$('posRegErr'); err.textContent=''; const code=$('posRegCode').value.trim();
   if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6けたの数字です'; return; }
