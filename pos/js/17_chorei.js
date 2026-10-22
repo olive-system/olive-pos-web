@@ -269,12 +269,18 @@ $('setFilter').oninput=e=>{ const q=e.target.value.trim(); $('setList').querySel
 // 長押しドラッグ並び替え
 function enableDrag(def){ dragSort($('setList'),'.row',async ids=>{ const rs=await Promise.all(ids.map((id,i)=>sb.from(def.table).update({sort_order:(i+1)*10}).eq('id',id))); const er=rs.find(r=>r.error); toast(er?('並び順を保存できませんでした：'+er.error.message):'並び順を保存しました'); renderSettings(def.key,true); }); }
 // 行を動かすと指の追跡が切れるため、動き・離すは画面全体で受ける
+// v12.04：上下の端まで持っていくと、リストが自分で動く（オーナー 2026-10-22「並び変えできない」。在籍リストは画面に入りきらない）
 function dragSort(list,sel,onDone){
+  const scroller=()=>{ for(let e=list;e&&e!==document.body;e=e.parentElement){ const cs=getComputedStyle(e); if(/(auto|scroll)/.test(cs.overflowY)&&e.scrollHeight>e.clientHeight) return e; } return document.scrollingElement||document.documentElement; };
   list.querySelectorAll(sel).forEach(row=>{ const h=row.querySelector('.hd'); if(!h)return;
-    h.onpointerdown=e=>{ e.preventDefault(); let dragging=null, moved=false;
-      const timer=setTimeout(()=>{ dragging=row; row.classList.add('drag'); },150);
-      const move=ev=>{ if(!dragging)return; ev.preventDefault(); const el=document.elementFromPoint(ev.clientX,ev.clientY)?.closest(sel); if(!el||el===dragging||el.parentElement!==list)return; const r=el.getBoundingClientRect(); const before=ev.clientY<r.top+r.height/2; const ref=before?el:el.nextSibling; if(ref===dragging||ref===dragging.nextSibling)return; list.insertBefore(dragging,ref); moved=true; };
-      const end=async()=>{ clearTimeout(timer); window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',end); window.removeEventListener('pointercancel',end); if(!dragging)return; dragging.classList.remove('drag'); dragging=null; if(moved) await onDone([...list.querySelectorAll(sel)].map(r=>r.dataset.id)); };
+    h.onpointerdown=e=>{ e.preventDefault(); let dragging=null, moved=false, lastX=e.clientX, lastY=e.clientY, raf=0; const sc=scroller();
+      const timer=setTimeout(()=>{ dragging=row; row.classList.add('drag'); raf=requestAnimationFrame(auto); },150);
+      const place=(x,y)=>{ const el=document.elementsFromPoint(x,y).map(z=>z.closest(sel)).find(z=>z&&z.parentElement===list); /* 上に重なっている物があっても下の行を見る */ if(!el||el===dragging||el.parentElement!==list)return; const r=el.getBoundingClientRect(); const before=y<r.top+r.height/2; const ref=before?el:el.nextSibling; if(ref===dragging||ref===dragging.nextSibling)return; list.insertBefore(dragging,ref); moved=true; };
+      const auto=()=>{ if(!dragging)return; const box=sc===document.scrollingElement||sc===document.documentElement?{top:0,bottom:window.innerHeight}:sc.getBoundingClientRect(); const edge=70;
+        let v=0; if(lastY<box.top+edge) v=-Math.ceil((box.top+edge-lastY)/4); else if(lastY>box.bottom-edge) v=Math.ceil((lastY-(box.bottom-edge))/4);
+        if(v){ sc.scrollTop+=v; place(lastX,Math.min(Math.max(lastY,box.top+12),box.bottom-12)); } /* 指がリストの外に出ても、内側の一番近い行で入れ替える */ raf=requestAnimationFrame(auto); };
+      const move=ev=>{ if(!dragging)return; ev.preventDefault(); lastX=ev.clientX; lastY=ev.clientY; place(lastX,lastY); };
+      const end=async()=>{ clearTimeout(timer); cancelAnimationFrame(raf); window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',end); window.removeEventListener('pointercancel',end); if(!dragging)return; dragging.classList.remove('drag'); dragging=null; if(moved) await onDone([...list.querySelectorAll(sel)].map(r=>r.dataset.id)); };
       window.addEventListener('pointermove',move,{passive:false}); window.addEventListener('pointerup',end); window.addEventListener('pointercancel',end); }; }); }
 
 kReg(SET,CUF);
