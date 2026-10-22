@@ -8,6 +8,7 @@ async function salesHome(){
   if(!await salesLoad()) return;
   const S = SALES, R = S.report;
   if(R){ salesShot(); return; }
+  if(S.store_off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日はお店の休みです</div>'); return; } /* v0.53・SQL 184：土日祝（広島は日祝）・休の日 */
   if(S.off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日は出勤日ではありません</div>'); return; } /* v0.22・SQL 122：シフトが確定した月は出勤の日だけ */
   show(`<div class="ttl">アプローチ</div><div class="card"><div class="gh">${mdDay(S.date)}（${WD[new Date(S.date+'T00:00:00+09:00').getDay()]}）の提案 ${S.plan.length}名（敬称略）</div>
     ${S.plan.length?`<div style="${g2}">${S.plan.map(n => `<div style="padding:6px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div>`).join('')}</div>`:((S.contacts||[]).length?'<div class="muted sm" style="padding:6px 0">今日の提案はありません。「次へ」の連絡済リストから選べます</div>':'<div class="muted sm" style="padding:6px 0">連絡先交換の提出がありません</div>') /* v0.47：連絡先があるのに「提出がありません」と出ていた（ゲネプロ マイページ #2） */}</div>
@@ -42,7 +43,7 @@ function salesShot(){
   setBack(home);
   const R = SALES.report;
   show(`<div class="ttl">アプローチ</div><div class="card"><div class="c" style="padding:6px;color:var(--ok);font-weight:700">連絡済リスト共有済み ${R.count}名</div></div>
-    <div class="card"><div class="gh">スクショ</div><div style="font-weight:700;font-size:17px">${esc(R.pick)}</div>
+    <div class="card"><div class="gh">スクショ</div><div style="font-weight:700;font-size:17px">${esc(R.pick)}</div>${R.sent?'':'<div class="sm" style="color:var(--warn);margin-top:4px">19:50 までに送ってください</div>'}
     ${R.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済み${R.to?`（${esc(R.to)}）`:''}</div>`:`<label class="btn g" style="display:block;text-align:center;margin-top:10px"><span id="slPt">スクショを選ぶ</span><input type="file" id="slP" accept="image/*" style="display:none"></label><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?esc(KL):'担当黒服'}${R.to?`（${esc(R.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
     ${R.sent?'':'<button class="btn" id="slShot">送信</button>'}`);
   if(R.sent) return;
