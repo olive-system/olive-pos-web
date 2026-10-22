@@ -31,8 +31,10 @@ async function hallLoad(){
 function hallHome(){
   setBack(null);
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('daily','日報','',!!ME.form)}${tile('todo','TODO','今日の分',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21） */
+  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('daily','日報','',!!ME.form)}${tile('todo','TODO','今日の分',true)}${tile('open','開店作業','',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21） */
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
+  $('main').querySelector('[data-go=open]').onclick = hallOpen; /* v0.55：開店作業 */
+  sb.rpc('hall_open_tasks', { p_token: TOKEN }).then(r => { const b = $('main').querySelector('[data-go=open]'); if(!b || r.error) return; const L = r.data.items || []; if(!L.length) return; b.insertAdjacentHTML('beforeend', `<small>済 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); });
   sb.rpc('hall_todos', { p_token: TOKEN }).then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length; const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (n ? `未 ${n}` : sk ? `済（できない ${sk}）` : '全部済') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
