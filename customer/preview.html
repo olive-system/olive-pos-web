@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.47 -->
+<title>OLIVE 顧客</title><!-- customer v1.48 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -144,7 +144,8 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円'; /* v1.16：金額は POS と同じ「78,000円」 */
 /* v1.32・SQL 076：管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
-const EMB=window.parent!==window&&location.hash==='#admin', MEM={};
+/* v1.48・SQL 218：黒服マイページの中（#hall）も、パスワードを聞かずにマイページから入場券をもらう。管理サイトの中（EA）とちがい、編集は今までどおりメニューの編集パスワードで（オーナー 2026-10-23） */
+const EMB=window.parent!==window&&(location.hash==='#admin'||location.hash==='#hall'), EA=EMB&&location.hash==='#admin', MEM={};
 const LS0={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 const SS0={ get(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v); }catch(e){} } };
 
@@ -185,7 +186,7 @@ async function fail(e){ if(e&&e.code==='CS_AUTH'){ showLogin(e.message); return;
 // ---------- 画面切り替え ----------
 function show(v){ ['vLogin','vList','vDetail'].forEach(x=>$(x).classList.toggle('hide',x!==v)); window.scrollTo(0,0); }
 let embTry=0;
-function showLogin(msg){ if(EMB){ if(++embTry>3){ show('vLogin'); $('loginErr').textContent='顧客サイトを開けません。管理サイトを読み込み直してください'; return; } embAsk().then(d=>{ if(d&&d.token) start(); else { show('vLogin'); $('loginErr').textContent=d&&d.error||'顧客サイトを開けません'; } }); return; } show('vLogin'); $('loginErr').textContent=msg||''; $('pw').value=''; }
+function showLogin(msg){ if(EMB){ if(++embTry>3){ show('vLogin'); $('loginErr').textContent=EA?'顧客サイトを開けません。管理サイトを読み込み直してください':'顧客サイトを開けません。マイページを開き直してください'; return; } embAsk().then(d=>{ if(d&&d.token) start(); else { show('vLogin'); $('loginErr').textContent=d&&d.error||'顧客サイトを開けません'; } }); return; } show('vLogin'); $('loginErr').textContent=msg||''; $('pw').value=''; }
 function logoutLocal(){ token=null; LS.set('olive_cs_token',null); endEdit(true); boot=null; custs=[]; }
 
 // ---------- ログイン ----------
@@ -213,21 +214,21 @@ async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot
 function editing(){ return !!editTok&&editExp>Date.now(); }
 function endEdit(silent){ editTok=null; editExp=0; SS.set('olive_cs_edit',null); SS.set('olive_cs_edit_exp',null); paintEdit(); if(!silent&&cur) renderDetail(); }
 let editTimer=0;
-function paintEdit(){ const on=editing(); ['editBar1','editBar2'].forEach(id=>$(id).classList.toggle('hide',!on||EMB));
-  if(EMB){ clearTimeout(editTimer); if(embEdit) editTimer=setTimeout(async()=>{ if(embEditExp<Date.now()+120000){ try{ await embAsk(); }catch(e){} } paintEdit(); },30000); return; } // 管理サイトの中：帯は出さず、期限が近づいたら入場券を取り直す
+function paintEdit(){ const on=editing(); ['editBar1','editBar2'].forEach(id=>$(id).classList.toggle('hide',!on||EA));
+  if(EA){ clearTimeout(editTimer); if(embEdit) editTimer=setTimeout(async()=>{ if(embEditExp<Date.now()+120000){ try{ await embAsk(); }catch(e){} } paintEdit(); },30000); return; } // 管理サイトの中：帯は出さず、期限が近づいたら入場券を取り直す
   const left=on?Math.max(0,Math.ceil((editExp-Date.now())/60000)):0; document.querySelectorAll('.editLeft').forEach(x=>x.textContent=on?`（あと${left}分）`:'');
   clearTimeout(editTimer); if(on) editTimer=setTimeout(()=>{ if(!editing()){ endEdit(); toast('編集モードを終了しました'); } else paintEdit(); },30000); }
 document.querySelectorAll('.editEnd').forEach(b=>b.onclick=()=>{ endEdit(); toast('編集モードを終了しました'); });
 async function needEdit(){ if(editing()) return true;
-  if(EMB){ let d=null; if(!embEdit||embEditExp<Date.now()+60000) d=await embAsk(); if(embEdit&&embEditExp>Date.now()){ editTok=embEdit; editExp=embEditExp; paintEdit(); return true; }
+  if(EA){ let d=null; if(!embEdit||embEditExp<Date.now()+60000) d=await embAsk(); if(embEdit&&embEditExp>Date.now()){ editTok=embEdit; editExp=embEditExp; paintEdit(); return true; }
     await uiAlert(d&&d.error||'顧客サイトを編集する権限がありません'); return false; } // 編集モードは普通の時と同じ30分
   const pw=await uiPrompt('編集パスワード','',{pw:true,ok:'編集する'}); if(pw==null) return false; if(!pw){ toast('パスワードを入力してください'); return false; }
   try{ const r=await rpc('cs_edit_login',{p_token:token,p_pw:pw}); if(r&&r.error){ await uiAlert('編集パスワードが違います'); return false; }
     editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); paintEdit(); toast('編集モードにしました（30分）'); return true; }
   catch(e){ await fail(e); return false; } }
 
-if(EMB) $('menuBtn').style.display='none'; /* v1.42：管理サイトの中ではメニューを出さない（中身が無いため。オーナー 2026-10-14） */
-$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':editing()?'<button class="ghost" data-a="end">編集モードを終了</button>':'<button class="edit" data-a="edit">編集パスワードを入力</button>'}${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
+if(EA) $('menuBtn').style.display='none'; /* v1.42：管理サイトの中ではメニューを出さない（中身が無いため。オーナー 2026-10-14） */
+$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EA?'':editing()?'<button class="ghost" data-a="end">編集モードを終了</button>':'<button class="edit" data-a="edit">編集パスワードを入力</button>'}${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
   s.querySelector('[data-x]').onclick=()=>done(); s.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; done();
     if(a==='edit') await needEdit(); else if(a==='end'){ endEdit(); toast('編集モードを終了しました'); } else if(a==='reload') await loadList();
     else if(a==='out'){ if(!await uiConfirm('ログアウトしますか？\n次に開く時はパスワードが必要です。','ログアウト','danger')) return; try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(); } }); });
