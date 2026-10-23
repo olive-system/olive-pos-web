@@ -24,6 +24,26 @@ PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class
   $('sqSave').onclick=guard($('sqSave'),async()=>{ const t=$('sqTok').value.trim(); if(!t){ await uiAlert('アクセストークンを入力してください'); return; }
     const q=await rpc('admin_square_save',{p_store:st,p_token:t}); $('sqTok').value=''; if(!q.ok) return; toast('つなぎました'); PAGES.o_square(); });
   if($('sqOff')) $('sqOff').onclick=guard($('sqOff'),async()=>{ if(!await uiConfirm('Square 連携を解除しますか？\nカード売上の照合ができなくなります','解除','danger')) return; const q=await rpc('admin_square_off',{p_store:st}); if(!q.ok) return; toast('解除しました'); PAGES.o_square(); }); };
+// v1.53・SQL 219：LINE メニュー（黒服のリッチメニュー。オーナー 2026-10-23「LINE 連携した人にだけ」「まずは黒服から」）。店ごとに する／しない。初めて「する」にした時に、Edge Function「line-richmenu」で LINE にメニューを作る
+PAGES.o_line=async()=>{ const st=storeId, head=`<h1>LINE メニュー <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+  $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
+  const r=await sb.rpc('admin_richmenu_get',{p_store:st}); if(page!=='o_line'||storeId!==st) return;
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_richmenu_get/.test(r.error.message)?'SQL 219 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  const D=r.data;
+  $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>黒服のリッチメニュー</b>
+      <span class="seg" id="rmOn">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${!!D.on===v?'on':''}" ${D.ready?'':'disabled'}>${n}</button>`).join('')}</span></div>
+    <div class="muted" style="font-size:13px;margin-top:4px">する：LINE 連携している黒服の、お店の公式 LINE のトークの下にメニューが出ます。押すとマイページのその画面が開きます。キャストと、連携していない人には出ません</div>
+    ${D.ready?'':'<div class="err" style="margin-top:8px">この店の LINE の設定（マイページの入口・メッセージを送る設定）がありません</div>'}
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:12px"><img src="../cast/richmenu_hall.png" alt="黒服のリッチメニュー" style="width:300px;max-width:100%;border:1px solid var(--line);border-radius:8px">
+      <div style="font-size:14px;line-height:1.9">連携している黒服：${Number(D.linked||0)}人<br>開店・閉店作業：22時から朝8時までは閉店作業、それ以外は開店作業が開きます${D.made?'<div style="margin-top:8px"><button class="ghost sm" id="rmRemake">メニューを作り直す</button></div>':''}</div></div></div>`;
+  const make=async()=>{ const q=await sb.functions.invoke('line-richmenu',{body:{store:st}}); let e=q.error?(q.data&&q.data.error)||q.error.message:(q.data&&q.data.error);
+    if(e&&q.error&&q.error.context&&q.error.context.json){ try{ e=(await q.error.context.json()).error||e; }catch(x){} }
+    if(e){ await uiAlert('メニューを作れませんでした：'+e); return false; } return true; };
+  $('rmOn').querySelectorAll('[data-v]').forEach(b=>b.onclick=guard(b,async()=>{ const on=b.dataset.v==='true'; if(on===!!D.on) return;
+    if(!await uiConfirm(on?`黒服のリッチメニューを「する」にしますか？\n連携している黒服${Number(D.linked||0)}人の LINE にメニューが出ます`:'黒服のリッチメニューを「しない」にしますか？\n黒服の LINE からメニューが消えます')) return;
+    if(on&&!D.made&&!await make()) return;
+    const q=await rpc('admin_richmenu_on',{p_store:st,p_on:on}); if(!q.ok) return; toast(on?`${q.data}人に付けました`:'外しました'); PAGES.o_line(); }));
+  if($('rmRemake')) $('rmRemake').onclick=guard($('rmRemake'),async()=>{ if(!await uiConfirm('メニューを作り直しますか？\n画像やボタンを変えた時に使います')) return; if(!await make()) return; toast('作り直しました'); PAGES.o_line(); }); };
 // v1.23・SQL 138：日報メール（オーナー 2026-10-17。店ごとに1通・毎朝7時・店の Gmail から）。宛先はオーナーだけが変える
 // v1.29・SQL 145：黒服の TODO（オーナー 2026-10-18。TimeTree の「todoリスト写メ報告」の代わり）。上＝その日の TODO（済・できない・未・写真）、下＝項目（押すと小窓で変える）
 const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',none:'なし'}, TODO_WD=['日','月','火','水','木','金','土'];

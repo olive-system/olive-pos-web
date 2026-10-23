@@ -2,7 +2,7 @@
 // v0.57・SQL 209：閉店作業も同じ画面（オーナー 2026-10-23「閉店作業も黒服のマイページに」「保存した人がやったことに」「誰が作業中かの表示」）
 // v0.59・SQL 214：項目の中の確認（checks。名刺の Eight 登録＝登録済みの確認・変更の確認）。全部に印を付けると「完了」を押せる（オーナー 2026-10-23「登録済みか確認のチェックボタンを中に」）
 // 開始 → 作業中（ほかの黒服の画面にも出る）→ 完了（写真の項目は写真を選んで完了・決まった画面の項目は保存）。ほかの人が作業中の時は「交代」。対象が「限定」の項目は、限定項目「可」の黒服だけ
-let opShots = {}, opChecks = {};
+let opShots = {}, opChecks = {}, opSwitch = false; /* v0.63：リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
 const TASK_TTL = { open:'開店作業', close:'閉店作業' };
 const hm = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
 const tBtn = (k, i, t, g) => `<button class="btn${g ? ' g' : ''}" data-${k}="${i}" style="display:inline-block;width:auto;flex:none;padding:7px 14px;font-size:14px">${t}</button>`;
@@ -14,7 +14,9 @@ async function hallTasks(ph){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
   const r = await sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
   const D = r.data, L = D.items || [], d = new Date(D.day + 'T00:00:00+09:00'), nd = L.filter(x => x.status === 'done').length;
-  if(!D.on){ show(`<div class="ttl">${TASK_TTL[ph]}</div><div class="card muted">閉店作業は POS で行います</div>`); return; }
+  const sw = opSwitch ? `<div style="display:flex;gap:8px;margin-bottom:10px">${['open', 'close'].map(k => `<button class="btn${k === ph ? '' : ' g'}" data-opsw="${k}" style="flex:1">${TASK_TTL[k]}</button>`).join('')}</div>` : '';
+  const swWire = () => $('main').querySelectorAll('[data-opsw]').forEach(b => b.onclick = () => { if(b.dataset.opsw !== ph) hallTasks(b.dataset.opsw); });
+  if(!D.on){ show(`${sw}<div class="ttl">${TASK_TTL[ph]}</div><div class="card muted">閉店作業は POS で行います</div>`); swWire(); return; }
   const row = (x, i) => { const mine = x.wip_id === D.me, other = x.wip_id && !mine, simple = x.kind === 'simple', na = x.limited && !D.limited_ok;
     let right;
     if(x.status === 'done') right = x.kind === 'todo' ? '<b style="color:var(--ok);font-size:13px">完了</b>'
@@ -27,8 +29,9 @@ async function hallTasks(ph){
     else right = `${wipTag(x.wip_by)}${tBtn('opv', i, '表示')}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid var(--line)">
     <div style="flex:1;line-height:1.4">${esc(x.name)}${mine && simple && x.status !== 'done' ? `<div class="muted sm">作業中（あなた）${x.need_photo ? `　写真${opShots[x.id] ? `${opShots[x.id].length}枚` : ''}` : ''}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}` : ''}</div>${right}</div>`; };
-  show(`<div class="ttl">${TASK_TTL[ph]}　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>
+  show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>
     <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${L.length}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
+  swWire();
   const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
   $('main').querySelectorAll('[data-opc]').forEach(c => c.onchange = () => { const [i, j] = c.dataset.opc.split(':').map(Number), x = L[i], a = new Set(opChecks[x.id] || []);
     c.checked ? a.add(j) : a.delete(j); opChecks[x.id] = [...a]; const d = $('main').querySelector(`[data-opd="${i}"]`); if(d) d.disabled = !ckAll(x); });
