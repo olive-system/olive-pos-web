@@ -83,8 +83,9 @@ $('extAdd').onclick=guard($('extAdd'),async()=>{ const { error } = await sb.from
 $('bBack').onclick=()=>{ if(billFrom==='bills'){ renderSettings('bills'); show('v-settings'); return; } loadHall(); show('v-hall'); };
 // v11.12：先に「削除しますか？」を出す（やめられる）。続けて理由（必須）
 $('bVoid').onclick=async()=>{ const tn=tables.find(t=>t.id===cur.table_id)?.name||''; if(!await uiConfirm(`${tk(tn)}の伝票を削除しますか？\n履歴は残ります`))return; const by=await askBy(); if(by===null) return; const why0=await askReason(`${tk(tn)}の伝票を削除します。`); if(!why0)return; const why=by?`${why0}（${by}）`:why0; const vb=$('bVoid'); if(vb.disabled) return; vb.disabled=true; /* v11.27：取消できたのを確かめてから操作ログに書く（前はログが先で、失敗しても「取消」が残った） */
-  try{ const u=await sb.from('bills').update({status:'void',closed_at:new Date().toISOString(),...(DBLOG?{void_reason:why}:{})}).eq('id',cur.id).neq('status','void').select('id');
-    if(u.error||!(u.data||[]).length){ await uiAlert(u.error?'伝票を削除できませんでした：'+u.error.message:'伝票を削除できませんでした（ほかの端末で変更されています）'); }
+  try{ const u=await cashClosed(()=>sb.from('bills').update({status:'void',closed_at:new Date().toISOString(),...(DBLOG?{void_reason:why}:{})}).eq('id',cur.id).neq('status','void').select('id'),`伝票の削除（${tn}）`); /* v12.07・SQL 220：現金の入金がある伝票は、精算済みの日は精算の取消の後に削除 */
+    if(u.error?.cancel){}
+    else if(u.error||!(u.data||[]).length){ await uiAlert(u.error?'伝票を削除できませんでした：'+u.error.message:'伝票を削除できませんでした（ほかの端末で変更されています）'); }
     else if(!DBLOG) await logOp('伝票取消',{total:cur.totals?.amount_due??null,guest_count:cur.guest_count,items:(cur.bill_items||[]).filter(i=>!i.is_void).map(i=>`${i.name}×${i.qty}`)},why);
   } finally{ vb.disabled=false; } loadHall(); show('v-hall'); };
 $('bOrder').onclick=()=>openOrder();
