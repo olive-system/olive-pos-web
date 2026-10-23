@@ -57,7 +57,7 @@
   .psec{font-size:17px;font-weight:700;margin:22px 2px 10px;padding-bottom:4px;border-bottom:2px solid var(--head)}.psec:first-of-type{margin-top:6px}
   .fold{margin-bottom:8px;padding:14px 16px}.fold>.fh{display:flex;align-items:center;gap:8px;cursor:pointer;flex-wrap:wrap}.fold>.fh .ar{color:var(--muted);width:14px;flex:none;transition:transform .15s}.fold.open>.fh .ar{transform:rotate(90deg)}
   .fold>.fh .tg{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}.fold>.fh .sm2{margin-left:auto;color:var(--muted);font-size:13px;text-align:right}
-  .fold>.fb{display:none;margin-top:12px}.fold.open>.fb{display:block}.fold .fend{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}.fold .fend .sp{flex:1}
+  .fold>.fb{display:none;margin-top:12px}.fold.open>.fb{display:block}.fend{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}.fend .sp{flex:1} /* v1.55：どの箱でも保存は右下 */
   .slb,.slhd{display:grid;grid-template-columns:repeat(var(--slc,3),minmax(0,1fr));column-gap:18px;row-gap:6px}.slb{grid-auto-flow:column}.slhd{margin-bottom:4px}
   .sr{display:grid;grid-template-columns:1fr 1fr 34px;gap:6px;align-items:center}.sr input{height:38px;text-align:right;font-variant-numeric:tabular-nums}.sr button{width:34px;padding:0}.slhd .sr span{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
   .kv2{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center}

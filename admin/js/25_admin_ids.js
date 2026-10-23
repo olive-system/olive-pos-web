@@ -130,7 +130,7 @@ PAGES.o_daily=async()=>{ const st=storeId, head=`<h1>日報メール <small clas
       <span class="muted">送り主</span><span>${D.ready?'店の Gmail':'<span class="badge warnb">店の Gmail の準備なし</span>'}</span>
       <span class="muted">前回</span><span>${L?`${esc(fmtDT(L.at))}　${esc(L.result||'')}`:'なし'}</span></div>
     <div style="margin-top:14px"><label style="display:block">宛先（1行に1つ）<textarea id="dmTo" rows="4" style="display:block;margin-top:4px;width:100%;max-width:520px;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc((D.to||'').split(',').filter(Boolean).join('\n'))}</textarea></label></div>
-    <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="dmSave">保存</button><button class="ghost" id="dmTest">試しに送る（昨日の分）</button></div></div>
+    <div class="fend"><button class="ghost sm" id="dmTest">試しに送る（昨日の分）</button><span class="sp"></span><button class="primary sm" id="dmSave">保存</button></div></div>
     <div class="card"><b>中身</b><div style="margin-top:6px;line-height:1.9;font-size:14px">売上（月累計）／来店一覧／出退勤／連絡先交換／黒服の報告／その日のメモ</div></div>`;
   $('dmSave').onclick=guard($('dmSave'),async()=>{ const q=await rpc('admin_daily_mail_save',{p_store:st,p_to:$('dmTo').value.split(/\n/).map(x=>x.trim()).filter(Boolean).join(',')}); if(!q.ok) return; toast('保存しました'); PAGES.o_daily(); });
   $('dmTest').onclick=guard($('dmTest'),async()=>{ if(unsavedNow()){ await uiAlert('先に宛先を保存してください'); return; } await sb.rpc('admin_daily_mail_prepare'); /* v1.35・SQL 156：写真を先に準備（別の呼び出しで） */ const q=await rpc('admin_daily_mail_test',{p_store:st}); if(!q.ok) return; await uiAlert(q.data==='送信'?'送りました':String(q.data)); PAGES.o_daily(); }); };

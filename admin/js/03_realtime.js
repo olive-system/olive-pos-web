@@ -20,22 +20,23 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 $('main').addEventListener('input',()=>{ mainDirty=true; }); $('main').addEventListener('change',()=>{ mainDirty=true; });
 // v1.22：保存忘れのお知らせ（オーナー 2026-10-17「編集したのに保存を押し忘れて次に行こうとした時に、保存してないけど進みますか、すぐ保存できるポップアップ」）
 // 入力を変えた所の近くに「保存」ボタンがあれば、それを覚える。保存して画面が描き直されるとボタンが消える＝保存済み。月や店の切り替えの選択は数えない
-let unsavedBtn=null;
+let unsavedBtns=new Set(); /* v1.55：箱ごとの保存。変えた箱の保存ボタンを全部覚える（オーナー 2026-10-23） */
 const UNSAVED_SKIP=/^(plM|shM|ssM|csM|smM|ntM|stM|cuM|plDate)$/;
 function unsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')||UNSAVED_SKIP.test(t.id||'')||t.dataset?.nodirty!=null) return; if(t.type==='search') return;
-  let el=t.parentElement; while(el&&el!==$('main')){ const b=[...el.querySelectorAll('button')].find(x=>/^保存$/.test(x.textContent.trim())); if(b){ unsavedBtn=b; return; } el=el.parentElement; } }
+  let el=t.parentElement; while(el&&el!==$('main')){ const b=[...el.querySelectorAll('button')].find(x=>/^保存$/.test(x.textContent.trim())); if(b){ unsavedBtns.add(b); return; } el=el.parentElement; } }
 $('main').addEventListener('input',unsavedMark,true); $('main').addEventListener('change',unsavedMark,true);
-const unsavedNow=()=>!!(unsavedBtn&&unsavedBtn.isConnected&&!unsavedBtn.disabled);
+const unsavedLeft=()=>[...unsavedBtns].filter(b=>b.isConnected&&!b.disabled), unsavedNow=()=>unsavedLeft().length>0;
 async function leaveOk(){ if(!unsavedNow()) return true;
   const ans=await new Promise(res=>{ const m=modal(`<h2 style="margin:0">保存していない変更があります</h2>
       <div style="display:flex;flex-direction:column;gap:8px"><button class="primary" data-v="save">保存して進む</button><button class="ghost" data-v="go">保存せずに進む</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">戻る</button></div>`);
     m.querySelectorAll('button').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); });
   if(!ans) return false;
-  if(ans==='go'){ unsavedBtn=null; return true; }
-  const b=unsavedBtn; b.click();
-  // 保存が終わるのを待つ（確認の小窓は人が押す）。ボタンが消えたら保存済み。小窓が無いのにボタンが残ったら、保存できなかった
-  for(let i=0,idle=0;i<1200;i++){ await new Promise(r=>setTimeout(r,100)); if(!b.isConnected){ unsavedBtn=null; return true; } if(document.querySelector('.modal')||b.disabled) idle=0; else if(++idle>15) return false; }
-  return false; }
+  if(ans==='go'){ unsavedBtns.clear(); return true; }
+  // 変えた箱の保存を順に押す。保存が終わるのを待つ（確認の小窓は人が押す）。ボタンが消えたら保存済み。小窓が無いのにボタンが残ったら、保存できなかった
+  for(const b of [...unsavedBtns]){ if(!b.isConnected||b.disabled){ unsavedBtns.delete(b); continue; } b.click(); let ok=false;
+    for(let i=0,idle=0;i<1200;i++){ await new Promise(r=>setTimeout(r,100)); if(!b.isConnected||!unsavedBtns.has(b)){ ok=true; break; } /* 描き直さない箱は、保存できた時に unsavedBtns から外す */ if(document.querySelector('.modal')||b.disabled) idle=0; else if(++idle>15) break; }
+    if(!ok) return false; unsavedBtns.delete(b); }
+  return true; }
 window.addEventListener('beforeunload',e=>{ if(unsavedNow()){ e.preventDefault(); e.returnValue=''; } });
 new MutationObserver(()=>{ mainDirty=false; rtBar(false); }).observe($('main'),{childList:true});
 

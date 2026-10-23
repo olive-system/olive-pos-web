@@ -17,7 +17,7 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     ${f('siRcpt','領収書メールの宛先',d.receipt_mail,{type:'email'})}
     ${f('siKL','係/担当/指名',curStore()?.kakari_label,{ph:'係',ml:6})}
   </div>
-  ${ed?'<div class="row" style="margin-top:12px"><button class="primary" id="siSave">保存</button></div>':''}
+  ${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="siSave">保存</button></div>':''}
   <div class="muted hint" style="font-size:13px;margin-top:10px;line-height:1.6">店名は POS・顧客サイト・タイムカード・管理サイトに出ます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">係/担当/指名：この店での「係」の呼び方です（例：担当）。空にすると「係」のままです。POS・顧客サイト・管理サイトの画面と、Excel・PDF・印刷に出ます（「係小計」は「担当小計」のように変わります）<br>住所・電話番号・インボイス番号は POS の領収書に出ます。住所・電話番号・インボイス番号・振込先は、収支の Excel（ZIP）に入る請求書にも出ます（住所は「〒000-0000 」から書くと、〒の行が分かれます）。領収書メールの宛先は POS の閉店作業「領収書をメールで送る」で使います。開店時間は登録だけです<br>閉店時間：タイムカードの退勤・アフターの打刻は、閉店より後になりません（時給は閉店まで）<br>0:00〜6:00 は日付が変わった後として扱います（例：1:00 ＝ 翌1:00、23:00 ＝ その日の23:00）<br>アフターの延長（報酬・罰金項目）も、この閉店時間から数えます。変更しても、前の打刻はそのまま</div></div></div>`;
   if(!ed) return;
   const sv=$('siSave'); sv.onclick=guard(sv,async()=>{ const v=id=>$(id).value.trim(), name=v('siName'), op=v('siOpen'), cl=v('siClose');
@@ -30,5 +30,5 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     if(!await uiConfirm('店の情報を保存しますか？'+(chg.length?'\n'+chg.map(x=>'・'+x).join('\n'):''))) return;
     const x=await rpc('admin_save_store_info',{p_store:st,p_name:name,p_open:op||null,p_close:cl,p_address:v('siAddr'),p_phone:v('siTel'),p_email:v('siMail'),p_invoice:iv,p_receipt_mail:v('siRcpt'),p_bank:$('siBank').value}); if(!x.ok) return;
     if(kn!==k0){ rtOwn=Date.now(); const y=await sb.rpc('admin_save_kakari_label',{p_store:st,p_label:kn}); rtOwn=Date.now(); if(y.error){ await uiAlert(/admin_save_kakari_label/.test(y.error.message)?'SQL 080 が未実行です（係/担当/指名はまだ保存できません。ほかの項目は保存しました）':y.error.message); } }
-    toast('保存しました'); me=await loadMe()||me; renderStoreSel(); renderAll(); }); }
+    unsavedBtns.delete(sv); toast('保存しました'); me=await loadMe()||me; renderStoreSel(); renderAll(); }); }
 
