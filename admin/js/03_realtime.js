@@ -12,7 +12,8 @@ function rtRefresh(force){ if(!page||RT_SKIP.has(page)||!PAGES[page]) return;
   if(!force&&RT_HEAVY.has(page)){ if(Date.now()-rtOwn>=5000) rtBar(true); return; }
   if(document.visibilityState!=='visible'){ rtWait=true; return; }
   if(!force&&Date.now()-rtOwn<5000){ rtT=setTimeout(rtRefresh,5000); return; }
-  if(!force&&(mainDirty||document.querySelector('.modal')||(page==='set_cast'&&csDetail))){ rtBar(true); return; }
+  /* v1.52：入力の途中・小窓が出ている時は知らせを出さず、終わるのを待ってから読み直す（オーナー 2026-10-23「最新のボタンを押すと元に戻る」→「入力中は知らせを出さない」。保存で画面が描き直されると mainDirty が消える） */
+  if(!force&&(mainDirty||document.querySelector('.modal')||(page==='set_cast'&&csDetail))){ clearTimeout(rtT); rtT=setTimeout(rtRefresh,3000); return; }
   rtBar(false); $('siBox')?.removeAttribute('data-st'); const y=window.scrollY, my=$('main').scrollTop; if(page==='set_cast'&&csDetail) csDetail=null;
   Promise.resolve(PAGES[page](page)).then(()=>{ window.scrollTo(0,y); $('main').scrollTop=my; }).catch(e=>console.warn('refresh',e)); }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rtWait){ rtWait=false; rtRefresh(); } });
