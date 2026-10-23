@@ -21,6 +21,8 @@ async function login(){
   const r = await sb.rpc('cast_login', { p_store: STORE, p_id_token: idt });
   if(r.error){ if(/認証|確かめ/.test(r.error.message)){ liff.logout(); liff.login({ redirectUri: location.href }); return; } fail(r.error.message); return; }
   if(r.data.status === 'link'){ showLink(r.data); return; }
+  if(r.data.status === 'store'){ /* SQL 222：ほかの店で連携している人（開いたトークに欠勤・予約の LINE が届くため開かない） */
+    show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(r.data.store_name)} の公式 LINE のメニューから再度開いてください</p></div>`); return; }
   TOKEN = r.data.token; clearTimeout(pollT); await loadMe();
 }
 

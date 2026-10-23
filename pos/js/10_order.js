@@ -23,7 +23,7 @@ function renderCart(){ $('oCart').innerHTML=oCart.map((l,i)=>`<div class="oline 
   $('oCart').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.m); oCart[i].qty--; if(oCart[i].qty<=0){ oCart.splice(i,1); oSel=Math.min(oSel,oCart.length-1); renderOrderCasts(); } renderCart(); }); }
 function buildSplits(itemId, line){ const q=line.qty, back=line.p.back_amount*q, pts=Number(line.p.back_points)*q, n=line.casts.length; // 売上は常に係。ここはバックとポイントだけ
   return line.casts.map((id,i)=>({bill_item_id:itemId,staff_id:id,sales_amount:0,back_amount:Math.floor(back/n)+(i===0?back-Math.floor(back/n)*n:0),back_points:Math.floor(pts/n*10)/10})); } /* v11.43：端数は最初の人に（前は消えていた） */
-$('oConfirm').onclick=async()=>{ if(!oCart.length){ toast('メニューを選んでください'); return; }
+$('oConfirm').onclick=guard($('oConfirm'),async()=>{ /* 通しチェック3：確かめの読み込みの間の二度押しで二重に入っていた */ if(!oCart.length){ toast('メニューを選んでください'); return; }
   // キープ可の商品：伝票のお客様にボトルを自動登録する。お客様が未登録なら注文を入れない／複数なら誰のボトルか選ぶ
   const keepFor=new Map(); const keepLines=oCart.filter(l=>l.p.is_keepable); if(keepLines.length){ const bcs=[...new Set((cur.bill_customers||[]).map(x=>x.customer_id))]; if(!bcs.length){ await uiConfirm('先にお客様名を登録してください'); return; }
     for(const l of keepLines){ if(bcs.length===1){ keepFor.set(l,bcs[0]); continue; } const pick=await uiPick(`${l.p.name} はどなたのボトルですか？`, bcs.map(id=>({label:(customers.find(c=>c.id===id)?.name||'（不明）')+' 様',value:id}))); if(!pick) return; keepFor.set(l,pick); } }
@@ -34,6 +34,6 @@ $('oConfirm').onclick=async()=>{ if(!oCart.length){ toast('メニューを選ん
       if(error){ await stop(error.message); return; } done.add(l); const sp=buildSplits(item.id,l); if(sp.length){ const r=await sb.from('bill_item_splits').insert(sp); if(r.error){ await stop(r.error.message); return; } }
       if(keepFor.has(l)){ const cid=keepFor.get(l); const cu=customers.find(c=>c.id===cid); const kk=(cur.bill_casts||[]).find(c=>c.is_kakari)?.staff_id||cu?.kakari_staff_id||null; for(let k=0;k<l.qty;k++){ const rb=await sb.from('customer_bottles').insert({store_id:store.id,customer_id:cid,product_id:p.id,name:p.name,remaining:10,kakari_staff_id:kk,keep_name:cu?.name||null}); if(rb.error){ toast('ボトル登録エラー：'+rb.error.message); break; } } await logOp('ボトル登録（注文から自動）',{customer:cu?.name||null,bottle:p.name,qty:l.qty}); } }
     const n=oCart.reduce((a,l)=>a+l.qty,0); oCart=[]; oSel=-1; await openBill(cur.id); renderOrder(); show('v-order'); toast(`${n}点を注文しました`); }
-  finally{ $('oConfirm').disabled=false; } };
+  finally{ $('oConfirm').disabled=false; } });
 $('orderBack').onclick=()=>openBill(cur.id);
 

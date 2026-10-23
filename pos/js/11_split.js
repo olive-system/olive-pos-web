@@ -12,10 +12,11 @@ function openSplit(item){ splitItem=item; const base={back:item.back_amount*item
 $('splitEven').onclick=()=>{ const base=JSON.parse($('splitModal').dataset.base); const ch=[...$('splitTable').querySelectorAll('input[type=checkbox]:checked')].map(c=>c.dataset.s); if(!ch.length){toast('キャストにチェックを入力してください');return;}
   ch.forEach(sid=>{ $('splitTable').querySelector(`select[data-f=back][data-s="${sid}"]`).value=Math.floor(base.back/ch.length/1000)*1000; const p=$('splitTable').querySelector(`select[data-f=pts][data-s="${sid}"]`); if(p) p.value=Math.floor(base.pts/ch.length/10)*10; }); };
 $('splitCancel').onclick=()=>$('splitModal').classList.remove('on');
-$('splitOk').onclick=async()=>{ const base=JSON.parse($('splitModal').dataset.base); const g=(f,sid)=>Number($('splitTable').querySelector(`select[data-f=${f}][data-s="${sid}"]`)?.value||0);
+$('splitOk').onclick=guard($('splitOk'),async()=>{ /* 通しチェック3：二度押しでバックが二重になっていた */ const base=JSON.parse($('splitModal').dataset.base); const g=(f,sid)=>Number($('splitTable').querySelector(`select[data-f=${f}][data-s="${sid}"]`)?.value||0);
   const rows=[...$('splitTable').querySelectorAll('input[type=checkbox]:checked')].map(c=>({bill_item_id:splitItem.id,staff_id:c.dataset.s,sales_amount:0,back_amount:g('back',c.dataset.s),back_points:g('pts',c.dataset.s)})).filter(r=>r.back_amount>0||r.back_points>0);
   const sb_=rows.reduce((a,r)=>a+r.back_amount,0), sp_=rows.reduce((a,r)=>a+r.back_points,0);
   if(sb_>base.back){ toast(`バックの合計が ${yen(base.back)} を超えています（今 ${yen(sb_)}）`); return; } if(sp_>base.pts){ toast(`ポイントの合計が ${base.pts} を超えています（今 ${sp_}）`); return; }
   const nm=id=>staff.find(x=>x.id===id)?.display_name||''; await logOp('バック振り分け変更',{item:splitItem.name,before:(splitItem.bill_item_splits||[]).map(x=>`${nm(x.staff_id)}:${x.back_amount}`),after:rows.map(x=>`${nm(x.staff_id)}:${x.back_amount}`)});
-  await sb.from('bill_item_splits').delete().eq('bill_item_id',splitItem.id); if(rows.length) await sb.from('bill_item_splits').insert(rows); $('splitModal').classList.remove('on'); openBill(cur.id); };
+  const dl=await sb.from('bill_item_splits').delete().eq('bill_item_id',splitItem.id); if(dl.error){ toast('振り分けを保存できません：'+dl.error.message); return; }
+  if(rows.length){ const ins=await sb.from('bill_item_splits').insert(rows); if(ins.error) toast('振り分けを保存できません：'+ins.error.message); } $('splitModal').classList.remove('on'); await openBill(cur.id); });
 
