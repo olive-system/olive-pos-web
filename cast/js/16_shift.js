@@ -48,5 +48,3 @@ async function shiftDay(iso){
   const t = (F.days||[]).find(x => x.day === iso), k = (F.marks||[]).filter(x => x.day === iso), d = new Date(iso+'T00:00:00+09:00');
   await uiAlert(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => `${x.kind}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`);
 }
-
-start();

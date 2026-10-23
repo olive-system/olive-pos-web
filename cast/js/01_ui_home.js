@@ -46,7 +46,13 @@ async function loadMe(){
   { NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; } /* v0.18・SQL 118：お知らせの未確認の数 */ /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
   $('tStore').textContent = ME.store_name || 'OLIVE';
   home();
-  { const th = thxParam(); if(th) resvThanksById(th); const nt = urlParam('notice'); if(nt) noticeOpen(nt); else if(goParam() === 'contact') contactList(true); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時 */
+  { const th = thxParam(); if(th) resvThanksById(th); const nt = urlParam('notice'); if(nt) noticeOpen(nt); else castGo(goParam()); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時 */
+}
+
+// v0.64・SQL 221：キャストのリッチメニューのボタンから、その画面を直接開く（?go=。オーナー 2026-10-23 見本 キャストのリッチメニュー_案）。連絡先交換は LINE のリンクと同じく入力から
+function castGo(k){
+  if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
+  if(k === 'contact') contactList(true); else if(k === 'shift') shiftHome(); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf();
 }
 
 // スライド表の「次の段」の文：あと○○で 時給○円

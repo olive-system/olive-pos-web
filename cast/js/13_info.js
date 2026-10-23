@@ -5,7 +5,7 @@ function urlParam(k){
   return /^[0-9a-f-]{36}$/.test(v || '') ? v : null;
 }
 // v0.54：LINE のリンクから開く画面（?go=contact）。決まった名前だけ
-function goParam(){ const q = new URLSearchParams(location.search); let v = q.get('go'); if(!v){ const st = q.get('liff.state'); if(st) v = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('go'); } return ['contact'].includes(v) ? v : null; }
+function goParam(){ const q = new URLSearchParams(location.search); let v = q.get('go'); if(!v){ const st = q.get('liff.state'); if(st) v = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('go'); } return ['contact','shift','sales','resv','perf','chorei','work','todo','daily','cs'].includes(v) ? v : null; } /* v0.64・SQL 221：リッチメニューのボタン（キャスト：shift・sales・resv・contact・perf／黒服：chorei・work・todo・daily・cs） */
 const noticeDay = a => { const d = new Date(new Date(a).getTime() + 9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）`; };
 async function noticeLoad(){ const n = await sb.rpc('cast_notice_list', { p_token: TOKEN }); if(n.error){ fail(n.error.message); return false; } NOTICES = n.data || []; ME.unread = NOTICES.filter(x => !x.read).length; return true; }
 async function noticeList(){
