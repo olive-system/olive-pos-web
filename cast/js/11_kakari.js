@@ -49,10 +49,9 @@ async function resvForm(ed){
       <label class="f" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>
       <label class="f" style="margin-top:8px">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label>
       <div class="f" style="margin-top:8px">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 18px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 18px">あり</button></div>
-      <label class="f hide" id="rvMw" style="margin-top:8px">待ち合わせの時刻<input type="time" id="rvM" value="${ed&&ed.meet?ed.meet:'19:30'}" style="${fld}"></label>
       <label class="f" style="margin-top:8px">メモ（任意）<textarea id="rvMemo" maxlength="300" style="min-height:60px">${ed&&ed.memo?esc(ed.memo):''}</textarea></label></div>
     <button class="btn" id="rvGo">${ed?'変更':'予約／同伴申請'}</button><p class="muted sm" style="margin:10px 2px">${ed?'変更':'申請'}すると、お店と係のキャストに LINE が届きます</p>`);
-  const setDh = v => { dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; $('rvMw').classList.toggle('hide', !v); };
+  const setDh = v => { dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; };
   // 同伴ありは来店時刻 20:30、なしは 21:00（オーナー 2026-10-15。自分で時刻を変えていたら、そのまま）
   const setDhT = v => { const t = $('rvT'); if(t.value === (v ? '21:00' : '20:30')) t.value = v ? '20:30' : '21:00'; setDh(v); };
   setDh(dh); $('rvDh0').onclick = () => setDhT(false); $('rvDh1').onclick = () => setDhT(true);
@@ -69,17 +68,16 @@ async function resvForm(ed){
   const dft = ed ? null : draftBind('resv', ['rvD','rvT','rvC','rvK','rvN','rvMemo']); if(dft?.had){ const n = document.createElement('div'); n.className = 'muted sm'; n.style.margin = '0 2px 8px'; n.textContent = '途中の入力を戻しました'; $('rvD').closest('.card').before(n); }
   $('rvD').addEventListener('change', offPaint); sb.rpc('cast_off_days', { p_token: TOKEN }).then(r => { if(!r.error){ offs = new Set(r.data || []); offPaint(); } });
   $('rvGo').onclick = async () => {
-    const d = $('rvD').value, t = $('rvT').value, c = $('rvC').value.trim().replace(/[\s　]+/g, ' '), k = $('rvK').value, n = parseInt($('rvN').value, 10), m = $('rvM').value, memo = $('rvMemo').value.trim();
+    const d = $('rvD').value, t = $('rvT').value, c = $('rvC').value.trim().replace(/[\s　]+/g, ' '), k = $('rvK').value, n = parseInt($('rvN').value, 10), memo = $('rvMemo').value.trim();
     if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return; }
     if(offs.has(d)){ await uiAlert(`${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください`); return; }
     if(!c){ await uiAlert('お客様のフルネームを入力してください'); return; }
     if(!k){ await uiAlert('係を選んでください'); return; }
     if(!(n >= 1)){ await uiAlert('人数を入力してください'); return; }
-    if(dh && !m){ await uiAlert('待ち合わせの時刻を入力してください'); return; }
-    const kn = $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, guests:n, douhan:dh, meet:dh ? m : null, memo:memo || null };
-    if(!await uiConfirm(`${resvLine(x)}\n係 ${kn}${dh?`\n同伴あり（待ち合わせ ${m}）`:''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
+    const kn = $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, guests:n, douhan:dh, meet:null, memo:memo || null };
+    if(!await uiConfirm(`${resvLine(x)}\n係 ${kn}${dh?'\n同伴あり':''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
     $('rvGo').disabled = true;
-    const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: dh ? m : null, p_memo: memo || null, p_customer: cid });
+    const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: cid });
     if(q.error){ $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
     dft?.clear();
     try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){}
