@@ -13,7 +13,8 @@ const SCREENS=[
   {k:'set_cast',n:'スタッフ設定'},
   {k:'set_pay',n:'報酬・罰金項目'},
   {k:'set_pos',n:'POS設定'},
-  {k:'set_todo',n:'TODO'}, {k:'set_open',n:'開店作業'}, // v1.45・SQL 194：開店作業は TODO と別（オーナー 2026-10-22） // v1.30・v1.34：TODO は設定の中の1つだけ（カレンダーと項目。オーナー 2026-10-18）
+  {k:'set_todo',n:'TODO'}, {k:'set_open',n:'開店作業'}, {k:'set_close',n:'閉店作業',alias:'set_open'}, // v1.50・SQL 209：閉店作業（権限は開店作業と同じ。オーナー 2026-10-23）
+  // v1.45・SQL 194：開店作業は TODO と別（オーナー 2026-10-22） // v1.30・v1.34：TODO は設定の中の1つだけ（カレンダーと項目。オーナー 2026-10-18）
   {k:'set_shift',n:'シフト設定',nav:false}, // v1.21：左には出さない。シフトの画面の「設定」から開く（オーナー 2026-10-17。表示設定の権限は今まで通り）
   {k:'notice',n:'お知らせ'},
   {grp:'履歴'},
@@ -33,5 +34,5 @@ const stores=()=>me?.stores||[];
 const curStore=()=>stores().find(s=>s.id===storeId);
 const stSet=()=>me?.settings?.[storeId]||{perms:{},nippo_days:3};
 // v0.05：収支は月次・日次を1つの画面にまとめた（前の設定 pl_day／pl_month も読む）
-function perm(k){ if(me?.is_owner) return 'edit'; if(k==='resv') k='shift'; /* v1.48：予約はシフトと同じ権限 */ const p=stSet().perms||{}; if(k==='pl') return p.pl||p.pl_day||p.pl_month||'none'; if(k==='register') return p.register||p.register_month||'none'; /* v0.07：レジ精算も月次・日次を1つの画面に */ return p[k]||'none'; }
+function perm(k){ if(me?.is_owner) return 'edit'; if(k==='resv') k='shift'; if(k==='set_close') k='set_open'; /* v1.50 */ /* v1.48：予約はシフトと同じ権限 */ const p=stSet().perms||{}; if(k==='pl') return p.pl||p.pl_day||p.pl_month||'none'; if(k==='register') return p.register||p.register_month||'none'; /* v0.07：レジ精算も月次・日次を1つの画面に */ return p[k]||'none'; }
 

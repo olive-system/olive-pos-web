@@ -20,12 +20,12 @@ async function csHallPart(box,st,ed,m){
   const cell=({s,t})=>{ const wf=t.welfare_mode==='amount'?yen(t.welfare_amount):t.welfare_mode==='none'?'なし':'標準';
     const sh=E&&own?`<span class="row" style="gap:4px;flex-wrap:nowrap"><input type="time" data-k="ss" value="${hm5(s.shift_start)}" style="width:120px">〜<input type="time" data-k="se" value="${hm5(s.shift_end)}" style="width:120px"></span>`:(s.shift_start||s.shift_end?`${hm5(s.shift_start)||'—'}〜${hm5(s.shift_end)||'—'}`:'<span class="badge warnb">未設定</span>');
     if(!E) return [t.pay_type?CS_HPAY[t.pay_type]:'<span class="badge warnb">未設定</span>', t.amount!=null?yen(t.amount):'—', sh, s.day_pay_ok==null?'—':s.day_pay_ok?'可':'不可',
-      s.contract_done==null?'—':s.contract_done?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', t.withhold==null?'—':t.withhold?'する':'しない', t.ctax_pct==null?'—':t.ctax_pct+'%', wf];
+      s.contract_done==null?'—':s.contract_done?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', t.withhold==null?'—':t.withhold?'する':'しない', t.ctax_pct==null?'—':t.ctax_pct+'%', wf, s.task_limited_ok?'可':'不可'];
     return [sel('pt',t.pay_type||'',[['','未設定'],...Object.entries(CS_HPAY)]), inp('am',t.amount,100,!t.pay_type)+' 円', sh,
       sel('dp',s.day_pay_ok==null?'':String(s.day_pay_ok),[['','—'],['true','可'],['false','不可']]), sel('ct2',s.contract_done==null?'':String(s.contract_done),[['','—'],['true','済'],['false','未']]),
       sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct??'',50)+' %',
-      sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount')]; };
-  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーだけ</small>':''),'日払（立替）','契約書','源泉徴収','消費税','厚生費'];
+      sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'), sel('tl',String(!!s.task_limited_ok),[['true','可'],['false','不可']])]; };
+  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーだけ</small>':''),'日払（立替）','契約書','源泉徴収','消費税','厚生費','限定項目<br><small class="muted">開店・閉店作業</small>']; /* v1.50・SQL 209：限定の項目をしてよいか（新しく入った人は不可） */
   box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':`<button class="ghost" id="chAdd" ${lock?'disabled':''}>＋追加</button><button class="ghost" id="chEd" ${lock?'disabled':''}>編集</button>`):''}</div>
   ${sql064?'':'<div class="card err">SQL 064 が未実行です（黒服の月給・時給を保存できません）</div>'}
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
@@ -49,10 +49,10 @@ async function csHallPart(box,st,ed,m){
       try{ const pt=q('pt').value||null, am=pt?num('am','金額'):null, wm=q('wm').value, wa=wm==='amount'?num('wa','厚生費'):null;
         if(pt&&!am) throw `${nm}：${CS_HPAY[pt]}の金額を入力してください`;
         if(wm==='amount'&&wa==null) throw `${nm}：厚生費の金額を入力してください`;
-        so={day_pay_ok:b(q('dp').value),contract_done:b(q('ct2').value)};
+        so={day_pay_ok:b(q('dp').value),contract_done:b(q('ct2').value),task_limited_ok:q('tl').value==='true'};
         to={pay_type:pt,amount:am==null?null:Math.round(am),withhold:b(q('wh').value),ctax_pct:num('ct','消費税',100),welfare_mode:wm,welfare_amount:wa==null?null:Math.round(wa)};
       }catch(e){ if(typeof e==='string'){ await uiAlert(e); return; } throw e; }
-      const so0={day_pay_ok:s.day_pay_ok??null,contract_done:s.contract_done??null};
+      const so0={day_pay_ok:s.day_pay_ok??null,contract_done:s.contract_done??null,task_limited_ok:!!s.task_limited_ok};
       const to0={pay_type:t.pay_type,amount:t.amount,withhold:t.withhold,ctax_pct:t.ctax_pct,welfare_mode:t.welfare_mode,welfare_amount:t.welfare_mode==='amount'?(t.welfare_amount==null?null:Number(t.welfare_amount)):null};
       const r={staff_id:s.id}; if(JSON.stringify(so)!==JSON.stringify(so0)) r.staff=so; if(JSON.stringify(to)!==JSON.stringify(to0)){ r.terms=to; needP=true; }
       if(r.staff||r.terms) out.push(r);
