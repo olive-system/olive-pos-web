@@ -27,9 +27,18 @@ async function castBills(month){
 async function hallLoad(){
   const r = await sb.rpc('hall_me', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
   ME = { ...r.data, hall: true }; KL = ME.kakari_label || '係'; $('tStore').textContent = ME.store_name || 'OLIVE'; hallHome();
+  hallGo(new URLSearchParams(location.search).get('go'));
+}
+// v0.63・SQL 219：リッチメニューのボタンから、その画面を直接開く（?go=。オーナー 2026-10-23 案3）。開店・閉店作業（work）は 22時から朝8時（営業日の切り替え）までは閉店作業、それ以外は開店作業
+function hallGo(k){
+  if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
+  const h = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24;
+  if(k === 'chorei') hallChorei(); else if(k === 'todo') hallTodo(); else if(k === 'cs') hallCs();
+  else if(k === 'work'){ opSwitch = true; hallTasks(h >= 22 || h < 8 ? 'close' : 'open'); }
+  else if(k === 'daily'){ const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.click(); }
 }
 function hallHome(){
-  setBack(null);
+  setBack(null); opSwitch = false;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('open','開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('close','閉店作業','',true)}${tile('daily','日報','',!!ME.form)}${tile('cs','顧客サイト','',true)}<div aria-hidden="true"></div>${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21）。v0.60：並びを 朝礼・担当キャスト／開店作業・TODO／閉店作業・日報／報酬明細・名刺発注 に（オーナー 2026-10-23）。v0.62：4段目の左に顧客サイト（右は空き）、報酬明細・名刺発注は5段目（オーナー 2026-10-23） */
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
