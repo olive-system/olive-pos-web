@@ -95,7 +95,8 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   ${H('⑥ 今日出たお酒・ドリンク（発注用）')}
   ${clOrderHtml(od)}
   ${H('⑦ TODO')}<div id="clTodo" style="flex-shrink:0;margin-bottom:12px"><div class="muted">読み込み中…</div></div>`;
-  box.innerHTML=`<div id="clWarn"></div><div id="clRe"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:18px">閉店作業</b><input type="date" id="clDateIn" value="${d}"><span class="badge ${saved||clIdle?'k':'warnb'}">${saved?'精算済':clIdle?'（変動なし自動繰越）':'未精算'}</span></div>
+  box.innerHTML=`<div id="clWarn"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:18px">閉店作業</b><input type="date" id="clDateIn" value="${d}"><span class="badge ${saved||clIdle?'k':'warnb'}">${saved?'精算済':clIdle?'（変動なし自動繰越）':'未精算'}</span></div>
+  <div id="clRe"></div>
   ${H('① 入出金の登録（経費の現金払い・立替など）')}
   ${saved?'<div class="muted" style="margin-bottom:6px">精算済のため変更できません</div>':`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><select id="clKind"><option value="out">出金</option><option value="in">入金</option></select><input id="clAmt" type="number" inputmode="numeric" placeholder="金額" style="width:130px;text-align:right"><select id="clMemoSel"></select><input id="clMemo" placeholder="内容を入力" style="flex:1;min-width:160px;display:none"><button class="ok sm" id="clAdd">追加</button></div>`}
   <div class="list">${moves.map(m=>`<div class="item"><span class="badge ${m.kind==='out'?'gray':''}">${m.kind==='out'?'出金':'入金'}</span><span class="n">${esc(m.memo||'')}</span><span class="amt">${yen(m.amount)}</span>${saved?'':`<button class="ghost sm" data-mvdel="${m.id}">削除</button>`}</div>`).join('')||'<div class="muted">登録なし</div>'}
