@@ -72,12 +72,13 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   const mp=!ctk.error&&ctk.data?.on, mpL=mp?(ctk.data.items||[]):[];
   if(setCur!=='closing') return;
   if(mv.error||cls.error){ box.innerHTML=`<div class="muted">SQL 018 が未適用の可能性があります：${esc((mv.error||cls.error).message)}</div>`; return; }
+  { const e=[adv,pay,prev,lat,ctk].find(x=>x.error); if(e){ box.innerHTML=`<div class="muted">閉店作業を読み込めません。再度開いてください：${esc(e.error.message)}</div>`; return; } } /* 通しチェック3：日払い・現金売上が読めないと0円のまま精算できた */
   const moves=mv.data||[]; const outSum=moves.filter(m=>m.kind==='out').reduce((a,m)=>a+m.amount,0), inSum=moves.filter(m=>m.kind==='in').reduce((a,m)=>a+m.amount,0);
   const advRows=(adv.data||[]).filter(a=>a.amount>0); const advSum=advRows.reduce((a,x)=>a+x.amount,0);
   const cashSales=(pay.data||[]).filter(p=>p.bills&&p.bills.store_id===store.id&&p.bills.status!=='void').reduce((a,p)=>a+(p.amount||0),0);
   const saved=cls.data||null; const prevRow=(prev.data||[])[0]||null; const hasPrev=!!prevRow;
   // v10.43：前回の精算から今日までに未精算の日があれば、その日の現金の動きも本日釣銭に含める（未精算の日のお金はレジに残っているため）。後の日の精算がある日・未来の日は保存できない
-  const gp=(!saved&&prevRow)?await clGap(prevRow.business_date,d):{net:0,days:[]}; if(setCur!=='closing'||clDate!==d) return; const later=(lat.data||[]).length>0, future=d>today;
+  const gp=(!saved&&prevRow)?await clGap(prevRow.business_date,d):{net:0,days:[]}; if(setCur!=='closing'||clDate!==d) return; if(gp.error){ box.innerHTML=`<div class="muted">閉店作業を読み込めません。再度開いてください：${esc(gp.error.message)}</div>`; return; } const later=(lat.data||[]).length>0, future=d>today;
   clCtx={d,outSum,inSum,advSum,cashSales,saved,hasPrev,prevFloat:prevRow?prevRow.next_float+gp.net:0}; const clIdle=!saved&&d<today&&!outSum&&!inSum&&!advSum&&!cashSales; // v10.43：休みなどで動きがない過去の日は「精算済（変動なし自動繰越）」
   const custIds=[...new Set((bc.data||[]).filter(x=>x.bills&&x.bills.store_id===store.id&&x.bills.status!=='void').map(x=>x.customer_id))];
   let bottles=[]; if(custIds.length){ const bt=await sb.from('customer_bottles').select('*').in('customer_id',custIds).eq('is_finished',false); bottles=(bt.data||[]).filter(b=>!b.expired_on); }
@@ -161,6 +162,7 @@ async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sbAll((
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')),
     sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').gte('paid_at',new Date(`${after}T08:00:00+09:00`).toISOString()).lt('paid_at',new Date(`${d}T08:00:00+09:00`).toISOString()).order('id')),
     sb.from('register_closings').select('business_date').eq('store_id',store.id).gt('business_date',after).lt('business_date',d) ]);
+  { const e=[mv,adv,pay,cl].find(x=>x.error); if(e) return {net:0,days:[],error:e.error}; }
   const done=new Set((cl.data||[]).map(r=>r.business_date)); const net={}; const add=(k,v)=>{ if(!done.has(k)) net[k]=(net[k]||0)+v; };
   (mv.data||[]).forEach(r=>add(r.business_date,r.kind==='in'?Number(r.amount):-Number(r.amount))); (adv.data||[]).filter(r=>r.amount>0).forEach(r=>add(r.business_date,-Number(r.amount)));
   (pay.data||[]).filter(p=>p.bills&&p.bills.store_id===store.id&&p.bills.status!=='void'&&p.amount).forEach(p=>{ const b=businessDate(new Date(p.paid_at)); if(b>after&&b<d) add(b,Number(p.amount)); });

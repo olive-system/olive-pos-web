@@ -23,7 +23,9 @@ const MY_VER=(document.head.innerHTML.match(/<!-- (v[\d.]+) -->/)||[])[1]||'';
 async function checkVersion(){ try{ const h=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); const v=(h.match(/<!-- (v[\d.]+) -->/)||[])[1]; if(v&&MY_VER&&v!==MY_VER&&$('v-hall').classList.contains('on')&&!document.querySelector('.modal.on')) location.reload(); }catch(e){} }
 setInterval(checkVersion,5*60000);
 // v10.43：自動HCのバックは、係（係専用の店・ママなどは除く）で自動的に等分する。係や客数が変わるたびに付け直す（端数は最初の係）。ほかのバックは注文時に選んだ人に付く
-async function syncHcBack(){ const pid=settings.auto_hc_product_id; if(!pid||!cur) return;
+let hcQ=Promise.resolve(); /* 通しチェック3：同時に2回走ると HC のバックが二重になるので、順番に */
+function syncHcBack(){ hcQ=hcQ.then(syncHcBack0,syncHcBack0); return hcQ; }
+async function syncHcBack0(){ const pid=settings.auto_hc_product_id; if(!pid||!cur) return;
   const r=await sb.from('bills').select('bill_casts(staff_id,is_kakari), bill_items(id,product_id,qty,back_amount,back_points,is_void)').eq('id',cur.id).single(); if(r.error) return; if(!staffAll.length) await loadStaffAll();
   const ks=[...new Set((r.data.bill_casts||[]).filter(c=>c.is_kakari&&!staffAll.find(x=>x.id===c.staff_id)?.kakari_only).map(c=>c.staff_id))], m=ks.length;
   for(const it of (r.data.bill_items||[]).filter(i=>i.product_id===pid&&!i.is_void)){ await sb.from('bill_item_splits').delete().eq('bill_item_id',it.id); if(!m) continue;
