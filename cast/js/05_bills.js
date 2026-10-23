@@ -27,7 +27,7 @@ async function castBills(month){
 async function hallLoad(){
   const r = await sb.rpc('hall_me', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
   ME = { ...r.data, hall: true }; KL = ME.kakari_label || '係'; $('tStore').textContent = ME.store_name || 'OLIVE'; hallHome();
-  hallGo(new URLSearchParams(location.search).get('go'));
+  hallGo(goParam());
 }
 // v0.63・SQL 219：リッチメニューのボタンから、その画面を直接開く（?go=。オーナー 2026-10-23 案3）。開店・閉店作業（work）は 22時から朝8時（営業日の切り替え）までは閉店作業、それ以外は開店作業
 function hallGo(k){
