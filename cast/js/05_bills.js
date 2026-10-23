@@ -31,7 +31,7 @@ async function hallLoad(){
 function hallHome(){
   setBack(null);
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('open','開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('close','閉店作業','',true)}${tile('daily','日報','',!!ME.form)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21）。v0.60：並びを 朝礼・担当キャスト／開店作業・TODO／閉店作業・日報／報酬明細・名刺発注 に（オーナー 2026-10-23） */
+  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('open','開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('close','閉店作業','',true)}${tile('daily','日報','',!!ME.form)}${tile('cs','顧客サイト','',true)}<div aria-hidden="true"></div>${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21）。v0.60：並びを 朝礼・担当キャスト／開店作業・TODO／閉店作業・日報／報酬明細・名刺発注 に（オーナー 2026-10-23）。v0.62：4段目の左に顧客サイト（右は空き）、報酬明細・名刺発注は5段目（オーナー 2026-10-23） */
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   $('main').querySelector('[data-go=open]').onclick = hallOpen; /* v0.55：開店作業 */
   $('main').querySelector('[data-go=close]').onclick = hallClose; /* v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
@@ -41,5 +41,19 @@ function hallHome(){
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
+  $('main').querySelector('[data-go=cs]').onclick = hallCs;
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
+}
+
+// v0.62・SQL 218：顧客サイト（オーナー 2026-10-23「黒服のマイページにも顧客サイトを」→ パスワードなしで開く）。管理サイトの中と同じく、顧客サイトをこの画面の中に出して入場券を渡す（#hall）。編集は顧客サイトのメニューから編集パスワードで
+let csMsg = null;
+function hallCs(){
+  setBack(home);
+  show(`<iframe id="csFrame" src="../customer/preview.html#hall" title="顧客サイト" style="display:block;width:100%;height:calc(100vh - 110px);min-height:420px;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>`);
+  if(csMsg) window.removeEventListener('message', csMsg);
+  csMsg = async e => { const f = $('csFrame'); if(!f || e.source !== f.contentWindow || e.origin !== location.origin || !e.data || e.data.type !== 'olive-cs-need') return;
+    const r = await sb.rpc('hall_cs_session', { p_token: TOKEN }); if(!$('csFrame')) return;
+    const d = r.error ? { error: /hall_cs_session/.test(r.error.message) ? '準備中です（SQL 218 が未実行）' : r.error.message } : (r.data || {});
+    f.contentWindow.postMessage({ type: 'olive-cs-auth', ...d }, location.origin); };
+  window.addEventListener('message', csMsg);
 }
