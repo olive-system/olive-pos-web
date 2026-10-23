@@ -50,7 +50,7 @@ async function hallTasks(ph){
     const q = await sb.rpc('hall_open_undo', { p_token: TOKEN, p_task: x.id }); if(q.error){ await uiAlert(q.error.message); return; } again(); });
 }
 
-// 閉店作業の決まった画面（ボトル残量・顧客メモの更新申請・係・同伴・反応◎の確認・着物・今日出たお酒・ドリンク・その日のメモ）
+// 閉店作業の決まった画面（ボトル残量・顧客メモの更新申請・係・同伴・反応◎の確認・着物・今日出たお酒・ドリンク・オールアップ確認・その日のメモ）
 async function hallCloseTask(x, ph){
   setBack(() => hallTasks(ph)); show('<div class="muted" style="padding:20px">読み込み中…</div>');
   const r = await sb.rpc('hall_close_data', { p_token: TOKEN, p_task: x.id }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
@@ -78,6 +78,14 @@ async function hallCloseTask(x, ph){
   } else if(k === 'drinks'){
     body = `<div class="card">${D.map((g, i) => `<div style="display:flex;gap:4px 12px;flex-wrap:wrap;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(g.cat)}</b>${g.items.map(a => `<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>`).join('') || '<div class="muted">なし</div>'}
       <div class="muted sm" style="margin-top:8px">発注に回したら保存します</div></div>${sv()}`;
+  } else if(k === 'allup'){   // v0.61・SQL 217：オールアップ確認（オーナー 2026-10-23「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須
+    const R = D.rows || [], np = D.pending > 0;
+    body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">退勤の遅い順（3名）</div>${R.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);font-size:15px${c.pending || c.over ? ';color:var(--warn)' : ''}"><div style="flex:1">${esc(c.name)}</div>
+      <b style="font-variant-numeric:tabular-nums">${c.pending ? '未退勤' : esc(c.out)}</b><span style="width:76px;text-align:right;font-size:13px">${c.over ? `${c.over}分超過` : ''}</span></div>`).join('') || '<div class="muted">今日出勤したキャストがいません</div>'}</div>
+      ${np ? `<div class="muted sm err" style="margin:0 2px 8px">未退勤のキャストがいます。退勤の打刻後に保存します（押し忘れは POS で修正）</div><button class="btn" disabled>保存</button>`
+        : D.over ? `<div class="card"><div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">1:00 超過の理由（必須）</div><textarea id="clWhy" rows="3" maxlength="500" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></div>${sv('', '理由は日報メールと操作ログに残ります')}`
+        : sv('', R.length ? '全員 1:00 以前に退勤しています' : '')}`;
+    getData = () => ({ reason: $('clWhy') ? $('clWhy').value : '' });
   } else if(k === 'day_memo'){
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;
