@@ -25,13 +25,13 @@ async function csHallPart(box,st,ed,m){
       sel('dp',s.day_pay_ok==null?'':String(s.day_pay_ok),[['','—'],['true','可'],['false','不可']]), sel('ct2',s.contract_done==null?'':String(s.contract_done),[['','—'],['true','済'],['false','未']]),
       sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct??'',50)+' %',
       sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'), sel('tl',String(!!s.task_limited_ok),[['true','可'],['false','不可']])]; };
-  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーだけ</small>':''),'日払（立替）','契約書','源泉徴収','消費税','厚生費','限定項目<br><small class="muted">開店・閉店作業</small>']; /* v1.50・SQL 209：限定の項目をしてよいか（新しく入った人は不可） */
+  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーだけ</small>':''),'日払（立替）','契約書','源泉徴収','消費税','厚生費','限定項目']; /* v1.50・SQL 209：限定の項目をしてよいか（新しく入った人は不可）。v1.56・SQL 227：顧客サイトの編集も同じ可・不可で決める（オーナー 2026-10-24「限定項目だけと言う表示にして、ここで権限をつける」） */
   box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':`<button class="ghost" id="chAdd" ${lock?'disabled':''}>＋追加</button><button class="ghost" id="chEd" ${lock?'disabled':''}>編集</button>`):''}</div>
   ${sql064?'':'<div class="card err">SQL 064 が未実行です（黒服の月給・時給を保存できません）</div>'}
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${ed&&!E?`<a data-hed="${r.s.id}">${esc(r.s.display_name)}</a>`:esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍の黒服がいません</div>'}
-  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}</div>
+  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}<br>限定項目：可の黒服のみ、開店・閉店作業の限定の項目と、LINEマイページの顧客サイトの編集が可能です</div>
 `;
   if(!ed) return;
   if(!E){ $('chEd').onclick=()=>{ csEdit='hall'; PAGES.set_cast(); }; $('chAdd').onclick=()=>staffEdit(st,null,'hall'); box.querySelectorAll('[data-hed]').forEach(a=>a.onclick=()=>staffEdit(st,halls.find(h=>h.id===a.dataset.hed),'hall')); return; }
