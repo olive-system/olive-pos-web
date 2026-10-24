@@ -53,6 +53,7 @@ async function loadMasters(){
     sb.from('pricing_modes').select('*').eq('is_active',true).order('sort_order').order('id'), sb.from('tables').select('*').order('sort_order').order('id'),
     sb.from('categories').select('*').order('sort_order').order('id'), sb.from('products').select('*').order('sort_order').order('id'),
     sb.from('staff').select('id,display_name,kind').eq('is_active',true).order('sort_order').order('id'), cuLoadAll()]);
+  { const e=[s,st,pm,tb,ca,pr,sf,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
   store=s.data?.[0]; kSet(store?.kakari_label); kDom(); settings=st.data?.[0]; modes=pm.data||[]; tables=tb.data||[]; categories=ca.data||[]; products=pr.data||[]; staff=sf.data||[]; customers=(cu.data||[]).map(cuK);
   $('storeName').textContent = store?.name || '店舗未設定';
   // v11.16・SQL 065：閉店時間（管理サイト「POS設定」の店の情報）。体験の時給の打ち止めに使う。読めない時は 1:00
