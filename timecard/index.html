@@ -206,7 +206,10 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
 
 const TC_KEY = 'olive_tc_terminal' + ((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : ''); /* ?slot= で同じブラウザに別の店の端末も（ゲネプロ 2026-10-18） */
 const tcGet = () => { try { return localStorage.getItem(TC_KEY); } catch(e) { return null; } };
-const tcSet = v => { try { v == null ? localStorage.removeItem(TC_KEY) : localStorage.setItem(TC_KEY, v); } catch(e) {} };
+/* SQL 233：合鍵は2つの引き出し（localStorage と IndexedDB）。片方が空ならもう片方から戻す。合わない時も捨てない（オーナー 2026-10-24） */
+const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
+const tcSet = v => { try { localStorage.setItem(TC_KEY, v); } catch(e) {} keyDb('readwrite', s => s.put(v, TC_KEY)); };
+const tcLoad = async () => { const a = tcGet(); if (a) return [a, null]; const b = await keyDb('readonly', s => s.get(TC_KEY)); if (b) { try { localStorage.setItem(TC_KEY, b); } catch(e) {} return [b, 'restored']; } return ['', null]; };
 function showReg(msg){ document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.remove('hidden');
   document.getElementById('regErr').textContent = msg || ''; document.getElementById('regCode').value = ''; }
 document.getElementById('regForm').addEventListener('submit', async e => {
@@ -223,9 +226,11 @@ async function start(fromLogin){
   const { data:{ session } } = await sb.auth.getSession();
   if (!session) { if (fromLogin) document.getElementById('loginErr').textContent = 'ログインの記録が残りませんでした。プライベートブラウズを切ってから、もう一度'; return; }
   document.getElementById('login').classList.add('hidden');
-  { const { data, error } = await sb.rpc('tc_check', { p_token: tcGet() || '' });
+  { const ld = await tcLoad(), tk = ld[0], note = ld[1]; if (tk) keyDb('readwrite', s => s.put(tk, TC_KEY));
+    let r = await sb.rpc('tc_check', { p_token: tk, p_note: note }); if (r.error && /p_note|function/i.test(r.error.message)) r = await sb.rpc('tc_check', { p_token: tk }); /* SQL 233 の前 */
+    const data = r.data, error = r.error;
     if (error) { showReg(/tc_check/.test(error.message) ? 'SQL 063 が未実行です' : error.message); return; }
-    if (!data || !data.ok) { tcSet(null); showReg(); return; } }
+    if (!data || !data.ok) { showReg(); return; } }
   document.getElementById('app').classList.remove('hidden');
   const { data: stores } = await sb.from('stores').select('id,name').limit(1);
   store = (stores && stores[0]) || null;
@@ -336,7 +341,7 @@ async function punch(staff){
       if (upErr) { console.warn('upload failed', upErr); await showToast('写真を保存できません', '通信を確認して、再度押してください', 3000); return; }
     }
     const { error } = await sb.rpc('punch', { p_staff_id: staff.id, p_type: type, p_photo: photoPath, p_terminal: tcGet() || '' });
-    if (error && /登録されていません/.test(error.message)) { tcSet(null); showReg('この端末の登録が削除されました。登録コードを再入力してください'); return; }
+    if (error && /登録されていません/.test(error.message)) { showReg('この端末の登録が削除されました。登録コードを再入力してください'); return; }
     if (error) throw error;
 
     if (type === 'douhan')      await fxDouhan(staff.display_name);

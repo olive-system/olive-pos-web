@@ -34,7 +34,11 @@ $('loginForm').addEventListener('submit', async e => { e.preventDefault(); $('lo
     await start(); }
   catch(ex){ $('loginErr').textContent='ログインできません：'+(ex&&ex.message||ex)+'（ほかのタブで開いている POS を閉じてから、もう一度）'; }
   finally{ clearTimeout(slow); if(btn) btn.disabled=false; } });
-const PT_KEY='olive_pos_terminal'+SLOT; const ptGet=()=>{ try{ return localStorage.getItem(PT_KEY); }catch(e){ return null; } }; const ptSet=v=>{ try{ v==null?localStorage.removeItem(PT_KEY):localStorage.setItem(PT_KEY,v); }catch(e){} };
+const PT_KEY='olive_pos_terminal'+SLOT; const ptGet=()=>{ try{ return localStorage.getItem(PT_KEY); }catch(e){ return null; } };
+/* v12.11・SQL 233：合鍵は2つの引き出し（localStorage と IndexedDB）にしまう。片方が空なら、もう片方から戻す。合わない時も捨てない（オーナー 2026-10-24「また同じように再登録しないといけないの？」） */
+const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
+const ptSet=v=>{ try{ localStorage.setItem(PT_KEY,v); }catch(e){} keyDb('readwrite',s=>s.put(v,PT_KEY)); };
+const ptLoad=async()=>{ const a=ptGet(); if(a) return [a,null]; const b=await keyDb('readonly',s=>s.get(PT_KEY)); if(b){ try{ localStorage.setItem(PT_KEY,b); }catch(e){} return [b,'restored']; } return ['',null]; };
 $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); const err=$('posRegErr'); err.textContent=''; const code=$('posRegCode').value.trim();
   if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6けたの数字です'; return; }
   const { data, error } = await sb.rpc('pos_term_register',{p_code:code}); if(error){ err.textContent=error.message; return; }
@@ -44,7 +48,9 @@ async function start(){ const { data:{ session } } = await sb.auth.getSession();
   try{ const tc=await sb.rpc('is_timecard_user'); if(tc.data===true){ await sb.auth.signOut(); $('loginErr').textContent='タイムカード専用IDでは、POS は開けません'; return; }
     const dl=await sb.rpc('db_logs_on'); DBLOG=dl.data===true; }catch(e){}
   /* v12.01・SQL 186：登録した端末だけ開く（関数がまだ無い時は今まで通り開く） */
-  { const pt=await sb.rpc('pos_term_check',{p_token:ptGet()||''}); if(!pt.error&&pt.data&&pt.data.ok===false){ ptSet(null); $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
+  { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
+    let pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note}); if(pt.error&&/p_note|function/i.test(pt.error.message)) pt=await sb.rpc('pos_term_check',{p_token:tk}); /* SQL 233 の前 */
+    if(!pt.error&&pt.data&&pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
   $('login').classList.add('hidden'); checkVersion(); await loadMasters(); rtSub(); await loadHall(); setInterval(loadHall,60000); show('v-hall'); }
 
 async function loadMasters(){
