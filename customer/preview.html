@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.50 -->
+<title>OLIVE 顧客</title><!-- customer v1.51 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -149,7 +149,10 @@ const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円'; /* v1.16：金額は PO
 /* v1.32・SQL 076：管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
 /* v1.48・SQL 218：黒服マイページの中（#hall）も、パスワードを聞かずにマイページから入場券をもらう。管理サイトの中（EA）とちがい、編集は今までどおりメニューの編集パスワードで（オーナー 2026-10-23） */
 const EMB=window.parent!==window&&(location.hash==='#admin'||location.hash==='#hall'), EA=EMB&&location.hash==='#admin', MEM={}; /* v1.49・SQL 227：黒服マイページの中（#hall）も管理サイトの中と同じく、編集の入場券があれば編集パスワードを聞かない（限定項目が可の黒服。オーナー 2026-10-24）。下の EA は編集・メニューの扱いで EMB にした */
-const LS0={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
+/* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
+const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
+const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
+const LS0={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} keyDb('readwrite',s=>v==null?s.delete(k):s.put(v,k)); } };
 const SS0={ get(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v); }catch(e){} } };
 
 const MEMS={ get(k){ return MEM[k]??null; }, set(k,v){ if(v==null) delete MEM[k]; else MEM[k]=String(v); } }, LS=EMB?MEMS:LS0, SS=EMB?MEMS:SS0;
@@ -445,7 +448,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 setInterval(()=>csRefresh(true),60000); /* v1.27：一覧の画面でも1分ごとに読み直す（パスワードが変わったらログアウト） */
 
 kReg(EF);
-if(EMB){ token=null; editTok=null; editExp=0; embAsk().then(d=>{ if(d&&d.token) start(); else { show('vLogin'); $('loginErr').textContent=d&&d.error||'顧客サイトを開けません'; } }); } else start();
+if(EMB){ token=null; editTok=null; editExp=0; embAsk().then(d=>{ if(d&&d.token) start(); else { show('vLogin'); $('loginErr').textContent=d&&d.error||'顧客サイトを開けません'; } }); } else if(token){ keyDb('readwrite',s=>s.put(token,'olive_cs_token')); start(); } else keyDb('readonly',s=>s.get('olive_cs_token')).then(b=>{ if(b){ token=b; LS0.set('olive_cs_token',b); } start(); }); /* 片方の引き出しが空なら、もう片方から戻す */
 </script>
 </body>
 </html>
