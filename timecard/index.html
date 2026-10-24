@@ -167,7 +167,10 @@ const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;he
 
 const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n, t, fn) => await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように（札はタブごと） */, storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
+/* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
+const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
+const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n, t, fn) => await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように（札はタブごと） */, storage:dualStore, storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 // 名前などを画面に入れる時は、タグとして動かないように必ずこれを通す
 const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
@@ -207,7 +210,6 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
 const TC_KEY = 'olive_tc_terminal' + ((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : ''); /* ?slot= で同じブラウザに別の店の端末も（ゲネプロ 2026-10-18） */
 const tcGet = () => { try { return localStorage.getItem(TC_KEY); } catch(e) { return null; } };
 /* SQL 233：合鍵は2つの引き出し（localStorage と IndexedDB）。片方が空ならもう片方から戻す。合わない時も捨てない（オーナー 2026-10-24） */
-const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
 const tcSet = v => { try { localStorage.setItem(TC_KEY, v); } catch(e) {} keyDb('readwrite', s => s.put(v, TC_KEY)); };
 const tcLoad = async () => { const a = tcGet(); if (a) return [a, null]; const b = await keyDb('readonly', s => s.get(TC_KEY)); if (b) { try { localStorage.setItem(TC_KEY, b); } catch(e) {} return [b, 'restored']; } return ['', null]; };
 function showReg(msg){ document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.remove('hidden');
