@@ -53,7 +53,7 @@ async function hallTasks(ph){
     const q = await sb.rpc('hall_open_undo', { p_token: TOKEN, p_task: x.id }); if(q.error){ await uiAlert(q.error.message); return; } again(); });
 }
 
-// 閉店作業の決まった画面（ボトル残量・顧客メモの更新申請・係・同伴・反応◎の確認・着物・今日出たお酒・ドリンク・オールアップ確認・その日のメモ）
+// 閉店作業の決まった画面（ボトル残量・顧客メモの更新申請・係・同伴・反応◎の確認・着物・今日出たお酒・ドリンク・オールアップ確認・その日のメモ）と、開店作業の「連絡先交換の係の確認」
 async function hallCloseTask(x, ph){
   setBack(() => hallTasks(ph)); show('<div class="muted" style="padding:20px">読み込み中…</div>');
   const r = await sb.rpc('hall_close_data', { p_token: TOKEN, p_task: x.id }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
@@ -89,6 +89,13 @@ async function hallCloseTask(x, ph){
         : D.over ? `<div class="card"><div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">1:00 超過の理由（必須）</div><textarea id="clWhy" rows="3" maxlength="500" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></div>${sv('', '理由は日報メールと操作ログに残ります')}`
         : sv('', R.length ? '全員 1:00 以前に退勤しています' : '')}`;
     getData = () => ({ reason: $('clWhy') ? $('clWhy').value : '' });
+  } else if(k === 'contact_check'){   // v0.68・SQL 232：開店作業「連絡先交換の係の確認」（前の営業日の連絡先交換の係を選び直す。提出したキャストへ LINE・正しい係へは次の朝のまとめで。オーナー 2026-10-24）
+    const R = D.rows || [], C = D.casts || [], dd = D.day ? new Date(D.day + 'T00:00:00+09:00') : null;
+    const opt = r => `${r.mode === 'staff' && r.kakari && !C.some(c => c.id === r.kakari) ? `<option value="${r.kakari}" selected>（退店）</option>` : ''}${C.map(c => `<option value="${c.id}" ${r.mode === 'staff' && r.kakari === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="unknown" ${r.mode === 'unknown' ? 'selected' : ''}>わからない</option><option value="none" ${r.mode === 'none' ? 'selected' : ''}>なし</option>`;
+    body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">${dd ? `${dd.getMonth() + 1}/${dd.getDate()}（${'日月火水木金土'[dd.getDay()]}）の連絡先交換　${R.length}件` : '前の営業日の伝票がありません'}</div>${R.map((r, i) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(r.customer)} 様<div class="muted sm">交換 ${esc(r.by)}</div></div>
+      <select data-ck="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px">${opt(r)}</select></div>`).join('') || (dd ? '<div class="muted">連絡先交換はありません</div>' : '')}</div>
+      ${sv('', R.length ? `${KL}を変更して保存すると、提出したキャストに LINE が届きます。正しい${KL}には次の朝のまとめで届きます` : '')}`;
+    getData = () => ({ rows: R.map((r, i) => ({ id: r.id, kakari: $('main').querySelector(`[data-ck="${i}"]`).value })) });
   } else if(k === 'day_memo'){
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;

@@ -187,6 +187,9 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; f.classList.toggle(
         qb.innerHTML=`<div style="display:inline-block;background:#fff;padding:6px;border-radius:8px">${q.createSvgTag({cellSize:5,margin:2})}</div><div style="font-size:13px;color:var(--muted);line-height:1.5;margin-top:4px">まだ番号が出ていない時：キャストの LINE のカメラでこの QR を読むと、${esc(store?.name||'')} のマイページが開きます</div>`;
         $('uiDlgMsg').after(qb); }
       let v; try{ v=await uiPrompt('LINEマイページに表示された4桁の番号'); } finally{ qb.remove(); } if(v===null) return; const code=String(v).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\D/g,''); if(code.length!==4){ toast('4桁の番号を入力してください'); return; }
+      /* v12.10・SQL 232：番号の打ちまちがいで別の人の LINE が付かないように、LINE の名前を確かめてから連携（オーナー 2026-10-24） */
+      const pk=await sb.rpc('pos_cast_link_peek',{p_staff:s.id,p_code:code}); if(pk.error){ await uiAlert(pk.error.message); return; }
+      { const ok=$('uiDlgOk'); ok.textContent='連携'; let y=false; try{ y=await uiConfirm(`${s.display_name}\nLINE『${pk.data?.line_name||''}』と連携しますか？`); } finally{ ok.textContent='OK'; } if(!y) return; }
       const k=await sb.rpc('pos_cast_link',{p_staff:s.id,p_code:code}); if(k.error){ await uiAlert(k.error.message); return; } toast(`連携しました（${k.data?.line_name||'LINE'}）`); renderCasts(); }; });
   $('cDel').onclick=async()=>{ if(!await uiConfirm(`${s.display_name} を削除しますか？（在籍から外します。過去のデータは残ります）`))return; const { error } = await sb.from('staff').update({is_active:false}).eq('id',s.id); if(!error) await logOp('キャスト削除',{name:s.display_name},null,true); toast(error?error.message:'削除しました'); if(!error){ cSel=null; renderCasts(); } };
   // v11.09・SQL 058：時給（日給）＝その人が管理サイト「スタッフ設定」で選んだスライド表（月ごと）と保証時給のうち一番高いもの。日給の人は日給の表と、設定の日給のうち一番高いもの
