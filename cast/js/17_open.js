@@ -72,7 +72,7 @@ async function hallCloseTask(x, ph){
   } else if(k === 'check'){
     const c = v => esc(v || '');
     body = `<div class="card"><div class="muted sm" style="margin-bottom:6px">今日の伝票　${D.length}枚</div>${D.length ? `<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px">
-      <tr>${['卓', 'お客様', '係', '同伴', '反応◎'].map(h => `<th style="text-align:left;font-weight:400;color:var(--muted);padding:5px 4px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
+      <tr>${['卓', 'お客様', KL, '同伴', '反応◎'].map(h => `<th style="text-align:left;font-weight:400;color:var(--muted);padding:5px 4px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
       ${D.map(b => `<tr>${[b.table, b.customers, b.kakari, b.douhan, b.good].map(v => `<td style="padding:6px 4px;border-bottom:1px solid var(--line)">${c(v)}</td>`).join('')}</tr>`).join('')}</table></div>` : '<div class="muted">今日の伝票はありません</div>'}
       <div class="muted sm" style="margin-top:8px">誤りは POS の伝票で修正します</div></div>${sv('確認')}`;
   } else if(k === 'kimono'){

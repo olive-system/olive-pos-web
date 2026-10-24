@@ -16,7 +16,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   const byDay={}; R.forEach(x=>(byDay[x.day]=byDay[x.day]||[]).push(x));
   const md=d=>{ const x=new Date(d+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`; }, mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
   const row=(x,i)=>`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;font-size:14px"><b style="min-width:3em">${esc(x.time||'未定')}</b>${x.douhan?'<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>':''}
-    <span style="flex:1 1 200px">${esc(x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${x.douhan?'同伴':'誘客'} ${esc(x.by_name||'')}${x.kakari_name?'・係 '+esc(x.kakari_name):''}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
+    <span style="flex:1 1 200px">${esc(x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${x.douhan?'同伴':'誘客'} ${esc(x.by_name||'')}${x.kakari_name?'・'+KL+' '+esc(x.kakari_name):''}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
     ${ed?`<button class="ghost sm" data-rve="${i}">直す</button><button class="ghost sm" data-rvx="${i}">取消</button>`:''}</div>`;
   const wireRows=(box,L,day,close)=>{ if(!ed) return;
     box.querySelectorAll('[data-rve]').forEach(b=>b.onclick=()=>{ close&&close(); resvForm(st,S,day,L[+b.dataset.rve]); });
@@ -51,7 +51,7 @@ function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option valu
   const m=modal(`<h2 style="margin:0">${x.id?'予約を直す':'予約を足す'}</h2>
     <div class="grid2" style="margin-top:8px"><label>日付<input type="date" id="rvD" value="${esc(x.day||day)}"></label><label>時刻（空なら未定・同伴は 20:30）<input id="rvT" inputmode="numeric" placeholder="21:00" value="${esc(x.time||'')}"></label>
     <label>お客様<input id="rvN" maxlength="40" value="${esc(x.name||'')}"></label><label>人数<input id="rvG" inputmode="numeric" value="${esc(x.guests||1)}"></label>
-    <label>誘客（同伴の人）<select id="rvB">${opt(x.by||S.find(s=>s.name==='店')?.id,false)}</select></label><label>係<select id="rvK">${opt(x.kakari,true)}</select></label></div>
+    <label>誘客（同伴の人）<select id="rvB">${opt(x.by||S.find(s=>s.name==='店')?.id,false)}</select></label><label>${KL}<select id="rvK">${opt(x.kakari,true)}</select></label></div>
     <label class="ck"><input type="checkbox" id="rvDh" ${x.douhan?'checked':''}>同伴</label>
     <label>メモ<input id="rvMm" maxlength="200" value="${esc(x.memo||'')}"></label>
     <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);

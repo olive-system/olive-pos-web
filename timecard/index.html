@@ -324,6 +324,7 @@ async function punch(staff){
       const q = await sb.rpc('tc_in_at', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
       const min = q.data ? Math.floor((Date.now() - new Date(q.data).getTime()) / 60000) : null;
       if (min != null && min < 30 && !await tcAsk(staff.display_name, min)) return;
+      if (!q.error && !q.data && !await tcAsk(staff.display_name, null)) return; /* 通しチェック3：出勤のつもりで退勤を押すと、本当の退勤が押せなくなる */
     }
     let photoPath = null;
     const blob = await capture();
@@ -353,7 +354,7 @@ async function punch(staff){
 
 function tcAsk(name, min){
   return new Promise(res => { const el = document.getElementById('ask');
-    document.getElementById('askNm').textContent = name; document.getElementById('askMsg').innerHTML = `出勤から <b>${min}分</b> です`;
+    document.getElementById('askNm').textContent = name; document.getElementById('askMsg').innerHTML = min == null ? '出勤の記録がありません' : `出勤から <b>${min}分</b> です`;
     const done = v => { el.classList.remove('show'); res(v); };
     document.getElementById('askNo').onclick = () => done(false); document.getElementById('askYes').onclick = () => done(true);
     el.classList.add('show'); });

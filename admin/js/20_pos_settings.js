@@ -52,7 +52,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
       <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px;margin-top:8px;font-size:14px;line-height:1.7">
       <div><div class="muted" style="font-size:12px">出勤</div>${Object.keys(byT).sort().map(t=>`<div><b>${t}</b>　${byT[t].map(esc).join('・')}</div>`).join('')||'<div class="muted">確定したシフトがありません</div>'}</div>
       <div><div class="muted" style="font-size:12px">同伴</div>${dh.map(r=>`<div>${r.time}　${esc(r.name)} 様 ${r.guests}名（${esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}
-        <div class="muted" style="font-size:12px;margin-top:4px">予約</div>${rv.map(r=>`<div>${r.time}　${esc(r.name)} 様 ${r.guests}名（係 ${esc(r.kakari||'—')}・誘客 ${esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}</div></div></div>`; }
+        <div class="muted" style="font-size:12px;margin-top:4px">予約</div>${rv.map(r=>`<div>${r.time}　${esc(r.name)} 様 ${r.guests}名（${KL} ${esc(r.kakari||'—')}・誘客 ${esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}</div></div></div>`; }
   // 月
   const S={}; (M.shifts||[]).forEach(x=>(S[x.day]=S[x.day]||[]).push(x)); const NG={}; (M.ng||[]).forEach(x=>(NG[x.day]=NG[x.day]||new Set()).add(x.staff_id)); const EV=new Set(M.events||[]), OFF=new Set(M.offs||[]);
   const tg=d=>M.day_targets?.[d]??M.targets?.[String(new Date(d+'T00:00:00+09:00').getDay())]??0;
@@ -106,7 +106,7 @@ function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:
     ${L.sort((a,b)=>a.time.localeCompare(b.time)).map(s=>{ const c=C.find(z=>z.id===s.staff_id)||{}; return `<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:5px 0"><span>${esc(c.name||'')}${rkTag(c.rank)}${c.daily?' <small class="muted">日給</small>':''}</span>${ed?`<select data-sdt="${s.staff_id}" style="width:auto"><option value="">出勤なし</option>${SH_TIMES.map(t=>`<option ${t===s.time?'selected':''}>${t}</option>`).join('')}</select>`:`<b>${s.time}</b>`}</div>`; }).join('')||'<div class="muted">なし</div>'}
     ${ed?`<div class="muted" style="font-size:12px;margin-top:10px">出勤できる人（押すと追加）</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${canAdd.map(c=>`<button class="ghost sm" data-sda="${c.id}">${esc(c.name)}${rkTag(c.rank)}${c.week?` <small class="muted">週${c.week}</small>`:''}${c.earliest?` <small class="muted">${c.earliest}〜</small>`:''}</button>`).join('')||'<span class="muted">なし</span>'}</div>`:''}
     <div class="muted" style="font-size:12px;margin-top:10px">出勤できない日</div><div>${[...ng].map(id=>esc(C.find(c=>c.id===id)?.name||'')).join('・')||'<span class="muted">なし</span>'}</div>
-    <div class="muted" style="font-size:12px;margin-top:10px">予約・同伴</div>${R.map(r=>`<div style="font-size:14px">${r.time}　${esc(r.name)} 様 ${r.guests}名（${r.douhan?'同伴 '+esc(r.by):'係 '+esc(r.kakari||'—')+'・誘客 '+esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}
+    <div class="muted" style="font-size:12px;margin-top:10px">予約・同伴</div>${R.map(r=>`<div style="font-size:14px">${r.time}　${esc(r.name)} 様 ${r.guests}名（${r.douhan?'同伴 '+esc(r.by):KL+' '+esc(r.kakari||'—')+'・誘客 '+esc(r.by)}）</div>`).join('')||'<div class="muted">なし</div>'}
     <div class="bar" style="justify-content:flex-end;margin-top:12px"><button class="ghost" data-x>閉じる</button></div>`);
   let changed=false; const close=()=>{ box.remove(); if(changed) PAGES.shift(); }; box.querySelector('[data-x]').onclick=close;
   if(!ed) return;

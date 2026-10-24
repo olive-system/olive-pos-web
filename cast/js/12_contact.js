@@ -9,7 +9,7 @@ async function contactList(openForm){
   const md = d => `${Number(String(d).slice(5,7))}/${Number(String(d).slice(8,10))}（${WD[new Date(d+'T00:00:00+09:00').getDay()]}）`;
   const tn = Number(r.data.today_n || 0), st = tn ? `<div class="sm" style="color:var(--ok);margin-bottom:8px">今日の提出 ${tn}人</div>` : r.data.today_none ? '<div class="sm" style="color:var(--ok);margin-bottom:8px">今日は交換なしで提出済み</div>' : '';
   show(`<div class="ttl">連絡先交換</div>${st}<button class="btn" id="cxNew" style="margin-bottom:12px">提出</button><div class="card"><div class="gh">今月 ${rows.length}人</div>${rows.map(x => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div>${md(x.date)}${esc(x.name)} 様</div>
-    <div class="muted sm">係 ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div></div>`).join('')||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
+    <div class="muted sm">${KL} ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div></div>`).join('')||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
   $('cxNew').onclick = () => contactForm(r.data.today);
 }
 let cxRows = null;
@@ -34,7 +34,7 @@ async function contactForm(today){
         <label class="f" style="margin-top:8px">${esc(KL)}<select data-cxk="${i}" style="${fld}">${opts(r.k)}</select></label>
         <label class="f" style="margin-top:8px">メモ（任意）<input data-cxm="${i}" maxlength="300" value="${esc(r.m)}" style="${fld}"></label></div>`).join('')}
       <button class="btn g" id="cxAdd">＋ もう1人</button>
-      <button class="btn" id="cxGo" style="margin-top:8px">${cxRows.length}人を提出</button><p class="muted sm" style="margin:10px 2px">提出をすると係に共有されます</p>
+      <button class="btn" id="cxGo" style="margin-top:8px">${cxRows.length}人を提出</button><p class="muted sm" style="margin:10px 2px">提出をすると${KL}に共有されます</p>
       <button class="btn g" id="cxNone">今日は交換なし</button>`);
     $('main').querySelectorAll('[data-cxn]').forEach(e => e.oninput = () => { cxRows[+e.dataset.cxn].n = e.value; save(); });
     $('main').querySelectorAll('[data-cxk]').forEach(e => e.onchange = () => { cxRows[+e.dataset.cxk].k = e.value; save(); });
