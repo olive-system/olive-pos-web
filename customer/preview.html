@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.49 -->
+<title>OLIVE 顧客</title><!-- customer v1.50 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -90,6 +90,9 @@
   /* 15番：入力欄の高さは全部 44px */
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
   .bt .ops button,.bt .b3 button,#btAdd{height:44px!important;box-sizing:border-box;padding-top:0;padding-bottom:0} /* 入力欄の横のボタンも 44px */
+/* v1.50：管理サイト・黒服マイページの中で編集の券が無い人（閲覧のみ・限定項目が不可）には、編集につながるボタンを出さない（オーナー 2026-10-24「不可の人には編集ボタンを表示させなければいいだけ」） */
+html.ro #editInfo,html.ro #editMemo,html.ro #cuDel,html.ro #dBt #btAdd,html.ro [data-bte],html.ro [data-btd],html.ro [data-unexp]{display:none!important}
+html.ro [data-kn]{pointer-events:none;border-color:transparent}
 </style>
 </head>
 <body>
@@ -150,9 +153,9 @@ const LS0={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null;
 const SS0={ get(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v); }catch(e){} } };
 
 const MEMS={ get(k){ return MEM[k]??null; }, set(k,v){ if(v==null) delete MEM[k]; else MEM[k]=String(v); } }, LS=EMB?MEMS:LS0, SS=EMB?MEMS:SS0;
-let embWait=null, embEdit=null, embEditExp=0; // 管理サイトに入場券をたのむ（返事が来るまで待つ）
+let embWait=null, embEdit=null, embEditExp=0; const setRO=()=>document.documentElement.classList.toggle('ro',EMB&&!embEdit); setRO(); // v1.50：券が来るまでは出さない // 管理サイトに入場券をたのむ（返事が来るまで待つ）
 function embAsk(){ if(!embWait) embWait=new Promise(res=>{ const on=e=>{ if(e.origin!==location.origin||e.source!==window.parent||!e.data||e.data.type!=='olive-cs-auth') return;
-    window.removeEventListener('message',on); embWait=null; const d=e.data; token=d.token||null; embEdit=d.edit_token||null; embEditExp=d.edit_expires_at?new Date(d.edit_expires_at).getTime():0; editTok=embEdit; editExp=embEditExp; /* v1.36：管理サイトの中では、編集の入場券があれば最初から編集できる */ try{ paintEdit(); }catch(e){} res(d); };
+    window.removeEventListener('message',on); embWait=null; const d=e.data; token=d.token||null; embEdit=d.edit_token||null; embEditExp=d.edit_expires_at?new Date(d.edit_expires_at).getTime():0; editTok=embEdit; editExp=embEditExp; setRO(); /* v1.36：管理サイトの中では、編集の入場券があれば最初から編集できる */ try{ paintEdit(); }catch(e){} res(d); };
   window.addEventListener('message',on); window.parent.postMessage({type:'olive-cs-need'},location.origin); }); return embWait; }
 let token=LS.get('olive_cs_token'), editTok=SS.get('olive_cs_edit'), editExp=Number(SS.get('olive_cs_edit_exp')||0);
 let boot=null, custs=[], mode='all', monthsSel=null, curId=null, cur=null;
