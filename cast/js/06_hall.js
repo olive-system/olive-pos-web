@@ -4,10 +4,18 @@ async function hallTodo(){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
   const r = await sb.rpc('hall_todos', { p_token: TOKEN }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
   const D = r.data, L = D.items || [], d = new Date(D.day+'T00:00:00+09:00');
-  const st = x => x.status === 'done' ? `<b style="color:var(--pri)">済　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : '<b style="color:var(--warn)">未</b>';
-  show(`<div class="ttl">TODO　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>${L.map((x,i) => `<button class="card" data-td="${i}" style="display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer">
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(x.name)}</b>${TODO_SLOT[x.slot]?`<small class="muted" style="border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap">${TODO_SLOT[x.slot]}</small>`:''}</div>
-    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:14px"><span class="muted">${[x.need_photo?'写真':'', x.need_note?'書く':''].filter(Boolean).join('・')}</span>${st(x)}</div></button>`).join('') || '<div class="card muted">今日の TODO はありません</div>'}`);
+  const st = x => x.status === 'done' ? `<b style="color:var(--ok)">完了　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>${x.late?' <b style="color:var(--warn)">17:00 超過</b>':''}` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : `<b style="color:var(--warn)">未完了${x.late?'　17:00 超過':''}</b>`;
+  /* v0.69・SQL 234：休日分（休みの日の TODO を次の営業日に。オーナー 2026-10-25「営業日初日に全部やる」「長い連休は17時まで」）。言葉は用語集：休日分・本日分・期限 閉店・期限 17:00 */
+  const md = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()} ${WD[x.getDay()]}`; };
+  const tag = t => `<small class="muted" style="border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap">${t}</small>`;
+  const card = (x,i) => `<button class="card" data-td="${i}" style="display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(x.name)}</b>${x.carry ? tag(md(x.day)) : TODO_SLOT[x.slot] ? tag(TODO_SLOT[x.slot]) : ''}</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:14px"><span class="muted">${[x.need_photo?'写真':'', x.need_note?'書く':''].filter(Boolean).join('・')}</span>${st(x)}</div></button>`;
+  const C = L.map((x,i) => [x,i]).filter(([x]) => x.carry), T = L.map((x,i) => [x,i]).filter(([x]) => !x.carry), cd = D.carry_days || [], late17 = D.deadline === '17:00';
+  const sec = (t, right, warn) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 2px 6px;font-weight:700;${warn?'color:var(--warn)':''}"><span>${t}</span>${right||''}</div>`;
+  show(`<div class="ttl">TODO　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>
+    ${C.length ? sec(`休日分（${cd.length>2 ? `${md(cd[0])}〜${md(cd[cd.length-1])}` : cd.map(md).join('・')}）`, `<span style="${late17?'background:var(--warn-soft);color:var(--warn);':'color:var(--muted);font-weight:400;'}border-radius:6px;padding:2px 8px;font-size:13px;white-space:nowrap">期限 ${esc(D.deadline||'閉店')}</span>`, late17) + C.map(([x,i]) => card(x,i)).join('') + sec('本日分') : ''}
+    ${T.map(([x,i]) => card(x,i)).join('') || '<div class="card muted">本日分の TODO はありません</div>'}`);
   $('main').querySelectorAll('[data-td]').forEach(b => b.onclick = () => hallTodoOne(L[+b.dataset.td]));
 }
 // v0.52：写真は10枚まで（並べて見て × で外せる）・完了の後も精算までは「やり直す」（黒服の報告 2026-10-22 → オーナー「この形でよい」「精算までは直せる」・SQL 176）
@@ -25,7 +33,7 @@ function hallTodoOne(x, keep){
     ${x.need_photo ? `<div id="tdPs">${grid(tdShots.map((f,i)=>`<div style="position:relative"><img src="${f.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button data-tdx="${i}" aria-label="外す" style="position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:14px;border:none;background:var(--ink);color:var(--card);font-size:16px;line-height:1;padding:0">×</button></div>`).join('') + (tdShots.length<10?`<label style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px dashed var(--line);border-radius:8px;cursor:pointer;color:var(--muted)">＋撮る<input type="file" id="tdP" accept="image/*" capture="environment" style="display:none"></label>`:''))}<div class="muted sm" style="text-align:center;margin-top:4px">${tdShots.length?`写真 ${tdShots.length}枚`:'写真を撮ってください'}${tdShots.length>=10?'（10枚まで）':''}</div></div>` : ''}
     <button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`);
   if(done){ $('tdRedo').onclick = async () => { if(!await uiConfirm('やり直しますか？\nこの TODO は「未」に戻ります。もう一度送ってください')) return;
-      $('tdRedo').disabled = true; const q = await sb.rpc('hall_todo_redo', { p_token: TOKEN, p_item: x.id }); if(q.error){ $('tdRedo').disabled = false; await uiAlert(q.error.message); return; }
+      $('tdRedo').disabled = true; const q = await sb.rpc('hall_todo_redo', { p_token: TOKEN, p_item: x.id , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ $('tdRedo').disabled = false; await uiAlert(q.error.message); return; }
       hallTodoOne({ ...x, status: 'open', photos: [], photo: null }); }; return; }
   const redraw = () => hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null });
   if($('tdP')) $('tdP').onchange = () => { const f = $('tdP').files[0]; if(!f) return; tdShots.push({ file: f, url: URL.createObjectURL(f) }); redraw(); };
@@ -36,10 +44,10 @@ function hallTodoOne(x, keep){
     if(x.need_photo && !tdShots.length){ await uiAlert('写真を撮ってください'); return; }
     $('tdGo').disabled = true;
     try{
-      if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length }); if(p.error) throw p.error;
+      if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length , ...(x.carry ? { p_day: x.day } : {}) }); if(p.error) throw p.error;
         for(let i = 0; i < tdShots.length; i++){ $('tdGo').textContent = `送っています（${i+1}/${tdShots.length}）`;
           const blob = await shrinkJpeg(tdShots[i].file); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; } }
-      const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note }); if(q.error) throw q.error;
+      const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error) throw q.error;
       tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = [];
       await uiAlert('完了しました'); hallTodo();
     }catch(e){ $('tdGo').disabled = false; $('tdGo').textContent = x.need_photo ? '写真を送って完了' : '完了'; await uiAlert(e.message || String(e)); }
@@ -48,7 +56,7 @@ function hallTodoOne(x, keep){
     show(`<div class="ttl">${esc(x.name)}</div><label class="f" style="display:block">できない理由<textarea id="tdR" maxlength="500" style="${fld};min-height:100px">${esc(x.reason||'')}</textarea></label><button class="btn" id="tdRGo">送る</button>`);
     setBack(() => hallTodoOne(x, {}));
     $('tdRGo').onclick = async () => { const rs = $('tdR').value.trim(); if(!rs){ await uiAlert('理由を書いてください'); return; }
-      $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs }); if(q.error){ $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
+      $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
   };
 }
 function hallSlipHtml(P){
