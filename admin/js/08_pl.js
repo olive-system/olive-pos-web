@@ -6,9 +6,9 @@ const plYen=v=>Number(v||0)?yen(v).replace(/^-/,'−'):'—';
 const plRate=(a,b)=>Number(b||0)?(Math.round(Number(a||0)/Number(b)*10000)/100).toFixed(2)+'%':'—%';
 // v1.11：収支の上の「置き」と「ユニーク数」（まとめと同じ数え方）。あとから入れる
 async function plFill(st,m){ setTimeout(async()=>{
-  const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); if($('plOki')) $('plOki').textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP');
+  const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); document.querySelectorAll('[data-pl=oki]').forEach(e=>e.textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP')); /* v1.60：箱が2つの形（パソコン・スマホ）にあるので両方に */
   try{ const set=new Set(); for(let i=0;i<20;i++){ const q=await sb.from('bills').select('bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').range(i*1000,i*1000+999); if(q.error) throw 0; (q.data||[]).forEach(b=>(b.bill_customers||[]).forEach(c=>c.customer_id&&set.add(c.customer_id))); if((q.data||[]).length<1000) break; }
-    if($('plUq')) $('plUq').textContent=set.size+'名'; }catch(e){ if($('plUq')) $('plUq').textContent='—'; } },0); }
+    document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent=set.size+'名'); }catch(e){ document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent='—'); } },0); }
 const plLabor=x=>Number(x.cast_pay||0)+Number(x.cast_adv||0)+(x.hall_pay==null?Number(x.hall_adv||0):Math.max(Number(x.hall_pay||0),Number(x.hall_adv||0))); // 総人件費
 function plTotals(d){ const D=d.days||[], S=k=>D.reduce((a,x)=>a+Number(x[k]||0),0); const t={date:'合計',cash:S('cash'),invoice:S('invoice'),card:S('card'),sales:S('sales'),kakari_sub:S('kakari_sub'),douhan_sub:S('douhan_sub'),groups:S('groups'),guests:S('guests'),
   cast_pay:Number(d.cast_net||0),cast_adv:S('cast_adv'),hall_adv:S('hall_adv'),hall_pay:Number(d.hall_pay||0),cash_in:S('cash_in'),cash_out:S('cash_out')}; t.cast_gross=t.cast_pay+t.cast_adv; return t; }
@@ -28,9 +28,12 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
   const Nn=v=>Number(v||0), per=(a,b)=>Nn(b)?Math.round(Nn(a)/Nn(b)).toLocaleString('ja-JP'):'0', cm=v=>Nn(v).toLocaleString('ja-JP'), lab=plLabor(T), ex=lab+Nn(T.cash_out);
   // v1.17：箱の中は「名前（左）｜数字（右）」の表の形（オーナー「現金 98,000／カード 4,243,000 …こんな感じ。他の枠も」）
   const kb=(k,v,rows)=>`<div class="card" style="margin:0;padding:10px 12px"><div class="muted" style="font-size:12px">${k}</div><div style="font-size:20px;font-weight:700;margin:2px 0 6px">${v}</div>${rows.length?`<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px">${rows.map(([a,b])=>`<span class="muted">${a}</span><span style="text-align:right;font-variant-numeric:tabular-nums">${b}</span>`).join('')}</div>`:''}</div>`;
-  $('main').innerHTML=head+`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px">
-      ${kb('売上',plYen(T.sales),[['現金',cm(T.cash)],['カード',cm(T.card)],['請求',cm(T.invoice)],['置き','<span id="plOki">…</span>']])}
-      ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[['ユニーク','<span id="plUq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]])}
+  /* v1.60：スマホの幅では4つを1つの箱に行で並べる（売上は 現金・カード／請求・置き の2行。オーナー 2026-10-25 案ウ） */
+  const kl=(k,v,lines,n)=>`<div style="padding:8px 0;${n?'border-top:1px solid var(--line)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="muted" style="font-size:13px">${k}</span><b style="font-size:18px">${v}</b></div>${lines.map(r=>`<div style="display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;margin-top:2px">${r.map(([x,y])=>`<span><span class="muted">${x}</span> ${y}</span>`).join('')}</div>`).join('')}</div>`;
+  const phoneTop=`<div class="card pltopl" style="margin:0 0 12px;padding:6px 12px">${kl('売上',plYen(T.sales),[[['現金',cm(T.cash)],['カード',cm(T.card)]],[['請求',cm(T.invoice)],['置き','<span data-pl="oki">…</span>']]],0)}${kl('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[[['ユニーク','<span data-pl="uq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]]],1)}${kl('経費',plYen(ex),[[['キャスト',cm(Nn(T.cast_pay)+Nn(T.cast_adv))],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))],['諸経費',cm(T.cash_out)]]],1)}${kl('入金',plYen(T.cash_in),[],1)}</div>`;
+  $('main').innerHTML=head+phoneTop+`<div class="pltop4" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px">
+      ${kb('売上',plYen(T.sales),[['現金',cm(T.cash)],['カード',cm(T.card)],['請求',cm(T.invoice)],['置き','<span data-pl="oki">…</span>']])}
+      ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[['ユニーク','<span data-pl="uq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]])}
       ${kb('経費',plYen(ex),[['キャスト',cm(Nn(T.cast_pay)+Nn(T.cast_adv))],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))],['諸経費',cm(T.cash_out)]])}
       ${kb('入金',plYen(T.cash_in),[])}</div>
     <div id="invBox" style="margin-bottom:14px"><div class="card muted">請求書の未入金を読み込み中…</div></div>${(plFill(st,m),'')}
