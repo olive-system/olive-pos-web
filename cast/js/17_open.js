@@ -10,6 +10,9 @@ const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);bord
 const ckAll = x => (x.checks || []).every((c, j) => (opChecks[x.id] || []).includes(j));
 function hallOpen(){ return hallTasks('open'); }
 function hallClose(){ return hallTasks('close'); }
+// v0.69・SQL 234：連休明けの休日分の知らせ（連休前の日の閉店作業の一番上）
+const aheadHtml = A => { if(!A || !A.items || !A.items.length) return ''; const W = ['日','月','火','水','木','金','土'], md = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()}（${W[x.getDay()]}）`; }, ms = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()} ${W[x.getDay()]}`; }, D = A.days || [];
+  return `<div style="background:var(--warn-soft);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.6"><b style="color:var(--warn)">連休明け ${md(A.next_day)} は休日分の TODO が ${A.items.length}件あります</b><div class="muted" style="font-size:13px">${md(D[0])}〜${md(D[D.length-1])}の${D.length}日間が休みです。期限 17:00</div><div style="margin-top:4px;font-size:13px">${A.items.map((x,i) => `${i+1}. ${esc(x.name)}（${ms(x.day)}）`).join('<br>')}</div></div>`; };
 async function hallTasks(ph){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
   const r = await sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
@@ -29,9 +32,10 @@ async function hallTasks(ph){
     else right = `${wipTag(x.wip_by)}${tBtn('opv', i, '表示')}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid var(--line)">
     <div style="flex:1;line-height:1.4">${esc(x.name)}${mine && simple && x.status !== 'done' ? `<div class="muted sm">作業中（あなた）${x.need_photo ? `　写真${opShots[x.id] ? `${opShots[x.id].length}枚` : ''}` : ''}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}` : ''}</div>${right}</div>`; };
-  show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>
+  show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div><div id="opAhead"></div>
     <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${L.length}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
   swWire();
+  if(ph === 'close') sb.rpc('hall_todo_ahead', { p_token: TOKEN }).then(q => { const el = $('opAhead'); if(el && !q.error) el.innerHTML = aheadHtml(q.data); }); /* v0.69・SQL 234：連休前の日の閉店作業に、連休明けの休日分を知らせる（オーナー 2026-10-25） */
   const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
   $('main').querySelectorAll('[data-opc]').forEach(c => c.onchange = () => { const [i, j] = c.dataset.opc.split(':').map(Number), x = L[i], a = new Set(opChecks[x.id] || []);
     c.checked ? a.add(j) : a.delete(j); opChecks[x.id] = [...a]; const d = $('main').querySelector(`[data-opd="${i}"]`); if(d) d.disabled = !ckAll(x); });
