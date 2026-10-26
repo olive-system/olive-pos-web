@@ -12,11 +12,13 @@ async function resvList(){
   const rows = RESV.map((x, i) => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><span>${esc(resvLine(x))}</span>${x.douhan?'<b class="sm" style="color:var(--ok)">同伴</b>':''}</div>
     <div class="muted sm">${x.mine?`誘客 自分・${KL} ${x.kakari_name===ME.name?'自分':esc(x.kakari_name||'')}`:`誘客 ${esc(x.by)}・${KL} 自分`}${x.memo?`・${esc(x.memo)}`:''}</div>
     ${x.mine&&x.thanked?`<div class="sm" style="color:var(--ok);margin-top:2px">ありがとう ${esc(x.kakari_name||'')}${x.thanks_note?`「${esc(x.thanks_note)}」`:''}</div>`:''}
-    ${!x.mine?(x.thanked?'<div class="sm" style="color:var(--ok);margin-top:2px">ありがとう済み</div>':`<div style="margin-top:6px"><button class="btn g" data-th="${i}" style="width:auto;padding:6px 16px">ありがとう</button></div>`):''}
+    ${!x.mine?(x.thanked?`<button data-thv="${i}" style="display:block;background:none;border:none;padding:2px 0 0;font:inherit;font-size:13px;color:var(--ok);text-align:left">ありがとう済み ›</button>`:`<div style="margin-top:6px"><button class="btn g" data-th="${i}" style="width:auto;padding:6px 16px">ありがとう</button></div>`):''}
     ${x.mine?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn g" data-ed="${i}" style="width:auto;padding:6px 16px">変更</button><button class="btn g" data-cx="${i}" style="width:auto;padding:6px 16px;color:var(--warn)">取消</button></div>`:''}</div>`).join('');
   show(`<button class="btn" id="rvNew" style="margin-bottom:12px">予約／同伴申請</button><div class="card"><div class="gh">予約一覧</div>${rows||'<div class="muted sm" style="padding:8px 0">予約はありません</div>'}</div>`);
   $('rvNew').onclick = () => resvForm(null);
   $('main').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => resvForm(RESV[b.dataset.ed]));
   $('main').querySelectorAll('[data-cx]').forEach(b => b.onclick = () => resvCancel(RESV[b.dataset.cx]));
   $('main').querySelectorAll('[data-th]').forEach(b => b.onclick = () => resvThanks(RESV[b.dataset.th]));
+  /* v0.77：「ありがとう済み」を押すと、送ったありがとうの文を小窓で（オーナー 2026-10-27「なんてありがとうを送ったのかがわかるように。小窓で良い」）。文は SQL 113 の cast_resv_thanks と同じ形 */
+  $('main').querySelectorAll('[data-thv]').forEach(b => b.onclick = () => { const x = RESV[b.dataset.thv]; uiAlert(`${x.by}さんに送ったありがとう\n\n【ありがとう】${ME.name}\n${resvLine(x).split('　')[0]}　${x.guests}名\n${x.name} 様${x.thanks_note ? `\nひとこと：${x.thanks_note}` : ''}`); });
 }
