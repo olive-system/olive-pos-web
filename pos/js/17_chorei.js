@@ -32,7 +32,7 @@ async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class
       <div style="display:grid;grid-template-columns:80px 1fr 90px 1fr;gap:2px 10px;font-size:14px;margin-top:6px"><span class="muted">誕生日</span><span ${cu.bday_in!=null&&cu.bday_in<=7?'style="color:var(--warn);font-weight:700"':''}>${bd}</span><span class="muted">反応◎</span><span>${esc(cu.good||'—')}</span><span class="muted">ボトル</span><span>${bt}</span><span class="muted">前回の来店</span><span>${ls}</span></div>
       <div style="background:var(--gold-soft);border-radius:8px;padding:8px 10px;margin-top:6px;font-size:15px;line-height:1.7;white-space:pre-wrap"><span class="muted" style="font-size:13px">メモ</span>\n${esc(cu.memo||'なし')}</div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px">${g.ok_at?`<button class="sm" data-chu="${g.id}">確認の取消</button>`:`<button class="primary" data-chk="${g.id}" style="padding:0 48px;height:52px;font-size:17px">確認</button>`}</div></div></div>`; };
-  const SH={}; (C.shifts||[]).forEach(x=>{ (SH[x.time]=SH[x.time]||[]).push(esc(x.name)+(x.douhan?'（同伴）':'')); });
+  const SH={}; (C.shifts||[]).forEach(x=>{ (SH[x.time]=SH[x.time]||[]).push(esc(x.name)+(Number(x.douhan)>1?`（同伴${Number(x.douhan)}件）`:x.douhan?'（同伴）':'')); /* v12.15・SQL 258：同伴は申請の件数 */ });
   const abs=(ar.error?[]:ar.data||[]), hm=t=>new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
   const sl=(sr.error?[]:sr.data.rows||[]).filter(x=>x.worked&&x.count==null).map(x=>esc(staffAll.find(z=>z.id===x.staff_id)?.display_name||'')).filter(Boolean);
   const todo=[sl.length?row('<span style="min-width:110px">アプローチ</span>',`<span>${sl.join('・')} <small class="muted">（未連絡）</small></span>`):'',

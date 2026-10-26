@@ -28,6 +28,7 @@
   .row.s{border-top:1px solid var(--line);font-weight:700}.row.n{font-size:18px;border-top:2px solid var(--head);padding-top:8px;margin-top:4px}.gh{font-size:12px;color:var(--muted);margin-bottom:2px}.ttl{text-align:center;font-weight:700;margin-bottom:6px}
   .sign{width:100%;height:180px;border:1px solid var(--line);border-radius:8px;background:var(--card);touch-action:none;display:block}
   .dlg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50}
-  .dlg .box{background:var(--card);border-radius:16px;padding:20px 18px 16px;width:min(360px,100%);text-align:center}.dlg p{margin:0 0 16px;white-space:pre-wrap;line-height:1.6}
+  .dlg .box{background:var(--card);border-radius:16px;padding:20px 18px 16px;width:min(360px,100%);text-align:left} /* v0.71：知らせの箱の文は左揃え（オーナー 2026-10-26。スキル olive-left-align） */
+  .tdy{background:var(--head)!important;border-color:var(--head)!important;color:#fff!important}.tdy small{color:#fff!important} /* v0.71：カレンダーの今日（案ウ） */.dlg p{margin:0 0 16px;white-space:pre-wrap;line-height:1.6}
   .dlg .bt{display:flex;gap:8px}.dlg .bt .btn{flex:1}
   .hide{display:none!important}
