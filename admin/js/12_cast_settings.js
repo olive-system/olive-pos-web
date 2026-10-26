@@ -71,14 +71,14 @@ async function csCastPart(box,st,ed,m){
       `<button class="ghost sm" data-k="ex" data-v="${esc(JSON.stringify(t.exempt_fines))}">${t.exempt_fines.length?esc(t.exempt_fines.join('・')):'—'}</button>`,
       sel('dp',s.day_pay_ok==null?'':String(s.day_pay_ok),[['','—'],['true','可'],['false','不可']]), sel('ct2',s.contract_done==null?'':String(s.contract_done),[['','—'],['true','済'],['false','未']])]; };
   const HD=['担当黒服','報酬','スライド表','日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払（立替）','契約書','メモ'];
-  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">キャスト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="csCancel">キャンセル</button><button class="primary" id="csSave">保存</button>':`<button class="ghost" id="csAdd" ${lock?'disabled':''}>＋追加</button><button class="ghost" id="csEd" ${lock?'disabled':''}>編集</button>`):''}</div>
+  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">キャスト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="csCancel">キャンセル</button><button class="primary" id="csSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="csAdd">＋追加</button><button class="ghost" id="csEd">編集</button>`)):''}</div>
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${E?esc(r.s.display_name):`<a data-open="${r.s.id}">${esc(r.s.display_name)}</a>`}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}<td>${nc[r.s.id]?nc[r.s.id]+'件':'—'}</td></tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍のキャストがいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'担当黒服・日払（立替）・契約書以外を変更すると、保存の時に「○月以降／○月のみ」を選びます':'名前を押すと、メモと個別設定が開きます'}${ed&&!E?'。修正は「編集」から':''}</div>`;
   box.querySelectorAll('[data-open]').forEach(a=>a.onclick=()=>{ const s=casts.find(x=>x.id===a.dataset.open); csDetail={store:st,s}; csTab='memo'; PAGES.set_cast(); }); // v0.44：メモを最初に開く
   if(!ed) return;
-  if(!E){ $('csEd').onclick=()=>{ csEdit='cast'; PAGES.set_cast(); }; $('csAdd').onclick=()=>staffEdit(st,null,'cast'); return; }
+  if(!E){ if(lock) return; $('csEd').onclick=()=>{ csEdit='cast'; PAGES.set_cast(); }; $('csAdd').onclick=()=>staffEdit(st,null,'cast'); return; }
   $('csCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
   const tb=box.querySelector('table.cs');
   tb.querySelectorAll('tr[data-sid]').forEach(tr=>{ const q=k=>tr.querySelector(`[data-k=${k}]`);
@@ -136,7 +136,10 @@ async function csCastPart(box,st,ed,m){
 // 提出（v1.24 オーナー 2026-10-17「出勤できる日のみ」→「提出」）：出勤希望＝LINEマイページで「出勤できる日」を出す（自動作成で先に入れる）。休み希望＝「出勤できない日」を出す
 // 入店日が空の子は、最初に出勤した日を入店日の代わりに使う（入店から2か月は売り出し中で先に入れる）
 // v1.25・SQL 139：シフトの「優先」「控え」（オーナー 2026-10-17。本人には絶対に出さない＝管理サイトだけ）
-const rkTag=r=>r>0?' <small class="muted">優先</small>':r<0?' <small class="muted">控え</small>':'';
+// v1.61：優先と控えの間は「標準」（オーナー 2026-10-26「いわゆる普通が欲しい」→ 標準）
+const rkTag=r=>` <small class="muted">${r>0?'優先':r<0?'控え':'標準'}</small>`;
+// v1.61：ほかの表を編集中は、押せない「編集」「＋追加」を出さず、理由を出す（オーナー 2026-10-26「オーナーの私がさわれない」）
+const csLockTag=()=>`<span class="muted" style="font-size:13px">${({cast:'キャスト',hall:'黒服',shift:'シフト'})[csEdit]||''}の表を編集中</span>`;
 async function csShiftPart(box,st,ed,m){
   const r=await sb.rpc('admin_shift_staff',{p_store:st});
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
@@ -148,14 +151,14 @@ async function csShiftPart(box,st,ed,m){
     :[sel('w',c.week??'',[['','未設定'],...[1,2,3,4,5,6,7].map(n=>[n,`週 ${n}日`])]), sel('e',c.earliest??'',[['','未設定'],...SH_TIMES.map(t=>[t,t+'〜'])]),
       sel('o',String(!!c.ok_only),[['false','休み希望'],['true','出勤希望']]), `<input type="date" data-k="j" value="${esc(c.joined||'')}" style="width:auto">`];
   const HD=['希望出勤日数','出勤可能時間','提出','入店日'];
-  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">シフト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="cshCancel">キャンセル</button><button class="primary" id="cshSave">保存</button>':`<button class="ghost" id="cshEd" ${lock?'disabled':''}>編集</button>`):''}</div>
+  box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">シフト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="cshCancel">キャンセル</button><button class="primary" id="cshSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="cshEd">編集</button>`)):''}</div>
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
-  ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${E?`<span style="display:flex;justify-content:space-between;align-items:center;gap:8px">${esc(c.name)}${sel('r',String(c.rank||0),[['1','優先'],['0','—'],['-1','控え']])}</span>`:`<a data-shopen="${c.id}">${esc(c.name)}</a>${rkTag(c.rank)}`}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
+  ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${E?`<span style="display:flex;justify-content:space-between;align-items:center;gap:8px">${esc(c.name)}${sel('r',String(c.rank||0),[['1','優先'],['0','標準'],['-1','控え']])}</span>`:`<a data-shopen="${c.id}">${esc(c.name)}</a>${rkTag(c.rank)}`}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">優先：自動作成で同伴の次に入れる／控え：足りない日だけ入れる（管理サイトだけ・本人には出ない）<br>提出　休み希望：休む日を提出／出勤希望：出られる日を提出（自動作成で優先）<br>入店から2か月は売り出し中（自動作成で優先）${ed&&!E?'。修正は「編集」から':''}</div>`;
   // v1.14：シフトの表の名前からも、メモと個別設定を開く（キャストの表と同じ）
   box.querySelectorAll('[data-shopen]').forEach(a=>a.onclick=async()=>{ const q=await csList(st); const s=(q.data||[]).find(x=>x.id===a.dataset.shopen); if(!s) return; csDetail={store:st,s}; csTab='memo'; PAGES.set_cast(); });
   if(!ed) return;
-  if(!E){ $('cshEd').onclick=()=>{ csEdit='shift'; PAGES.set_cast(); }; return; }
+  if(!E){ if(lock) return; $('cshEd').onclick=()=>{ csEdit='shift'; PAGES.set_cast(); }; return; }
   $('cshCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
   const sv=$('cshSave'); sv.onclick=guard(sv,async()=>{
     const out=[];
