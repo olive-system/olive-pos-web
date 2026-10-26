@@ -1,8 +1,9 @@
 // v0.55・SQL 194：開店作業（オーナー 2026-10-22「毎日同じ作業の開店作業と、TODO とを一緒にしないで」「1タスクごとに完了ボタン、その人がやったことを記録」）
 // v0.57・SQL 209：閉店作業も同じ画面（オーナー 2026-10-23「閉店作業も黒服のマイページに」「保存した人がやったことに」「誰が作業中かの表示」）
 // v0.59・SQL 214：項目の中の確認（checks。名刺の Eight 登録＝登録済みの確認・変更の確認）。全部に印を付けると「完了」を押せる（オーナー 2026-10-23「登録済みか確認のチェックボタンを中に」）
+// v0.76・SQL 262：コメントが「要る」の項目は、作業中にコメントの欄（書くのは任意。オーナー 2026-10-26「相違があれば、コメントで報告」）。完了の後はコメントをほかの黒服にも出す
 // 開始 → 作業中（ほかの黒服の画面にも出る）→ 完了（写真の項目は写真を選んで完了・決まった画面の項目は保存）。ほかの人が作業中の時は「交代」。対象が「限定」の項目は、限定項目「可」の黒服だけ
-let opShots = {}, opChecks = {}, opSwitch = false; /* v0.63：リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
+let opShots = {}, opChecks = {}, opNotes = {}, opSwitch = false; /* v0.63：リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
 const TASK_TTL = { open:'開店作業', close:'閉店作業' };
 const hm = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
 const tBtn = (k, i, t, g) => `<button class="btn${g ? ' g' : ''}" data-${k}="${i}" style="display:inline-block;width:auto;flex:none;padding:7px 14px;font-size:14px">${t}</button>`;
@@ -31,7 +32,7 @@ async function hallTasks(ph){
     else if(simple) right = `${x.need_photo ? `<label class="btn g" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" multiple data-opp="${i}" style="display:none"></label>` : ''}${tBtn('opd', i, '完了').replace('<button', ckAll(x) ? '<button' : '<button disabled')}`;
     else right = `${wipTag(x.wip_by)}${tBtn('opv', i, '表示')}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid var(--line)">
-    <div style="flex:1;line-height:1.4">${esc(x.name)}${mine && simple && x.status !== 'done' ? `<div class="muted sm">作業中（あなた）${x.need_photo ? `　写真${opShots[x.id] ? `${opShots[x.id].length}枚` : ''}` : ''}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}` : ''}</div>${right}</div>`; };
+    <div style="flex:1;line-height:1.4">${esc(x.name)}${x.status === 'done' && x.detail && x.detail.comment ? `<div class="sm" style="white-space:pre-wrap;margin-top:2px">コメント：${esc(x.detail.comment)}</div>` : ''}${mine && simple && x.status !== 'done' ? `<div class="muted sm">作業中（あなた）${x.need_photo ? `　写真${opShots[x.id] ? `${opShots[x.id].length}枚` : ''}` : ''}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}${x.need_comment ? `<textarea data-opk="${i}" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;margin-top:8px;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}` : ''}</div>${right}</div>`; };
   show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div><div id="opAhead"></div>
     <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${L.length}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
   swWire();
@@ -39,6 +40,7 @@ async function hallTasks(ph){
   const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
   $('main').querySelectorAll('[data-opc]').forEach(c => c.onchange = () => { const [i, j] = c.dataset.opc.split(':').map(Number), x = L[i], a = new Set(opChecks[x.id] || []);
     c.checked ? a.add(j) : a.delete(j); opChecks[x.id] = [...a]; const d = $('main').querySelector(`[data-opd="${i}"]`); if(d) d.disabled = !ckAll(x); });
+  $('main').querySelectorAll('[data-opk]').forEach(t => t.oninput = () => { opNotes[L[+t.dataset.opk].id] = t.value; });
   const start = async (x, take) => { const q = await sb.rpc('hall_task_start', { p_token: TOKEN, p_task: x.id, p_take: !!take }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   $('main').querySelectorAll('[data-ops]').forEach(b => b.onclick = async () => { const x = at(b); b.disabled = true; if(!await start(x)) return; if(x.kind === 'simple') again(); else hallCloseTask(x, ph); });
   $('main').querySelectorAll('[data-opt]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`${x.wip_by}さんが作業中です。\n交代しますか？`, '交代')) return; if(!await start(x, true)) return; if(x.kind === 'simple') again(); else hallCloseTask(x, ph); });
@@ -50,8 +52,8 @@ async function hallTasks(ph){
       if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ await uiAlert('写真を選んでから「完了」を押してください'); b.disabled = false; return; }
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         for(let i = 0; i < f.length; i++){ const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; } }
-      const q = await sb.rpc('hall_open_done', { p_token: TOKEN, p_task: x.id }); if(q.error) throw q.error;
-      delete opShots[x.id]; delete opChecks[x.id]; again();
+      const q = await sb.rpc('hall_open_done', { p_token: TOKEN, p_task: x.id, ...(x.need_comment ? { p_comment: opNotes[x.id] || '' } : {}) }); if(q.error) throw q.error;
+      delete opShots[x.id]; delete opChecks[x.id]; delete opNotes[x.id]; again();
     }catch(e){ b.disabled = false; await uiAlert(e.message || String(e)); again(); } });
   $('main').querySelectorAll('[data-opu]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`「${x.name}」の完了を取り消しますか？`, '取消')) return;
     const q = await sb.rpc('hall_open_undo', { p_token: TOKEN, p_task: x.id }); if(q.error){ await uiAlert(q.error.message); return; } again(); });
