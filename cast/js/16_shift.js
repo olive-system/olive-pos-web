@@ -9,7 +9,7 @@
 let SHIFT = null;
 // v0.71：今日のマスはオリーブでぬる（文字は白。オーナー 2026-10-26 案ウ）。今日＝営業日（朝8時で切りかわる。POS と同じ）
 const shToday = () => (SHALL && SHALL.today) || new Date(Date.now() + (9 - 8) * 3600e3).toISOString().slice(0, 10);
-// v0.71・SQL 253：同伴はその日の同伴の申請の件数（1人2件なら「同伴2件」）
+// v0.71・SQL 258：同伴はその日の同伴の申請の件数（1人2件なら「同伴2件」）
 const dhL = n => Number(n) > 1 ? `（同伴${Number(n)}件）` : n ? '（同伴）' : '';
 const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), y = m.getFullYear(), mo = m.getMonth(), first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
   let h = '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">' + WD.map(w => `<div class="muted" style="text-align:left;padding-left:5px;font-size:11px">${w}</div>`).join('');
