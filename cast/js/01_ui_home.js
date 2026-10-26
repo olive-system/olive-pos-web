@@ -34,22 +34,27 @@ function showLink(d){
 }
 
 async function loadMe(){
-  { const w = await sb.rpc('cast_who', { p_token: TOKEN }); /* v0.33・SQL 133：黒服が開いた時は黒服マイページ */
+  // v0.73：誰か・成績・ホームの残りを、順番に待たずに同時に読む。リッチメニューのボタン（?go=）から開いた時は、ホームの残りを待たずにその画面を出す
+  //   （オーナー 2026-10-26「シフト、予約、成績など読み込みまでに時間がかかる」。データベースはどれも 0.1秒以下で、待ちは通信を1つずつ順番に待っていたこと）
+  const T = { p_token: TOKEN }, pW = sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = sb.rpc('hall_me', T);
+  const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* v0.20・SQL 120：書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* v0.36・SQL 134：伝票一覧の件数 */,
+    sb.rpc('cast_birthdays', T) /* v0.40・SQL 150：トップに「お誕生日（前後2週間）」 */, sb.rpc('cast_notice_list', T) /* v0.18・SQL 118：お知らせの未確認の数 */]);
+  { const w = await pW; /* v0.33・SQL 133：黒服が開いた時は黒服マイページ */
     SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* v0.70・SQL 257：ママは全員のシフト */
-    if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(); return; }
+    if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(pH); return; }
     if(!w.error && w.data && w.data.kind !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w.data.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
-  const r = await sb.rpc('cast_me', { p_token: TOKEN });
+  const r = await pM;
   if(r.error){ fail(r.error.message); return; }
-  ME = r.data; KL = ME.kakari_label || '係';
-  // v0.50：下の5つは同時に読む（ゲネプロ マイページ #11。前は1つずつ順番で、通信が遅いと待ちが何倍にもなった）
-  const [d, , bm, bd, n] = await Promise.all([sb.rpc('cast_dress_info', { p_token: TOKEN }), docsLoad() /* v0.20・SQL 120：書類の未提出の数 */,
-    sb.rpc('cast_bill_months', { p_token: TOKEN }) /* v0.36・SQL 134：伝票一覧の件数 */, sb.rpc('cast_birthdays', { p_token: TOKEN }) /* v0.40・SQL 150：トップに「お誕生日（前後2週間）」（オーナー 2026-10-18） */,
-    sb.rpc('cast_notice_list', { p_token: TOKEN })]);
-  ME.dress = d.error ? null : d.data; ME.billMonths = bm.error ? null : (bm.data || []); ME.bdays = bd.error ? [] : (bd.data || []);
-  { NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; } /* v0.18・SQL 118：お知らせの未確認の数 */ /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
+  ME = r.data; KL = ME.kakari_label || '係'; ME.bdays = []; ME.billMonths = null;
   $('tStore').textContent = ME.store_name || 'OLIVE';
+  const fill = ([d, dc, bm, bd, n]) => { ME.dress = d.error ? null : d.data; ME.billMonths = bm.error ? null : (bm.data || []); ME.bdays = bd.error ? [] : (bd.data || []);
+    DOCS = dc.error ? null : dc.data; ME.docs = DOCS ? { target: DOCS.target, left: [DOCS.contract, DOCS.id_doc, DOCS.roster].filter(x => !x).length } : null;
+    NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; }; /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
+  const th = thxParam(), nt = urlParam('notice'), go = goParam();
+  if(['contact','shift','sales','resv','perf'].includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* v0.64・SQL 221：リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
+  fill(await pB);
   home();
-  { const th = thxParam(); if(th) resvThanksById(th); const nt = urlParam('notice'); if(nt) noticeOpen(nt); else castGo(goParam()); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時 */
+  { if(th) resvThanksById(th); if(nt) noticeOpen(nt); else castGo(go); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時。キャストが開けない go（黒服の画面など）はトップのまま */
 }
 
 // v0.64・SQL 221：キャストのリッチメニューのボタンから、その画面を直接開く（?go=。オーナー 2026-10-23 見本 キャストのリッチメニュー_案）。連絡先交換は LINE のリンクと同じく入力から
