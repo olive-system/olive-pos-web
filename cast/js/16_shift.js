@@ -9,8 +9,6 @@
 let SHIFT = null;
 // v0.71：今日のマスはオリーブでぬる（文字は白。オーナー 2026-10-26 案ウ）。今日＝営業日（朝8時で切りかわる。POS と同じ）
 const shToday = () => (SHALL && SHALL.today) || new Date(Date.now() + (9 - 8) * 3600e3).toISOString().slice(0, 10);
-// v0.71・SQL 258：同伴はその日の同伴の申請の件数（1人2件なら「同伴2件」）
-const dhL = n => Number(n) > 1 ? `（同伴${Number(n)}件）` : n ? '（同伴）' : '';
 const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), y = m.getFullYear(), mo = m.getMonth(), first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
   let h = '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">' + WD.map(w => `<div class="muted" style="text-align:left;padding-left:5px;font-size:11px">${w}</div>`).join('');
   for(let i = 0; i < first; i++) h += '<div></div>';
@@ -61,19 +59,30 @@ const SH_STORE = { ginza: '銀座', hiroshima: '広島' };
 async function shiftAll(store){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_shift_all', { p_token: TOKEN, p_store: store || null }); if(r.error){ fail(r.error.message); return; }
-  const A = SHALL = r.data, td = new Date(A.today+'T00:00:00+09:00');
+  const A = SHALL = r.data, td = new Date(A.today+'T00:00:00+09:00'), KLs = A.kakari_label || '係';
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
-  const rows = L => { const T = {}; L.forEach(x => (T[x.time] = T[x.time] || []).push(esc(x.name) + dhL(x.douhan))); return Object.keys(T).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${T[t].join('・')}</span></div>`).join(''); };
-  const cur = (A.months || [])[0] || {}, tL = (cur.fixed ? cur.shifts || [] : []).filter(x => x.day === A.today);
+  // v0.72・SQL 259：同伴がある人は「同伴」の行にまとめて件数だけ（オーナー 2026-10-26 案ア）。黒服はシフトに出さない（休みの日だけ「黒服の休み」）
+  const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x.name); });
+    const g = Object.keys(T).sort().map(t => [t, T[t].join('・')]); if(DH.length) g.push(['同伴', DH.map(x => `${x.name}（${Math.max(1, Number(x.douhan) || 0)}件）`).join('・')]); return g; };
+  const rows = L => groups(L).map(([t, n]) => `<div class="row" style="justify-content:flex-start"><b>${esc(t)}</b><span>${esc(n)}</span></div>`).join('');
+  const all = k => (A.months || []).flatMap(M => M[k] || []);
+  const hallOff = iso => all('hall_off').filter(x => x.day === iso).map(x => x.name);
+  const resvOf = iso => all('resv').filter(x => x.day === iso);
+  const rvHead = R => `予約 ${R.length}件${R.some(x => x.douhan) ? `（同伴 ${R.filter(x => x.douhan).length}件）` : ''}`;
+  const who = x => [x.by ? `誘客 ${x.by}` : '', x.kakari ? `${KLs} ${x.kakari}` : ''].filter(Boolean).join('・');
+  const cur = (A.months || [])[0] || {}, tL = (cur.fixed ? cur.shifts || [] : []).filter(x => x.day === A.today), tOff = hallOff(A.today), tR = resvOf(A.today);
+  const sep = '<div style="border-top:1px solid var(--line);margin:8px 0"></div>';
+  const todayExtra = (tOff.length ? `${sep}<div class="gh">黒服の休み</div><div>${esc(tOff.join('・'))}</div>` : '')
+    + (tR.length ? `${sep}<div class="gh">${rvHead(tR)}</div>${tR.map(x => `<div class="row" style="justify-content:flex-start;align-items:flex-start"><b>${esc(x.time)}</b><span>${esc(x.name)} 様 ${Number(x.guests)||0}名${x.douhan ? '<b style="color:var(--ok);font-size:12px;margin-left:8px">同伴</b>' : ''}${who(x) ? `<small class="muted" style="display:block">${esc(who(x))}</small>` : ''}</span></div>`).join('')}` : '');
   const sw = (A.stores || []).length > 1 ? `<div style="display:flex;gap:8px;margin-bottom:10px">${A.stores.map(s => `<button class="btn${s.code === A.store ? '' : ' g'}" data-shst="${s.code}" style="flex:1">${esc(SH_STORE[s.code] || s.name)}</button>`).join('')}</div>` : '';
-  const cal = M => { const OFF = new Set(M.off || []), D = {}; (M.shifts || []).forEach(x => (D[x.day] = D[x.day] || []).push(x));
-    return `<div class="card"><div class="gh">${Number(String(M.month).slice(5,7))}月の出勤（確定）</div>${M.fixed ? calGrid(M.month, (iso, d) => { const L = D[iso] || [], dh = L.reduce((a, x) => a + Number(x.douhan || 0), 0);
-      return `<div ${L.length?`data-sa="${iso}"`:''} style="${box};${L.length?'cursor:pointer;background:var(--gold-soft);font-weight:700':''}">${d}${L.length?`<small style="display:block;font-size:10px;color:var(--pri)">${L.length}人</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':''}${dh?`<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">同伴${dh}</small>`:''}</div>`; })
-      + '<div class="muted sm" style="margin-top:6px">日を押すと、その日の出勤</div>' : '<div class="muted sm">まだ確定していません</div>'}</div>`; };
-  show(`${sw}<div class="ttl">シフト（全員）</div><div class="card"><div class="gh">本日 ${td.getMonth()+1}/${td.getDate()}（${WD[td.getDay()]}） 出勤 ${tL.length}人</div>${rows(tL) || '<div class="muted sm">シフトなし</div>'}</div>${(A.months || []).map(cal).join('')}`);
+  const cal = M => { const OFF = new Set(M.off || []), D = {}, RV = {}; (M.shifts || []).forEach(x => (D[x.day] = D[x.day] || []).push(x)); (M.resv || []).forEach(x => RV[x.day] = (RV[x.day] || 0) + 1);
+    return `<div class="card"><div class="gh">${Number(String(M.month).slice(5,7))}月の出勤（確定）</div>${M.fixed ? calGrid(M.month, (iso, d) => { const L = D[iso] || [], dh = L.reduce((a, x) => a + Number(x.douhan || 0), 0), rv = RV[iso] || 0;
+      return `<div ${L.length||rv?`data-sa="${iso}"`:''} style="${box};${L.length?'cursor:pointer;background:var(--gold-soft);font-weight:700':''}">${d}${L.length?`<small style="display:block;font-size:10px;color:var(--pri)">${L.length}人</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':''}${dh?`<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">同伴${dh}</small>`:''}${rv?`<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">予約${rv}</small>`:''}</div>`; })
+      + '<div class="muted sm" style="margin-top:6px">日を押すと、その日の出勤・黒服の休み・予約</div>' : '<div class="muted sm">まだ確定していません</div>'}</div>`; };
+  show(`${sw}<div class="ttl">シフト（全員）</div><div class="card"><div class="gh">本日 ${td.getMonth()+1}/${td.getDate()}（${WD[td.getDay()]}） 出勤 ${tL.length}人</div>${rows(tL) || '<div class="muted sm">シフトなし</div>'}${todayExtra}</div>${(A.months || []).map(cal).join('')}`);
   $('main').querySelectorAll('[data-shst]').forEach(b => b.onclick = () => { if(b.dataset.shst !== A.store) shiftAll(b.dataset.shst); });
-  $('main').querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { const iso = b.dataset.sa, d = new Date(iso+'T00:00:00+09:00'), L = [];
-    (SHALL.months || []).forEach(M => (M.shifts || []).forEach(x => { if(x.day === iso) L.push(x); }));
-    const T = {}; L.forEach(x => (T[x.time] = T[x.time] || []).push(x.name + dhL(x.douhan)));
-    uiAlert(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人\n${Object.keys(T).sort().map(t => `${t}　${T[t].join('・')}`).join('\n')}`); });
+  $('main').querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { const iso = b.dataset.sa, d = new Date(iso+'T00:00:00+09:00'), L = all('shifts').filter(x => x.day === iso), off = hallOff(iso), R = resvOf(iso);
+    uiAlert(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人\n${groups(L).map(([t, n]) => `${t}　${n}`).join('\n')}`
+      + (off.length ? `\n\n黒服の休み　${off.join('・')}` : '')
+      + (R.length ? `\n\n${rvHead(R)}\n${R.map(x => `${x.time}　${x.name} 様 ${Number(x.guests)||0}名（${[x.douhan ? '同伴' : '', who(x)].filter(Boolean).join('・')}）`).join('\n')}` : '')); });
 }
