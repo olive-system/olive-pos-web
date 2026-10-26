@@ -35,6 +35,7 @@ function showLink(d){
 
 async function loadMe(){
   { const w = await sb.rpc('cast_who', { p_token: TOKEN }); /* v0.33・SQL 133：黒服が開いた時は黒服マイページ */
+    SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* v0.70・SQL 257：ママは全員のシフト */
     if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(); return; }
     if(!w.error && w.data && w.data.kind !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w.data.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
   const r = await sb.rpc('cast_me', { p_token: TOKEN });
@@ -54,7 +55,7 @@ async function loadMe(){
 // v0.64・SQL 221：キャストのリッチメニューのボタンから、その画面を直接開く（?go=。オーナー 2026-10-23 見本 キャストのリッチメニュー_案）。連絡先交換は LINE のリンクと同じく入力から
 function castGo(k){
   if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
-  if(k === 'contact') contactList(true); else if(k === 'shift') shiftHome(); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf();
+  if(k === 'contact') contactList(true); else if(k === 'shift') (SHIFT_ALL ? shiftAll() : shiftHome()); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf();
 }
 
 // スライド表の「次の段」の文：あと○○で 時給○円
@@ -87,7 +88,7 @@ function home(){
   const bdCard = (ME.bdays||[]).length ? `<div class="card"><div class="gh">お誕生日（前後2週間）</div>${ME.bdays.map(bdRow).join('')}</div>` : '';
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41・v0.44：成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
-    <div class="tiles">${tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤連絡','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','アプローチ','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
+    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤連絡','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','アプローチ','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
@@ -97,7 +98,7 @@ function home(){
   $('main').querySelector('[data-go=resv]').onclick = resvList;
   $('main').querySelector('[data-go=contact]').onclick = () => contactList();
   $('main').querySelector('[data-go=sales]').onclick = salesHome;
-  $('main').querySelector('[data-go=shift]').onclick = shiftHome;
+  $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* v0.70：ママは全員のシフト */
   $('main').querySelector('[data-go=info]').onclick = noticeList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
 }
