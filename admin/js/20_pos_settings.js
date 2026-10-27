@@ -82,7 +82,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
       <b style="color:var(--warn)">19:50 不足</b>
       <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--ink);font-weight:400">6／8人</b>出勤人数／目安</span>
       <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--warn)">3／6人</b>人数不足</span>${Object.keys(M.targets||{}).length?'':'<button class="ghost sm" id="shGoSet">目安人数の入力（シフト設定）</button>'}</div>${cal}
-    <div class="muted" style="font-size:12px;margin-top:6px">日を押すと、その日の詳細（時刻の変更・追加・イベント日）</div></div>`;
+    <div class="muted" style="font-size:12px;margin-top:6px">タップで詳細表示</div></div>`;
   $('shM').onchange=()=>{ shMonth=$('shM').value; PAGES.shift(); };
   $('main').querySelectorAll('[data-shd]').forEach(b=>b.onclick=()=>shiftDayEdit(st,M,b.dataset.shd,ed));
   if($('shGoSet')) $('shGoSet').onclick=()=>{ setMonth=m; go('set_shift'); };

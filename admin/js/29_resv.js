@@ -38,7 +38,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   $('main').innerHTML=head+todayCard+`<div class="card"><div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="rvM0" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
       <span class="muted" style="font-size:13px">予約 ${R.filter(x=>!x.douhan).length}・同伴 ${R.filter(x=>x.douhan).length}</span><span style="flex:1"></span>
       <span style="font-size:12px;color:var(--muted)"><b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>　名前は予約のお客様</span></div>${cal}
-      <div class="muted" style="font-size:12px;margin-top:6px">日を押すと、その日の予約（足す・直す・取消）</div></div>`;
+      <div class="muted" style="font-size:12px;margin-top:6px">タップで詳細表示</div></div>`;
   wireRows($('rvToday'),RT,today,null);
   if(ed) $('rvAddT').onclick=()=>resvForm(st,S,today,null);
   $('rvM0').onchange=()=>{ rvMonth=$('rvM0').value; PAGES.resv(); };
