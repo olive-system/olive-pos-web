@@ -62,7 +62,7 @@ async function shiftAll(store){
   const A = SHALL = r.data, td = new Date(A.today+'T00:00:00+09:00'), KLs = A.kakari_label || '係';
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   // v0.72・SQL 259：同伴がある人は「同伴」の行にまとめて件数だけ（オーナー 2026-10-26 案ア）。黒服はシフトに出さない（休みの日だけ「黒服の休み」）
-  const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x.name); });
+  const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x.trial ? `${x.name}（体験）` : x.name); }); /* v0.84・SQL 273 */
     const g = Object.keys(T).sort().map(t => [t, T[t].join('・')]); if(DH.length) g.push(['同伴', DH.map(x => `${x.name}（${Math.max(1, Number(x.douhan) || 0)}件）`).join('・')]); return g; };
   const rows = L => groups(L).map(([t, n]) => `<div class="row" style="justify-content:flex-start"><b>${esc(t)}</b><span>${esc(n)}</span></div>`).join('');
   const all = k => (A.months || []).flatMap(M => M[k] || []);
@@ -99,7 +99,7 @@ async function shiftDayEdit(iso, store){
   const tin = (v, a, st) => `<select ${a} style="${st || 'width:auto;font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)'}">${(SH_EDIT_T.includes(v) ? SH_EDIT_T : [v, ...SH_EDIT_T]).map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   show(`<div class="ttl">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人</div><div class="card">
-    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${esc(x.name)}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
+    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${esc(x.name)}${x.trial ? ` <small class="muted">体験・${esc(x.pay || '')}</small>` : ''}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
       : `${tin(x.time, `data-sdt="${i}"`)}<button class="btn g" data-sdx="${i}" aria-label="消す" style="width:auto;padding:6px 12px;color:var(--warn)">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
     ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
     ${off.length ? `<div class="card"><div class="gh">黒服の休み</div><div>${esc(off.join('・'))}</div></div>` : ''}
@@ -107,8 +107,22 @@ async function shiftDayEdit(iso, store){
   $('main').querySelectorAll('[data-sdt]').forEach(el => el.onchange = async () => { const x = L[+el.dataset.sdt]; if(!el.value){ el.value = x.time; return; } if(await set(x.staff_id, el.value)) again(); });
   $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return; if(await set(x.staff_id, null)) again(); });
   if($('sdAdd')) $('sdAdd').onclick = () => { const C = D.casts || [], w = document.createElement('div'); w.className = 'dlg';
-    const close = () => w.remove(), pick = () => { w.innerHTML = `<div class="box"><div style="max-height:60vh;overflow:auto">${C.map((c, i) => `<button class="lkb" data-sdc="${i}" ${c.ng ? 'disabled' : ''} style="display:block;width:100%;text-align:left;margin-bottom:6px">${esc(c.name)}${c.ng ? ' <small class="muted">出勤不可</small>' : ''}</button>`).join('') || '<div class="muted">なし</div>'}</div><div class="bt" style="margin-top:8px"><button class="btn g" data-k="no">キャンセル</button></div></div>`;
-      w.querySelector('[data-k=no]').onclick = close; w.querySelectorAll('[data-sdc]').forEach(b => b.onclick = () => time(C[+b.dataset.sdc])); };
+    const close = () => w.remove(), pick = () => { w.innerHTML = `<div class="box"><div style="max-height:60vh;overflow:auto"><button class="lkb" data-sdtr style="display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:700;border-color:var(--head)">体験</button><div style="border-top:1px solid var(--line);margin:8px 0"></div>${C.map((c, i) => `<button class="lkb" data-sdc="${i}" ${c.ng ? 'disabled' : ''} style="display:block;width:100%;text-align:left;margin-bottom:6px">${esc(c.name)}${c.ng ? ' <small class="muted">出勤不可</small>' : ''}</button>`).join('') || '<div class="muted">なし</div>'}</div><div class="bt" style="margin-top:8px"><button class="btn g" data-k="no">キャンセル</button></div></div>`;
+      w.querySelector('[data-k=no]').onclick = close; w.querySelector('[data-sdtr]').onclick = trial; w.querySelectorAll('[data-sdc]').forEach(b => b.onclick = () => time(C[+b.dataset.sdc])); };
+    /* v0.84・SQL 273：体験の人の登録（オーナー 2026-10-27「1番上に体験と言う項目を作って体験を押したら体験の子の情報を入力する画面」「報酬額は先方には見えないように」） */
+    const trial = () => { const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)', lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`; let pt = 'hourly';
+      w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">体験　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</p>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><div>${lb('源氏名')}<input id="trN" maxlength="30" style="${fs}"></div><div>${lb('本名')}<input id="trR" maxlength="60" style="${fs}"></div></div>
+        ${lb('時刻')}${tin('20:00', 'id="trT"', fs)}
+        ${lb('報酬')}<div style="display:flex;gap:8px"><span id="trP" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([v, n]) => `<button type="button" data-trp="${v}" style="border:0;font:inherit;font-size:16px;padding:8px 14px">${n}</button>`).join('')}</span><input id="trA" type="number" inputmode="numeric" min="1" style="${fs};flex:1;min-width:0" placeholder="円"></div>
+        <div class="bt" style="margin-top:14px"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
+      const seg = () => w.querySelectorAll('[data-trp]').forEach(b => { const on = b.dataset.trp === pt; b.style.background = on ? 'var(--head)' : 'var(--card)'; b.style.color = on ? '#fff' : 'var(--ink)'; });
+      w.querySelectorAll('[data-trp]').forEach(b => b.onclick = () => { pt = b.dataset.trp; seg(); }); seg();
+      w.querySelector('[data-k=no]').onclick = pick;
+      w.querySelector('[data-k=ok]').onclick = async e => { const n = w.querySelector('#trN').value.trim(), a = parseInt(w.querySelector('#trA').value || '0', 10) || 0;
+        if(!n){ await uiAlert('源氏名を入力してください'); return; } if(a <= 0){ await uiAlert('金額を入力してください'); return; }
+        e.target.disabled = true; const q = await sb.rpc('cast_shift_trial_add', { p_token: TOKEN, p_store: store || null, p_day: iso, p_name: n, p_real: w.querySelector('#trR').value.trim(), p_time: w.querySelector('#trT').value, p_pay_type: pt, p_amount: a });
+        if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } close(); again(); }; };
     const time = c => { w.innerHTML = `<div class="box"><p style="margin-bottom:10px">${esc(c.name)}</p>${tin('20:30', 'id="sdTm"', 'width:100%;font:inherit;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--card)')}<div class="bt"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
       w.querySelector('[data-k=no]').onclick = pick; w.querySelector('[data-k=ok]').onclick = async e => { const v = w.querySelector('#sdTm').value; if(!v) return; e.target.disabled = true; close(); if(await set(c.id, v)) again(); }; };
     pick(); document.body.appendChild(w); };

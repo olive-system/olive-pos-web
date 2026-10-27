@@ -69,8 +69,10 @@ async function loadMasters(){
   await expireTrials();
 }
 // 体験キャストは1日限り：登録した営業日の翌営業日になったら自動で「削除済」にする（記録は残る）
+// v12.18・SQL 273：マイページのシフトから前もって登録した体験の人は、体験の日（trial_day）に在籍に出し、その次の営業日に削除済にする
 let trialSweepDay=null; let salesM={};
-async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!store) return; try{ const r=await sb.from('staff').select('id,display_name,created_at').eq('is_trial',true).eq('is_active',true); if(r.error) return; const old=(r.data||[]).filter(x=>businessDate(new Date(x.created_at))<bd); const done=[]; for(const x of old){ const u=await sb.from('staff').update({is_active:false}).eq('id',x.id); if(!u.error){ done.push(x.id); await logOp('体験キャストの自動削除',{name:x.display_name,registered:businessDate(new Date(x.created_at))},null,true); } } if(done.length) staff=staff.filter(z=>!done.includes(z.id)); trialSweepDay=bd; }catch(e){ console.warn('expireTrials',e); } }
+async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!store) return; try{ { const a=await sb.from('staff').update({is_active:true}).eq('is_trial',true).eq('is_active',false).eq('trial_day',bd).select('id,display_name'); for(const x of (a.data||[])) await logOp('体験キャストの在籍',{name:x.display_name,day:bd},null,true); }
+  const r=await sb.from('staff').select('id,display_name,created_at,trial_day').eq('is_trial',true).eq('is_active',true); if(r.error) return; const old=(r.data||[]).filter(x=>(x.trial_day||businessDate(new Date(x.created_at)))<bd); const done=[]; for(const x of old){ const u=await sb.from('staff').update({is_active:false}).eq('id',x.id); if(!u.error){ done.push(x.id); await logOp('体験キャストの自動削除',{name:x.display_name,registered:businessDate(new Date(x.created_at))},null,true); } } if(done.length) staff=staff.filter(z=>!done.includes(z.id)); trialSweepDay=bd; }catch(e){ console.warn('expireTrials',e); } }
 
 // ---------- リアルタイム v11.18・SQL 067：設定・伝票がほかで変わったら、すぐ読み直す（つながらない時は、これまでどおり1分ごと） ----------
 // 設定：ホール・伝票を見ている時に読み直す（メニュー登録・注文・設定・顧客の画面の間は、ホールに戻った時）。伝票：ホールは読み直し、開いている伝票は
