@@ -11,6 +11,7 @@ async function start(){
   try{ localStorage.setItem('olive_cast_store', STORE); }catch(e){}
   try{ await liff.init({ liffId: LIFF[STORE] }); }catch(e){ fail('LINE の初期化に失敗しました：' + (e.message||e)); return; }
   if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
+  if(goParam() === 'apply'){ await applyStart(); return; } /* v0.85・SQL 274：みんな用のメニューの「予約状況の確認」（LINE連携していない人も開く） */
   await login();
 }
 
