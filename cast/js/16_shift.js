@@ -99,7 +99,7 @@ async function shiftDayEdit(iso, store){
   const tin = (v, a, st) => `<select ${a} style="${st || 'width:auto;font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)'}">${(SH_EDIT_T.includes(v) ? SH_EDIT_T : [v, ...SH_EDIT_T]).map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   show(`<div class="ttl">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人</div><div class="card">
-    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${esc(x.name)}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? '同伴 ' : ''}${esc(x.time)}</span>`
+    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${esc(x.name)}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
       : `${tin(x.time, `data-sdt="${i}"`)}<button class="btn g" data-sdx="${i}" aria-label="消す" style="width:auto;padding:6px 12px;color:var(--warn)">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
     ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
     ${off.length ? `<div class="card"><div class="gh">黒服の休み</div><div>${esc(off.join('・'))}</div></div>` : ''}
