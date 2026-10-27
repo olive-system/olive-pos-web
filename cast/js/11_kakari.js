@@ -65,8 +65,8 @@ async function resvForm(ed){
     if($('rvDhAdd')) $('rvDhAdd').onclick = () => dhPick(); };
   // 小窓：お客様の人数まで。人数を減らした時は、残す子を選ぶ（キャンセルは人数を戻す）
   const dhPick = (shrink) => { if(document.querySelector('.dlg[data-dh]')) return; const n = guests(), w = document.createElement('div'); w.className = 'dlg'; w.dataset.dh = '1'; let sel = [...dhIds]; /* 人数の欄の change が続けて来ても小窓は1つ */
-    const paint = () => { w.innerHTML = `<div class="box"><b style="font-size:17px">同伴（${n}人まで）</b><div style="max-height:55vh;overflow:auto;margin:8px 0 12px">${ST.map(c => { const on = sel.includes(c.id), t = DAY.shifts[c.id];
-        return `<label style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px solid var(--line)"><input type="checkbox" data-dc="${c.id}" ${on ? 'checked' : ''} ${!on && sel.length >= n ? 'disabled' : ''} style="width:20px;height:20px"><span style="flex:1">${esc(nmOf(c.id))}</span><span class="muted sm">${t ? esc(t) : '出勤なし'}</span></label>`; }).join('')}</div>
+    const paint = () => { w.innerHTML = `<div class="box"><b style="font-size:17px">同伴（${n}人まで）</b><div style="max-height:65vh;overflow:auto;margin:8px 0 12px;display:grid;grid-template-columns:1fr 1fr;column-gap:12px">${ST.map(c => { const on = sel.includes(c.id); /* v0.82：2列・出勤の時刻は出さない（オーナー 2026-10-27「ここ見えないように。2列にして1画面で全員」） */
+        return `<label style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);min-width:0"><input type="checkbox" data-dc="${c.id}" ${on ? 'checked' : ''} ${!on && sel.length >= n ? 'disabled' : ''} style="width:20px;height:20px;flex:none"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nmOf(c.id))}</span></label>`; }).join('')}</div>
         <div class="bt"><button class="btn g" data-k="no">キャンセル</button><button class="btn" data-k="ok">選択</button></div></div>`;
       w.querySelectorAll('[data-dc]').forEach(x => x.onchange = () => { sel = x.checked ? [...sel, x.dataset.dc] : sel.filter(id => id !== x.dataset.dc); paint(); });
       w.querySelector('[data-k=no]').onclick = () => { if(shrink) $('rvN').value = dhIds.length; w.remove(); chipPaint(); };
