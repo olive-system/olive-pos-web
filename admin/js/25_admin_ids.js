@@ -115,7 +115,7 @@ function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekl
     <label id="tdKm">日（「1,15」のように）<input id="tdDays" value="${esc((x.rule_days||[]).join(','))}" inputmode="numeric"></label>
     <label id="tdKo"><span id="tdKoL">日付</span><input type="date" id="tdDt" value="${esc(x.rule_date||'')}"></label>
     <label>時間<select id="tdS">${Object.entries(TODO_SLOT).map(([v,n])=>`<option value="${v}" ${x.slot===v?'selected':''}>${n}</option>`).join('')}</select></label>
-    <label>写真<select id="tdP"><option value="false">要らない</option><option value="true" ${x.need_photo?'selected':''}>要る</option></select></label>
+    <label>写真<select id="tdP"><option value="false">不要</option><option value="true" ${x.need_photo?'selected':''}>要</option></select></label>
     <label>書く欄<select id="tdW"><option value="false">なし</option><option value="true" ${x.need_note?'selected':''}>あり</option></select></label>
     <label id="tdHw">書く欄の見出し<input id="tdH" value="${esc(x.note_hint||'')}" placeholder="例：在庫の数"></label>
     <label>手順（黒服に見せる）<textarea id="tdT" rows="6" style="width:100%;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(x.steps||'')}</textarea></label>
