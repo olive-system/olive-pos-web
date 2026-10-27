@@ -31,21 +31,26 @@ PAGES.o_line=async()=>{ const st=storeId, head=`<h1>LINE メニュー <small cla
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_richmenu_get/.test(r.error.message)?'SQL 219 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const D=r.data; /* v1.54・SQL 221：キャストのリッチメニューも（D.cast。オーナー 2026-10-23） */
   const K={hall:{nm:'黒服',img:'richmenu_hall.png',on:D.on,made:D.made,linked:D.linked,note:'開店・閉店作業：22時から朝8時までは閉店作業、それ以外は開店作業が開きます'},
-    cast:{nm:'キャスト',img:'richmenu_cast.png',on:D.cast?.on,made:D.cast?.made,linked:D.cast?.linked,note:'連絡先交換：LINE のお知らせと同じく、入力の画面が開きます',sql:!D.cast}};
+    cast:{nm:'キャスト',img:'richmenu_cast.png',on:D.cast?.on,made:D.cast?.made,linked:D.cast?.linked,note:'連絡先交換：LINE のお知らせと同じく、入力の画面が開きます',sql:!D.cast},
+    /* v1.68・SQL 275：みんな用（LINE 連携していない友だち。オーナー 2026-10-27「採用の LINE と同じにしよう」） */
+    minna:{nm:'みんな用',img:'richmenu_minna.png',on:D.minna?.on,made:D.minna?.made,note:'上：面接予約のページ<br>予約状況の確認：電話番号で面接予約を表示<br>ACCESS：Google マップ<br>FAQ：トークに「FAQ」を送信（FAQ の画面は準備中）',sql:!D.minna,no:'275'}};
   const card=k=>{ const x=K[k]; return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>${x.nm}のリッチメニュー</b>
       <span class="seg" data-rmon="${k}">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${!!x.on===v?'on':''}" ${D.ready&&!x.sql?'':'disabled'}>${n}</button>`).join('')}</span></div>
-    <div class="muted" style="font-size:13px;margin-top:4px">する：LINE 連携している${x.nm}の、お店の公式 LINE のトークの下にメニューが出ます。押すとマイページのその画面が開きます。${k==='hall'?'キャスト':'黒服'}と、連携していない人には出ません</div>
-    ${x.sql?'<div class="err" style="margin-top:8px">SQL 221 が未実行です</div>':D.ready?'':'<div class="err" style="margin-top:8px">この店の LINE の設定（マイページの入口・メッセージを送る設定）がありません</div>'}
+    <div class="muted" style="font-size:13px;margin-top:4px">${k==='minna'?'する：LINE 連携していない友だち全員の、お店の公式 LINE のトークの下にメニューが出ます。連携している黒服・キャストには今までのメニューが出ます':`する：LINE 連携している${x.nm}の、お店の公式 LINE のトークの下にメニューが出ます。押すとマイページのその画面が開きます。${k==='hall'?'キャスト':'黒服'}と、連携していない人には出ません`}</div>
+    ${x.sql?`<div class="err" style="margin-top:8px">SQL ${x.no||'221'} が未実行です</div>`:D.ready?'':'<div class="err" style="margin-top:8px">この店の LINE の設定（マイページの入口・メッセージを送る設定）がありません</div>'}
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:12px"><img src="../cast/${x.img}" alt="${x.nm}のリッチメニュー" style="width:300px;max-width:100%;border:1px solid var(--line);border-radius:8px">
-      <div style="font-size:14px;line-height:1.9">連携している${x.nm}：${Number(x.linked||0)}人<br>${x.note}${x.made?`<div style="margin-top:8px"><button class="ghost sm" data-rmre="${k}">メニューを作り直す</button></div>`:''}</div></div></div>`; };
-  $('main').innerHTML=head+card('hall')+card('cast');
+      <div style="font-size:14px;line-height:1.9">${k==='minna'?'':`連携している${x.nm}：${Number(x.linked||0)}人<br>`}${x.note}${x.made?`<div style="margin-top:8px"><button class="ghost sm" data-rmre="${k}">メニューを作り直す</button></div>`:''}</div></div></div>`; };
+  $('main').innerHTML=head+card('hall')+card('cast')+card('minna');
   const make=async k=>{ const q=await sb.functions.invoke('line-richmenu',{body:{store:st,kind:k}}); let e=q.error?(q.data&&q.data.error)||q.error.message:(q.data&&q.data.error);
     if(e&&q.error&&q.error.context&&q.error.context.json){ try{ e=(await q.error.context.json()).error||e; }catch(x){} }
     if(e){ await uiAlert('メニューを作れませんでした：'+e); return false; } return true; };
   $('main').querySelectorAll('[data-rmon]').forEach(sg=>{ const k=sg.dataset.rmon, x=K[k]; sg.querySelectorAll('[data-v]').forEach(b=>b.onclick=guard(b,async()=>{ const on=b.dataset.v==='true'; if(on===!!x.on) return;
-    if(!await uiConfirm(on?`${x.nm}のリッチメニューを「する」にしますか？\n連携している${x.nm}${Number(x.linked||0)}人の LINE にメニューが出ます`:`${x.nm}のリッチメニューを「しない」にしますか？\n${x.nm}の LINE からメニューが消えます`)) return;
+    const who=k==='minna'?'LINE 連携していない友だち全員':`連携している${x.nm}${Number(x.linked||0)}人`;
+    if(!await uiConfirm(on?`${x.nm}のリッチメニューを「する」にしますか？\n${who}の LINE にメニューが出ます`:`${x.nm}のリッチメニューを「しない」にしますか？\n${k==='minna'?who:x.nm}の LINE からメニューが消えます`)) return;
     if(on&&!x.made&&!await make(k)) return;
-    const q=await rpc('admin_richmenu_on',{p_store:st,p_on:on,p_kind:k}); if(!q.ok) return; toast(on?`${q.data}人に付けました`:'外しました'); PAGES.o_line(); })); });
+    const q=await rpc('admin_richmenu_on',{p_store:st,p_on:on,p_kind:k}); if(!q.ok) return;
+    if(k==='minna'&&q.data!==200){ await uiAlert('LINE に反映できませんでした（'+q.data+'）'); PAGES.o_line(); return; }
+    toast(k==='minna'?(on?'付けました':'外しました'):on?`${q.data}人に付けました`:'外しました'); PAGES.o_line(); })); });
   $('main').querySelectorAll('[data-rmre]').forEach(b=>b.onclick=guard(b,async()=>{ const k=b.dataset.rmre; if(!await uiConfirm(`${K[k].nm}のメニューを作り直しますか？\n画像やボタンを変えた時に使います`)) return; if(!await make(k)) return; toast('作り直しました'); PAGES.o_line(); })); };
 // v1.23・SQL 138：日報メール（オーナー 2026-10-17。店ごとに1通・毎朝7時・店の Gmail から）。宛先はオーナーだけが変える
 // v1.29・SQL 145：黒服の TODO（オーナー 2026-10-18。TimeTree の「todoリスト写メ報告」の代わり）。上＝その日の TODO（済・できない・未・写真）、下＝項目（押すと小窓で変える）
