@@ -2,6 +2,7 @@
 // v0.57・SQL 209：閉店作業も同じ画面（オーナー 2026-10-23「閉店作業も黒服のマイページに」「保存した人がやったことに」「誰が作業中かの表示」）
 // v0.59・SQL 214：項目の中の確認（checks。名刺の Eight 登録＝登録済みの確認・変更の確認）。全部に印を付けると「完了」を押せる（オーナー 2026-10-23「登録済みか確認のチェックボタンを中に」）
 // v0.76・SQL 262：コメントが「要る」の項目は、作業中にコメントの欄（書くのは任意。オーナー 2026-10-26「相違があれば、コメントで報告」）。完了の後はコメントをほかの黒服にも出す
+// v0.83・SQL 272：決まった画面の項目（ボトル残量など）も、写真「要る」なら写真を選んで保存・コメント「要る」ならコメントの欄（オーナー 2026-10-27「全部編集できるようにして」）
 // 開始 → 作業中（ほかの黒服の画面にも出る）→ 完了（写真の項目は写真を選んで完了・決まった画面の項目は保存）。ほかの人が作業中の時は「交代」。対象が「限定」の項目は、限定項目「可」の黒服だけ
 let opShots = {}, opChecks = {}, opNotes = {}, opSwitch = false; /* v0.63：リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
 const TASK_TTL = { open:'開店作業', close:'閉店作業' };
@@ -108,13 +109,22 @@ async function hallCloseTask(x, ph){
     getData = () => ({ memo: $('clMemo').value });
   }
   show(head + body);
-  const again = () => hallCloseTask(x, ph);
+  const again = () => hallCloseTask(x, ph), s = $('clSv');
+  if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真を選ぶ<input type="file" accept="image/*" multiple id="clPh" style="display:none"></label></div>` : ''}
+    ${x.need_comment ? `<textarea id="clCm" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;box-sizing:border-box;${x.need_photo ? 'margin-top:8px;' : ''}font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}</div>`);
+  if($('clPh')) $('clPh').onchange = () => { const f = [...$('clPh').files].slice(0, 10); if(f.length){ opShots[x.id] = f; $('clPhN').textContent = `写真　${f.length}枚`; } };
+  if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
   if(k === 'memo_req') [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
     const z = await sb.rpc('hall_close_memo_req', { p_token: TOKEN, p_task: x.id, p_req: q.id, p_status: st }); if(z.error){ await uiAlert(z.error.message); } again(); }));
   if(k === 'kimono') $('main').querySelectorAll('[data-km]').forEach(b => b.onclick = async () => { const c = D[+b.dataset.km]; b.disabled = true;
     const z = await sb.rpc('hall_close_kimono', { p_token: TOKEN, p_task: x.id, p_staff: c.id, p_on: !c.kimono }); if(z.error){ await uiAlert(z.error.message); } again(); });
-  const s = $('clSv'); if(s) s.onclick = async () => { s.disabled = true;
-    const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: getData() }); if(z.error){ s.disabled = false; await uiAlert(z.error.message); return; }
-    hallTasks(ph); };
+  if(s) s.onclick = async () => { s.disabled = true;
+    try{
+      if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ s.disabled = false; await uiAlert('写真を選んでから保存してください'); return; }
+        const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
+        for(let i = 0; i < f.length; i++){ const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; } }
+      const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
+      delete opShots[x.id]; delete opNotes[x.id]; hallTasks(ph);
+    }catch(e){ s.disabled = false; await uiAlert(e.message || String(e)); } };
 }
