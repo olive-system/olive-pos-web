@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.51 -->
+<title>OLIVE 顧客</title><!-- customer v1.52 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -252,8 +252,9 @@ const staffBy=id=>(boot&&boot.staff||[]).find(s=>s.id===id);
 const sname=id=>{ const s=staffBy(id); return s?s.name+(s.active?'':'（退店）'):''; };
 
 // ---------- 一覧 ----------
+const csAt=c=>Math.max(Date.parse(c.act)||0,Date.parse(c.created_at)||0), csOrder=(a,b)=>csAt(b)-csAt(a)||jaCmp(a.name,b.name)||String(a.id).localeCompare(String(b.id));
 async function loadList(){ $('rows').innerHTML='<div class="loading">読み込み中…</div>';
-  try{ custs=await rpc('cs_list',{p_token:token})||[]; custs.sort((a,b)=>jaCmp(a.name,b.name)||String(a.id).localeCompare(String(b.id))); /* v1.25：POS と同じ並び */ renderList(); }catch(e){ $('rows').innerHTML=''; await fail(e); } }
+  try{ custs=await rpc('cs_list',{p_token:token})||[]; custs.sort(csOrder); /* v1.52・SQL 276：最近出てきた順（来店・予約・情報の更新。オーナー 2026-10-28）。POS と同じ並び */ renderList(); }catch(e){ $('rows').innerHTML=''; await fail(e); } }
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ mode=b.dataset.mode; renderList(); });
 $('q').oninput=()=>renderList();
 function renderList(){ const q=$('q').value.trim();
@@ -443,7 +444,7 @@ window.addEventListener('popstate',()=>{ curId=null; cur=null; show('vList'); re
 /* v1.25：ほかの端末（POS など）での変更を出す。画面に戻った時と、詳細を開いている間は1分ごとに読み直す。入力中・確認の画面が出ている間は読み直さない。失敗しても知らせない */
 async function csRefresh(listToo){ if(!token||document.visibilityState!=='visible'||$('modal').classList.contains('on')) return; const a=document.activeElement; if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&a.id!=='q') return;
   try{ if(!$('vDetail').classList.contains('hide')&&curId){ const id=curId; const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id||$('modal').classList.contains('on')) return; if(JSON.stringify(d)!==JSON.stringify(cur)){ cur=d; renderDetail(); } }
-    else if(listToo&&!$('vList').classList.contains('hide')){ const l=await rpc('cs_list',{p_token:token})||[]; if($('vList').classList.contains('hide')) return; l.sort((a,b)=>jaCmp(a.name,b.name)||String(a.id).localeCompare(String(b.id))); if(JSON.stringify(l)!==JSON.stringify(custs)){ custs=l; renderList(); } } }catch(e){ if(e&&e.code==='CS_AUTH'){ logoutLocal(); showLogin('パスワードが変わったので、ログアウトしました'); } } }
+    else if(listToo&&!$('vList').classList.contains('hide')){ const l=await rpc('cs_list',{p_token:token})||[]; if($('vList').classList.contains('hide')) return; l.sort(csOrder); if(JSON.stringify(l)!==JSON.stringify(custs)){ custs=l; renderList(); } } }catch(e){ if(e&&e.code==='CS_AUTH'){ logoutLocal(); showLogin('パスワードが変わったので、ログアウトしました'); } } }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ paintEdit(); csRefresh(true); } });
 setInterval(()=>csRefresh(true),60000); /* v1.27：一覧の画面でも1分ごとに読み直す（パスワードが変わったらログアウト） */
 
