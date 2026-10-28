@@ -9,7 +9,9 @@ const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_
 /* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
 const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
+/* v12.20・SQL 278：すべての通信に端末の合鍵を付ける（データベースが「登録した端末」かを確かめる。点検 2026-10-28） */
+const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_terminal'+SLOT); }catch(e){} if(!k) return fetch(u,o); const h=new Headers(o.headers||{}); h.set('x-olive-term',k); return fetch(u,{...o,headers:h}); };
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 const $ = id => document.getElementById(id);
 const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const yen = n => (n ?? 0).toLocaleString('ja-JP') + '円';
@@ -49,10 +51,11 @@ async function start(){ const { data:{ session } } = await sb.auth.getSession();
   /* v11.31・SQL 084：タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
   try{ const tc=await sb.rpc('is_timecard_user'); if(tc.data===true){ await sb.auth.signOut(); $('loginErr').textContent='タイムカード専用IDでは、POS は開けません'; return; }
     const dl=await sb.rpc('db_logs_on'); DBLOG=dl.data===true; }catch(e){}
-  /* v12.01・SQL 186：登録した端末だけ開く（関数がまだ無い時は今まで通り開く） */
+  /* v12.01・SQL 186：登録した端末だけ開く。v12.20：確認できない時（通信の失敗など）も開かない */
   { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
-    let pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note}); if(pt.error&&/p_note|function/i.test(pt.error.message)) pt=await sb.rpc('pos_term_check',{p_token:tk}); /* SQL 233 の前 */
-    if(!pt.error&&pt.data&&pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
+    const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note});
+    if(pt.error||!pt.data){ $('loginErr').textContent='端末を確認できません。通信を確認して、再度開いてください'; return; }
+    if(pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
   $('login').classList.add('hidden'); checkVersion(); await loadMasters(); rtSub(); await loadHall(); setInterval(loadHall,60000); show('v-hall'); }
 
 async function loadMasters(){
