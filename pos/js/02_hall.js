@@ -25,12 +25,8 @@ setInterval(checkVersion,5*60000);
 // v10.43：自動HCのバックは、係（係専用の店・ママなどは除く）で自動的に等分する。係や客数が変わるたびに付け直す（端数は最初の係）。ほかのバックは注文時に選んだ人に付く
 let hcQ=Promise.resolve(); /* 通しチェック3：同時に2回走ると HC のバックが二重になるので、順番に */
 function syncHcBack(){ hcQ=hcQ.then(syncHcBack0,syncHcBack0); return hcQ; }
-async function syncHcBack0(){ const pid=settings.auto_hc_product_id; if(!pid||!cur) return;
-  const r=await sb.from('bills').select('bill_casts(staff_id,is_kakari), bill_items(id,product_id,qty,back_amount,back_points,is_void)').eq('id',cur.id).single(); if(r.error) return; if(!staffAll.length) await loadStaffAll();
-  const ks=[...new Set((r.data.bill_casts||[]).filter(c=>c.is_kakari&&!staffAll.find(x=>x.id===c.staff_id)?.kakari_only).map(c=>c.staff_id))], m=ks.length;
-  for(const it of (r.data.bill_items||[]).filter(i=>i.product_id===pid&&!i.is_void)){ await sb.from('bill_item_splits').delete().eq('bill_item_id',it.id); if(!m) continue;
-    const bk=it.back_amount*it.qty, pt=Number(it.back_points)*it.qty, eb=Math.floor(bk/m), ep=Math.floor(pt/m*10)/10;
-    const e=await sb.from('bill_item_splits').insert(ks.map((id,j)=>({bill_item_id:it.id,staff_id:id,sales_amount:0,back_amount:eb+(j===0?bk-eb*m:0),back_points:j===0?Math.round((pt-ep*(m-1))*10)/10:ep}))); if(e.error) toast(e.error.message); } }
+async function syncHcBack0(){ if(!settings.auto_hc_product_id||!cur) return; /* v12.21・SQL 279：消して入れ直すのを1つの関数で（2台同時でも二重にならない・途中で切れても消えたままにならない） */
+  const r=await sb.rpc('pos_hc_sync',{p_bill:cur.id}); if(r.error) toast('HC のバックを振分できません：'+r.error.message); }
 // 係小計：売上は全部係に付く（セット＋延長＋VIP代＋注文の小計価格）。係が複数なら等分。振り分けできるのはバックだけ
 function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id);
   const total=(T.set||0)+(T.vip_set||0)+(T.extension||0)+(T.vip_ext||0)+(b.bill_items||[]).filter(i=>!i.is_void).reduce((a,i)=>a+i.cast_subtotal_price*i.qty,0);
