@@ -10,7 +10,7 @@ const KS_COLS=[
   ['支給額',[['taxable','課税対象額','y'],['net','残り支給額','net']]]];
 PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksMonth=now; const m=ksMonth;
   const mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
-  const head=`<h1>スタッフ <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px;justify-content:space-between"><select id="ksM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select><span class="row" style="gap:8px"><button class="ghost" id="ksXls" disabled>詳細（Excel）</button><button class="ghost" id="ksPdf" disabled>報酬明細（PDF）</button></span></div>`;
+  const head=`<h1>スタッフ <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px;justify-content:space-between"><select id="ksM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select>${me?.is_owner?'<span class="row" style="gap:8px"><button class="ghost" id="ksXls" disabled>詳細（Excel）</button><button class="ghost" id="ksPdf" disabled>報酬明細（PDF）</button></span>':''}</div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>'; let data=null, hall=null;
   const wire=()=>{ const e=$('ksM'); if(e) e.onchange=()=>{ ksMonth=e.value; PAGES.cast_sales(); }; const x=$('ksXls'), pd=$('ksPdf'); if(x&&data){ x.disabled=pd.disabled=!(data.rows||[]).length&&!(hall?.rows||[]).length; x.onclick=guard(x,()=>ksExcel(data,hall)); pd.onclick=guard(pd,()=>ksPdf(data,hall)); } }; wire();
   // v0.35：黒服も同じ画面に（キャストの下）。Excel・PDF にも黒服を入れる

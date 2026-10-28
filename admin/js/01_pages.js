@@ -27,6 +27,7 @@ const SCREENS=[
 // v1.39：7つを4つのタブにまとめた（中の画面は nav:false で残す。27_owner_groups.js。オーナー 2026-10-21）
 const OWNER_SCREENS=[{grp:'オーナー'},{k:'o_view',n:'表示設定'},{k:'o_idpw',n:'ID・パスワード'},{k:'o_link',n:'連携・メール'},{k:'o_contract',n:'契約書'},
   {k:'o_perms',n:'表示設定',nav:false},{k:'o_share',n:'OLIVE 顧客情報',nav:false},{k:'o_ids',n:'管理サイトのID',nav:false},{k:'pw',n:'パスワード',nav:false},{k:'o_square',n:'Square 連携',nav:false},{k:'o_line',n:'LINE メニュー',nav:false},{k:'o_daily',n:'日報メール',nav:false}];
+// v1.69：Excel・PDF のダウンロード（収支・伝票一覧・スタッフ・入出金履歴・顧客サイト）はオーナーだけ。黒服にはボタンを出さない（オーナー 2026-10-28）
 const PERM_LABEL={none:'非表示',view:'閲覧',edit:'編集'};
 
 let me=null, storeId=null, page=null;

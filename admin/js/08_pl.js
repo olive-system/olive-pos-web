@@ -17,7 +17,7 @@ const PL_COLS=[['売上',[['cash','現金'],['invoice','請求'],['card','カー
 const plCell=(k,x)=>k==='rate'?plRate(plLabor(x),x.sales):k==='labor'?plYen(plLabor(x)):k==='adv'?plYen(Number(x.cast_adv||0)+Number(x.hall_adv||0)):plYen(x[k]);
 PAGES.pl=()=>plDate?plDayPage():plMonthPage();
 async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) plMonth=now; const m=plMonth, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
-  const head=`<h1>収支 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px;justify-content:space-between"><select id="plM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select><button class="ghost" id="plXls" disabled>Excel</button></div>`;
+  const head=`<h1>収支 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px;justify-content:space-between"><select id="plM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select>${me?.is_owner?'<button class="ghost" id="plXls" disabled>Excel</button>':''}</div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>'; let data=null;
   const wire=()=>{ $('plM').onchange=()=>{ plMonth=$('plM').value; PAGES.pl(); }; const x=$('plXls'); if(x&&data){ x.disabled=false; x.onclick=guard(x,()=>plExcel(data)); } $('main').querySelectorAll('[data-pld]').forEach(e=>e.onclick=()=>{ plDate=e.dataset.pld; PAGES.pl(); }); }; wire();
   const r=await sb.rpc('admin_pl_month',{p_store:st,p_month:m}); if(page!=='pl'||storeId!==st||plMonth!==m||plDate) return;

@@ -29,11 +29,11 @@ PAGES.hist_cash=async()=>{ const st=storeId;
   hiPeriod('hist_cash',`<select id="hiK" style="width:auto">${[['all','全部'],['in','入金'],['out','出金']].map(([k,n])=>`<option value="${k}" ${hiCashK===k?'selected':''}>${n}</option>`).join('')}</select>`,'。削除した入出金は「削除履歴」に表示されます');
   const f=hiFrom, t=hiTo; let all=[], rows=[];
   const draw=()=>{ rows=all.filter(x=>hiCashK==='all'||x.kind===hiCashK); const sum=k=>rows.filter(x=>x.kind===k).reduce((a,x)=>a+Number(x.amount||0),0);
-    $('hiBox').innerHTML=`<div class="row" style="margin-bottom:8px;gap:8px"><button class="ghost" id="hiXls" ${rows.length?'':'disabled'}>Excel</button><span class="muted" style="font-size:13px">${rows.length}件</span></div>
+    $('hiBox').innerHTML=`<div class="row" style="margin-bottom:8px;gap:8px">${me?.is_owner?`<button class="ghost" id="hiXls" ${rows.length?'':'disabled'}>Excel</button>`:''}<span class="muted" style="font-size:13px">${rows.length}件</span></div>
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm">営業日</th><th style="text-align:left">摘要</th><th>入金</th><th>出金</th></tr></thead><tbody>
     <tr class="kst"><td class="nm"><b>合計</b></td><td></td><td>${yen(sum('in'))}</td><td>${yen(sum('out'))}</td></tr>
     ${rows.map(x=>`<tr><td class="nm">${hiDay(x.business_date)}</td><td style="text-align:left;white-space:normal">${esc(x.memo||'')}</td><td>${x.kind==='in'?yen(x.amount):''}</td><td>${x.kind==='out'?yen(x.amount):''}</td></tr>`).join('')||'<tr><td colspan="4" class="muted" style="text-align:left">入出金はありません</td></tr>'}</tbody></table></div>`;
-    $('hiXls').onclick=guard($('hiXls'),async()=>{ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
+    if($('hiXls')) $('hiXls').onclick=guard($('hiXls'),async()=>{ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
       const ws=XLSX.utils.aoa_to_sheet([[`入出金履歴 ${f}〜${t}`],['営業日','摘要','入金','出金'],['合計','',sum('in'),sum('out')],...rows.map(x=>[x.business_date,x.memo||'',x.kind==='in'?Number(x.amount||0):'',x.kind==='out'?Number(x.amount||0):''])]);
       ws['!cols']=[{wch:12},{wch:30},{wch:12},{wch:12}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'入出金履歴'); XLSX.writeFile(wb,`cash-${f}_${t}${ksCode()}.xlsx`); toast('ダウンロードしました'); }); };
   $('hiK').onchange=()=>{ hiCashK=$('hiK').value; draw(); };
