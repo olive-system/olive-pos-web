@@ -17,8 +17,8 @@ async function custDataExcel(st,f,t){ try{ await ksLoad('https://cdn.jsdelivr.ne
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'お客様のデータ'); XLSX.writeFile(wb,`customers-${f}_${t}${ksCode()}.xlsx`); toast('ダウンロードしました'); }
 PAGES.cust=()=>{ const st=storeId, today=businessDate(); if(!cdFrom){ cdFrom=today.slice(0,8)+'01'; cdTo=today; }
   $('main').innerHTML=`<h1>顧客サイト <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
-  <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px"><input type="date" id="cdF" value="${cdFrom}" style="width:auto"><span>〜</span><input type="date" id="cdT" value="${cdTo}" style="width:auto"><button class="ghost" id="cdXls">Excel</button>
-    <span class="muted" style="font-size:13px">お客様ごとの来店回数・金額</span></div>
+  ${me?.is_owner?`<div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px"><input type="date" id="cdF" value="${cdFrom}" style="width:auto"><span>〜</span><input type="date" id="cdT" value="${cdTo}" style="width:auto"><button class="ghost" id="cdXls">Excel</button>
+    <span class="muted" style="font-size:13px">お客様ごとの来店回数・金額</span></div>`:''}
   <iframe id="csFrame" src="../customer/preview.html#admin" title="顧客サイト" style="width:100%;height:calc(100vh - 210px);min-height:480px;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>`;
   if(csFrameMsg) window.removeEventListener('message',csFrameMsg);
   csFrameMsg=async e=>{ const f=$('csFrame'); if(!f||e.source!==f.contentWindow||e.origin!==location.origin||!e.data||e.data.type!=='olive-cs-need') return;
@@ -26,6 +26,6 @@ PAGES.cust=()=>{ const st=storeId, today=businessDate(); if(!cdFrom){ cdFrom=tod
     const d=r.error?{error:/admin_cs_session/.test(r.error.message)?'SQL 076 が未実行です':r.error.message}:(r.data||{});
     f.contentWindow.postMessage({type:'olive-cs-auth',...d},location.origin); };
   window.addEventListener('message',csFrameMsg);
-  $('cdXls').onclick=guard($('cdXls'),async()=>{ const a=$('cdF').value, b=$('cdT').value; if(!a||!b){ await uiAlert('期間を入力してください'); return; } if(b<a){ await uiAlert('期間が逆になっています'); return; }
+  if($('cdXls')) $('cdXls').onclick=guard($('cdXls'),async()=>{ const a=$('cdF').value, b=$('cdT').value; if(!a||!b){ await uiAlert('期間を入力してください'); return; } if(b<a){ await uiAlert('期間が逆になっています'); return; }
     if((new Date(b)-new Date(a))/864e5>366){ await uiAlert('期間は1年までにしてください'); return; } cdFrom=a; cdTo=b; await custDataExcel(st,a,b); }); };
 
