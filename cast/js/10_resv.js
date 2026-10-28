@@ -10,6 +10,8 @@ const rvTag = v => v ? `<b style="color:var(--ok);font-size:12px;white-space:now
 const rvTags = x => `<span>${rvTag(x.douhan && '同伴')}</span><span>${rvTag(x.vip)}</span>`;
 const rvRow = (x, sub, i) => { const s = [rvDh(x), sub].filter(Boolean).join('・');
   return `<div style="padding:6px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:grid;grid-template-columns:3.2em minmax(0,1fr) 2.4em 3.4em;gap:6px;align-items:baseline"><b>${esc(x.time)}</b><span>${esc(x.name)} 様 ${Number(x.guests)||0}名</span>${rvTags(x)}</div>${s ? `<div class="muted sm" style="padding-left:calc(3.2em + 6px)">${esc(s)}</div>` : ''}</div>`; };
+// v0.86：広島はお店のお客様で、女の子に担当は無い（POS の担当は誘客した子を報酬に付ける印だけ。2026-10-28 オーナー）→ 予約画面に担当を出さない。担当は申請した子（誘客）
+const RV_NOKK = () => STORE === 'hiroshima';
 let RESV = [], NOTICES = [];
 async function resvList(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
@@ -18,7 +20,7 @@ async function resvList(){
   RESV = r.data || [];
   // v0.79：同伴の子にも出す（誘客・係のほかに）。ありがとうは係だけ
   const rows = RESV.map((x, i) => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><span>${esc(resvLine(x))}</span>${x.douhan||x.vip?`<span style="display:grid;grid-template-columns:2.4em 3.4em;gap:6px;flex:none">${rvTags(x)}</span>`:''}</div>
-    <div class="muted sm">${x.mine?`誘客 自分・${KL} ${x.kakari_name===ME.name?'自分':esc(x.kakari_name||'')}`:x.is_kakari?`誘客 ${esc(x.by)}・${KL} 自分`:`誘客 ${esc(x.by)}・${KL} ${esc(x.kakari_name||'')}`}${rvDh(x)?`・${esc(rvDh(x))}`:''}${x.memo?`・${esc(x.memo)}`:''}</div>
+    <div class="muted sm">${RV_NOKK()?`誘客 ${x.mine?'自分':esc(x.by)}`:x.mine?`誘客 自分・${KL} ${x.kakari_name===ME.name?'自分':esc(x.kakari_name||'')}`:x.is_kakari?`誘客 ${esc(x.by)}・${KL} 自分`:`誘客 ${esc(x.by)}・${KL} ${esc(x.kakari_name||'')}`}${rvDh(x)?`・${esc(rvDh(x))}`:''}${x.memo?`・${esc(x.memo)}`:''}</div>
     ${x.mine&&x.thanked?`<div class="sm" style="color:var(--ok);margin-top:2px">ありがとう ${esc(x.kakari_name||'')}${x.thanks_note?`「${esc(x.thanks_note)}」`:''}</div>`:''}
     ${!x.mine&&x.is_kakari?(x.thanked?`<button data-thv="${i}" style="display:block;background:none;border:none;padding:2px 0 0;font:inherit;font-size:13px;color:var(--ok);text-align:left">ありがとう済み ›</button>`:`<div style="margin-top:6px"><button class="btn g" data-th="${i}" style="width:auto;padding:6px 16px">ありがとう</button></div>`):''}
     ${x.mine?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn g" data-ed="${i}" style="width:auto;padding:6px 16px">変更</button><button class="btn g" data-cx="${i}" style="width:auto;padding:6px 16px;color:var(--warn)">取消</button></div>`:''}</div>`).join('');
