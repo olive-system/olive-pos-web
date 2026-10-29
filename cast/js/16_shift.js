@@ -18,14 +18,14 @@ const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), 
 async function shiftHome(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_shift_info', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
-  SHIFT = r.data; shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
+  SHIFT = r.data; await mtShiftMarks(SHIFT); /* v0.93・SQL 287：自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
 }
 function shiftPaint(ng){
   const S = SHIFT, OFF = new Set(S.off || []), OK = !!S.ok_only, full = new Set(OK ? [] : S.full || []), mo = Number(String(S.month).slice(5,7)), dueD = mdDay(S.due);
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   const fixed = (S.fixed || []).map(F => { const D = {}; (F.days||[]).forEach(x => D[x.day] = x.time); const M = {}; (F.marks||[]).forEach(x => (M[x.day] = M[x.day] || []).push(x));
     return `<div class="card"><div class="gh">${Number(String(F.month).slice(5,7))}月の出勤（確定）${(F.days||[]).length}日</div>${calGrid(F.month, (iso, d) => { const t = D[iso], k = M[iso];
-      return `<div data-sd="${iso}" style="${box};cursor:pointer;${t?'background:var(--gold-soft);font-weight:700':''}">${d}${t?`<small style="display:block;font-size:10px;color:var(--pri)">${t}</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':(k?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">出勤なし</small>':'')}${['同伴','予約','係予約'].map(n => { const c = (k||[]).filter(x => x.kind === n).length; return c ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">${n.replace('係', KL)}${c}</small>` : ''; }).join('')}</div>`; })}</div>`; }).join('');
+      return `<div data-sd="${iso}" style="${box};cursor:pointer;${t?'background:var(--gold-soft);font-weight:700':''}">${d}${t?`<small style="display:block;font-size:10px;color:var(--pri)">${t}</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':(k?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">出勤なし</small>':'')}${['同伴','予約','係予約','ミーティング'].map(n => { const c = (k||[]).filter(x => x.kind === n).length; return c ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">${n.replace('係', KL)}${n === 'ミーティング' ? '' : c}</small>` : ''; }).join('')}</div>`; })}</div>`; }).join('');
   show(`<div style="display:flex;justify-content:flex-end;margin-bottom:-28px"><button class="lkb" id="shAtt">打刻一覧</button></div><div class="ttl">シフト</div>${fixed}
     <div class="card"><div class="sm" style="font-weight:700;margin-bottom:8px">${mo}月分${OK?'出勤希望':'休み希望'}　提出期限 ${dueD}</div>
     ${calGrid(S.month, (iso, d) => { const on = ng.has(iso), of = OFF.has(iso), fu = (full.has(iso) && !on) || of;
@@ -49,7 +49,7 @@ function shiftPaint(ng){
 async function shiftDay(iso){
   const F = (SHIFT.fixed || []).find(f => iso >= f.month && iso.slice(0,7) === String(f.month).slice(0,7)); if(!F) return;
   const t = (F.days||[]).find(x => x.day === iso), k = (F.marks||[]).filter(x => x.day === iso), d = new Date(iso+'T00:00:00+09:00');
-  await uiAlert(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`);
+  await uiAlert(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`);
 }
 
 // v0.70・SQL 257：黒服とママ（staff.shift_all）はキャスト全員のシフト（オーナー 2026-10-26 見本 全員のシフト_マイページ_見本「この形で作る」）。

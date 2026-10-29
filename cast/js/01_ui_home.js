@@ -94,7 +94,7 @@ function home(){
   const bdCard = (ME.bdays||[]).length ? `<div class="card"><div class="gh">お誕生日（前後2週間）</div>${ME.bdays.map(bdRow).join('')}</div>` : '';
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41・v0.44：成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
-    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','アプローチ','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
+    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','アプローチ','',true)}${tile('mtg','ミーティング','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
@@ -107,6 +107,7 @@ function home(){
   $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* v0.70：ママは全員のシフト */
   $('main').querySelector('[data-go=info]').onclick = noticeList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
+  mtTile(); /* v0.93・SQL 287：ミーティング（申請できる時か、申請済みの枠がある時だけ） */
 }
 
 function perf(){
