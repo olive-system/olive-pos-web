@@ -41,7 +41,7 @@ function mtCastPaint(M){
 
 // シフトのカレンダー（確定）に自分のミーティングを出す
 async function mtShiftMarks(S){
-  const r = await sb.rpc('cast_meeting_get', { p_token: TOKEN }).catch(() => null); if(!r || r.error) return;
+  let r = null; try{ r = await sb.rpc('cast_meeting_get', { p_token: TOKEN }); }catch(e){} if(!r || r.error) return;
   [r.data.now, r.data.mine].filter(Boolean).forEach(b => { const F = (S.fixed || []).find(f => String(f.month).slice(0,7) === String(b.day).slice(0,7)); if(F) (F.marks = F.marks || []).push({ day: b.day, kind: 'ミーティング', time: mtHm(b.at) }); });
 }
 
