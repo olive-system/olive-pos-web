@@ -69,7 +69,7 @@ async function shiftAll(store){
   const hallOff = iso => all('hall_off').filter(x => x.day === iso).map(x => x.name);
   const resvOf = iso => all('resv').filter(x => x.day === iso);
   const rvHead = R => `予約 ${R.length}件${R.some(x => x.douhan) ? `（同伴 ${R.filter(x => x.douhan).length}件）` : ''}`;
-  const who = x => [x.by ? `誘客 ${x.by}` : '', x.kakari ? `${KLs} ${x.kakari}` : ''].filter(Boolean).join('・');
+  const who = x => [x.by ? `誘客 ${x.by}` : '', x.kakari && A.store !== 'hiroshima' ? `${KLs} ${x.kakari}` : ''].filter(Boolean).join('・'); /* v0.90：広島は担当を出さない（予約画面 v0.86 と同じ。2026-10-29 オーナー） */
   const cur = (A.months || [])[0] || {}, tL = (cur.fixed ? cur.shifts || [] : []).filter(x => x.day === A.today), tOff = hallOff(A.today), tR = resvOf(A.today);
   const sep = '<div style="border-top:1px solid var(--line);margin:8px 0"></div>';
   const todayExtra = (tOff.length ? `${sep}<div class="gh">黒服の休み</div><div>${esc(tOff.join('・'))}</div>` : '')
