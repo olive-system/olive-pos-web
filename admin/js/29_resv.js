@@ -66,7 +66,7 @@ function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option valu
   m.querySelector('[data-k=no]').onclick=()=>m.remove();
   const sv=m.querySelector('[data-k=ok]'); sv.onclick=guard(sv,async()=>{ const q=id=>m.querySelector(id); const g=Number(String(q('#rvG').value).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)));
     const dh=q('#rvDh').checked, t=q('#rvT').value.trim()||(dh?'20:30':'');
-    const z=await rpc('admin_resv_save',{p_store:st,p_id:x.id||null,p_day:q('#rvD').value,p_time:t,p_name:q('#rvN').value.trim(),p_guests:g,p_douhan:dh,p_by:q('#rvB').value,p_kakari:rvNoKK()?(S.find(s=>s.id===q('#rvB').value)?.kind==='cast'?q('#rvB').value:null):q('#rvK').value||null,p_meet:'',p_memo:q('#rvMm').value.trim(),
+    const z=await rpc('admin_resv_save',{p_store:st,p_id:x.id||null,p_day:q('#rvD').value,p_time:t,p_name:q('#rvN').value.trim(),p_guests:g,p_douhan:dh,p_by:q('#rvB').value,p_kakari:rvNoKK()?(S.find(s=>s.id===q('#rvB').value)?.kind==='cast'?q('#rvB').value:null):q('#rvK').value||null,p_meet:x.meet||'' /* v1.75：待ち合わせの時刻は小窓に無いので、今の値を送る（前は空にして消えていた。点検 2026-10-30） */,p_memo:q('#rvMm').value.trim(),
       p_vip:q('#rvV')?.value||null,p_dh:dh?[...m.querySelectorAll('[data-dhc]:checked')].map(c=>c.dataset.dhc):null});
     if(!z.ok) return; m.remove(); rvMonth=q('#rvD').value.slice(0,8)+'01'; toast('保存しました'); PAGES.resv(); });
 }

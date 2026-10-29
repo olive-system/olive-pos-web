@@ -134,7 +134,7 @@ async function billEdit(id){
     q('#beDel').onclick=guard(q('#beDel'),async()=>{ if(!await uiConfirm(`${md(bd)} 卓${B.table||''}　${yen(O.calc.amount_due)} の伝票を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除','danger')) return; const z=await rpc('admin_bill_void',{p_bill:id}); if(!z.ok) return; close(); toast('削除しました'); (PAGES[page]||PAGES.pl)(); });
     q('#beOk').onclick=guard(q('#beOk'),async()=>{ const {ops,note}=diff(); if(!ops.length){ close(); return; } await check(); if(!last) { await uiAlert('修正内容に問題があります。赤い文字を確かめてください'); return; }
       const pd=S.pays.reduce((a,p)=>a+Number(p.amount||0),0); if(pd!==Number(last.due)&&!await uiConfirm(`支払いの合計（${yen(pd)}）が請求額（${yen(last.due)}）と合いません。このまま保存しますか？`,'保存')) return;
-      const z=await rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:note,p_reason:q('#beR').value.trim(),p_dry:false}); if(!z.ok) return; close(); toast('修正しました'); (PAGES[page]||PAGES.pl)(); });
+      const z=await rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:note,p_reason:q('#beR').value.trim(),p_dry:false,p_ver:O.ver||null /* v1.75・SQL 293：開いた時の伝票の版。ほかの画面で変わっていたら断る */}); if(!z.ok) return; close(); toast('修正しました'); (PAGES[page]||PAGES.pl)(); });
     check(); }
   draw(); }
 

@@ -26,13 +26,18 @@ function resvThanks(x){
     resvList();
   };
 }
-async function resvCancel(x){
+/* v0.94：LINE の送信に失敗した時は、欠勤連絡と同じ文を一覧の上に出す（前は何も出さなかった） */
+const RV_LINE_NG = '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>';
+async function resvListNg(lineOk){ await resvList(); if(!lineOk) $('main').insertAdjacentHTML('afterbegin', RV_LINE_NG); }
+async function resvCancel(x, b){
   if(!await uiConfirm(`${resvLine(x)}\nこの予約を取消しますか？`, '取消')) return;
+  if(b) b.disabled = true; /* v0.94：送っている間は押せない（2回押し） */
   const q = await sb.rpc('cast_resv_cancel', { p_token: TOKEN, p_id: x.id });
-  if(q.error){ await uiAlert(q.error.message); return; }
-  try{ await liff.sendMessages([{ type:'text', text: resvMsg('予約取消', x, x.kakari_name || '', ME.name) }]); }catch(e){}
+  if(q.error){ if(b) b.disabled = false; await uiAlert(q.error.message); return; }
+  let lineOk = true;
+  try{ await liff.sendMessages([{ type:'text', text: resvMsg('予約取消', x, x.kakari_name || '', ME.name) }]); }catch(e){ lineOk = false; }
   await uiAlert('予約を取消しました');
-  resvList();
+  resvListNg(lineOk);
 }
 async function resvForm(ed){
   setBack(resvList); show('<div class="card c muted">読み込み中…</div>');
@@ -108,9 +113,10 @@ async function resvForm(ed){
     const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: cid, p_vip: vip, p_dh: dh ? dhIds : null });
     if(q.error){ $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
     dft?.clear();
-    try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){}
+    let lineOk = true;
+    try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){ lineOk = false; }
     await uiAlert(`${ed?'予約を変更しました':'予約／同伴申請を受付しました'}${q.data.notified?`\n${NK?'':KL+'・'}同伴のキャストにも LINE で送りました`:''}`);
-    resvList();
+    resvListNg(lineOk);
   };
 }
 

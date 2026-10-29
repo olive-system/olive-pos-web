@@ -118,9 +118,9 @@ PAGES.set_pay=async()=>{
 // v0.11・SQL 052：罰金の種類（店舗ごと）。POS の在籍リスト「＋罰金」で選ぶ。金額が決まっているものはそのまま登録、時給の％は月末の時給で計算、日給の％はその人の日給で計算
 // v1.26・SQL 140：報酬の種類（オーナー 2026-10-17「罰金の種類だけではなく、報酬の種類も作れ」「広島はポイントの加算でスライド表作ってる」）
 // 名前・手当（円）かポイント・1回の数・自動（連絡先交換の提出）。ポイントはその月のポイント（ポイントスライド）に、手当は報酬の手当に足す。POS の在籍リストの「手当」で選ぶ
-let RWT=[], RWPS=false;
+let RWT=[], RWPS=false, RWT0=[]; /* v1.75：RWT0＝読んだ時の一覧（保存の時に送って、ほかの画面で変わっていたら断る。点検 2026-10-30） */
 const rwTxt=x=>`${x.value!=null?`${Number(x.value).toLocaleString('ja-JP')}${x.kind==='point'?'P':'円'}／1回`:'<span class="muted">数 未設定</span>'}${x.auto==='contact'?'　自動':''}`;
-function rwCard(d,ed){ RWT=d.rows||[]; RWPS=!!d.point_slide; return foldCard('rewards','報酬の種類','',`${RWT.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS：在籍リストの「手当」${RWPS?'（手当／ポイント）':''}　自動：連絡先交換の提出1件ごと</div>
+function rwCard(d,ed){ RWT=d.rows||[]; RWT0=JSON.parse(JSON.stringify(RWT)); RWPS=!!d.point_slide; return foldCard('rewards','報酬の種類','',`${RWT.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS：在籍リストの「手当」${RWPS?'（手当／ポイント）':''}　自動：連絡先交換の提出1件ごと</div>
   <div style="border:1px solid var(--line);border-radius:10px;background:#fff">${RWT.map((x,i)=>`<div ${ed?`data-rwi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(x.name)}　<small class="muted">${x.kind==='point'?'ポイント':'手当'}</small></span><b style="font-weight:600">${rwTxt(x)}</b></div>`).join('')||'<div class="muted" style="padding:10px 14px">なし</div>'}</div>
   ${ed?'<div class="fend"><button class="ghost sm" data-rwadd>＋ 報酬を追加</button></div>':''}`,'data-rewards'); }
 function rwEdit(st,i){ const x=i==null?{name:'',kind:RWPS?'point':'yen',value:null,auto:null}:RWT[i];
@@ -131,7 +131,7 @@ function rwEdit(st,i){ const x=i==null?{name:'',kind:RWPS?'point':'yen',value:nu
     <div class="bar">${i==null?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
   const q=id=>md.querySelector('#'+id); q('rwK').onchange=()=>{ q('rwU').textContent=q('rwK').value==='point'?'P':'円'; };
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
-  const save=async L=>{ const r=await rpc('admin_reward_types_save',{p_store:st,p_rows:L}); return r.ok; };
+  const save=async L=>{ const r=await rpc('admin_reward_types_save',{p_store:st,p_rows:L,p_base:RWT0}); return r.ok; };
   const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を報酬の一覧から消しますか？\n今までに付けたものは消えません`,'削除','danger')) return; if(!await save(RWT.filter((_,k)=>k!==i))) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('rwN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
     if(RWT.some((y,k)=>k!==i&&y.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }
@@ -155,11 +155,11 @@ function fineRowWire(tr,ed){ for(const k of ['h','d']){ const q=f=>tr.querySelec
     const upd=()=>{ const c=cl.value; u.textContent=c==='yen'?'円':(c===''||c==='input')?'':'%'; v.disabled=!ed||c===''||c==='input'; if(c===''||c==='input') v.value=''; v.placeholder=FINE_TIME(c)?'加算（%）':''; pu.disabled=!ed||c!=='yen'; if(c!=='yen') pu.checked=false; }; cl.onchange=upd; upd(); }
   const d=tr.querySelector('[data-fdel]'); if(d) d.onclick=()=>tr.remove(); }
 // v1.18：罰金の種類は「一覧は文、押して小窓で変える」（オーナー 2026-10-17。見本ア）。時給・日給の2列と「個数」のチェックをやめた。円の罰金は POS でいつも回数を入れられる（per_unit を全部 true）
-let FINES=[];
+let FINES=[], FINES0=[]; /* v1.75：FINES0＝読んだ時の fine_types の行（保存の時に送る。報酬の種類と同じ） */
 const fineTxt=c=>!c?'なし':c.calc==='yen'?`${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='hourly_pct'?(c.value%100===0?`時給×${c.value/100}時間`:`時給の${c.value}%`):c.calc==='daily_pct'?`日給 ${c.value}%`:c.calc==='input'?'その都度':c.calc==='daily_late'?`遅刻時間分${c.value?`＋日給 ${c.value}%`:''}`:c.calc==='daily_early'?`早上がり時間分${c.value?`＋日給 ${c.value}%`:''}`:'—';
 const fineSame=(a,b)=>!!a&&!!b&&a.calc===b.calc&&(a.value??null)===(b.value??null);
 // v1.55：所定時間の保存も箱の右下（オーナー 2026-10-23「ちぐはぐやめて」）
-function fineCard(rows,ed,hours){ FINES=fineGroup(rows); return foldCard('fines','罰金の種類','',`${FINES.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS の在籍リストの「＋罰金」で選びます。${ed?'押すと変えられます':''}</div>
+function fineCard(rows,ed,hours){ FINES=fineGroup(rows); FINES0=rows.map(r=>({name:r.name,target:r.target,calc:r.calc,value:r.value,per_unit:r.per_unit})); return foldCard('fines','罰金の種類','',`${FINES.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS の在籍リストの「＋罰金」で選びます。${ed?'押すと変えられます':''}</div>
   <div class="row" style="margin-bottom:10px;font-size:14px">日給の人の所定時間<input id="dHours" inputmode="decimal" value="${hours??''}" ${ed&&hours!=null?'':'disabled'} style="width:80px;text-align:right">時間${hours==null?'<span class="muted" style="font-size:13px">SQL 053 が未実行です</span>':''}</div>
   <div id="fnList">${fineListHtml(ed)}</div>${ed?`<div class="fend"><button class="ghost sm" data-fadd>＋ 罰金を追加</button><span class="sp"></span>${hours!=null?'<button class="primary sm" id="dHoursSave">保存</button>':''}</div>`:''}`,'data-fines'); }
 function fineListHtml(ed){ return `<div style="border:1px solid var(--line);border-radius:10px;background:#fff">${FINES.map((g,i)=>{ const same=fineSame(g.h,g.d)||(!g.d&&g.h&&(g.h.calc==='yen'||g.h.calc==='input'));
@@ -173,7 +173,7 @@ function fineEdit(st,i){ const g=i==null?{name:'',h:{calc:'yen',value:null},d:nu
   const q=id=>md.querySelector('#'+id), dp=()=>{ const v=q('fnD').value; q('fnDv').style.display=['yen','daily_pct','daily_late','daily_early'].includes(v)?'':'none'; q('fnDu').textContent=v==='yen'?'円':v==='daily_pct'?'%':'＋日給の %（空けてよい）'; }; q('fnD').onchange=dp; dp();
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   const save=async list=>{ const rows=[]; for(const x of list){ const same=fineSame(x.h,x.d); if(x.h&&x.d&&same&&(x.h.calc==='yen'||x.h.calc==='input')) rows.push({name:x.name,target:'all',...x.h,per_unit:x.h.calc==='yen'}); else { if(x.h) rows.push({name:x.name,target:'hourly',...x.h,per_unit:x.h.calc==='yen'}); if(x.d) rows.push({name:x.name,target:'daily',...x.d,per_unit:x.d.calc==='yen'}); } }
-    const r=await rpc('admin_save_fine_types',{p_store:st,p_rows:rows}); if(!r.ok) return false; return true; };
+    const r=await rpc('admin_save_fine_types',{p_store:st,p_rows:rows,p_base:FINES0}); if(!r.ok) return false; return true; };
   const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${g.name}」を罰金の一覧から消しますか？\n今までに付けた罰金は消えません`,'削除','danger')) return; const L=FINES.filter((_,k)=>k!==i); if(!await save(L)) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('fnN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
     if(FINES.some((x,k)=>k!==i&&x.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }

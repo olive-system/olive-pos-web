@@ -231,6 +231,10 @@ async function start(fromLogin){
   { const ld = await tcLoad(), tk = ld[0], note = ld[1]; if (tk) keyDb('readwrite', s => s.put(tk, TC_KEY));
     let r = await sb.rpc('tc_check', { p_token: tk, p_note: note }); if (r.error && /p_note|function/i.test(r.error.message)) r = await sb.rpc('tc_check', { p_token: tk }); /* SQL 233 の前 */
     const data = r.data, error = r.error;
+    /* 2026-10-30 点検：通信の失敗（status 0）で登録コードの画面に行くと、戻れなくなっていた → 管理サイトと同じく「通信を確かめています…」を出して5秒ごとにやり直す。登録コードの画面は本当に断られた時だけ */
+    if (error && !r.status) { document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.add('hidden'); document.getElementById('login').classList.remove('hidden');
+      document.getElementById('loginErr').textContent = '通信を確かめています…'; clearTimeout(start.r); start.r = setTimeout(start, 5000); return; }
+    clearTimeout(start.r); document.getElementById('loginErr').textContent = '';
     if (error) { showReg(/tc_check/.test(error.message) ? 'SQL 063 が未実行です' : error.message); return; }
     if (!data || !data.ok) { showReg(); return; } }
   document.getElementById('app').classList.remove('hidden');

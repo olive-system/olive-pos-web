@@ -17,3 +17,8 @@ function draftBind(key, ids){ const k = 'olive_cast_draft_' + key + '_' + STORE;
   const save = () => { const o = { at: Date.now() }; ids.forEach(id => { const el = $(id); if(el) o[id] = el.value; }); try{ localStorage.setItem(k, JSON.stringify(o)); }catch(e){} };
   ids.forEach(id => { const el = $(id); if(!el) return; if(v[id] != null && v[id] !== '' && v[id] !== el.value){ el.value = v[id]; had = true; } el.addEventListener('input', save); el.addEventListener('change', save); });
   return { had, clear(){ try{ localStorage.removeItem(k); }catch(e){} } }; }
+
+/* v0.94：写真は3枚ずつ同時に送る（前は1枚ずつ。TODO は40枚まで）。one(i) で i 枚目を送る・done(k) は送り終わった枚数。失敗したら残りは送らず、送っている分を待ってから止める */
+async function upPool(n, one, done){ let next = 0, fin = 0, ng = null;
+  const w = async () => { while(next < n && !ng){ const i = next++; try{ await one(i); fin++; if(done) done(fin); }catch(e){ ng = ng || e; } } };
+  await Promise.all(Array.from({ length: Math.min(3, n) }, w)); if(ng) throw ng; }

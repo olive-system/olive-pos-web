@@ -1,12 +1,19 @@
 // v0.36・SQL 134：伝票一覧（自分が係の伝票。今月の分・前月の分は翌月3日まで。オーナー 2026-10-17）。お客様を押すと明細が開く
 let billOpen = new Set();
 const PAYN = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
+let blD = null; /* v0.94：開いている月の伝票（明細を開く・閉じる時は読み直さない） */
 async function castBills(month){
   setBack(home); if(!$('blBox')) show('<div class="card c muted">読み込み中…</div>');
-  const ms = await sb.rpc('cast_bill_months', { p_token: TOKEN }); if(ms.error){ fail(ms.error.message); return; }
+  /* v0.94：月がわかる時（月のボタン・トップで読んだ件数の最初の月）は、件数と伝票を同時に読む（前は順番に待っていた） */
+  const g = month || (ME && ME.billMonths && ME.billMonths[0] && ME.billMonths[0].month) || null;
+  const pM = sb.rpc('cast_bill_months', { p_token: TOKEN }), pB = g ? sb.rpc('cast_bills', { p_token: TOKEN, p_month: g }) : null;
+  const ms = await pM; if(ms.error){ fail(ms.error.message); return; }
   const M = ms.data || [], m = month || (M[0] && M[0].month);
-  const r = await sb.rpc('cast_bills', { p_token: TOKEN, p_month: m }); if(r.error){ fail(r.error.message); return; }
-  const B = r.data || [], mo = x => `${Number(String(x).slice(5,7))}月`, tm = t => t ? new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+  const r = await (pB && m === g ? pB : sb.rpc('cast_bills', { p_token: TOKEN, p_month: m })); if(r.error){ fail(r.error.message); return; }
+  blD = { M, m, B: r.data || [] }; blPaint();
+}
+function blPaint(){
+  const { M, m, B } = blD, mo = x => `${Number(String(x).slice(5,7))}月`, tm = t => t ? new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
   const L = (k, v, c='') => `<div class="row ${c}" style="font-size:14px"><span>${k}</span><span>${v}</span></div>`;
   const bill = b => { const c = b.calc || {}, op = billOpen.has(b.id), d = new Date(b.date+'T00:00:00+09:00');
     let h = `<div class="card" data-bl="${b.id}" style="cursor:pointer"><div class="row"><b>${esc(b.customers||'お客様')} 様</b><b>${yen(c.amount_due)}</b></div>
@@ -21,7 +28,7 @@ async function castBills(month){
     <div class="muted sm" style="margin:0 2px 8px">${esc(KL)}の伝票・前月分は翌月3日まで</div>
     ${B.map(bill).join('') || '<div class="card c muted">伝票はありません</div>'}</div>`);
   $('main').querySelectorAll('[data-bm]').forEach(b => b.onclick = () => castBills(b.dataset.bm));
-  $('main').querySelectorAll('[data-bl]').forEach(e => e.onclick = () => { const k = e.dataset.bl; billOpen.has(k) ? billOpen.delete(k) : billOpen.add(k); const y = window.scrollY; castBills(m).then(() => window.scrollTo(0, y)); });
+  $('main').querySelectorAll('[data-bl]').forEach(e => e.onclick = () => { const k = e.dataset.bl; billOpen.has(k) ? billOpen.delete(k) : billOpen.add(k); const y = window.scrollY; blPaint(); window.scrollTo(0, y); }); /* v0.94：読み直さない */
 }
 // ---------- 黒服マイページ v0.33・SQL 133（オーナー 2026-10-17）：日報（今の Google フォーム）・報酬明細（キャストと同じ形・受取確認）・担当キャスト・朝礼
 async function hallLoad(pre){ /* v0.73：hall_me は loadMe で先に読み始めている */
@@ -37,24 +44,39 @@ function hallGo(k){
   else if(k === 'work'){ opSwitch = true; hallTasks(h >= 22 || h < 8 ? 'close' : 'open'); }
   else if(k === 'daily'){ const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.click(); }
 }
+/* v0.94：黒服のトップの数（開店・閉店作業の完了・TODO・書類・ミーティング）は60秒まで覚えておく（ほとんどの画面の「戻る」がトップで、そのたびに5つ読んでいた）。
+   読むだけの関数（HC_READ）のほかを呼んだら（保存・完了・取消など）すぐ忘れる */
+let HC = null;
+const HC_READ = new Set(['hall_me', 'hall_tasks', 'hall_todos', 'hall_todo_ahead', 'hall_meeting_get', 'hall_chorei', 'hall_casts', 'hall_close_data', 'hall_cs_session', 'cast_docs_info', 'cast_who', 'cast_me',
+  'cast_shift_all', 'cast_shift_day', 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll']);
+{ const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)) HC = null; return rpc0(fn, ...a); }; }
+function hcGet(){
+  if(HC && Date.now() - HC.at < 60000) return HC;
+  const q = fn => Promise.resolve(fn()).then(r => { if(r && r.error && HC === h) HC = null; return r; }, e => { if(HC === h) HC = null; return { error: e }; }); /* 読めなかった分は次にもう一度 */
+  const h = { at: Date.now() };
+  h.open = q(() => sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: 'open' })); h.close = q(() => sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: 'close' }));
+  h.todos = q(() => sb.rpc('hall_todos', { p_token: TOKEN })); h.mtg = q(() => sb.rpc('hall_meeting_get', { p_token: TOKEN }));
+  h.docs = q(() => docsLoad().then(ok => ok ? { data: ME.docs } : { error: true }));
+  HC = h; return h;
+}
 function hallHome(){
-  setBack(null); opSwitch = false;
+  setBack(null); opSwitch = false; const H = hcGet();
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('open','開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('close','閉店作業','',true)}${tile('daily','日報','',!!ME.form)}${tile('cs','顧客サイト','',true)}${tile('shift','シフト','全員',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}${tile('docs','書類','',true)}${tile('late','遅刻連絡','',true)}${tile('mtg','ミーティング','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21）。v0.60：並びを 朝礼・担当キャスト／開店作業・TODO／閉店作業・日報／報酬明細・名刺発注 に（オーナー 2026-10-23）。v0.62：4段目の左に顧客サイト（右は空き）、報酬明細・名刺発注は5段目（オーナー 2026-10-23） */
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   $('main').querySelector('[data-go=open]').onclick = hallOpen; /* v0.55：開店作業 */
   $('main').querySelector('[data-go=close]').onclick = hallClose; /* v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
-  ['open', 'close'].forEach(ph => sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }).then(r => { const b = $('main').querySelector(`[data-go=${ph}]`); if(!b) return; if(r.error){ if(ph === 'close') b.remove(); return; } if(!r.data.on){ b.remove(); return; } const L = r.data.items || []; if(!L.length) return; b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); }));
-  sb.rpc('hall_todos', { p_token: TOKEN }).then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* v0.69・SQL 234：休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
+  ['open', 'close'].forEach(ph => H[ph].then(r => { const b = $('main').querySelector(`[data-go=${ph}]`); if(!b) return; if(r.error){ if(ph === 'close') b.remove(); return; } if(!r.data.on){ b.remove(); return; } const L = r.data.items || []; if(!L.length) return; b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); }));
+  H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* v0.69・SQL 234：休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   $('main').querySelector('[data-go=docs]').onclick = docsList; /* v0.81・SQL 271：黒服も自分の書類（契約書は黒服の条文。オーナー 2026-10-27「その人の契約書をその人のマイページで」） */
-  docsLoad().then(ok => { const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target){ b.remove(); return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
+  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target){ b.remove(); return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
   $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* v0.88・SQL 283：遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
-  $('main').querySelector('[data-go=mtg]').onclick = mtHall; mtHallTile(); /* v0.93・SQL 287：ミーティング（担当の子の割当） */
+  $('main').querySelector('[data-go=mtg]').onclick = mtHall; mtHallTile(H.mtg); /* v0.93・SQL 287：ミーティング（担当の子の割当） */
   $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* v0.70・SQL 257：キャスト全員のシフト（4段目の右の空きに） */
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
 }

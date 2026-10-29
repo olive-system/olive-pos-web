@@ -1,12 +1,24 @@
 // ---------- hall ----------
 const HALL_SEL='*, bill_casts(staff_id,role,is_kakari), bill_extensions(minutes,unit_price,qty,is_auto), bill_tags(id,kind,returned_at), bill_customers(customer_id)';
-async function loadHall(){
+/* v12.30：伝票の金額（calc_bill）は伝票ごとに覚えておき、変わった伝票だけ計算し直す（前は1分ごと・知らせのたびに全部の伝票を計算していた） */
+let hallTot={}, hallGen={}, hallEpoch=0, hallFullAt=0, hallOn=false;
+const hallDrop=id=>{ delete hallTot[id]; hallGen[id]=(hallGen[id]||0)+1; };
+const hallDropAll=()=>{ hallTot={}; hallEpoch++; };
+const hallPut=(id,v)=>{ hallGen[id]=(hallGen[id]||0)+1; hallTot[id]=v; };
+async function hallTotals(){ const ids=new Set(openBills.map(b=>b.id)); for(const k of Object.keys(hallTot)) if(!ids.has(k)) delete hallTot[k];
+  await Promise.all(openBills.filter(b=>!(b.id in hallTot)).map(async b=>{ const g=hallGen[b.id], e=hallEpoch; const r=await sb.rpc('calc_bill',{p_bill:b.id}); if(!r.error&&hallGen[b.id]===g&&hallEpoch===e) hallTot[b.id]=r.data; })); }
+/* full＝5分ごと・最初・画面に戻った時（金額も置きも全部読み直す）。{side:false}＝置き・お預かり品は読まない */
+async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false);
   const { data, error } = await sb.from('bills').select(HALL_SEL).eq('status','open');
   if (error) { toast(error.message); return; }
-  checkPwAlert(); openBills = data||[]; await autoExtend(); await loadOki(); await loadHand();
-  const totals={}; await Promise.all(openBills.map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); totals[b.id]=r.data; }));
-  renderHall(totals);
+  if(full){ hallFullAt=Date.now(); hallDropAll(); checkPwAlert(); attDrop(); } else if(cur) hallDrop(cur.id); /* この端末で触った伝票は計算し直す */
+  openBills = data||[]; await autoExtend(); if(side){ await loadOki(); await loadHand(); }
+  await hallTotals(); renderHall(hallTot);
 }
+/* 1分ごと：画面を開いている時だけ。開いている伝票の一覧は今までどおり1分ごとに読む（知らせが届かない時も、ほかの端末の新しい卓が1分で出る）。金額は変わった伝票だけ。5分ごとに全部読み直す */
+async function hallTick(){ if(!store||document.visibilityState!=='visible') return; if(Date.now()-hallFullAt>=5*60000){ await loadHall(true); return; }
+  if(!rtBusy()) await loadHall({side:false}); else renderHall(hallTot); }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&hallOn) loadHall(true); });
 // v11.00：黒服を削除した時の警告（管理サイトでオーナーがパスワードを新しくするまで出し続ける）。パスワードが変わってこの端末のログインが使えなくなったら、ログイン画面に戻す（SQL 046）
 async function checkPwAlert(){ if(!store) return; try{
   const [a,s]=await Promise.all([sb.from('admin_store_settings').select('pw_alert,pw_alert_note').eq('store_id',store.id).maybeSingle(), sb.from('stores').select('id').limit(1)]);

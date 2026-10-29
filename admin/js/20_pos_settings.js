@@ -110,8 +110,11 @@ function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:
     <div class="bar" style="justify-content:flex-end;margin-top:12px"><button class="ghost" data-x>閉じる</button></div>`);
   let changed=false; const close=()=>{ box.remove(); if(changed) PAGES.shift(); }; box.querySelector('[data-x]').onclick=close;
   if(!ed) return;
-  box.querySelectorAll('[data-sdt]').forEach(sel=>sel.onchange=async()=>{ const q=await rpc('admin_shift_set',{p_store:st,p_staff:sel.dataset.sdt,p_day:day,p_time:sel.value||null}); if(!q.ok) return; changed=true; toast(sel.value?`${sel.value} にしました`:'出勤なしにしました'); });
-  box.querySelectorAll('[data-sda]').forEach(b=>b.onclick=async()=>{ const c=C.find(z=>z.id===b.dataset.sda); const t=c.daily?'19:50':(c.earliest&&c.earliest>'20:30'?c.earliest:(c.earliest||'20:30')); const q=await rpc('admin_shift_set',{p_store:st,p_staff:c.id,p_day:day,p_time:t}); if(!q.ok) return; changed=true; box.remove(); M.shifts=(M.shifts||[]).concat([{staff_id:c.id,day,time:t}]); shiftDayEdit(st,M,day,ed); });
+  box.querySelectorAll('[data-sdt]').forEach(sel=>sel.onchange=async()=>{ const q=await rpc('admin_shift_set',{p_store:st,p_staff:sel.dataset.sdt,p_day:day,p_time:sel.value||null}); if(!q.ok) return; changed=true;
+    /* v1.75：手元の M.shifts も直す（出勤なしにした後に「追加」で開き直すと、前の出勤が残って見えた。点検 2026-10-30） */
+    M.shifts=(M.shifts||[]).filter(s=>!(s.staff_id===sel.dataset.sdt&&s.day===day)).concat(sel.value?[{staff_id:sel.dataset.sdt,day,time:sel.value}]:[]);
+    toast(sel.value?`${sel.value} にしました`:'出勤なしにしました'); });
+  box.querySelectorAll('[data-sda]').forEach(b=>b.onclick=guard(b,async()=>{ /* v1.75：2回押しで2回送らない */ const c=C.find(z=>z.id===b.dataset.sda); const t=c.daily?'19:50':(c.earliest&&c.earliest>'20:30'?c.earliest:(c.earliest||'20:30')); const q=await rpc('admin_shift_set',{p_store:st,p_staff:c.id,p_day:day,p_time:t}); if(!q.ok) return; changed=true; box.remove(); M.shifts=(M.shifts||[]).concat([{staff_id:c.id,day,time:t}]); shiftDayEdit(st,M,day,ed); }));
   box.querySelector('#sdS').onclick=async()=>{ const v=box.querySelector('#sdT').value; const q=await rpc('admin_shift_day_save',{p_store:st,p_day:day,p_count:v===''?null:Number(v),p_event:box.querySelector('#sdE').checked}); if(!q.ok) return; changed=true; toast('保存しました'); }; }
 // v1.03・SQL 124：シフト設定（曜日別の目安人数を店・月ごとに。日ごとの目安はシフトのカレンダーで日を押して変更）。v1.04・SQL 125：イベント日の登録も（オーナー 2026-10-16）
 let setMonth=null;

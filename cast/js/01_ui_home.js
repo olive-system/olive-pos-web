@@ -17,6 +17,7 @@ async function start(){
 
 // LINE の id_token をデータベースで認証 → 入場券、または連携用の番号
 async function login(){
+  linkWait = false; /* v0.94：待ちは showLink の時だけ */
   const idt = liff.getIDToken();
   if(!idt){ liff.login({ redirectUri: location.href }); return; }
   const r = await sb.rpc('cast_login', { p_store: STORE, p_id_token: idt });
@@ -24,23 +25,43 @@ async function login(){
   if(r.data.status === 'link'){ showLink(r.data); return; }
   if(r.data.status === 'store'){ /* SQL 222：ほかの店で連携している人（開いたトークに欠勤・予約の LINE が届くため開かない） */
     show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(r.data.store_name)} の公式 LINE のメニューから再度開いてください</p></div>`); return; }
-  TOKEN = r.data.token; clearTimeout(pollT); await loadMe();
+  TOKEN = r.data.token; clearTimeout(pollT); await loadMe(r.data.kind ? r.data : null); /* v0.94・SQL 292：cast_login が kind・shift_all も返す（cast_who を待たない） */
 }
 
 // 未連携：番号を表示し、黒服が POS で入力するのを待つ（5秒ごとに確認）
+// v0.94・SQL 292：画面が隠れている間は待ちを止め、戻ったらすぐ確かめる。30分で待ちを終える（画面はそのまま）。待ちは LINE の確かめをしない cast_link_poll（連携・期限切れの時だけ cast_login）
+let linkWait = false, linkT0 = 0, linkPoll = null;
 function showLink(d){
   show(`<div class="card c"><div class="big">ようこそ</div><p>この LINE は未連携です。</p><p>黒服にこの番号をお伝えください。</p>
     <div class="code">${esc(d.code)}</div><p class="muted sm">番号は10分で更新されます。連携が完了すると自動で切り替わります</p></div>`);
-  clearTimeout(pollT); pollT = setTimeout(login, 5000);
+  linkWait = true; linkPoll = d.poll || null; if(!linkT0) linkT0 = Date.now();
+  linkNext();
 }
+function linkNext(){ clearTimeout(pollT); pollT = null; if(!linkWait || document.visibilityState === 'hidden' || Date.now() - linkT0 > 30 * 60000) return; pollT = setTimeout(linkCheck, 5000); }
+let linkBusy = false;
+async function linkCheck(){
+  pollT = null; if(linkBusy || !linkWait || document.visibilityState === 'hidden' || Date.now() - linkT0 > 30 * 60000) return;
+  linkBusy = true;
+  try{
+    if(linkPoll){ let r = null; try{ r = await sb.rpc('cast_link_poll', { p_store: STORE, p_poll: linkPoll }); }catch(e){}
+      if(r && !r.error && r.data === 'wait'){ linkNext(); return; } }
+    await login();
+  }finally{ linkBusy = false; }
+}
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && linkWait && !pollT && Date.now() - linkT0 <= 30 * 60000) linkCheck(); });
 
-async function loadMe(){
+async function loadMe(w0){
   // v0.73：誰か・成績・ホームの残りを、順番に待たずに同時に読む。リッチメニューのボタン（?go=）から開いた時は、ホームの残りを待たずにその画面を出す
   //   （オーナー 2026-10-26「シフト、予約、成績など読み込みまでに時間がかかる」。データベースはどれも 0.1秒以下で、待ちは通信を1つずつ順番に待っていたこと）
-  const T = { p_token: TOKEN }, pW = sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = sb.rpc('hall_me', T);
+  // v0.94・SQL 292：cast_login から黒服かキャストかがわかる時は、黒服は hall_me だけ・キャストはキャストの分だけを同時に読む（前は黒服でもキャストの分を全部読んでいた）。わからない時（SQL 292 の前）は今までどおり
+  const T = { p_token: TOKEN }, kd = w0 && w0.kind;
+  if(kd){ SHIFT_ALL = !!w0.shift_all;
+    if(kd === 'hall'){ await hallLoad(sb.rpc('hall_me', T)); return; }
+    if(kd !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w0.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
+  const pW = kd ? null : sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = kd ? null : sb.rpc('hall_me', T);
   const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* v0.20・SQL 120：書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* v0.36・SQL 134：伝票一覧の件数 */,
     sb.rpc('cast_birthdays', T) /* v0.40・SQL 150：トップに「お誕生日（前後2週間）」 */, sb.rpc('cast_notice_list', T) /* v0.18・SQL 118：お知らせの未確認の数 */]);
-  { const w = await pW; /* v0.33・SQL 133：黒服が開いた時は黒服マイページ */
+  if(pW){ const w = await pW; /* v0.33・SQL 133：黒服が開いた時は黒服マイページ */
     SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* v0.70・SQL 257：ママは全員のシフト */
     if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(pH); return; }
     if(!w.error && w.data && w.data.kind !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w.data.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
@@ -66,7 +87,6 @@ function castGo(k){
 
 // スライド表の「次の段」の文：あと○○で 時給○円
 const UNIT = { sales:v=>`${Math.round(v/10000).toLocaleString('ja-JP')}万円`, points:v=>`${v}ポイント`, douhan:v=>`${v}回`, days:v=>`${v}日`, reactions:v=>`${v}回`, groups:v=>`${v}組`, guests:v=>`${v}名` };
-const BASIS = { sales:()=>KL+'小計', points:()=>'ポイント', douhan:()=>'同伴', days:()=>'稼働日数', reactions:()=>'反応◎', groups:()=>KL+'の組数', guests:()=>KL+'の人数' };
 function nextTxt(s){
   const u = s.unit === 'daily' ? '日給' : '時給';
   if(s.next_threshold == null) return `最上段（${u} ${yen(s.cur_amount)}）`;
