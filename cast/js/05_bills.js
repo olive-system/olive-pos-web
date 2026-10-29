@@ -40,7 +40,7 @@ function hallGo(k){
 function hallHome(){
   setBack(null); opSwitch = false;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('open','開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('close','閉店作業','',true)}${tile('daily','日報','',!!ME.form)}${tile('cs','顧客サイト','',true)}${tile('shift','シフト','全員',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}${tile('docs','書類','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21）。v0.60：並びを 朝礼・担当キャスト／開店作業・TODO／閉店作業・日報／報酬明細・名刺発注 に（オーナー 2026-10-23）。v0.62：4段目の左に顧客サイト（右は空き）、報酬明細・名刺発注は5段目（オーナー 2026-10-23） */
+  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('open','開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('close','閉店作業','',true)}${tile('daily','日報','',!!ME.form)}${tile('cs','顧客サイト','',true)}${tile('shift','シフト','全員',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}${tile('docs','書類','',true)}${tile('late','遅刻連絡','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21）。v0.60：並びを 朝礼・担当キャスト／開店作業・TODO／閉店作業・日報／報酬明細・名刺発注 に（オーナー 2026-10-23）。v0.62：4段目の左に顧客サイト（右は空き）、報酬明細・名刺発注は5段目（オーナー 2026-10-23） */
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   $('main').querySelector('[data-go=open]').onclick = hallOpen; /* v0.55：開店作業 */
   $('main').querySelector('[data-go=close]').onclick = hallClose; /* v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
@@ -53,6 +53,7 @@ function hallHome(){
   $('main').querySelector('[data-go=docs]').onclick = docsList; /* v0.81・SQL 271：黒服も自分の書類（契約書は黒服の条文。オーナー 2026-10-27「その人の契約書をその人のマイページで」） */
   docsLoad().then(ok => { const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target){ b.remove(); return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
+  $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* v0.88・SQL 283：遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
   $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* v0.70・SQL 257：キャスト全員のシフト（4段目の右の空きに） */
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
 }
