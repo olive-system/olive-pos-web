@@ -17,8 +17,9 @@ const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), 
   return h + '</div>'; };
 async function shiftHome(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  const pG = Promise.resolve(sb.rpc('cast_meeting_get', { p_token: TOKEN })).catch(() => null); /* v0.94：シフトとミーティングを同時に読む（前は順番に待っていた） */
   const r = await sb.rpc('cast_shift_info', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
-  SHIFT = r.data; await mtShiftMarks(SHIFT); /* v0.93・SQL 287：自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
+  SHIFT = r.data; await mtShiftMarks(SHIFT, pG); /* v0.93・SQL 287：自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
 }
 function shiftPaint(ng){
   const S = SHIFT, OFF = new Set(S.off || []), OK = !!S.ok_only, full = new Set(OK ? [] : S.full || []), mo = Number(String(S.month).slice(5,7)), dueD = mdDay(S.due);
@@ -108,7 +109,7 @@ async function shiftDayEdit(iso, store){
     const q = await sb.rpc('cast_douhan_cancel', { p_token: TOKEN, p_store: store || null, p_id: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
     await uiAlert('取り消しました。申請した子と同伴の子に LINE で知らせました'); shiftAll(store); }); /* 予約の一覧は全員のシフトと一緒に読み直す */
   $('main').querySelectorAll('[data-sdt]').forEach(el => el.onchange = async () => { const x = L[+el.dataset.sdt]; if(!el.value){ el.value = x.time; return; } if(await set(x.staff_id, el.value)) again(); });
-  $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return; if(await set(x.staff_id, null)) again(); });
+  $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return; b.disabled = true; /* v0.94：2回押し（LINE が2通）にならないように */ if(await set(x.staff_id, null)) again(); });
   if($('sdAdd')) $('sdAdd').onclick = () => { const C = D.casts || [], w = document.createElement('div'); w.className = 'dlg';
     const close = () => w.remove(), pick = () => { w.innerHTML = `<div class="box"><div style="max-height:60vh;overflow:auto"><button class="lkb" data-sdtr style="display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:700;border-color:var(--head)">体験</button><div style="border-top:1px solid var(--line);margin:8px 0"></div>${C.map((c, i) => `<button class="lkb" data-sdc="${i}" ${c.ng ? 'disabled' : ''} style="display:block;width:100%;text-align:left;margin-bottom:6px">${esc(c.name)}${c.ng ? ' <small class="muted">出勤不可</small>' : ''}</button>`).join('') || '<div class="muted">なし</div>'}</div><div class="bt" style="margin-top:8px"><button class="btn g" data-k="no">キャンセル</button></div></div>`;
       w.querySelector('[data-k=no]').onclick = close; w.querySelector('[data-sdtr]').onclick = trial; w.querySelectorAll('[data-sdc]').forEach(b => b.onclick = () => time(C[+b.dataset.sdc])); };

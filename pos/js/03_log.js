@@ -28,11 +28,12 @@ async function askReason(title){ const r=await uiPrompt(title+'\n理由を入力
 function billEnd(b){ const ext=(b.bill_extensions||[]).reduce((a,e)=>a+e.minutes,0)+(b.ext_waived_minutes||0); return new Date(new Date(b.set_start).getTime()+(b.set_minutes+ext)*60000); }
 // v11.18・SQL 067：自動延長はデータベースで伝票を押さえてから足す（POS 2台が同時に足しても二重にならない）
 let extWarned=false;
-async function autoExtend(){ const now=new Date(); let added=false;
+async function autoExtend(){ const now=new Date(); let added=false, called=false;
   for (const b of openBills) { const mode=modes.find(m=>m.id===b.pricing_mode_id); if (mode && !mode.include_set) continue; if (billEnd(b)>=now) continue;
     const r=await sb.rpc('pos_auto_extend',{p_bill:b.id});
     if (r.error) { if(!extWarned){ extWarned=true; toast(/pos_auto_extend/.test(r.error.message)?'SQL 067 が未実行です（自動延長）':r.error.message); } continue; }
-    if (r.data>0) added=true; }
+    called=true; if (r.data>0){ added=true; hallDrop(b.id); } /* v12.30：延長した伝票は計算し直す */ }
+  if (called&&!added) { const { data } = await sb.from('bills').select(HALL_SEL).eq('status','open'); if (data) openBills=data; } /* v12.30：もう1台で延長済みの時は、手元の伝票を新しくする（毎分呼び続けない） */
   if (added) { const { data } = await sb.from('bills').select(HALL_SEL).eq('status','open'); if (data) openBills=data; toast('セット時間を過ぎた卓に延長を追加しました'); } }
 let okiBills=[];
 // v10.89：会計済でまだお返ししていないお預かり品（卓ごと）
@@ -69,7 +70,7 @@ function renderHall(totals){ const now=new Date(); const cnames=b=>(b.bill_custo
     const ml='置き'; el.className='tbl busy oki'; el.innerHTML=`<div class="name">未入金（${ml}）</div><div class="row"><span>${b.guest_count}名 ${esc(cnames(b)||b.memo||'')}</span></div><div class="row"><span>${b.business_date}</span></div><div class="total">${yen(unpaid)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>`;
     el.onclick=()=>{ billFrom='hall'; openBill(b.id); }; $('tables').appendChild(el); }
   updateCastBadge(); }
-async function updateCastBadge(){ const { data } = await sb.from('attendance_events').select('staff_id').eq('business_date',businessDate()).in('event_type',['clock_in','douhan']); const s=new Set((data||[]).map(e=>e.staff_id)); const act=new Set(staff.map(x=>x.id)); $('bdCasts').textContent=[...s].filter(i=>act.has(i)).length; return s; }
+async function updateCastBadge(){ const s=await attendedOn(businessDate()); /* v12.30：20秒の間は読んだ出勤を使う */ const act=new Set(staff.map(x=>x.id)); $('bdCasts').textContent=[...s].filter(i=>act.has(i)).length; return s; }
 $('navHall').onclick=()=>{ billFrom='hall'; loadHall(); show('v-hall'); };
 $('navOrder').onclick=()=>{ if(cur&&cur.status==='open'){ openOrder(); } else { toast('卓を選んでください'); loadHall(); show('v-hall'); } };
 

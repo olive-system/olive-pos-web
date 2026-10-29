@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.52 -->
+<title>OLIVE 顧客</title><!-- customer v1.53 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -214,7 +214,7 @@ let rtCh=null, rtT=0;
 function rtSub(){ const sid=boot&&boot.store&&boot.store.id; if(rtCh||!sid||!window.supabase) return;
   try{ const c=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,storageKey:'olive-cs-rt'}});
     rtCh=c.channel('olive:'+sid).on('broadcast',{event:'chg'},m=>{ const k=(m.payload||{}).kind; clearTimeout(rtT); rtT=setTimeout(()=>rtRefresh(k),k==='settings'?1500:2500); }).subscribe(); }catch(e){ console.warn('realtime',e); } }
-async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot',{p_token:token}); if(b){ boot=b; kSet(boot.store&&boot.store.kakari_label); $('storeName').textContent=(boot.store&&boot.store.name||'')+'　顧客'; document.title=(boot.store&&boot.store.name||'OLIVE')+' 顧客'; } }catch(e){} } csRefresh(true); }
+async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot',{p_token:token}); if(b){ boot=b; kSet(boot.store&&boot.store.kakari_label); $('storeName').textContent=(boot.store&&boot.store.name||'')+'　顧客'; document.title=(boot.store&&boot.store.name||'OLIVE')+' 顧客'; } }catch(e){} } csRefresh(false); } /* v1.53：知らせでは開いている詳細だけ読み直す（一覧の約6,000人は1分ごとの読み直しだけ。営業中に何回も読み直して重くなるため。点検 2026-10-30） */
 
 // ---------- 編集モード ----------
 function editing(){ return !!editTok&&editExp>Date.now(); }

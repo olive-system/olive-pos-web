@@ -49,8 +49,9 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
       $('main').querySelectorAll('[data-blck]').forEach(c=>c.onchange=upd); $('blAll').onchange=()=>{ $('main').querySelectorAll('[data-blck]').forEach(c=>c.checked=$('blAll').checked); upd(); };
       $('blDel').onclick=guard($('blDel'),async()=>{ const ids=ck(); if(!ids.length) return; const sum=ids.reduce((a,id)=>a+Number(all.find(x=>x.id===id)?.due||0),0);
         if(!await uiConfirm(`${ids.length}件の伝票（合計 ${yen(sum)}）を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除','danger')) return;
-        let n=0; for(const id of ids){ const z=await rpc('admin_bill_void',{p_bill:id}); if(!z.ok) break; n++; }
-        toast(`${n}件 削除しました`); PAGES.bills(); }); } }
+        /* v1.75・SQL 293：まとめて1回で削除（途中で止まって一部だけ消えることがない） */
+        const z=await rpc('admin_bill_void_many',{p_bills:ids}); if(!z.ok) return;
+        toast(`${z.data??ids.length}件 削除しました`); PAGES.bills(); }); } }
   draw(); };
 async function blExcel(rows,f,t){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const head=['No',...BL_XLS_COLS.map(([k,l])=>blLab(k,l))], body=rows.map((x,i)=>[i+1,...BL_XLS_COLS.map(([k])=>blVal(k,x))]);

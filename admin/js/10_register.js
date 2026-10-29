@@ -48,7 +48,7 @@ async function regDayPage(){
   const cashSales=(pay.data||[]).filter(p=>p.bills&&p.bills.status!=='void').reduce((a,p)=>a+(p.amount||0),0);
   const saved=cls.data||null, prevRow=(prev.data||[])[0]||null, future=d>today, later=(lat.data||[]).length>0;
   // 前回の精算から今日までに未精算の日があれば、その日の現金の動きも本日釣銭に含める（POS と同じ）
-  let gapNet=0, gapDays=[]; if(!saved&&prevRow){ const g=await regMoves(prevRow.business_date,d); if(page!=='register'||regDate!==d) return; const done=new Set(); const r2=await sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',prevRow.business_date).lt('business_date',d); (r2.data||[]).forEach(x=>done.add(x.business_date)); Object.entries(g.sum||{}).forEach(([k,v])=>{ if(done.has(k)) return; const n=v.sales+v.cin-v.cout; if(n){ gapNet+=n; gapDays.push(k); } }); gapDays.sort(); }
+  let gapNet=0, gapDays=[], gapRd=null; if(!saved&&prevRow){ const g=await regMoves(prevRow.business_date,d); if(page!=='register'||regDate!==d) return; const done=new Set(); const r2=await sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',prevRow.business_date).lt('business_date',d); gapRd=[g,r2]; /* v1.75：下の「未精算です」でも同じ期間なら読み直さずに使う */ (r2.data||[]).forEach(x=>done.add(x.business_date)); Object.entries(g.sum||{}).forEach(([k,v])=>{ if(done.has(k)) return; const n=v.sales+v.cin-v.cout; if(n){ gapNet+=n; gapDays.push(k); } }); gapDays.sort(); }
   const idle=!saved&&d<today&&!outSum&&!inSum&&!advSum&&!cashSales;
   const canMove=ed&&!saved&&!future, canSave=ed&&!saved&&!future&&!later;
   const cnt=saved?(saved.counts||{}):regCounts;
@@ -108,7 +108,7 @@ async function regDayPage(){
     if(!r.ok) return; regCounts={}; regDeposit=0; toast('精算を保存しました'); PAGES.register(); }); }
   // 前回の精算の翌日〜前日で、動きがあったのに精算していない日（直近31日）
   const lo=dayAdd(d,-32), from=prevRow&&prevRow.business_date>lo?prevRow.business_date:lo;
-  const [g,cl]=await Promise.all([regMoves(from,d), sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',from).lt('business_date',d)]);
+  const [g,cl]=gapRd&&from===prevRow.business_date?gapRd:await Promise.all([regMoves(from,d), sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',from).lt('business_date',d)]);
   if(page!=='register'||regTab!=='day'||regDate!==d||!$('regWarn')) return; const done=new Set((cl.data||[]).map(r=>r.business_date));
   const miss=Object.keys(g.sum||{}).filter(k=>!done.has(k)).sort(); if(!miss.length) return;
   $('regWarn').innerHTML=`<div class="alert">${miss.map(x=>`<a href="#" data-rw="${x}" style="color:inherit">${md(x)}</a>`).join('・')} が未精算です</div>`;

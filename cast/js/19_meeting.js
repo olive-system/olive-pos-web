@@ -40,14 +40,14 @@ function mtCastPaint(M){
 }
 
 // シフトのカレンダー（確定）に自分のミーティングを出す
-async function mtShiftMarks(S){
-  let r = null; try{ r = await sb.rpc('cast_meeting_get', { p_token: TOKEN }); }catch(e){} if(!r || r.error) return;
+async function mtShiftMarks(S, pre){ /* v0.94：pre＝シフトと同時に読み始めた分 */
+  let r = null; try{ r = await (pre || sb.rpc('cast_meeting_get', { p_token: TOKEN })); }catch(e){} if(!r || r.error) return;
   [r.data.now, r.data.mine].filter(Boolean).forEach(b => { const F = (S.fixed || []).find(f => String(f.month).slice(0,7) === String(b.day).slice(0,7)); if(F) (F.marks = F.marks || []).push({ day: b.day, kind: 'ミーティング', time: mtHm(b.at) }); });
 }
 
 // ---------- 黒服マイページ ----------
-function mtHallTile(){
-  sb.rpc('hall_meeting_get', { p_token: TOKEN }).then(r => { const t = $('main').querySelector('[data-go=mtg]'); if(!t || r.error) return;
+function mtHallTile(pre){ /* v0.94：黒服のトップは60秒覚えておいた分（hcGet） */
+  (pre || sb.rpc('hall_meeting_get', { p_token: TOKEN })).then(r => { const t = $('main').querySelector('[data-go=mtg]'); if(!t || r.error) return;
     const n = (r.data.todo || []).filter(x => x.mine).length; if(n) t.insertAdjacentHTML('beforeend', `<small style="color:var(--warn)">未申請 ${n}人</small>`); });
 }
 async function mtHall(){

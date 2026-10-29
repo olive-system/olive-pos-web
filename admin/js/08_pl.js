@@ -6,9 +6,10 @@ const plYen=v=>Number(v||0)?yen(v).replace(/^-/,'−'):'—';
 const plRate=(a,b)=>Number(b||0)?(Math.round(Number(a||0)/Number(b)*10000)/100).toFixed(2)+'%':'—%';
 // v1.11：収支の上の「置き」と「ユニーク数」（まとめと同じ数え方）。あとから入れる
 async function plFill(st,m){ setTimeout(async()=>{
-  const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); document.querySelectorAll('[data-pl=oki]').forEach(e=>e.textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP')); /* v1.60：箱が2つの形（パソコン・スマホ）にあるので両方に */
-  try{ const set=new Set(); for(let i=0;i<20;i++){ const q=await sb.from('bills').select('bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').range(i*1000,i*1000+999); if(q.error) throw 0; (q.data||[]).forEach(b=>(b.bill_customers||[]).forEach(c=>c.customer_id&&set.add(c.customer_id))); if((q.data||[]).length<1000) break; }
-    document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent=set.size+'名'); }catch(e){ document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent='—'); } },0); }
+  const same=()=>page==='pl'&&storeId===st&&plMonth===m&&!plDate; /* v1.75：読み終わる前に月・店・画面を変えた時は書かない（点検 2026-10-30） */
+  const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); if(!same()) return; document.querySelectorAll('[data-pl=oki]').forEach(e=>e.textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP')); /* v1.60：箱が2つの形（パソコン・スマホ）にあるので両方に */
+  try{ const set=new Set(); for(let i=0;i<20;i++){ const q=await sb.from('bills').select('bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').order('id') /* v1.75：同じ日の伝票の並びを決める（分けて読む時に抜け・重なりが出ないように） */.range(i*1000,i*1000+999); if(!same()) return; if(q.error) throw 0; (q.data||[]).forEach(b=>(b.bill_customers||[]).forEach(c=>c.customer_id&&set.add(c.customer_id))); if((q.data||[]).length<1000) break; }
+    if(!same()) return; document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent=set.size+'名'); }catch(e){ if(!same()) return; document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent='—'); } },0); }
 const plLabor=x=>Number(x.cast_pay||0)+Number(x.cast_adv||0)+(x.hall_pay==null?Number(x.hall_adv||0):Math.max(Number(x.hall_pay||0),Number(x.hall_adv||0))); // 総人件費
 function plTotals(d){ const D=d.days||[], S=k=>D.reduce((a,x)=>a+Number(x[k]||0),0); const t={date:'合計',cash:S('cash'),invoice:S('invoice'),card:S('card'),sales:S('sales'),kakari_sub:S('kakari_sub'),douhan_sub:S('douhan_sub'),groups:S('groups'),guests:S('guests'),
   cast_pay:Number(d.cast_net||0),cast_adv:S('cast_adv'),hall_adv:S('hall_adv'),hall_pay:Number(d.hall_pay||0),cash_in:S('cash_in'),cash_out:S('cash_out')}; t.cast_gross=t.cast_pay+t.cast_adv; return t; }
@@ -142,13 +143,13 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
   $('main').innerHTML=head+`<div class="plg">
     <div class="card"><h2>営業日報 - ${jd(d)}</h2><table class="t pl"><tr><th></th><th class="r">${md(d)}(${WJ[new Date(d+'T00:00:00').getDay()]})</th><th class="r">累計（${Number(d.slice(8))}日時点）</th><th class="r">平均（${open}営業日）</th></tr>${repRows}</table></div>
     <div class="card"><h2>現金管理 - ${jd(d)}</h2><table class="t pl"><tr><th>摘要</th><th class="r">収入金額</th><th class="r">支払金額</th><th class="r">差引残高</th></tr>${cashRows.map(r=>`<tr><td>${r[0]}</td><td class="r">${r[1]}</td><td class="r">${r[2]}</td><td class="r">${r[3]}</td></tr>`).join('')}</table>
-      <div class="row" style="margin-top:8px"><button class="ghost sm" id="plReg">この日の現金管理を開く</button></div></div>
+      ${perm('register')!=='none'?'<div class="row" style="margin-top:8px"><button class="ghost sm" id="plReg">この日の現金管理を開く</button></div>':''}</div>
     ${list('out','出金')}${list('in','入金')}</div>
     <div class="card"><h2>伝票一覧 - ${jd(d)}</h2><div class="cs-w" style="border:none"><table class="t pl"><tr><th>No</th><th>状態</th><th>お客様</th><th>${KL}</th><th class="r">合計</th><th class="r">現金</th><th class="r">カード</th><th class="r">請求</th><th class="r">置き</th><th class="r">客数</th><th>卓</th><th>時間</th>${own?'<th></th>':''}</tr>
       ${billRows||`<tr><td colspan="${own?13:12}" class="muted">伝票はありません</td></tr>`}${bills.length?`<tr class="kst"><td colspan="4">合計</td><td class="r">${plYen(bt('due'))}</td><td class="r">${plYen(bt('cash'))}</td><td class="r">${plYen(bt('card'))}</td><td class="r">${plYen(bt('invoice'))}</td><td class="r">${plYen(bt('oki'))}</td><td class="r">${bt('guests')}</td><td colspan="2"></td>${own?'<td></td>':''}</tr>`:''}</table></div></div>
     <div class="card"><h2>勤怠 - ${jd(d)}</h2><table class="t pl"><tr><th>名前</th><th>同伴</th><th>出勤</th><th>退勤</th></tr>${attRows||'<tr><td colspan="4" class="muted">打刻はありません</td></tr>'}</table>
       <div class="muted" style="font-size:13px;margin-top:6px">時刻は計算に使う時刻（丸めた時刻）。赤は修正済の時刻、→の左は最初の打刻</div></div>`;
-  wire(); $('plReg').onclick=()=>{ regDate=d; regTab='day'; go('register'); };
+  wire(); if($('plReg')) $('plReg').onclick=()=>{ regDate=d; regTab='day'; go('register'); }; /* v1.75：現金管理を見られない人にはボタンを出さない */
   $('main').querySelectorAll('[data-bed]').forEach(bn=>bn.onclick=guard(bn,()=>billEdit(bn.dataset.bed)));
   $('main').querySelectorAll('[data-bvw]').forEach(a=>a.onclick=()=>billView(a.dataset.bvw,own&&!!bills.find(b=>b.id===a.dataset.bvw&&b.closed_at&&b.status==='closed')));
   $('main').querySelectorAll('[data-pfx]').forEach(bn=>bn.onclick=guard(bn,async()=>{ const e=(X.events||[]).find(z=>z.id===bn.dataset.pfx); if(!e) return;

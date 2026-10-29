@@ -56,16 +56,16 @@ async function start(){ const { data:{ session } } = await sb.auth.getSession();
     const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note});
     if(pt.error||!pt.data){ $('loginErr').textContent='端末を確認できません。通信を確認して、再度開いてください'; return; }
     if(pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
-  $('login').classList.add('hidden'); checkVersion(); await loadMasters(); rtSub(); await loadHall(); setInterval(loadHall,60000); show('v-hall'); }
+  $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 
-async function loadMasters(){
+async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
   const [s,st,pm,tb,ca,pr,sf,cu] = await Promise.all([
     sb.from('stores').select('*').limit(1), sb.from('pos_settings').select('*').limit(1),
     sb.from('pricing_modes').select('*').eq('is_active',true).order('sort_order').order('id'), sb.from('tables').select('*').order('sort_order').order('id'),
     sb.from('categories').select('*').order('sort_order').order('id'), sb.from('products').select('*').order('sort_order').order('id'),
-    sb.from('staff').select('id,display_name,kind').eq('is_active',true).order('sort_order').order('id'), cuLoadAll()]);
+    sb.from('staff').select('id,display_name,kind').eq('is_active',true).order('sort_order').order('id'), withCust?cuLoadAll():null]);
   { const e=[s,st,pm,tb,ca,pr,sf,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
-  store=s.data?.[0]; kSet(store?.kakari_label); kDom(); settings=st.data?.[0]; modes=pm.data||[]; tables=tb.data||[]; categories=ca.data||[]; products=pr.data||[]; staff=sf.data||[]; customers=(cu.data||[]).map(cuK);
+  store=s.data?.[0]; kSet(store?.kakari_label); kDom(); settings=st.data?.[0]; modes=pm.data||[]; tables=tb.data||[]; categories=ca.data||[]; products=pr.data||[]; staff=sf.data||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
   $('storeName').textContent = store?.name || '店舗未設定';
   // v11.16・SQL 065：閉店時間（管理サイト「POS設定」の店の情報）。体験の時給の打ち止めに使う。読めない時は 1:00
   if(store){ const r=await sb.rpc('store_close_time',{p_store:store.id}); if(!r.error&&/^\d{2}:\d{2}$/.test(r.data||'')) closeHM=r.data; }
@@ -86,11 +86,13 @@ document.addEventListener('pointerdown',()=>{ rtTap=Date.now(); },true);
 const rtBusy=()=>!!document.querySelector('.modal.on');
 const onView=v=>$(v).classList.contains('on');
 function rtSub(){ if(rtCh||!store) return; try{ rtCh=sb.channel('olive:'+store.id).on('broadcast',{event:'chg'},m=>rtOn(m.payload||{})).subscribe(); }catch(e){ console.warn('realtime',e); } }
-function rtOn(p){ if(p.kind==='settings'){ clearTimeout(rtMastT); rtMastT=setTimeout(rtMasters,1500); return; }
-  clearTimeout(rtHallT); rtHallT=setTimeout(()=>{ if(onView('v-hall')&&!rtBusy()) loadHall(); },1200);
+let rtSide=false;
+function rtOn(p){ if(p.kind==='settings'){ hallDropAll(); clearTimeout(rtMastT); rtMastT=setTimeout(rtMasters,1500); return; }
+  /* v12.30：変わった伝票の金額だけ計算し直す。置き・お預かり品は伝票・入金・お預かりが変わった時だけ読む */ if(p.bill) hallDrop(p.bill); else hallDropAll(); if(!p.table||['bills','payments','bill_tags'].includes(p.table)) rtSide=true;
+  clearTimeout(rtHallT); rtHallT=setTimeout(()=>{ if(onView('v-hall')&&!rtBusy()){ const sd=rtSide; rtSide=false; loadHall({side:sd}); } },1200);
   if(cur&&p.bill===cur.id){ clearTimeout(rtBillT); rtBillT=setTimeout(rtBillCheck,Math.max(800,rtTap+3000-Date.now())); } }
 async function rtMasters(){ if(!(onView('v-hall')||onView('v-bill'))||rtBusy()){ rtMastWait=true; return; } rtMastWait=false;
-  try{ await loadMasters(); if(onView('v-hall')&&!rtBusy()) loadHall(); else if(onView('v-bill')&&cur&&!rtBusy()) openBill(cur.id); }catch(e){ console.warn('rtMasters',e); } }
+  try{ await loadMasters(); hallDropAll(); checkPwAlert(); if(onView('v-hall')&&!rtBusy()) loadHall(); else if(onView('v-bill')&&cur&&!rtBusy()) openBill(cur.id); }catch(e){ console.warn('rtMasters',e); } }
 async function rtBillCheck(){ if(!cur||!(onView('v-bill')||onView('v-pay'))) return;
   if(rtBusy()||Date.now()-rtTap<3000||document.activeElement?.tagName==='INPUT'&&onView('v-pay')){ clearTimeout(rtBillT); rtBillT=setTimeout(rtBillCheck,1500); return; }
   const id=cur.id, r=await sb.from('bills').select(BILL_SEL).eq('id',id).single(); if(r.error||!cur||cur.id!==id) return;

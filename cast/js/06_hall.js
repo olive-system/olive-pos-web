@@ -46,8 +46,9 @@ function hallTodoOne(x, keep){
     $('tdGo').disabled = true;
     try{
       if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length , ...(x.carry ? { p_day: x.day } : {}) }); if(p.error) throw p.error;
-        for(let i = 0; i < tdShots.length; i++){ $('tdGo').textContent = `送っています（${i+1}/${tdShots.length}）`;
-          const blob = await shrinkJpeg(tdShots[i].file); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; } }
+        const n = tdShots.length; $('tdGo').textContent = `送っています（0/${n}）`; /* v0.94：3枚ずつ同時に送る。数は送り終わった枚数 */
+        await upPool(n, async i => { const blob = await shrinkJpeg(tdShots[i].file); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; },
+          k => { $('tdGo').textContent = `送っています（${k}/${n}）`; }); }
       const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error) throw q.error;
       tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = [];
       await uiAlert('完了しました'); hallTodo();
@@ -89,10 +90,16 @@ let hcOpen = new Set();
 /* v0.38：天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー 2026-10-18「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
 const WXT=c=>c==null?['—',null]:c<=1?['晴れ','clear-night']:c===2?['晴れ時々くもり','partly-cloudy-night']:c===3?['くもり','overcast-night']:c<=48?['霧','fog-night']:c<=57?['霧雨','drizzle']:c<=67?['雨','rain']:c<=77?['雪','snow']:c<=82?['にわか雨','partly-cloudy-night-rain']:c<=86?['にわか雪','partly-cloudy-night-snow']:['雷雨','thunderstorms-night-rain'];
 const WXN=c=>WXT(c)[0], WXI=(c,px)=>{ const [t,n]=WXT(c); return n?`<img src="https://cdn.jsdelivr.net/npm/@bybas/weather-icons@2.0.0/production/fill/all/${n}.svg" alt="${t}" style="width:${px}px;height:${px}px;display:block;margin:0 auto">`:'—'; };
-async function hallChorei(){
+/* v0.94：朝礼のデータと天気は覚えておき、お客様を開く・閉じる時は読み直さない（前は押すたびに hall_chorei と天気を読み直していた）。読み直すのは開いた時と「確認」「確認の取消」の後（天気はそのまま） */
+let hcD = null, hcWx = null;
+async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('hall_chorei', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
-  const C = r.data, G = C.guests || [], left = G.filter(g => g.customer && !g.ok_at).length;
+  hcD = r.data; if(keepWx !== true) hcWx = null; hcPaint(); /* トップのボタンからは event が来るので true の時だけ */
+  if(!hcWx) await hcWeather(hcD);
+}
+function hcPaint(){
+  const C = hcD, G = C.guests || [], left = G.filter(g => g.customer && !g.ok_at).length;
   const tag = '<span style="display:inline-block;background:var(--pri);color:#fff;border-radius:4px;padding:0 5px;font-size:12px;font-weight:700">同伴</span> ';
   const guest = g => { const cu = g.customer, op = hcOpen.has(g.id) && cu;
     const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済み ${hm2(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
@@ -108,18 +115,21 @@ async function hallChorei(){
   const y = new Date(C.date+'T00:00:00+09:00'); y.setDate(y.getDate()-1);
   show(`<div id="hcBox"><div class="ttl">朝礼　${mdj(C.date)}${C.event?' <small class="muted">イベント日</small>':''}</div>
     <div class="card"><div class="gh">本日来店予定のお客様 ${G.length}組${left?`　<span class="err">未確認 ${left}組</span>`:''}</div>${G.map(guest).join('')||'<div class="muted sm">なし</div>'}${G.length?'<div class="muted sm" style="margin-top:6px">お客様を押すとメモが開きます。読んだら「確認」</div>':''}</div>
-    <div class="card"><div class="gh">天気</div><div id="hcWx" class="muted sm">読み込み中…</div></div>
+    <div class="card"><div class="gh">天気</div><div id="hcWx" class="${hcWx ? hcWx.c : 'muted sm'}">${hcWx ? hcWx.h : '読み込み中…'}</div></div>
     <div class="card"><div class="gh">本日の出勤 ${(C.shifts||[]).length}人</div>${Object.keys(SH).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${SH[t].join('・')}</span></div>`).join('')||'<div class="muted sm">シフトなし</div>'}</div>
     <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdj(y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0'))}</span><b>${yen(C.sales_y)}</b></div>${C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
     <div class="card"><div class="gh">2週間以内のお誕生日</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様'; return `<div class="row"><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`);
-  $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hallChorei().then(() => window.scrollTo(0, y0)); });
+  $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* v0.94：読み直さない */
   $('main').querySelectorAll('[data-hk],[data-hu]').forEach(b => b.onclick = async () => { const ok = !!b.dataset.hk, id = b.dataset.hk || b.dataset.hu; b.disabled = true;
-    const q = await sb.rpc('hall_chorei_ok', { p_token: TOKEN, p_resv: id, p_ok: ok }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; } if(ok) hcOpen.delete(id); const y0 = window.scrollY; await hallChorei(); window.scrollTo(0, y0); });
-  // 天気（20時〜翌1時・降水確率50%以上で傘の準備）
+    const q = await sb.rpc('hall_chorei_ok', { p_token: TOKEN, p_resv: id, p_ok: ok }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; } if(ok) hcOpen.delete(id); const y0 = window.scrollY; await hallChorei(true); window.scrollTo(0, y0); });
+}
+// 天気（20時〜翌1時・降水確率50%以上で傘の準備）。v0.94：できた中身は hcWx に覚えておく
+async function hcWeather(C){
   if(C.lat != null) try{ const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${C.lat}&longitude=${C.lon}&hourly=weather_code,precipitation_probability,temperature_2m&timezone=Asia%2FTokyo&forecast_days=3`)).json(), H = j.hourly;
     const nx = (() => { const d = new Date(C.date+'T00:00:00+09:00'); d.setDate(d.getDate()+1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
     const W = [[C.date,20],[C.date,21],[C.date,22],[C.date,23],[nx,0],[nx,1]].map(([d,h]) => { const i = H.time.indexOf(`${d}T${String(h).padStart(2,'0')}:00`); return { h: h===0?24:h, c: H.weather_code[i], p: H.precipitation_probability[i], t: H.temperature_2m[i] }; });
-    const rain = W.find(x => (x.p??0) >= 50), el = $('hcWx'); if(!el) return;
-    el.className = ''; el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;text-align:center;font-size:12px">${W.map(x => `<div style="border:1px solid var(--line);border-radius:6px;padding:4px 0;line-height:1.4;${(x.p??0)>=50?'background:var(--warn-soft)':''}"><div class="muted">${x.h}時</div>${WXI(x.c,34)}<div style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${WXN(x.c)}</div><div class="${(x.p??0)>=50?'err':''}">${x.p??'—'}%</div><div class="muted">${x.t==null?'—':Math.round(x.t)+'℃'}</div></div>`).join('')}</div>${rain?`<div class="err" style="font-weight:700;background:var(--warn-soft);border-radius:6px;padding:6px 8px;margin-top:6px">傘の準備（${rain.h}時から雨）</div>`:''}`;
-  }catch(e){ const el = $('hcWx'); if(el) el.textContent = '天気を読み込めません'; }
+    const rain = W.find(x => (x.p??0) >= 50);
+    hcWx = { c: '', h: `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;text-align:center;font-size:12px">${W.map(x => `<div style="border:1px solid var(--line);border-radius:6px;padding:4px 0;line-height:1.4;${(x.p??0)>=50?'background:var(--warn-soft)':''}"><div class="muted">${x.h}時</div>${WXI(x.c,34)}<div style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${WXN(x.c)}</div><div class="${(x.p??0)>=50?'err':''}">${x.p??'—'}%</div><div class="muted">${x.t==null?'—':Math.round(x.t)+'℃'}</div></div>`).join('')}</div>${rain?`<div class="err" style="font-weight:700;background:var(--warn-soft);border-radius:6px;padding:6px 8px;margin-top:6px">傘の準備（${rain.h}時から雨）</div>`:''}` };
+  }catch(e){ hcWx = { c: 'muted sm', h: '天気を読み込めません' }; }
+  const el = $('hcWx'); if(el && hcWx){ el.className = hcWx.c; el.innerHTML = hcWx.h; }
 }

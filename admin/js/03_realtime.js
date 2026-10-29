@@ -7,7 +7,7 @@ function rtSub(){ if(rtCh&&rtSt===storeId) return; if(rtCh){ sb.removeChannel(rt
 function rtKick(p){ if(!page||RT_SKIP.has(page)) return; clearTimeout(rtT); rtT=setTimeout(rtRefresh,p?.kind==='bill'?4000:1200); }
 function rtBar(on){ let b=$('rtBar'); if(!on){ if(b) b.remove(); return; } if(b) return; b=document.createElement('div'); b.id='rtBar'; b.className='alertbar'; b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:40;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.2)';
   b.innerHTML='<span>ほかで変更がありました</span><button class="primary sm">最新にする</button>'; document.body.appendChild(b); b.querySelector('button').onclick=()=>{ mainDirty=false; rtBar(false); rtRefresh(true); }; }
-const RT_HEAVY=new Set(['summary','pl','cast_sales']); // v0.63：重い集計は自動で読み直さない（営業中に POS まで遅くなるため）。「最新にする」を出す
+const RT_HEAVY=new Set(['pl','cast_sales']); /* v1.75：「まとめ」の画面（07_summary.js）は使っていないので消した */ // v0.63：重い集計は自動で読み直さない（営業中に POS まで遅くなるため）。「最新にする」を出す
 function rtRefresh(force){ if(!page||RT_SKIP.has(page)||!PAGES[page]) return;
   if(!force&&RT_HEAVY.has(page)){ if(Date.now()-rtOwn>=5000) rtBar(true); return; }
   if(document.visibilityState!=='visible'){ rtWait=true; return; }

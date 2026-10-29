@@ -16,7 +16,8 @@ $('splitOk').onclick=guard($('splitOk'),async()=>{ /* 通しチェック3：二�
   const rows=[...$('splitTable').querySelectorAll('input[type=checkbox]:checked')].map(c=>({bill_item_id:splitItem.id,staff_id:c.dataset.s,sales_amount:0,back_amount:g('back',c.dataset.s),back_points:g('pts',c.dataset.s)})).filter(r=>r.back_amount>0||r.back_points>0);
   const sb_=rows.reduce((a,r)=>a+r.back_amount,0), sp_=rows.reduce((a,r)=>a+r.back_points,0);
   if(sb_>base.back){ toast(`バックの合計が ${yen(base.back)} を超えています（今 ${yen(sb_)}）`); return; } if(sp_>base.pts){ toast(`ポイントの合計が ${base.pts} を超えています（今 ${sp_}）`); return; }
-  const nm=id=>staff.find(x=>x.id===id)?.display_name||''; await logOp('バック振り分け変更',{item:splitItem.name,before:(splitItem.bill_item_splits||[]).map(x=>`${nm(x.staff_id)}:${x.back_amount}`),after:rows.map(x=>`${nm(x.staff_id)}:${x.back_amount}`)});
-  const dl=await sb.from('bill_item_splits').delete().eq('bill_item_id',splitItem.id); if(dl.error){ toast('振り分けを保存できません：'+dl.error.message); return; }
-  if(rows.length){ const ins=await sb.from('bill_item_splits').insert(rows); if(ins.error) toast('振り分けを保存できません：'+ins.error.message); } $('splitModal').classList.remove('on'); await openBill(cur.id); });
+  const nm=id=>staff.find(x=>x.id===id)?.display_name||'';
+  /* v12.30・SQL 291：消して入れ直すのを1回で（途中で切れても振分が消えたままにならない）。記録は保存できた後 */
+  const sv=await sb.rpc('pos_split_save',{p_item:splitItem.id,p_rows:rows.map(r=>({staff_id:r.staff_id,back_amount:r.back_amount,back_points:r.back_points}))}); if(sv.error){ if(isStale(sv.error)){ $('splitModal').classList.remove('on'); await staleReload(sv.error.message); return; } toast('振り分けを保存できません：'+sv.error.message); return; }
+  await logOp('バック振り分け変更',{item:splitItem.name,before:(splitItem.bill_item_splits||[]).map(x=>`${nm(x.staff_id)}:${x.back_amount}`),after:rows.map(x=>`${nm(x.staff_id)}:${x.back_amount}`)}); $('splitModal').classList.remove('on'); await openBill(cur.id); });
 
