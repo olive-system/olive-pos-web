@@ -32,3 +32,4 @@
   .tdy{background:var(--head)!important;border-color:var(--head)!important;color:#fff!important}.tdy small{color:#fff!important} /* v0.71：カレンダーの今日（案ウ） */.dlg p{margin:0 0 16px;white-space:pre-wrap;line-height:1.6}
   .dlg .bt{display:flex;gap:8px}.dlg .bt .btn{flex:1}
   .hide{display:none!important}
+  .seg{display:flex;border:1px solid var(--pri);border-radius:10px;overflow:hidden;margin-bottom:12px}.seg button{flex:1;padding:9px;font:inherit;background:var(--card);color:var(--ink);border:0}.seg button.on{background:var(--pri);color:#fff} /* v0.88：欠勤／遅刻の切り替え */

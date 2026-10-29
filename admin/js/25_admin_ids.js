@@ -52,6 +52,26 @@ PAGES.o_line=async()=>{ const st=storeId, head=`<h1>LINE メニュー <small cla
     if(k==='minna'&&q.data!==200){ await uiAlert('LINE に反映できませんでした（'+q.data+'）'); PAGES.o_line(); return; }
     toast(k==='minna'?(on?'付けました':'外しました'):on?`${q.data}人に付けました`:'外しました'); PAGES.o_line(); })); });
   $('main').querySelectorAll('[data-rmre]').forEach(b=>b.onclick=guard(b,async()=>{ const k=b.dataset.rmre; if(!await uiConfirm(`${K[k].nm}のメニューを作り直しますか？\n画像やボタンを変えた時に使います`)) return; if(!await make(k)) return; toast('作り直しました'); PAGES.o_line(); })); };
+// v1.72・SQL 283：罰金免除申請（オーナー 2026-10-29）。店ごとに、キャスト分・黒服分の承認者（複数可。LINE連携済みの人とオーナー）。承認者に公式 LINE が届き、トークの中のボタンで決める
+//   オーナーは、はじめに1回「LINE連携」：QR を読むと、その店の公式 LINE に連携コード付きの文が入るので送信する（受け口 Edge Function line-webhook）
+PAGES.o_waive=async()=>{ const st=storeId, head=`<h1>罰金免除申請 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+  $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
+  const r=await sb.rpc('admin_waive_get',{p_store:st}); if(page!=='o_waive'||storeId!==st) return;
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_waive_get/.test(r.error.message)?'SQL 283 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  const D=r.data, P=[{id:'owner',name:'オーナー'},...(D.people||[])];
+  const box=(sc,nm,note)=>`<div class="card"><b>承認者（${nm}）</b><div class="muted" style="font-size:13px;margin-top:4px">${note}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px">${P.map(p=>`<label class="ck" style="white-space:nowrap"><input type="checkbox" data-wsc="${sc}" value="${p.id}" ${(D[sc]||[]).includes(p.id)?'checked':''}>${esc(p.name)}${p.kind==='cast'?' <small class="muted">キャスト</small>':''}</label>`).join('')}</div></div>`;
+  $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>オーナーのLINE連携</b><span>${D.owner_linked?'<span class="badge">連携済み</span>':'<span class="badge gray">未連携</span>'} <button class="ghost sm" id="wvLink">${D.owner_linked?'再連携':'LINE連携'}</button></span></div>
+    <div class="muted" style="font-size:13px;margin-top:4px">この店の公式 LINE を友だち追加したスマホで QR を読み、入った文を送信します</div><div id="wvQr"></div></div>
+    ${box('cast','キャスト分','POS の打刻修正の罰金免除申請と、キャストの遅刻連絡が届きます')}${box('hall','黒服分','黒服の遅刻連絡が届きます')}
+    <div class="muted" style="font-size:13px">選べるのは LINE連携済みの人です。だれか1人が押せば決まります</div>`;
+  $('main').querySelectorAll('[data-wsc]').forEach(c=>c.onchange=async()=>{ const sc=c.dataset.wsc, ids=[...$('main').querySelectorAll(`[data-wsc="${sc}"]:checked`)].map(x=>x.value);
+    const q=await rpc('admin_waive_set',{p_store:st,p_scope:sc,p_ids:ids}); if(q.ok) toast('保存しました'); else PAGES.o_waive(); });
+  $('wvLink').onclick=guard($('wvLink'),async()=>{ const q=await rpc('admin_owner_link_code',{p_store:st}); if(!q.ok) return;
+    const qr=qrcode(0,'M'); qr.addData(q.data.url); qr.make();
+    $('wvQr').innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px">${qr.createSvgTag(5,8)}<div style="font-size:14px;line-height:1.9">連携コード <b style="font-size:20px;letter-spacing:2px">${esc(q.data.code)}</b><br>有効期限 30分<br><span class="muted" style="font-size:13px">QR が読めない時は、公式 LINE に「オーナー連携 ${esc(q.data.code)}」と送信</span><br><button class="ghost sm" id="wvDone">連携の確認</button></div></div>`;
+    $('wvDone').onclick=()=>PAGES.o_waive(); });
+};
 // v1.23・SQL 138：日報メール（オーナー 2026-10-17。店ごとに1通・毎朝7時・店の Gmail から）。宛先はオーナーだけが変える
 // v1.29・SQL 145：黒服の TODO（オーナー 2026-10-18。TimeTree の「todoリスト写メ報告」の代わり）。上＝その日の TODO（済・できない・未・写真）、下＝項目（押すと小窓で変える）
 const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',none:'なし'}, TODO_WD=['日','月','火','水','木','金','土'];
