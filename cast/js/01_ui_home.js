@@ -107,7 +107,7 @@ function home(){
   $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* v0.70：ママは全員のシフト */
   $('main').querySelector('[data-go=info]').onclick = noticeList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
-  mtTile(); /* v0.92・SQL 287：ミーティング（申請できる時か、申請済みの枠がある時だけ） */
+  mtTile(); /* v0.93・SQL 287：ミーティング（申請できる時か、申請済みの枠がある時だけ） */
 }
 
 function perf(){

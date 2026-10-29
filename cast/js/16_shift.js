@@ -18,7 +18,7 @@ const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), 
 async function shiftHome(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_shift_info', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
-  SHIFT = r.data; await mtShiftMarks(SHIFT); /* v0.92・SQL 287：自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
+  SHIFT = r.data; await mtShiftMarks(SHIFT); /* v0.93・SQL 287：自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
 }
 function shiftPaint(ng){
   const S = SHIFT, OFF = new Set(S.off || []), OK = !!S.ok_only, full = new Set(OK ? [] : S.full || []), mo = Number(String(S.month).slice(5,7)), dueD = mdDay(S.due);

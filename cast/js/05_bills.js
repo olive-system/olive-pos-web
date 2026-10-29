@@ -54,7 +54,7 @@ function hallHome(){
   docsLoad().then(ok => { const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target){ b.remove(); return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
   $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* v0.88・SQL 283：遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
-  $('main').querySelector('[data-go=mtg]').onclick = mtHall; mtHallTile(); /* v0.92・SQL 287：ミーティング（担当の子の割当） */
+  $('main').querySelector('[data-go=mtg]').onclick = mtHall; mtHallTile(); /* v0.93・SQL 287：ミーティング（担当の子の割当） */
   $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* v0.70・SQL 257：キャスト全員のシフト（4段目の右の空きに） */
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
 }
