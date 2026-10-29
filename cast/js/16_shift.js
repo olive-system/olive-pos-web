@@ -103,7 +103,10 @@ async function shiftDayEdit(iso, store){
       : `${tin(x.time, `data-sdt="${i}"`)}<button class="btn g" data-sdx="${i}" aria-label="消す" style="width:auto;padding:6px 12px;color:var(--warn)">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
     ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
     ${off.length ? `<div class="card"><div class="gh">黒服の休み</div><div>${esc(off.join('・'))}</div></div>` : ''}
-    ${R.length ? `<div class="card"><div class="gh">予約 ${R.length}件</div>${R.map((x, i) => rvRow(x, '', i)).join('')}</div>` : ''}`); /* v0.79：しるしは右の列・同伴の子 */
+    ${R.length ? `<div class="card"><div class="gh">予約 ${R.length}件</div>${R.map((x, i) => D.edit && x.douhan ? `<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0">${rvRow(x, '', i)}</div><button class="btn g" data-dcx="${i}" style="width:auto;padding:6px 12px;color:var(--warn)">取消</button></div>` : rvRow(x, '', i)).join('')}</div>` : ''}`); /* v0.79：しるしは右の列・同伴の子。v0.89・SQL 285：シフトを直せる人（黒服・ママ）は同伴を取消 */
+  $('main').querySelectorAll('[data-dcx]').forEach(b => b.onclick = async () => { const x = R[+b.dataset.dcx]; if(!await uiConfirm(`${x.name} 様の同伴を取り消しますか？`, '取消')) return; b.disabled = true;
+    const q = await sb.rpc('cast_douhan_cancel', { p_token: TOKEN, p_store: store || null, p_id: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
+    await uiAlert('取り消しました。申請した子と同伴の子に LINE で知らせました'); shiftAll(store); }); /* 予約の一覧は全員のシフトと一緒に読み直す */
   $('main').querySelectorAll('[data-sdt]').forEach(el => el.onchange = async () => { const x = L[+el.dataset.sdt]; if(!el.value){ el.value = x.time; return; } if(await set(x.staff_id, el.value)) again(); });
   $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return; if(await set(x.staff_id, null)) again(); });
   if($('sdAdd')) $('sdAdd').onclick = () => { const C = D.casts || [], w = document.createElement('div'); w.className = 'dlg';
