@@ -2,7 +2,9 @@
 let custPick=null;
 $('custAddBtn').onclick=()=>{ $('custCancel').textContent='伝票へ戻る'; custPick=null; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); };
 $('custCancel').onclick=()=>$('custModal').classList.remove('on');
-function renderCust(q){ const on=new Set(custPick?[]:((cur&&cur.bill_customers)||[]).map(x=>x.customer_id)); const list=customers.filter(c=>!on.has(c.id)&&(!q||c.name.includes(q))).slice(0,40);
+/* v12.28・SQL 276：お客様を追加の並びも最近出てきた順（来店・予約・情報の更新。顧客の画面と同じ。オーナー 2026-10-29）。顧客の画面をまだ開いていない時は、最近出てきた時刻だけ読む */
+function custActLoad(){ if(custActLoad.on||Object.keys(cuInfo.act||{}).length) return; custActLoad.on=true; sb.rpc('pos_cust_act').then(r=>{ custActLoad.on=false; if(r.error||!r.data||typeof r.data!=='object') return; cuInfo.act=r.data; if($('custModal').classList.contains('on')) renderCust($('custSearch').value.trim()); }); }
+function renderCust(q){ custActLoad(); const on=new Set(custPick?[]:((cur&&cur.bill_customers)||[]).map(x=>x.customer_id)); const list=customers.filter(c=>!on.has(c.id)&&(!q||c.name.includes(q))).sort((a,b)=>cuAct(b)-cuAct(a)||jaCmp(a.name,b.name)||String(a.id).localeCompare(String(b.id))).slice(0,40);
   /* v11.95：お客様の共有（cust_share）で見えている、ほかの店のお客様には「他店」と出す（ゲネプロ #14） */ $('custList').innerHTML=list.map(c=>`<button class="chip" data-id="${c.id}">${esc(c.name)}${c.store_id&&c.store_id!==store.id?' <small class="muted">他店</small>':''}</button>`).join('')||'<span class="muted">該当なし</span>';
   $('custList').querySelectorAll('.chip').forEach(b=>b.onclick=()=>attachCust(b.dataset.id)); }
 $('custSearch').oninput=e=>renderCust(e.target.value.trim());
