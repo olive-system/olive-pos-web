@@ -1,5 +1,5 @@
 // ---------- 朝礼 v11.58・SQL 129（オーナー 2026-10-16「本日来店予定のお客様のメモは必ず確認。パーソナライズされたサービスが OLIVE の命。お客様に何度も言わせない」）
-// 朝礼は黒服だけ。お客様を押すとメモが開き、読んだら「確認」。天気は Open-Meteo（20時〜翌1時。降水確率50%以上で傘の準備）
+// 朝礼は黒服だけ。お客様を押すとメモが開き、読んだら「確認」（説明の文は v12.34：オーナー 2026-10-30「未確認をタップで顧客メモを確認してください。」）。天気は Open-Meteo（20時〜翌1時。降水確率50%以上で傘の準備）
 let chOpen=new Set();
 /* v11.73：天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー 2026-10-18「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
 const WXT=c=>c==null?['—',null]:c<=1?['晴れ','clear-night']:c===2?['晴れ時々くもり','partly-cloudy-night']:c===3?['くもり','overcast-night']:c<=48?['霧','fog-night']:c<=57?['霧雨','drizzle']:c<=67?['雨','rain']:c<=77?['雪','snow']:c<=82?['にわか雨','partly-cloudy-night-rain']:c<=86?['にわか雪','partly-cloudy-night-snow']:['雷雨','thunderstorms-night-rain'];
@@ -40,7 +40,7 @@ async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class
     (C.dress||[]).length?row('<span style="min-width:110px">ドレス新調日</span>',`<span>${C.dress.map(x=>esc(x.name)).join('・')} <small class="muted">${md(C.dress[0].due).replace(/（.）/,'')} まで・未提出</small></span>`):''].join('');
   const y=new Date(d); y.setDate(y.getDate()-1);
   box.innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><b style="font-size:22px">${md(C.date)}</b>${C.event?'<span style="background:var(--gold-soft);border:1px solid var(--line);border-radius:4px;padding:1px 8px;font-size:14px">イベント日</span>':''}${C.off?'<span style="background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 8px;font-size:14px">休</span>':''}</div>
-    ${card(`本日来店予定のお客様 ${G.length}組`,G.length?G.map(guest).join('')+'<div class="muted" style="font-size:13px;margin-top:6px">お客様を押すとメモが開きます。読んだら「確認」</div>':'<div class="muted">なし</div>',left?`　<span style="color:var(--warn)">未確認 ${left}組</span>`:'')}
+    ${card(`本日来店予定のお客様 ${G.length}組`,G.length?G.map(guest).join('')+'<div class="muted" style="font-size:13px;margin-top:6px">未確認をタップで顧客メモを確認してください。</div>':'<div class="muted">なし</div>',left?`　<span style="color:var(--warn)">未確認 ${left}組</span>`:'')}
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px;align-items:start">
       <div style="display:flex;flex-direction:column;gap:14px">${card(`天気（${esc(C.place||'')}）`,'<div id="chWx" class="muted">読み込み中…</div>')}
         ${card(`本日の出勤 ${(C.shifts||[]).length}人`,(Object.keys(SH).sort().map(t=>row(`<b style="min-width:52px">${t}</b>`,`<span>${SH[t].join('・')}</span>`)).join('')||'<div class="muted">シフトなし</div>')+abs.map(a=>row('<b style="min-width:52px;color:var(--warn)">欠勤</b>',`<span style="color:var(--warn);font-weight:700">${esc(staffAll.find(z=>z.id===a.staff_id)?.display_name||'')}（${hm(a.at)}・${esc(a.reason)}）</span>`)).join(''))}</div>
