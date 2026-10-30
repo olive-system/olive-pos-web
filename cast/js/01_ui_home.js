@@ -60,7 +60,7 @@ async function loadMe(w0){
     if(kd !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w0.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
   const pW = kd ? null : sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = kd ? null : sb.rpc('hall_me', T);
   const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* v0.20・SQL 120：書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* v0.36・SQL 134：伝票一覧の件数 */,
-    sb.rpc('cast_birthdays', T) /* v0.40・SQL 150：トップに「お誕生日（前後2週間）」 */, sb.rpc('cast_notice_list', T) /* v0.18・SQL 118：お知らせの未確認の数 */]);
+    sb.rpc('cast_birthdays', T) /* v0.40・SQL 150：トップに「お誕生日」。v0.99・SQL 301：前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* v0.18・SQL 118：お知らせの未確認の数 */]);
   if(pW){ const w = await pW; /* v0.33・SQL 133：黒服が開いた時は黒服マイページ */
     SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* v0.70・SQL 257：ママは全員のシフト */
     if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(pH); return; }
@@ -111,7 +111,7 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   const bdRow = b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}" style="display:inline-block;min-width:5.6em">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>${esc(b.name)}${cu?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; };
-  const bdCard = (ME.bdays||[]).length ? `<div class="card"><div class="gh">お誕生日（前後2週間）</div>${ME.bdays.map(bdRow).join('')}</div>` : '';
+  const bdCard = (ME.bdays||[]).length ? `<div class="card"><div class="gh">お誕生日（前後1週間）</div>${ME.bdays.map(bdRow).join('')}</div>` : '';
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41・v0.44：成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
     <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','アプローチ','',true)}${tile('mtg','ミーティング','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
