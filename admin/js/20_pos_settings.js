@@ -3,6 +3,7 @@
 const HCBC_OPTS=[[null,'付けない'],...Array.from({length:10},(_,i)=>[(i+1)*1000,((i+1)*1000).toLocaleString('ja-JP')+'円'])];
 const vipRow=(t,ed,dis)=>`<tr data-tb="${t.id}"><td>${esc(t.name)}</td><td><input inputmode="numeric" data-v="set" value="${esc(String(t.vip_set_fee||0))}" ${dis}></td><td><input inputmode="numeric" data-v="ext" value="${esc(String(t.vip_ext_fee||0))}" ${dis}></td>${ed?'<td style="width:1%"><button class="ghost sm" data-vrm aria-label="外す">×</button></td>':''}</tr>`;
 // v0.97・SQL 118：お知らせ（LINEマイページに出す。補助として、過去のお知らせの置き場所。オーナー 2026-10-16）。掲載のたびに「LINE 通知」を選べる。キャストが「確認」を押すと確認済み
+// v1.77：修正の時の見出しは「修正」だけ（オーナー 2026-10-30「送信予定の修正ではなく修正でいい」。掲載済みのお知らせの修正も同じ）
 // v1.76・SQL 302：宛先（全員／黒服のみ）・店舗（銀座／広島／両店。上の店のプルダウンとは別）・送信時刻（今すぐ／時刻指定・15分ごと）（オーナー 2026-10-30）
 //   黒服のみ＝LINE だけ（本文まで送る・マイページには載せない）。時刻指定＝送信予定に入り、15分ごとの cron が送る（全員は指定の時刻に掲載と LINE）。送信前は編集・取消
 let ntEdit=null, ntSched=null;
@@ -26,7 +27,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   const sel=(id,opts,v)=>`<select id="${id}" style="width:auto">${opts.map(([k,l])=>`<option value="${esc(k)}" ${k===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
   const area=v=>`<textarea id="ntB" rows="6" maxlength="2000" style="width:100%;font:inherit;font-size:16px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(v||'')}</textarea>`;
   const row=(l,h)=>`<div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap"><span class="muted" style="font-size:13px;width:5em">${l}</span>${h}</div>`;
-  const form=!ed?'':E?`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">お知らせの修正</div>
+  const form=!ed?'':E?`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">修正</div>
       <label>タイトル<input id="ntT" maxlength="60" value="${esc(E.title)}"></label>
       <label style="display:block;margin-top:8px">本文${area(E.body)}</label>
       <div class="fend" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ntP" style="width:auto">LINE 通知</label><span style="flex:1"></span><button class="ghost sm" id="ntX">キャンセル</button><button class="primary sm" id="ntS">保存</button></div></div>`
@@ -60,7 +61,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
       toast(`保存しました${push?`（LINE 通知 ${x.data.pushed}人）`:''}`); ntEdit=null; PAGES.notice(); });
     return; }
   const sync=()=>{ const hall=$('ntTo').value==='hall', at=$('ntW').value==='at'; $('ntAt').style.display=at?'inline-flex':'none'; $('ntPl').style.display=hall?'none':'flex';
-    $('ntS').textContent=SE?'保存':at?'予約':hall?'送信':'掲載'; $('ntLead').textContent=SE?'送信予定の修正':hall?'黒服の LINE に送信します（マイページには掲載しません）':'LINEマイページの「お知らせ」に掲載します'; };
+    $('ntS').textContent=SE?'保存':at?'予約':hall?'送信':'掲載'; $('ntLead').textContent=SE?'修正':hall?'黒服の LINE に送信します（マイページには掲載しません）':'LINEマイページの「お知らせ」に掲載します'; };
   ['ntTo','ntW'].forEach(k=>$(k).onchange=sync); sync();
   $('ntS').onclick=guard($('ntS'),async()=>{ const t=$('ntT').value.trim(), b=$('ntB').value.trim(), hall=$('ntTo').value==='hall', at=$('ntW').value==='at', push=hall||$('ntP').checked;
     if(!t){ await uiAlert('タイトルを入力してください'); return; }
