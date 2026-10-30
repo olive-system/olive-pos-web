@@ -99,3 +99,6 @@ async function rtBillCheck(){ if(!cur||!(onView('v-bill')||onView('v-pay'))) ret
   if(fpOf(r.data)===billFp) return;
   const onPay=onView('v-pay'); await openBill(id); if(onPay&&cur.status==='open'){ renderPay(); show('v-pay'); } toast('ほかの端末で変更されました'); }
 
+
+// v12.32：在籍リスト・閉店作業の時刻の前のしるし（同じ幅。アフター・シフトは2行）
+const PL_IN='<span class="pl">出</span>', PL_OUT='<span class="pl">退</span>', PL_AF='<span class="pl af">アフ<br>ター</span>', PL_SH='<span class="pl af">シフ<br>ト</span>';

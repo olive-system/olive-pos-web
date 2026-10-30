@@ -121,3 +121,4 @@
 /* v11.98：在籍キャスト（ゲネプロ #8）。「罰金」などの名前と欄を離さない。横幅 900 以下（iPad の縦向き）は1列にして、詳細は選んだ時だけ一覧の上に出す */
 .cgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px}.lp{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 @media (max-width:900px){.cgrid{grid-template-columns:minmax(0,1fr)}.cgrid>.cside{order:-1}.cgrid>.cside:has(#cForm.empty){display:none}}
+.pl{display:inline-block;width:20px;vertical-align:middle;line-height:1;text-align:left}.pl.af{font-size:9px}
