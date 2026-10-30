@@ -90,13 +90,13 @@ async function hallCloseTask(x, ph){
   } else if(k === 'drinks'){
     body = `<div class="card">${D.map((g, i) => `<div style="display:flex;gap:4px 12px;flex-wrap:wrap;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(g.cat)}</b>${g.items.map(a => `<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>`).join('') || '<div class="muted">なし</div>'}
       <div class="muted sm" style="margin-top:8px">発注に回したら保存します</div></div>${sv()}`;
-  } else if(k === 'allup'){   // v0.61・SQL 217：オールアップ確認（オーナー 2026-10-23「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須
+  } else if(k === 'allup'){   // v0.61・SQL 217：オールアップ確認（オーナー 2026-10-23「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須。v0.95・SQL 296：基準を 1:05 に（オーナー 2026-10-30「1時ではなく1時5分に。広島も銀座も」）
     const R = D.rows || [], np = D.pending > 0;
     body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">退勤の遅い順（3名）</div>${R.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);font-size:15px${c.pending || c.over ? ';color:var(--warn)' : ''}"><div style="flex:1">${esc(c.name)}</div>
       <b style="font-variant-numeric:tabular-nums">${c.pending ? '未退勤' : esc(c.out)}</b><span style="width:76px;text-align:right;font-size:13px">${c.over ? `${c.over}分超過` : ''}</span></div>`).join('') || '<div class="muted">今日出勤したキャストがいません</div>'}</div>
       ${np ? `<div class="muted sm err" style="margin:0 2px 8px">未退勤のキャストがいます。退勤の打刻後に保存します（押し忘れは POS で修正）</div><button class="btn" disabled>保存</button>`
-        : D.over ? `<div class="card"><div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">1:00 超過の理由（必須）</div><textarea id="clWhy" rows="3" maxlength="500" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></div>${sv('', '理由は日報メールと操作ログに残ります')}`
-        : sv('', R.length ? '全員 1:00 以前に退勤しています' : '')}`;
+        : D.over ? `<div class="card"><div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">1:05 超過の理由（必須）</div><textarea id="clWhy" rows="3" maxlength="500" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></div>${sv('', '理由は日報メールと操作ログに残ります')}`
+        : sv('', R.length ? '全員 1:05 以前に退勤しています' : '')}`;
     getData = () => ({ reason: $('clWhy') ? $('clWhy').value : '' });
   } else if(k === 'contact_check'){   // v0.68・SQL 232：開店作業「連絡先交換の係の確認」（前の営業日の連絡先交換の係を選び直す。提出したキャストへ LINE・正しい係へは次の朝のまとめで。オーナー 2026-10-24）
     const R = D.rows || [], C = D.casts || [], dd = D.day ? new Date(D.day + 'T00:00:00+09:00') : null;
