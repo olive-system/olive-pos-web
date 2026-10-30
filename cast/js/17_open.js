@@ -8,7 +8,7 @@ let opShots = {}, opChecks = {}, opNotes = {}, opSwitch = false; /* v0.63：リ�
 const TASK_TTL = { open:'開店作業', close:'閉店作業' };
 const hm = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
 const tBtn = (k, i, t, g) => `<button class="btn${g ? ' g' : ''}" data-${k}="${i}" style="display:inline-block;width:auto;flex:none;padding:7px 14px;font-size:14px">${t}</button>`;
-const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);border-radius:6px;padding:2px 7px;font-size:13px;white-space:nowrap">${esc(n || '')} 作業中</b>`; // v0.99：「名前 時刻 完了」「名前 作業中」の順（POS と同じ。完了・作業中の位置をそろえる。オーナー 2026-10-30）
+const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);border-radius:6px;padding:2px 7px;font-size:13px;white-space:nowrap">${esc(n || '')} 作業中</b>`; // v1.00：「名前 時刻 完了」「名前 作業中」の順（POS と同じ。完了・作業中の位置をそろえる。オーナー 2026-10-30）
 const ckAll = x => (x.checks || []).every((c, j) => (opChecks[x.id] || []).includes(j));
 function hallOpen(){ return hallTasks('open'); }
 function hallClose(){ return hallTasks('close'); }
