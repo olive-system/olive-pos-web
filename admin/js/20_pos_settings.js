@@ -3,32 +3,75 @@
 const HCBC_OPTS=[[null,'付けない'],...Array.from({length:10},(_,i)=>[(i+1)*1000,((i+1)*1000).toLocaleString('ja-JP')+'円'])];
 const vipRow=(t,ed,dis)=>`<tr data-tb="${t.id}"><td>${esc(t.name)}</td><td><input inputmode="numeric" data-v="set" value="${esc(String(t.vip_set_fee||0))}" ${dis}></td><td><input inputmode="numeric" data-v="ext" value="${esc(String(t.vip_ext_fee||0))}" ${dis}></td>${ed?'<td style="width:1%"><button class="ghost sm" data-vrm aria-label="外す">×</button></td>':''}</tr>`;
 // v0.97・SQL 118：お知らせ（LINEマイページに出す。補助として、過去のお知らせの置き場所。オーナー 2026-10-16）。掲載のたびに「LINE 通知」を選べる。キャストが「確認」を押すと確認済み
-let ntEdit=null;
+// v1.76・SQL 302：宛先（全員／黒服のみ）・店舗（銀座／広島／両店。上の店のプルダウンとは別）・送信時刻（今すぐ／時刻指定・15分ごと）（オーナー 2026-10-30）
+//   黒服のみ＝LINE だけ（本文まで送る・マイページには載せない）。時刻指定＝送信予定に入り、15分ごとの cron が送る（全員は指定の時刻に掲載と LINE）。送信前は編集・取消
+let ntEdit=null, ntSched=null;
+const NT_STORE={ginza:'銀座',hiroshima:'広島'}, ntStoreName=s=>NT_STORE[s?.code]||s?.name||'';
+const ntWhen=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${'日月火水木金土'[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   const head=`<h1>お知らせ <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const r=await sb.rpc('admin_notice_list',{p_store:st}); if(page!=='notice'||storeId!==st) return;
+  const [r,rs]=await Promise.all([sb.rpc('admin_notice_list',{p_store:st}),sb.rpc('admin_notice_sched_list',{p_store:st})]); if(page!=='notice'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const L=r.data||[], E=ntEdit&&L.find(x=>x.id===ntEdit)||null; if(!E) ntEdit=null;
+  const SL=rs.error?[]:(rs.data||[]), SE=ntSched&&SL.find(x=>x.id===ntSched)||null; if(!SE) ntSched=null;
   const day=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}`; };
-  const form=ed?`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">${E?'お知らせの修正':'LINEマイページの「お知らせ」に掲載します'}</div>
-      <label>タイトル<input id="ntT" maxlength="60" value="${esc(E?.title||'')}"></label>
-      <label style="display:block;margin-top:8px">本文<textarea id="ntB" rows="6" maxlength="2000" style="width:100%;font:inherit;font-size:16px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(E?.body||'')}</textarea></label>
-      <div class="fend" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ntP" ${E?'':'checked'} style="width:auto">LINE 通知</label><span style="flex:1"></span>${E?'<button class="ghost sm" id="ntX">キャンセル</button>':''}<button class="primary sm" id="ntS">${E?'保存':'掲載'}</button></div></div>`:'';
+  const S=stores(), sOpt=[...S.map(s=>[s.id,ntStoreName(s)]),...(S.length>1?[['all','両店']]:[])];
+  const sv0=SE?(SE.stores.length>1?'all':SE.stores[0]):st;
+  // 送信時刻：今日から60日・15分ごと（はじめは15分より先の15分の区切り）
+  const now=Date.now(), first=new Date(Math.ceil((now+15*60e3)/(15*60e3))*15*60e3), j0=new Date(first.getTime()+9*3600e3);
+  const sa=SE?new Date(new Date(SE.send_at).getTime()+9*3600e3):j0, ymd=d=>d.toISOString().slice(0,10), hm=d=>d.toISOString().slice(11,16);
+  const dOpts=Array.from({length:60},(_,i)=>{ const d=new Date(now+9*3600e3+i*864e5); return [ymd(d),`${d.getUTCMonth()+1}/${d.getUTCDate()}（${'日月火水木金土'[d.getUTCDay()]}）`]; });
+  const tOpts=Array.from({length:96},(_,i)=>`${String(Math.floor(i/4)).padStart(2,'0')}:${String(i%4*15).padStart(2,'0')}`);
+  const sel=(id,opts,v)=>`<select id="${id}" style="width:auto">${opts.map(([k,l])=>`<option value="${esc(k)}" ${k===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
+  const area=v=>`<textarea id="ntB" rows="6" maxlength="2000" style="width:100%;font:inherit;font-size:16px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(v||'')}</textarea>`;
+  const row=(l,h)=>`<div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap"><span class="muted" style="font-size:13px;width:5em">${l}</span>${h}</div>`;
+  const form=!ed?'':E?`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">お知らせの修正</div>
+      <label>タイトル<input id="ntT" maxlength="60" value="${esc(E.title)}"></label>
+      <label style="display:block;margin-top:8px">本文${area(E.body)}</label>
+      <div class="fend" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ntP" style="width:auto">LINE 通知</label><span style="flex:1"></span><button class="ghost sm" id="ntX">キャンセル</button><button class="primary sm" id="ntS">保存</button></div></div>`
+    :`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:4px" id="ntLead"></div>
+      ${row('宛先',sel('ntTo',[['all','全員'],['hall','黒服のみ']],SE?.target||'all'))}
+      ${row('店舗',sel('ntSt',sOpt,sv0))}
+      <label style="margin-top:8px">タイトル<input id="ntT" maxlength="60" value="${esc(SE?.title||'')}"></label>
+      <label style="display:block;margin-top:8px">本文${area(SE?.body)}</label>
+      ${row('送信時刻',sel('ntW',SE?[['at','時刻指定']]:[['now','今すぐ'],['at','時刻指定']],SE?'at':'now')+`<span id="ntAt" style="display:${SE?'inline-flex':'none'};gap:6px">${sel('ntD',dOpts,ymd(sa))}${sel('ntH',tOpts.map(t=>[t,t]),hm(sa))}</span>`)}
+      <div class="fend" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><label id="ntPl" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ntP" ${!SE||SE.push?'checked':''} style="width:auto">LINE 通知</label><span style="flex:1"></span>${SE?'<button class="ghost sm" id="ntX">キャンセル</button>':''}<button class="primary sm" id="ntS"></button></div></div>`;
+  const stLbl=a=>a.length>1?'両店':ntStoreName(S.find(s=>s.id===a[0])||{});
+  const sched=SL.length?`<div class="card"><b>送信予定</b>${SL.map(x=>`<div style="display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;margin-top:6px;flex-wrap:wrap">
+      <span style="width:9.5em;white-space:nowrap">${ntWhen(x.send_at)}</span><span style="width:4.5em;white-space:nowrap">${x.target==='hall'?'黒服のみ':'全員'}</span><span style="width:2.5em;white-space:nowrap">${esc(stLbl(x.stores))}</span>
+      <b style="flex:1;min-width:8em">${esc(x.title)}</b>${ed?`<button class="ghost sm" data-se="${x.id}">編集</button><button class="ghost sm" data-sc="${x.id}">取消</button>`:''}</div>`).join('')}</div>`:'';
   const list=L.map(x=>`<div class="card"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b>${esc(x.title)}</b> <small class="muted">${day(x.at)} 掲載${x.updated_at?'（修正済み）':''}${x.pushed?`・LINE 通知 ${x.pushed}人`:''}</small></div>
       ${ed?`<button class="ghost sm" data-ne="${x.id}">編集</button><button class="ghost sm" data-nd="${x.id}">削除</button>`:''}</div>
     ${x.body?`<div style="white-space:pre-wrap;margin-top:6px;font-size:14px;line-height:1.6">${esc(x.body)}</div>`:''}
     <div class="muted" style="font-size:13px;margin-top:8px">確認済み ${x.read}人／未確認 ${x.unread.length}人${x.unread.length?`<br>未確認：${x.unread.map(esc).join('・')}`:''}</div></div>`).join('')||'<div class="card muted">お知らせはありません</div>';
-  $('main').innerHTML=head+form+list;
+  $('main').innerHTML=head+form+sched+list;
   if(!ed) return;
-  $('ntS').onclick=guard($('ntS'),async()=>{ const t=$('ntT').value.trim(), b=$('ntB').value.trim(), push=$('ntP').checked; if(!t){ await uiAlert('タイトルを入力してください'); return; }
-    if(!await uiConfirm(`「${t}」を${E?'保存':'掲載'}しますか？${push?'\n連携したキャスト全員に LINE で通知します':''}`)) return;
-    const x=await rpc('admin_notice_save',{p_store:st,p_id:E?E.id:null,p_title:t,p_body:b,p_push:push}); if(!x.ok) return;
-    toast(`${E?'保存':'掲載'}しました${push?`（LINE 通知 ${x.data.pushed}人）`:''}`); ntEdit=null; PAGES.notice(); });
-  if($('ntX')) $('ntX').onclick=()=>{ ntEdit=null; PAGES.notice(); };
-  $('main').querySelectorAll('[data-ne]').forEach(b=>b.onclick=()=>{ ntEdit=b.dataset.ne; PAGES.notice(); });
+  if($('ntX')) $('ntX').onclick=()=>{ ntEdit=null; ntSched=null; PAGES.notice(); };
+  $('main').querySelectorAll('[data-ne]').forEach(b=>b.onclick=()=>{ ntEdit=b.dataset.ne; ntSched=null; PAGES.notice(); });
+  $('main').querySelectorAll('[data-se]').forEach(b=>b.onclick=()=>{ ntSched=b.dataset.se; ntEdit=null; PAGES.notice(); });
   $('main').querySelectorAll('[data-nd]').forEach(b=>b.onclick=guard(b,async()=>{ const x=L.find(z=>z.id===b.dataset.nd); if(!await uiConfirm(`「${x.title}」を削除しますか？`,'削除','danger')) return;
-    const q=await rpc('admin_notice_delete',{p_store:st,p_id:x.id}); if(!q.ok) return; toast('削除しました'); if(ntEdit===x.id) ntEdit=null; PAGES.notice(); })); };
+    const q=await rpc('admin_notice_delete',{p_store:st,p_id:x.id}); if(!q.ok) return; toast('削除しました'); if(ntEdit===x.id) ntEdit=null; PAGES.notice(); }));
+  $('main').querySelectorAll('[data-sc]').forEach(b=>b.onclick=guard(b,async()=>{ const x=SL.find(z=>z.id===b.dataset.sc); if(!await uiConfirm(`「${x.title}」の予約を取り消しますか？\n送信時刻：${ntWhen(x.send_at)}`,'取消','danger')) return;
+    const q=await rpc('admin_notice_sched_cancel',{p_id:x.id}); if(!q.ok) return; toast('取り消しました'); if(ntSched===x.id) ntSched=null; PAGES.notice(); }));
+  if(E){ $('ntS').onclick=guard($('ntS'),async()=>{ const t=$('ntT').value.trim(), b=$('ntB').value.trim(), push=$('ntP').checked; if(!t){ await uiAlert('タイトルを入力してください'); return; }
+      if(!await uiConfirm(`「${t}」を保存しますか？${push?'\n連携したキャスト全員に LINE で通知します':''}`)) return;
+      const x=await rpc('admin_notice_save',{p_store:st,p_id:E.id,p_title:t,p_body:b,p_push:push}); if(!x.ok) return;
+      toast(`保存しました${push?`（LINE 通知 ${x.data.pushed}人）`:''}`); ntEdit=null; PAGES.notice(); });
+    return; }
+  const sync=()=>{ const hall=$('ntTo').value==='hall', at=$('ntW').value==='at'; $('ntAt').style.display=at?'inline-flex':'none'; $('ntPl').style.display=hall?'none':'flex';
+    $('ntS').textContent=SE?'保存':at?'予約':hall?'送信':'掲載'; $('ntLead').textContent=SE?'送信予定の修正':hall?'黒服の LINE に送信します（マイページには掲載しません）':'LINEマイページの「お知らせ」に掲載します'; };
+  ['ntTo','ntW'].forEach(k=>$(k).onchange=sync); sync();
+  $('ntS').onclick=guard($('ntS'),async()=>{ const t=$('ntT').value.trim(), b=$('ntB').value.trim(), hall=$('ntTo').value==='hall', at=$('ntW').value==='at', push=hall||$('ntP').checked;
+    if(!t){ await uiAlert('タイトルを入力してください'); return; }
+    const sv=$('ntSt').value, ids=sv==='all'?S.map(s=>s.id):[sv], sl=sv==='all'?'両店':ntStoreName(S.find(s=>s.id===sv)), whenIso=at?`${$('ntD').value}T${$('ntH').value}:00+09:00`:null;
+    if(at&&new Date(whenIso).getTime()<=Date.now()){ await uiAlert('過去の時刻は指定できません'); return; }
+    const who=hall?'黒服のみ':'全員', lineMsg=hall?'連携した黒服全員に LINE で送信します':push?'連携したキャスト全員に LINE で通知します':'';
+    const msg=at?`「${t}」を${SE?'保存':'予約'}しますか？\n送信時刻：${ntWhen(whenIso)}\n宛先：${who}\n店舗：${sl}${lineMsg?'\n'+lineMsg:''}`
+      :`「${t}」を${hall?'送信':'掲載'}しますか？\n店舗：${sl}${lineMsg?'\n'+lineMsg:''}`;
+    if(!await uiConfirm(msg)) return;
+    const x=await rpc('admin_notice_send',{p_target:hall?'hall':'all',p_stores:ids,p_title:t,p_body:b,p_push:push,p_send_at:whenIso,p_sched:SE?SE.id:null}); if(!x.ok) return;
+    toast(at?(SE?'保存しました':'予約しました'):`${hall?'送信':'掲載'}しました${push?`（LINE ${hall?'':'通知 '}${x.data.pushed}人）`:''}`); ntSched=null; PAGES.notice(); }); };
 // v1.06・SQL 127：目安より少ない日は「3／6人」を赤（オーナー 2026-10-16「足りない日は 3/6 の部分を赤くして警告」）
 // v1.05・SQL 126：同伴の申請があればシフトに自動で入るので、赤の札（同伴なのにシフトなし）は外した。色の見本は実際と同じ形（オーナー 2026-10-16）
 // v1.03・SQL 124：曜日別の目安人数は「シフト設定」へ（オーナー 2026-10-16「設定から行くように」）。「下書き作成」→「自動作成」。色の見本をカレンダーの上に
