@@ -109,6 +109,7 @@ function hcPaint(){
     return h + `<div style="padding:0 0 10px"><div class="row"><span class="muted">誕生日</span><span>${bd}</span></div><div class="row"><span class="muted">反応◎</span><span>${esc(cu.good||'—')}</span></div>
       <div class="row"><span class="muted">ボトル</span><span style="text-align:right">${(cu.bottles||[]).map(b=>`${esc(b.name)}（${b.remaining}/10）`).join('、')||'—'}</span></div>
       <div class="row"><span class="muted">前回の来店</span><span>${cu.last?`${mdj(cu.last.date)} ${cu.last.guests}名`:'—'}</span></div>
+      <div class="row"><span class="muted">タバコ</span><span style="text-align:right;white-space:pre-line">${esc(cu.tobacco||'—')}</span></div><div class="row"><span class="muted">配車</span><span style="text-align:right;white-space:pre-line">${esc(cu.haisha||'—')}</span></div>
       <div style="background:var(--gold-soft);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;line-height:1.7">${esc(cu.memo||'メモなし')}</div>
       ${g.ok_at?`<button class="btn g" data-hu="${g.id}" style="margin-top:8px">確認の取消</button>`:`<button class="btn" data-hk="${g.id}" style="margin-top:8px">確認</button>`}</div>`; };
   const SH = {}; (C.shifts||[]).forEach(x => { (SH[x.time] = SH[x.time] || []).push(esc(x.name) + (x.douhan?'（同伴）':'')); });
