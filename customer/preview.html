@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.55 -->
+<title>OLIVE 顧客</title><!-- customer v1.56 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -200,7 +200,9 @@ function logoutLocal(){ token=null; LS.set('olive_cs_token',null); endEdit(true)
 $('loginForm').onsubmit=async e=>{ e.preventDefault(); const pw=$('pw').value; if(!pw){ $('loginErr').textContent='パスワードを入力してください'; return; }
   $('loginBtn').disabled=true; $('loginErr').textContent='';
   try{ const r=await rpc('cs_login',{p_pw:pw}); if(r&&r.error){ $('loginErr').textContent='パスワードが違います'; return; }
-    token=r.token; LS.set('olive_cs_token',token); $('pw').value=''; await start(); }
+    token=r.token; LS.set('olive_cs_token',token); $('pw').value='';
+    if(r.edit_token){ editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); } /* v1.56・SQL 311：編集用のパスワードでも入れる。その時は最初から編集モード（オーナー 2026-11-01「どちらでも入れる」） */
+    await start(); if(editing()){ paintEdit(); toast('編集モードにしました（30分）'); } }
   catch(err){ $('loginErr').textContent=err.message; }
   finally{ $('loginBtn').disabled=false; } };
 
