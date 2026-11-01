@@ -26,7 +26,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
   const wire=()=>{ $('blGo').onclick=()=>{ const a=$('blF').value, b=$('blT').value; if(!a||!b){ uiAlert('期間を入力してください'); return; } if(b<a){ uiAlert('期間が逆になっています'); return; }
       if((new Date(b)-new Date(a))/864e5>30){ uiAlert('期間は31日までにしてください'); return; } blFrom=a; blTo=b; blFilt=$('blFl').value; PAGES.bills(); };
     $('blMon').onclick=()=>{ const a=($('blF').value||today).slice(0,8)+'01', d=new Date(a+'T00:00:00'); d.setMonth(d.getMonth()+1); d.setDate(0);
-      $('blF').value=a; $('blT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+      $('blF').value=a; $('blT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; $('blGo').click(); }; /* 点検 2026-11-02：日付を変えるだけで一覧と Excel が前の期間のままだった */
     $('blFl').onchange=()=>{ blFilt=$('blFl').value; draw(); }; $('blQ').oninput=()=>{ blQ=$('blQ').value; draw(); }; };
   wire();
   const [r,ps]=await Promise.all([sb.rpc('admin_bill_list',{p_store:st,p_from:f,p_to:t}), sb.from('pos_settings').select('ext_minutes').eq('store_id',st).maybeSingle()]); if(page!=='bills'||storeId!==st||blFrom!==f||blTo!==t) return;

@@ -95,6 +95,7 @@ $('payClose').onclick=guard($('payClose'),async()=>{ if(cur.totals.unpaid>0){toa
   const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
   if(!await uiConfirm(`請求額 ${yen(cur.totals.amount_due)} で会計を締めます。\n締めた後は変更できません。`))return;
   if(!await stillOpen()) return;
-  const { error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id); if(error){ if(isStale(error)){ await staleReload(error.message); return; } toast(error.message); return; } await logOp('会計締め',{total:cur.totals.amount_due,payments:(cur.payments||[]).filter(p=>p.amount>0).map(p=>`${METHOD[p.method]}:${p.amount}`)}); toast('会計を締めました'); loadHall(); show('v-hall'); });
+  const { data:cl, error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id).select('id'); if(error){ if(isStale(error)){ await staleReload(error.message); return; } toast(error.message); return; }
+  if(!(cl||[]).length){ if(!await posTermLost()) toast('会計の締めに失敗しました。再度お試しください'); return; } /* 点検 2026-11-02：0行（端末の登録が外れた・ログインが古い）を「締めました」と出さない */ await logOp('会計締め',{total:cur.totals.amount_due,payments:(cur.payments||[]).filter(p=>p.amount>0).map(p=>`${METHOD[p.method]}:${p.amount}`)}); toast('会計を締めました'); loadHall(); show('v-hall'); });
 
 // v11.11・SQL 060：店名・住所・電話・メール・インボイス番号・領収書メールの宛先は管理サイト「POS設定」の店の情報で変える（POS では変えない。領収書・閉店作業はそれを読む）

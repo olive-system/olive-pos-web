@@ -46,7 +46,11 @@ const ptLoad=async()=>{ const a=ptGet(); if(a) return [a,null]; const b=await ke
 $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); const err=$('posRegErr'); err.textContent=''; const code=$('posRegCode').value.trim();
   if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6けたの数字です'; return; }
   const { data, error } = await sb.rpc('pos_term_register',{p_code:code}); if(error){ err.textContent=error.message; return; }
-  ptSet(data.token); $('posReg').style.display='none'; start(); });
+  ptSet(data.token); $('posReg').style.display='none'; if(hallOn){ location.reload(); return; } start(); }); /* 点検 2026-11-02：開いている途中で登録し直した時は読み直す（1分ごとの処理が二重にならないように） */
+/* 点検 2026-11-02・SQL 313：端末のログインと合鍵を確かめる。パスワードが変わった（古いログイン）→ ログイン画面へ。合鍵が外れた → 登録の画面へ。前は古いログインでも「この端末を登録」になり、登録しても断られた／開いたまま登録が外れると会計の締めなどが黙って0行で終わった */
+async function posTermLost(){ try{ const [tk]=await ptLoad(); const pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error||!pt.data) return false;
+  if(pt.data.stale){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); return true; }
+  if(pt.data.ok===false){ $('posReg').style.display='flex'; $('posRegCode').value=''; return true; } }catch(e){} return false; }
 async function start(){ const { data:{ session } } = await sb.auth.getSession(); if (!session) return;
   /* v11.31・SQL 084：タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
   try{ const tc=await sb.rpc('is_timecard_user'); if(tc.data===true){ await sb.auth.signOut(); $('loginErr').textContent='タイムカード専用IDでは、POS は開けません'; return; }
@@ -55,6 +59,7 @@ async function start(){ const { data:{ session } } = await sb.auth.getSession();
   { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
     const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note});
     if(pt.error||!pt.data){ $('loginErr').textContent='端末を確認できません。通信を確認して、再度開いてください'; return; }
+    if(pt.data.stale){ await sb.auth.signOut(); $('loginErr').textContent='パスワードが変わりました。新しいパスワードでログインしてください'; return; } /* 点検 2026-11-02・SQL 313 */
     if(pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
   $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 

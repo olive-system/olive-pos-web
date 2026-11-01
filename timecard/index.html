@@ -212,6 +212,8 @@ const tcGet = () => { try { return localStorage.getItem(TC_KEY); } catch(e) { re
 /* SQL 233：合鍵は2つの引き出し（localStorage と IndexedDB）。片方が空ならもう片方から戻す。合わない時も捨てない（オーナー 2026-10-24） */
 const tcSet = v => { try { localStorage.setItem(TC_KEY, v); } catch(e) {} keyDb('readwrite', s => s.put(v, TC_KEY)); };
 const tcLoad = async () => { const a = tcGet(); if (a) return [a, null]; const b = await keyDb('readonly', s => s.get(TC_KEY)); if (b) { try { localStorage.setItem(TC_KEY, b); } catch(e) {} return [b, 'restored']; } return ['', null]; };
+async function tcStale(){ try { await sb.auth.signOut(); } catch(e) {} document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); document.getElementById('loginErr').textContent = 'パスワードが変わりました。新しいパスワードでログインしてください'; }
+const tcIsStale = async () => { try { const r = await sb.rpc('device_stale'); return r.data === true; } catch(e) { return false; } }; /* 点検 2026-11-02・SQL 313 */
 function showReg(msg){ document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.remove('hidden');
   document.getElementById('regErr').textContent = msg || ''; document.getElementById('regCode').value = ''; }
 document.getElementById('regForm').addEventListener('submit', async e => {
@@ -236,6 +238,7 @@ async function start(fromLogin){
       document.getElementById('loginErr').textContent = '通信を確かめています…'; clearTimeout(start.r); start.r = setTimeout(start, 5000); return; }
     clearTimeout(start.r); document.getElementById('loginErr').textContent = '';
     if (error) { showReg(/tc_check/.test(error.message) ? 'SQL 063 が未実行です' : error.message); return; }
+    if (data && data.stale) { await tcStale(); return; } /* 点検 2026-11-02・SQL 313：パスワードが変わった後の古いログインはログイン画面へ（前は名前の一覧が空・店舗未設定になった） */
     if (!data || !data.ok) { showReg(); return; } }
   document.getElementById('app').classList.remove('hidden');
   const { data: stores } = await sb.from('stores').select('id,name').limit(1);
@@ -344,10 +347,11 @@ async function punch(staff){
       const d = new Date();
       photoPath = `${(store && store.id) || 'store'}/${d.toISOString().slice(0,10)}/${staff.id}_${type}_${d.getTime()}.jpg`;
       const { error: upErr } = await sb.storage.from('selfies').upload(photoPath, blob, { contentType:'image/jpeg' });
-      if (upErr) { console.warn('upload failed', upErr); await showToast('写真を保存できません', '通信を確認して、再度押してください', 3000); return; }
+      if (upErr) { console.warn('upload failed', upErr); if (await tcIsStale()) { await tcStale(); return; } await showToast('写真を保存できません', '通信を確認して、再度押してください', 3000); return; } /* 点検 2026-11-02：パスワードが変わった時は通信のせいにしない */
     }
     const { error } = await sb.rpc('punch', { p_staff_id: staff.id, p_type: type, p_photo: photoPath, p_terminal: tcGet() || '' });
     if (error && /登録されていません/.test(error.message)) { showReg('この端末の登録が削除されました。登録コードを再入力してください'); return; }
+    if (error && await tcIsStale()) { await tcStale(); return; }
     if (error) throw error;
 
     if (type === 'douhan')      await fxDouhan(staff.display_name);
