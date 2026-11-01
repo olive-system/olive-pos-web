@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.54 -->
+<title>OLIVE 顧客</title><!-- customer v1.55 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -82,6 +82,7 @@
 .bt .b1{display:flex;align-items:center;gap:8px;margin-bottom:6px}.bt .b1 .nm{flex:1 1 0;min-width:0;overflow-wrap:anywhere;line-height:1.35}.bt .b1 .nm small{font-size:12px;font-weight:400;margin-left:6px;white-space:nowrap;color:var(--muted)}
 .bt .b2{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.bt .b2 .kn{flex:1 1 90px;min-width:0;display:flex;align-items:center;gap:4px}.bt .b2 .kn span{white-space:nowrap;font-size:11px}/* v1.12：キープ名の文字を小さく・ボタンは「移動」 */.bt .b2 .kn input{flex:1 1 0;min-width:0;width:0}.bt .b3{display:flex;gap:6px;flex:none;margin-left:auto}.bt .b3 button{white-space:nowrap}
 .bt .b1 select{flex:none;width:auto;padding-left:8px;padding-right:4px}
+.bt .b3{gap:4px}.bt .b3 button{padding-left:5px;padding-right:5px;font-size:13px} /* v1.55：ボタンが4つ（共同）でもキープ名の枠を狭くしない */
 .bt .b1 select,.bt .b2 input,.bt .b3 button{height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}.bt .b2 input{padding-left:8px;padding-right:8px;font-size:15px}
 /* v1.11：期限切れ・ボトル移動の行は1行に収まるまで文字を小さくする（fitLine） */
 /* v1.14：v1.13 の枠・［戻す］をやめ、期限切れ・移動は飲み切り済と同じ小さな文字で1本1行（［戻す］なし） */
@@ -91,7 +92,7 @@
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
   .bt .ops button,.bt .b3 button,#btAdd{height:44px!important;box-sizing:border-box;padding-top:0;padding-bottom:0} /* 入力欄の横のボタンも 44px */
 /* v1.50：管理サイト・黒服マイページの中で編集の券が無い人（閲覧のみ・限定項目が不可）には、編集につながるボタンを出さない（オーナー 2026-10-24「不可の人には編集ボタンを表示させなければいいだけ」） */
-html.ro #editInfo,html.ro #editMemo,html.ro #cuDel,html.ro #btcAdd,html.ro [data-bte],html.ro [data-btd],html.ro [data-unexp]{display:none!important}
+html.ro #editInfo,html.ro #editMemo,html.ro #cuDel,html.ro #btcAdd,html.ro [data-sh],html.ro [data-bte],html.ro [data-btd],html.ro [data-unexp]{display:none!important}
 html.ro [data-kn]{pointer-events:none;border-color:transparent}
 </style>
 </head>
@@ -304,11 +305,11 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
       <dt>連絡先交換</dt><dd id="dCx"><span class="muted">…</span></dd>
     </dl></div>
   <div class="card"><h2>キープボトル ${open.length}本</h2>
-    ${open.map(b=>`<div class="bt"><div class="b1"><span class="nm">${esc(b.name)}<small>${md(b.opened_on)}〜</small></span><select data-rem="${b.id}" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>
-      <div class="b2"><div class="kn"><span class="muted">キープ名</span><input data-kn="${b.id}" value="${esc(b.keep_name||c.name)}" aria-label="キープ名"></div><div class="b3"><button class="ghost sm" data-fin="${b.id}">飲切</button><button class="ghost sm" data-exp="${b.id}">期限切</button><button class="ghost sm" data-mv="${b.id}">移動</button></div></div></div>`).join('')||'<div class="muted" style="margin-bottom:8px">なし</div>'}
+    ${open.map(b=>`<div class="bt"><div class="b1"><span class="nm" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}<small>${md(b.opened_on)}〜</small>${b.share?`<small style="margin-left:6px"><span class="badge" style="font-size:11px;padding:0 5px">共同</span> <a data-shgo="${b.share_id||''}" style="color:var(--pri);text-decoration:underline;cursor:pointer">${esc(b.share)} 様</a></small>`:''}</span><select data-rem="${b.id}" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>
+      <div class="b2"><div class="kn"><span class="muted">キープ名</span><input data-kn="${b.id}" value="${esc(b.keep_name||c.name)}" aria-label="キープ名"></div><div class="b3"><button class="ghost sm" data-fin="${b.id}">飲切</button><button class="ghost sm" data-exp="${b.id}">期限切</button><button class="ghost sm" data-mv="${b.id}">移動</button><button class="ghost sm" data-sh="${b.id}">共同</button></div></div></div>`).join('')||'<div class="muted" style="margin-bottom:8px">なし</div>'}
     ${(cur.other_bottles||[]).length?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">ほかの店舗のキープ（閲覧のみ）</div>${cur.other_bottles.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.store+'：'+b.name+'　'+(b.remaining??0)+'/10　'+md(b.opened_on)+'〜')}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
     <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px"><div class="muted" style="font-size:13px;margin-bottom:6px">新しくボトルを登録</div><div style="display:flex;gap:6px;align-items:center"><select id="btSel" style="flex:1;min-width:0;padding:10px 6px"><option value="">銘柄を選ぶ</option>${keep.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}<option value="__free">＋ リストに無い銘柄</option></select><select id="btRem" style="width:auto;flex:none;padding:10px 6px" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}">${n}/10</option>`).join('')}</select><button class="ok" id="btAdd" style="flex:none">登録</button></div></div>
-    ${exp.length?`<div style="margin-top:4px">${exp.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((b.moved?'ボトル移動':'期限切れ')+'：'+b.name+'　'+(b.remaining??0)+'/10　'+(d=>d?String(d).slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on))}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
+    ${exp.length?`<div style="margin-top:4px">${exp.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((b.moved?'ボトル移動':'期限切れ')+'：'+b.name+'　'+(b.remaining??0)+'/10　'+(d=>d?String(d).slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on)+(b.moved&&(b.moved_to||b.moved_staff)?'　'+[b.moved_to?'移動先 '+b.moved_to:'',b.moved_staff?KL+' '+b.moved_staff:''].filter(Boolean).join('・'):''))}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
     ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>
   <div class="card"><h2>メモ<button class="${ed?'edit':'ghost'} sm" id="editMemo">${ed?'編集する':'編集'}</button></h2>
     <div class="memo">${c.memo?esc(c.memo):'<span class="muted">なし</span>'}</div>${reqs}
@@ -330,7 +331,9 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
     try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:'remaining',p_value:v}); b.remaining=Number(v); toast(`${b.name} を 残り ${v}/10 にしました`); }catch(e){ x.value=String(b.remaining); await fail(e); } finally{ x.disabled=false; } });
   D.querySelectorAll('[data-fin]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.fin); if(!await uiConfirm(`${b.name} を飲み切りにしますか？`,'飲み切り')) return; await bottleAct(b,'finish','飲み切りにしました'); });
   D.querySelectorAll('[data-exp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.exp); if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`,'期限切れ','danger')) return; await bottleAct(b,'expire','期限切れにしました'); });
-  D.querySelectorAll('[data-mv]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.mv); if(!await uiConfirm(`${b.name}（${b.remaining??0}/10）をボトル移動にしますか？\n移動日と残量が記録されます。`,'ボトル移動')) return; await bottleAct(b,'move','ボトル移動にしました'); });
+  D.querySelectorAll('[data-mv]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.mv); const v=await mvForm(b,c); if(v) await bottleAct(b,'move','ボトル移動にしました',JSON.stringify(v)); }); /* v1.55・SQL 306：移動先・係を記録（オーナー 2026-11-01「移籍先のお店に持っていける。一応記録しておきたい」） */
+  D.querySelectorAll('[data-sh]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.sh); if(b.own===false){ if(!await uiConfirm(`${b.name} は ${b.share} 様のボトルです。\n共同を解除しますか？`,'共同解除')) return; if(!await needEdit()) return; await bottleAct(b,'share','共同を解除しました','',true); return; } /* 相手のボトルは解除だけ */ if(!await needEdit()) return; const v=await shForm(b,c); if(v!=null) await bottleAct(b,'share',v?'共同ボトルにしました':'共同を解除しました',v,true); }); /* v1.55・SQL 306：共同ボトル（1本を2人のお客様につなぐ） */
+  D.querySelectorAll('[data-shgo]').forEach(x=>x.onclick=()=>{ if(x.dataset.shgo) openDetail(x.dataset.shgo); });
   D.querySelectorAll('[data-unexp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.unexp); if(!await uiConfirm(`${b.name} の${b.moved?'ボトル移動':'期限切れ'}を取り消して、キープ中に戻しますか？`,'戻す')) return; if(!await needEdit()) return; await bottleAct(b,'unexpire','キープ中に戻しました',null,true); });
   /* v1.10：キープ名は常に表示。書き換えて枠を離れたら、編集パスワードを確認してから保存（POS と同じ形） */
   D.querySelectorAll('[data-kn]').forEach(x=>x.onchange=async()=>{ const b=bts.find(z=>z.id===x.dataset.kn); const v=x.value.trim(); const before=b.keep_name||c.name; if((v||c.name)===before){ x.value=before; return; } if(!await needEdit()){ x.value=before; return; } await bottleAct(b,'keep_name','キープ名を保存しました',v,true); });
@@ -346,6 +349,16 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
 }
 function fitLine(root){ (root||document).querySelectorAll('.fit1').forEach(e=>{ if(e.dataset.fs==null) e.dataset.fs=e.style.fontSize||''; e.style.fontSize=e.dataset.fs; let s=parseFloat(getComputedStyle(e).fontSize)||14; while(e.scrollWidth>e.clientWidth+1&&s>9){ s-=0.5; e.style.fontSize=s+'px'; } }); }
 window.addEventListener('resize',()=>fitLine());
+// v1.55・SQL 306：ボトル移動の移動先・係（係は今の係を最初に選ぶ）
+function mvForm(b,c){ const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const k0=b.kakari_staff_id||c.kakari_staff_id||'';
+  return sheet(`<h3>${esc(b.name)}（${b.remaining??0}/10）をボトル移動にしますか？</h3><label class="f">移動先<input id="mvTo" maxlength="60" placeholder="例）ファースト"></label><label class="f">${KL}<select id="mvSt"><option value="">なし</option>${casts.map(s=>`<option value="${s.id}" ${s.id===k0?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
+  <div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>ボトル移動</button></div>`,(s,done)=>{ s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>done({to:s.querySelector('#mvTo').value.trim(),staff:s.querySelector('#mvSt').value}); }); }
+// v1.55・SQL 306：共同のお客様を選ぶ（名前・会社名で探す）。今の共同は「共同解除」で外す
+function shForm(b,c){ return sheet(`<h3>${esc(b.name)}　共同ボトル</h3><label class="f">共同のお客様<input id="shQ" placeholder="お名前・会社名で検索" autocomplete="off"></label><div id="shL" style="border:1px solid var(--line);border-radius:10px;max-height:240px;overflow:auto"></div>
+  <div class="btns">${b.share?'<button class="ghost" data-off style="margin-right:auto">共同解除</button>':''}<button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ let pick=b.share_id&&b.share_id!==c.id?b.share_id:'';
+    const draw=()=>{ const q=s.querySelector('#shQ').value.trim(); const hit=custs.filter(x=>x.id!==c.id&&(!q||(x.name||'').includes(q)||(x.company||'').includes(q))).slice(0,30); s.querySelector('#shL').innerHTML=hit.map((x,i)=>`<div data-pk="${x.id}" style="padding:8px 10px;cursor:pointer;${i?'border-top:1px solid var(--line);':''}${x.id===pick?'background:var(--soft);font-weight:700':''}">${esc(x.name)} 様${x.company?`　<span class="muted">${esc(x.company)}</span>`:''}</div>`).join('')||'<div class="muted" style="padding:8px 10px">見つかりません</div>'; s.querySelectorAll('[data-pk]').forEach(d=>d.onclick=()=>{ pick=d.dataset.pk; draw(); }); };
+    s.querySelector('#shQ').oninput=draw; draw(); s.querySelector('[data-x]').onclick=()=>done(null); const off=s.querySelector('[data-off]'); if(off) off.onclick=()=>done('');
+    s.querySelector('[data-ok]').onclick=()=>{ if(!pick){ toast('共同のお客様を選んでください'); return; } done(pick); }; }); }
 async function bottleAct(b,action,msg,value,withEdit){ try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:action,p_value:value==null?null:String(value),p_edit_token:withEdit?editTok:null}); toast(msg); }catch(e){ await fail(e); } await reloadDetail(); }
 
 // 気づきの申請（書いた人はこのスマホで前回選んだ人を初期表示）
