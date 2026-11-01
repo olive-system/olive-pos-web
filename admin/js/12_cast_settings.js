@@ -195,4 +195,4 @@ async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const hal
     let restore=null; if(isNew){ const rr=await sb.rpc('admin_staff_retired',{p_store:st,p_name:row.display_name}); const R=rr.error?[]:(rr.data||[]);
       if(R.length){ if(await uiConfirm(`在籍から外した人に「${row.display_name}」がいます。その人を戻しますか？\n（戻すと、前の記録がつながります）`,'戻す')) restore=R[0].id; else if(!await uiConfirm(`別の人として「${row.display_name}」を追加しますか？`,'追加')) return; } }
     const x=await rpc('admin_staff_save',{p_store:st,p_id:s?s.id:null,p_row:row,p_restore:restore}); if(!x.ok) return;
-    md.remove(); toast(restore?'戻しました':isNew?'追加しました':'保存しました'); if(csDetail&&s) csDetail.s={...s,display_name:row.display_name}; PAGES.set_cast(); }); }
+    md.remove(); toast(restore?'戻しました':isNew?'追加しました':'保存しました'); if(csDetail&&s){ const q=await csList(st); csDetail.s=(q.data||[]).find(x=>x.id===s.id)||{...s,...row}; } PAGES.set_cast(); }); } /* 点検 2026-11-02：保存した後に読み直す（前は名前だけ入れ直し、開き直すと前のインボイス番号・担当黒服などが出て、そのまま保存すると戻っていた） */

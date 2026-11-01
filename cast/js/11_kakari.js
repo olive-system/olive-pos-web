@@ -95,7 +95,7 @@ async function resvForm(ed){
   candPaint([]);
   // v0.50・SQL 173：来店日を選んだ時に、お店の休みならすぐ出す（ゲネプロ マイページ #5。前は申請を押した後にわかった）
   let offs = new Set(); const offPaint = () => { const d = $('rvD')?.value, b = $('rvOff'); if(!b) return; const on = !!d && offs.has(d); b.classList.toggle('hide', !on); b.textContent = on ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください` : ''; };
-  const dft = ed ? null : draftBind('resv', ['rvD','rvT','rvC','rvK','rvN','rvMemo']); if(dft?.had){ const n = document.createElement('div'); n.className = 'muted sm'; n.style.margin = '0 2px 8px'; n.textContent = '途中の入力を戻しました'; $('rvD').closest('.card').before(n); }
+  const dft = ed ? null : draftBind('resv', ['rvD','rvT','rvC','rvK','rvN','rvMemo']); if(dft?.had){ const n = document.createElement('div'); n.className = 'muted sm'; n.style.margin = '0 2px 8px'; n.textContent = '途中の入力を戻しました'; $('rvD').closest('.card').before(n); dayLoad(); } /* 点検 2026-11-02：戻した来店日で VIP ルームを読み直す（前は今日の分で読み、VIP の欄が出なかった） */
   $('rvD').addEventListener('change', offPaint); sb.rpc('cast_off_days', { p_token: TOKEN }).then(r => { if(!r.error){ offs = new Set(r.data || []); offPaint(); } });
   $('rvGo').onclick = async () => {
     const d = $('rvD').value, t = $('rvT').value, c = $('rvC').value.trim().replace(/[\s　]+/g, ' '), k = NK ? me?.id || '' : $('rvK').value, n = parseInt($('rvN').value, 10), memo = $('rvMemo').value.trim();

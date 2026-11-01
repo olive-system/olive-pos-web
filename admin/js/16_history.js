@@ -11,7 +11,7 @@ function hiPeriod(k,extra,note){ const today=businessDate(); if(!hiFrom){ hiFrom
   $('hiGo').onclick=()=>{ const a=$('hiF').value, b=$('hiT').value; if(!a||!b){ uiAlert('期間を入力してください'); return; } if(b<a){ uiAlert('期間が逆になっています'); return; }
     if((new Date(b)-new Date(a))/864e5>30){ uiAlert('期間は31日までにしてください'); return; } hiFrom=a; hiTo=b; PAGES[k](); };
   $('hiMon').onclick=()=>{ const a=($('hiF').value||today).slice(0,8)+'01', d=new Date(a+'T00:00:00'); d.setMonth(d.getMonth()+1); d.setDate(0);
-    $('hiF').value=a; $('hiT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }; }
+    $('hiF').value=a; $('hiT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; $('hiGo').click(); }; } /* 点検 2026-11-02：日付を変えるだけで一覧が前の期間のままだった */
 const hiErr=e=>{ $('hiBox').innerHTML=`<div class="card err">読み込めません：${esc(e.message)}</div>`; };
 
 // メモ一覧：POS の閉店作業で書く「日のメモ」を月で

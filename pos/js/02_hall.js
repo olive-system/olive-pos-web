@@ -16,7 +16,7 @@ async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false)
   await hallTotals(); renderHall(hallTot);
 }
 /* 1分ごと：画面を開いている時だけ。開いている伝票の一覧は今までどおり1分ごとに読む（知らせが届かない時も、ほかの端末の新しい卓が1分で出る）。金額は変わった伝票だけ。5分ごとに全部読み直す */
-async function hallTick(){ if(!store||document.visibilityState!=='visible') return; if(Date.now()-hallFullAt>=5*60000){ await loadHall(true); return; }
+async function hallTick(){ if(!store||document.visibilityState!=='visible') return; if(await posTermLost()) return; /* 点検 2026-11-02：1分ごとに端末のログインと合鍵を確かめる */ if(Date.now()-hallFullAt>=5*60000){ await loadHall(true); return; }
   if(!rtBusy()) await loadHall({side:false}); else renderHall(hallTot); }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&hallOn) loadHall(true); });
 // v11.00：黒服を削除した時の警告（管理サイトでオーナーがパスワードを新しくするまで出し続ける）。パスワードが変わってこの端末のログインが使えなくなったら、ログイン画面に戻す（SQL 046）
