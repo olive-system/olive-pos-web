@@ -34,13 +34,13 @@ PAGES.set_cast=async()=>{
 async function csCastPart(box,st,ed,m){
   const [sf,tm,ft,nt,stb]=await Promise.all([csList(st), sbAll(()=>sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m).order('id')),
     sb.from('fine_types').select('name').eq('store_id',st).order('sort_order'), sbAll(()=>sb.from('cast_notes').select('staff_id').eq('store_id',st).eq('is_void',false).order('id')), /* v0.67：1000行で切れないように分けて読む */
-    sb.from('slide_tables').select('id,name,unit,sort_order').eq('store_id',st).eq('is_active',true).order('sort_order')]);
+    sb.from('slide_tables').select('*').eq('store_id',st).order('sort_order')]);
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   const er=sf.error||tm.error||nt.error;
   if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">キャスト</h2><div class="card err">${esc(/cast_terms|cast_notes|day_pay_ok/.test(er.message)&&/exist|schema cache/.test(er.message)?'SQL 056 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
   const all=sf.data||[], halls=all.filter(x=>x.kind==='hall'), casts=all.filter(x=>x.kind==='cast'&&!x.is_trial&&!x.kakari_only);
   const nc={}; (nt.data||[]).forEach(x=>nc[x.staff_id]=(nc[x.staff_id]||0)+1);
-  const tbls=stb.error?[]:(stb.data||[]); // SQL 058 の前は空
+  const tbls=stb.error?[]:(stb.data||[]).filter(x=>x.is_active||x.archived); // SQL 058 の前は空。v1.80・SQL 317（点検 C7）：archived＝時給／日給の変更の前に写した表（前の月の条件だけが使う。選ぶ一覧には出さない）
   const unitOf=(s,t)=>t.pay_type==='seppan'?null:t.pay_type==='daily'?'daily':'hourly'; // v0.36・SQL 075：折半＝係小計×小計バック％だけ（スライド・保証時給・同伴ノルマなし）
   const slOk=(ids,u)=>(ids||[]).filter(id=>tbls.some(x=>x.id===id&&x.unit===u));
   const slTxt=(s,t)=>{ const u=unitOf(s,t); if(!u) return '—'; const ok=slOk(t.slide_ids,u); return ok.length?esc(ok.map(id=>slShort(tbls.find(x=>x.id===id).name)).join('・')):'<span class="badge warnb">未選択</span>'; };
@@ -85,7 +85,7 @@ async function csCastPart(box,st,ed,m){
     if(q('pt')) q('pt').onchange=()=>{ const v=q('pt').value, sp=v==='seppan'; q('dw').disabled=v!=='daily'; if(q('dw').disabled) q('dw').value='';
       if(q('sl')){ q('sl').dataset.v='[]'; q('sl').disabled=sp; q('sl').innerHTML=sp?'—':'<span class="badge warnb">未選択</span>'; }
       ['g','q','gf'].forEach(k=>{ q(k).disabled=sp; if(sp){ if(k==='gf') q(k).checked=false; else q(k).value=''; } }); q('gu').disabled=sp||q('gf').checked; if(sp) q('gu').value=''; };
-    if(q('sl')) q('sl').onclick=()=>{ const u=q('pt')?.value==='daily'?'daily':'hourly', cur=JSON.parse(q('sl').dataset.v||'[]'), opts=tbls.filter(x=>x.unit===u);
+    if(q('sl')) q('sl').onclick=()=>{ const u=q('pt')?.value==='daily'?'daily':'hourly', cur=JSON.parse(q('sl').dataset.v||'[]'), opts=tbls.filter(x=>x.unit===u&&(!x.archived||cur.includes(x.id)));
       const md=modal(`<h2 style="margin:0">スライド表</h2><div class="muted" style="font-size:14px">${esc(rows.find(r=>r.s.id===tr.dataset.sid).s.display_name)}：使う表を選びます（${u==='daily'?'日給':'時給'}の表）。選んだ表と保証時給のうち一番高い金額になります</div>
         <div style="display:flex;flex-direction:column;gap:8px">${opts.map(o=>`<label style="display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink)"><input type="checkbox" style="width:auto;height:auto" value="${o.id}" ${cur.includes(o.id)?'checked':''}>${esc(o.name)}</label>`).join('')||`<div class="muted">${u==='daily'?'日給':'時給'}のスライド表がありません（報酬・罰金項目で作成します）</div>`}</div>
         <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">決める</button></div>`);
@@ -179,17 +179,17 @@ async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const hal
   const md=modal(`<h2 style="margin:0">${isNew?(kd==='hall'?'黒服の追加':'キャストの追加'):esc(s.display_name)+'　基本情報'}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>源氏名<input id="seN" value="${esc(s?.display_name||'')}"></label><label>本名<input id="seR" value="${esc(s?.real_name||'')}"></label></div>
     <label>区分<select id="seK">${KD.map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
-    <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬<select id="seP">${isNew?'<option value="hourly">時給</option><option value="daily">日給</option>':'<option value="tbl">時給・日給</option>'}<option value="seppan" ${s?.is_seppan?'selected':''}>折半</option></select></label><label id="seDwB">日給（円）<input id="seDw" inputmode="numeric"></label></div>
+    <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬${isNew?'<select id="seP"><option value="hourly">時給</option><option value="daily">日給</option></select>':`<input value="${s.is_seppan?'折半':s.pay_type==='daily'?'日給':'時給'}" disabled>`}</label><label id="seDwB">日給（円）<input id="seDw" inputmode="numeric"></label></div>
     <div id="seTr" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>体験の報酬<select id="seTp"><option value="hourly" ${s?.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s?.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input id="seTa" inputmode="numeric" value="${s?.trial_pay_amount||''}"></label></div>
     <label id="seMgB">担当黒服<select id="seMg"><option value="">未選択</option>${halls.filter(h=>h.is_active).map(h=>`<option value="${h.id}" ${s?.manager_staff_id===h.id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select></label>
     <label>インボイス番号<input id="seIv" value="${esc(s?.invoice_number||'')}" placeholder="T1234567890123" autocapitalize="characters"></label>
     <div class="muted" style="font-size:13px">${isNew?'追加すると、POS の在籍リストとタイムカードにも出ます':'変更は POS・タイムカードにもすぐ出ます'}${isNew&&kd!=='hall'?'。保証時給・スライド表などはスタッフ設定の表で':''}</div>
     <div class="bar">${isNew?'':'<button class="ghost" data-k="out" style="color:var(--warn);margin-right:auto">在籍から外す</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">${isNew?'追加':'保存'}</button></div>`);
-  const v=id=>md.querySelector('#'+id), paint=()=>{ const k=v('seK').value; v('sePay').style.display=k==='cast'?'grid':'none'; v('seDwB').style.visibility=v('seP').value==='daily'?'':'hidden'; v('seTr').style.display=k==='trial'?'grid':'none'; v('seMgB').style.display=k==='hall'||k==='kakari'?'none':''; };
-  v('seK').onchange=paint; v('seP').onchange=paint; paint();
+  const v=id=>md.querySelector('#'+id), paint=()=>{ const k=v('seK').value; v('sePay').style.display=k==='cast'?'grid':'none'; v('seDwB').style.visibility=isNew&&v('seP').value==='daily'?'':'hidden'; v('seTr').style.display=k==='trial'?'grid':'none'; v('seMgB').style.display=k==='hall'||k==='kakari'?'none':''; };
+  v('seK').onchange=paint; if(isNew) v('seP').onchange=paint; paint(); /* v1.80・SQL 317（点検 C1）：折半はスタッフ設定の表だけで決める。基本情報は表の内容（今月）を出すだけ。追加の時も時給／日給だけ */
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   const out=md.querySelector('[data-k=out]'); if(out) out.onclick=async()=>{ if(!await uiConfirm(`${s.display_name} を在籍から外しますか？\n過去のデータは残ります（POS・タイムカードから消えます）`,'在籍から外す','danger')) return; const x=await rpc('admin_staff_retire',{p_store:st,p_id:s.id}); if(!x.ok) return; md.remove(); toast('在籍から外しました'); csDetail=null; PAGES.set_cast(); };
-  md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const sp=v('seK').value==='cast'&&v('seP').value==='seppan'; const row={display_name:v('seN').value.trim(),real_name:v('seR').value.trim(),kind:sp?'seppan':v('seK').value,pay_type:sp||v('seP').value==='tbl'?'hourly':v('seP').value,daily_wage:v('seDw').value.replace(/[^0-9]/g,''),
+  md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const sp=!isNew&&v('seK').value==='cast'&&!!s.is_seppan; const row={display_name:v('seN').value.trim(),real_name:v('seR').value.trim(),kind:sp?'seppan':v('seK').value,pay_type:isNew?v('seP').value:'hourly',daily_wage:v('seDw').value.replace(/[^0-9]/g,''),
       trial_pay_type:v('seTp').value,trial_pay_amount:v('seTa').value.replace(/[^0-9]/g,''),manager_staff_id:v('seMg').value,invoice_number:v('seIv').value};
     if(!row.display_name){ await uiAlert('源氏名を入力してください'); return; }
     let restore=null; if(isNew){ const rr=await sb.rpc('admin_staff_retired',{p_store:st,p_name:row.display_name}); const R=rr.error?[]:(rr.data||[]);

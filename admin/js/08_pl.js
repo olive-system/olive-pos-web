@@ -129,9 +129,15 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
      <tr><td>客単価</td><td>${Number(today.guests||0)?plYen(Math.round(Number(today.sales||0)/Number(today.guests))):'—'}</td><td>${S('guests')?plYen(Math.round(S('sales')/S('guests'))):'—'}</td><td>—</td></tr>`;
   const adv=X.advances||[], fAdv=adv.filter(a=>a.kind!=='hall').reduce((a,x)=>a+Number(x.amount||0),0), mAdv=adv.filter(a=>a.kind==='hall').reduce((a,x)=>a+Number(x.amount||0),0);
   const mv=X.moves||[], inS=mv.filter(x=>x.kind==='in').reduce((a,x)=>a+Number(x.amount||0),0), outS=mv.filter(x=>x.kind==='out').reduce((a,x)=>a+Number(x.amount||0),0);
-  const cl=X.closing, opening=cl?cl.opening_float:X.prev_float, recv=Number(today.cash||0)+inS, paid=fAdv+mAdv+outS;
-  const cashRows=[['本日釣銭',plYen(opening),'',''],['現金売上',plYen(today.cash),'',''],['入金',plYen(inS),'',''],['日払報酬（キャスト）','',plYen(fAdv),''],['日払報酬（黒服）','',plYen(mAdv),''],['出金','',plYen(outS),''],['合計',plYen(recv),plYen(paid),plYen(recv-paid)],
-    ['現金過不足','','',cl?plYen(cl.diff):'<span class="badge warnb">未精算</span>'],['預金額','','',cl?plYen(cl.deposit):'—'],['翌日釣銭','','',cl?plYen(cl.next_float):'—'],['現金過不足 当月累計','','',plYen(X.month_closings?.diff)],['預金額 当月累計','','',plYen(X.month_closings?.deposit)]];
+  /* v1.80・SQL 317（点検 2026-11-02 C4）：現金の表はレジ精算を反映させる表（オーナー「違ったらいけん」）。
+     精算した日＝精算の時に保存した値（本日釣銭・現金売上・入金・出金）をそのまま。出金の行＝保存した出金合計−日払報酬。
+     精算していない日＝現金管理の画面と同じ計算（前の精算からの未精算の日の分を本日釣銭に含める・現金売上は受け取った営業日・出金合計に日払報酬を含める）。合計の差引残高＝レジ内現金（理論値）
+     SQL 317 の前（X.reg が無い時）は、本日釣銭・現金売上だけ前の数え方 */
+  const cl=X.closing, R=cl?null:(X.reg||null), N0=v=>Number(v||0), N1=v=>v==null?null:Number(v);
+  const opening=cl?N0(cl.opening_float):R?N1(R.opening):N1(X.prev_float), cSales=cl?N0(cl.cash_sales):R?N0(R.cash_sales):N0(today.cash), cIn=cl?N0(cl.cash_in):inS, cOut=cl?N0(cl.cash_out):fAdv+mAdv+outS;
+  const recv=N0(opening)+cSales+cIn, paid=cOut, idle=!cl&&!!R?.idle, gapD=R?.gap_days||[];
+  const cashRows=[['本日釣銭'+(gapD.length?`<br><small class="muted">${gapD.map(md).join('・')} の未精算分 ${sgnYen(N0(R.gap_net))} を含む</small>`:''),plYen(opening),'',''],['現金売上',plYen(cSales),'',''],['入金',plYen(cIn),'',''],['日払報酬（キャスト）','',plYen(fAdv),''],['日払報酬（黒服）','',plYen(mAdv),''],['出金','',plYen(cOut-fAdv-mAdv),''],['合計',plYen(recv),plYen(paid),plYen(recv-paid)],
+    ['現金過不足','','',cl?plYen(cl.diff):idle?'<span class="badge k">（変動なし自動繰越）</span>':'<span class="badge warnb">未精算</span>'],['預金額','','',cl?plYen(cl.deposit):'—'],['翌日釣銭','','',cl?plYen(cl.next_float):idle?plYen(recv-paid):'—'],['現金過不足 当月累計','','',plYen(X.month_closings?.diff)],['預金額 当月累計','','',plYen(X.month_closings?.deposit)]];
   const list=(k,l)=>{ const rows=mv.filter(x=>x.kind===k); return `<div class="card"><h2>${l} - ${jd(d)}</h2><table class="t pl"><tr><th>摘要</th><th class="r">金額</th></tr>${rows.map(x=>`<tr><td>${esc(x.memo||'')}</td><td class="r">${plYen(x.amount)}</td></tr>`).join('')}<tr class="kst"><td>合計</td><td class="r">${plYen(rows.reduce((a,x)=>a+Number(x.amount||0),0))}</td></tr></table></div>`; };
   const hm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):''; // 時刻は日本時間で出す（直す時も日本時間で送る）
   const own=!!me?.is_owner, bills=X.bills||[], bt=k=>bills.reduce((a,b)=>a+Number(b[k]||0),0);
@@ -152,8 +158,9 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
   wire(); if($('plReg')) $('plReg').onclick=()=>{ regDate=d; regTab='day'; go('register'); }; /* v1.75：現金管理を見られない人にはボタンを出さない */
   $('main').querySelectorAll('[data-bed]').forEach(bn=>bn.onclick=guard(bn,()=>billEdit(bn.dataset.bed)));
   $('main').querySelectorAll('[data-bvw]').forEach(a=>a.onclick=()=>billView(a.dataset.bvw,own&&!!bills.find(b=>b.id===a.dataset.bvw&&b.closed_at&&b.status==='closed')));
+  /* v1.80（点検 2026-11-02 C8）：［修正］の「今：」と時刻の枠も、表と同じ丸めた時刻（前は実際の打刻の時刻。2026-10-28 の決まり：表は丸めた時刻だけ） */
   $('main').querySelectorAll('[data-pfx]').forEach(bn=>bn.onclick=guard(bn,async()=>{ const e=(X.events||[]).find(z=>z.id===bn.dataset.pfx); if(!e) return;
-    const mdl=modal(`<h2 style="margin:0">${esc(e.name)}　${EV[e.type]||''}の時刻の修正</h2><div class="muted">今：${hm(e.at)}</div><label>時刻<input type="time" id="pfT" value="${hm(e.at)}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">修正</button></div>`);
+    const mdl=modal(`<h2 style="margin:0">${esc(e.name)}　${EV[e.type]||''}の時刻の修正</h2><div class="muted">今：${hm(e.rounded_at||e.at)}</div><label>時刻<input type="time" id="pfT" value="${hm(e.rounded_at||e.at)}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">修正</button></div>`);
     const v=await new Promise(res=>{ mdl.querySelector('[data-k=no]').onclick=()=>{ mdl.remove(); res(null); }; mdl.querySelector('[data-k=ok]').onclick=()=>{ const t=mdl.querySelector('#pfT').value; mdl.remove(); res({t,rs:null}); }; });
     if(!v) return; if(!v.t){ await uiAlert('時刻を入力してください'); return; }
     const day=v.t<'08:00'?dayAdd(d,1):d; const z=await rpc('admin_punch_fix',{p_event:e.id,p_at:`${day}T${v.t}:00+09:00`,p_reason:v.rs}); if(!z.ok) return; toast('修正しました'); PAGES.pl(); })); }
