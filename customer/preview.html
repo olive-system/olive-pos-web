@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.58 -->
+<title>OLIVE 顧客</title><!-- customer v1.59 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -34,8 +34,6 @@
   .top{position:sticky;top:0;z-index:5;background:var(--head);color:#fff;border-bottom:1px solid var(--head);padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
   .top button.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)} /* v1.38：ヘッダーは3つのサイトで同じ色（色の決まり） */
   .top .ttl{font-weight:700;font-size:17px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .editbar{background:var(--edit);color:#fff;font-size:14px;padding:6px 16px;display:flex;align-items:center;gap:8px}
-  .editbar button{margin-left:auto;background:rgba(255,255,255,.2);color:#fff;padding:4px 10px;font-size:13px}
   .wrap{max-width:720px;margin:0 auto;padding:12px 16px 40px}
 
   /* 一覧 */
@@ -115,7 +113,6 @@ html.ro [data-kn]{pointer-events:none;border-color:transparent}
 <!-- 一覧 -->
 <div id="vList" class="hide">
   <div class="top"><span class="ttl" id="storeName">顧客</span><button class="ghost sm" id="menuBtn">メニュー</button></div>
-  <div class="editbar hide" id="editBar1"><span>編集モード</span><span class="editLeft"></span><button class="editEnd">終了</button></div>
   <div class="wrap">
     <input id="q" type="search" placeholder="お名前・会社名・領収書名・キープ名で検索" autocomplete="off">
     <div class="tools">
@@ -130,7 +127,6 @@ html.ro [data-kn]{pointer-events:none;border-color:transparent}
 <!-- 詳細 -->
 <div id="vDetail" class="hide">
   <div class="top"><button class="ghost sm" id="backBtn">‹ 一覧</button><span class="ttl" id="dName"></span></div>
-  <div class="editbar hide" id="editBar2"><span>編集モード</span><span class="editLeft"></span><button class="editEnd">終了</button></div>
   <div class="wrap" id="detail"></div>
 </div>
 
@@ -158,7 +154,7 @@ const LS0={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null;
 const SS0={ get(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v); }catch(e){} } };
 
 const MEMS={ get(k){ return MEM[k]??null; }, set(k,v){ if(v==null) delete MEM[k]; else MEM[k]=String(v); } }, LS=EMB?MEMS:LS0, SS=EMB?MEMS:SS0;
-let embWait=null, embEdit=null, embEditExp=0; const setRO=()=>document.documentElement.classList.toggle('ro',EMB&&!embEdit); setRO(); // v1.50：券が来るまでは出さない // 管理サイトに入場券をたのむ（返事が来るまで待つ）
+let embWait=null, embEdit=null, embEditExp=0, csEdit=false, csNet=false; const setRO=()=>document.documentElement.classList.toggle('ro',EMB?!embEdit:!csEdit); setRO(); /* v1.59：「編集モード」をなくした。編集用パスワードでログインした人（csEdit）はずっと編集、閲覧用でログインした人は閲覧だけ（編集のボタンを出さない）。オーナー 2026-11-02 点検 D1 */ // v1.50：券が来るまでは出さない // 管理サイトに入場券をたのむ（返事が来るまで待つ）
 function embAsk(){ if(!embWait) embWait=new Promise(res=>{ const on=e=>{ if(e.origin!==location.origin||e.source!==window.parent||!e.data||e.data.type!=='olive-cs-auth') return;
     window.removeEventListener('message',on); embWait=null; const d=e.data; token=d.token||null; embEdit=d.edit_token||null; embEditExp=d.edit_expires_at?new Date(d.edit_expires_at).getTime():0; editTok=embEdit; editExp=embEditExp; setRO(); /* v1.36：管理サイトの中では、編集の入場券があれば最初から編集できる */ try{ paintEdit(); }catch(e){} res(d); };
   window.addEventListener('message',on); window.parent.postMessage({type:'olive-cs-need'},location.origin); }); return embWait; }
@@ -173,13 +169,13 @@ async function rpc(fn,args){
   const t=await r.text(); let d=null; try{ d=t?JSON.parse(t):null; }catch(e){}
   if(!r.ok){ const m=String(d&&d.message||t||''); const c=(m.match(/^(CS_[A-Z]+)/)||[])[1];
     if(c==='CS_AUTH'){ logoutLocal(); throw new CsError(c,'再度パスワードを入力してください'); }
-    if(c==='CS_EDIT'){ endEdit(true); throw new CsError(c,'編集パスワードの有効時間が切れました。再度入力してください'); }
+    if(c==='CS_EDIT'){ endEdit(true); throw new CsError(c,'編集に失敗しました。再度お試しください'); } /* v1.59：編集パスワードを聞く窓は無いので、聞く文にしない */
     if(c==='CS_INPUT') throw new CsError(c,m.replace(/^CS_INPUT:/,''));
     if(c==='CS_CONFLICT') throw new CsError(c,'ほかの人が先にこのお客様を変更しました。最新の内容を読み込み直します');
     if(c==='CS_NOTFOUND') throw new CsError(c,'見つかりません（削除された可能性があります）');
     if(c==='CS_LOCKED') throw new CsError(c,'パスワードの間違いが続いたため、15分間停止しています');
     if(c==='CS_NOEDITPW') throw new CsError(c,'編集パスワードがまだ設定されていません');
-    if(/Could not find the function|does not exist/.test(m)) throw new CsError('SQL','準備中です（SQL 043 が未適用）');
+    if((d&&d.code==='PGRST202')||/^Could not find the function/.test(m)) throw new CsError('SQL','準備中です（SQL 043 が未適用）'); /* v1.59：関数が本当に無い時だけ。関数の中のエラー（does not exist など）は本当の文を出す（点検 2026-11-02 B3） */
     throw new CsError('ERR',m||('エラー '+r.status)); }
   return d; }
 
@@ -195,15 +191,17 @@ async function fail(e){ if(e&&e.code==='CS_AUTH'){ showLogin(e.message); return;
 function show(v){ ['vLogin','vList','vDetail'].forEach(x=>$(x).classList.toggle('hide',x!==v)); window.scrollTo(0,0); }
 let embTry=0;
 function showLogin(msg){ if(EMB){ if(++embTry>3){ show('vLogin'); $('loginErr').textContent=EA?'顧客サイトを開けません。管理サイトを読み込み直してください':'顧客サイトを開けません。マイページを開き直してください'; return; } embAsk().then(d=>{ if(d&&d.token) start(); else { show('vLogin'); $('loginErr').textContent=d&&d.error||'顧客サイトを開けません'; } }); return; } show('vLogin'); $('loginErr').textContent=msg||''; $('pw').value=''; }
-function logoutLocal(){ token=null; LS.set('olive_cs_token',null); endEdit(true); boot=null; custs=[]; }
+function logoutLocal(){ token=null; LS.set('olive_cs_token',null); endEdit(true); csEdit=false; setRO(); boot=null; custs=[]; }
+/* v1.59：ログインの期限切れ（90日など）でも、パスワードの変更でも合う文（点検 2026-11-02 B2。cs_auth はどちらも CS_AUTH を返す） */ const CS_OUT='ログインの期限切れ、またはパスワード変更のため、ログアウトしました';
+async function csOut(){ try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(CS_OUT); }
 
 // ---------- ログイン ----------
 $('loginForm').onsubmit=async e=>{ e.preventDefault(); const pw=$('pw').value; if(!pw){ $('loginErr').textContent='パスワードを入力してください'; return; }
   $('loginBtn').disabled=true; $('loginErr').textContent='';
   try{ const r=await rpc('cs_login',{p_pw:pw}); if(r&&r.error){ $('loginErr').textContent='パスワードが違います'; return; }
     token=r.token; LS.set('olive_cs_token',token); $('pw').value='';
-    if(r.edit_token){ editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); } /* v1.56・SQL 311：編集用のパスワードでも入れる。その時は最初から編集モード（オーナー 2026-11-01「どちらでも入れる」） */
-    await start(); if(editing()){ paintEdit(); toast('編集モードにしました（30分）'); } }
+    if(r.edit_token){ editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); csEdit=true; setRO(); } /* v1.56・SQL 311：編集用のパスワードでも入れる（オーナー 2026-11-01「どちらでも入れる」）。v1.59：知らせは出さない（モードは無い） */
+    await start(); }
   catch(err){ $('loginErr').textContent=err.message; }
   finally{ $('loginBtn').disabled=false; } };
 
@@ -212,7 +210,7 @@ async function start(){ if(!token){ showLogin(); return; }
   kSet(boot&&boot.store&&boot.store.kakari_label);
   $('storeName').textContent=(boot.store&&boot.store.name||'')+'　顧客'; document.title=(boot.store&&boot.store.name||'OLIVE')+' 顧客';
   if(!monthsSel) monthsSel=boot.bottle_keep_months||6;
-  show('vList'); if(!editing()) await editRenew(); paintEdit(); await loadList(); rtSub(); }
+  show('vList'); if(!EMB){ const k=await csRenew(); if(k===null) return; } paintEdit(); await loadList(); rtSub(); } /* v1.59：開くたびに、編集用でログインした人か（cs_edit_renew）を確かめる */
 /* v1.29・SQL 067：リアルタイム。店の設定・伝票がほかで変わったら、すぐ読み直す（入力中・確認の画面の間は読み直さない。つながらない時は1分ごとのまま） */
 let rtCh=null, rtT=0;
 function rtSub(){ const sid=boot&&boot.store&&boot.store.id; if(rtCh||!sid||!window.supabase) return;
@@ -220,28 +218,29 @@ function rtSub(){ const sid=boot&&boot.store&&boot.store.id; if(rtCh||!sid||!win
     rtCh=c.channel('olive:'+sid).on('broadcast',{event:'chg'},m=>{ const k=(m.payload||{}).kind; clearTimeout(rtT); rtT=setTimeout(()=>rtRefresh(k),k==='settings'?1500:2500); }).subscribe(); }catch(e){ console.warn('realtime',e); } }
 async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot',{p_token:token}); if(b){ boot=b; kSet(boot.store&&boot.store.kakari_label); $('storeName').textContent=(boot.store&&boot.store.name||'')+'　顧客'; document.title=(boot.store&&boot.store.name||'OLIVE')+' 顧客'; } }catch(e){} } csRefresh(false); } /* v1.53：知らせでは開いている詳細だけ読み直す（一覧の約6,000人は1分ごとの読み直しだけ。営業中に何回も読み直して重くなるため。点検 2026-10-30） */
 
-// ---------- 編集モード ----------
+// ---------- 編集（v1.59：モードは無い。編集用でログインした人は、裏で編集の券を取り直し続ける） ----------
 function editing(){ return !!editTok&&editExp>Date.now(); }
 function endEdit(silent){ editTok=null; editExp=0; SS.set('olive_cs_edit',null); SS.set('olive_cs_edit_exp',null); paintEdit(); if(!silent&&cur) renderDetail(); }
 let editTimer=0;
-async function editRenew(){ if(EMB||!token) return false; try{ const r=await rpc('cs_edit_renew',{p_token:token}); if(r&&r.edit_token){ editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); paintEdit(); return true; } }catch(e){} return false; } /* v1.57・SQL 312：編集用のパスワードでログインした人は、読み直し・30分後も編集パスワードを聞かない（オーナー 2026-11-01） */
-function paintEdit(){ const on=editing(); ['editBar1','editBar2'].forEach(id=>$(id).classList.toggle('hide',!on||EMB));
+/* v1.57・SQL 312：編集用のパスワードでログインした人は、読み直し・30分後も編集の券を出し直す。v1.59・SQL 318：返事を分ける ok＝編集用でログイン／no＝閲覧用でログイン／pw＝編集用パスワードが変更された／net＝通信の失敗／auth＝ログアウト済み */
+async function editRenew(){ if(EMB||!token) return 'no'; try{ const r=await rpc('cs_edit_renew',{p_token:token}); if(r&&r.edit_token){ editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); return 'ok'; } return r&&r.error==='CS_EDITPW'?'pw':'no'; }catch(e){ return e&&e.code==='CS_AUTH'?'auth':'net'; } }
+/* 結果を画面に当てる。編集できる時 true、閲覧だけの時 false、ログアウトした時 null */
+async function csRenew(){ const k=await editRenew(); csNet=k==='net';
+  if(k==='pw'||k==='auth'){ if(k==='pw') await csOut(); else showLogin(CS_OUT); return null; } /* 編集用パスワードが変更された → ログアウト（312 と同じ扱い） */
+  if(k==='ok') csEdit=true; else if(k==='no'){ csEdit=false; editTok=null; editExp=0; SS.set('olive_cs_edit',null); SS.set('olive_cs_edit_exp',null); }
+  setRO(); return csEdit&&editing(); }
+function paintEdit(){
   if(EMB){ clearTimeout(editTimer); if(embEdit) editTimer=setTimeout(async()=>{ if(embEditExp<Date.now()+120000){ try{ await embAsk(); }catch(e){} } paintEdit(); },30000); return; } // 管理サイトの中：帯は出さず、期限が近づいたら入場券を取り直す
-  const left=on?Math.max(0,Math.ceil((editExp-Date.now())/60000)):0; document.querySelectorAll('.editLeft').forEach(x=>x.textContent=on?`（あと${left}分）`:'');
-  clearTimeout(editTimer); if(on) editTimer=setTimeout(async()=>{ if(editExp<Date.now()+120000&&await editRenew()) return; if(!editing()){ endEdit(); toast('編集モードを終了しました'); } else paintEdit(); },30000); }
-document.querySelectorAll('.editEnd').forEach(b=>b.onclick=()=>{ endEdit(); toast('編集モードを終了しました'); });
-async function needEdit(){ if(editing()) return true; if(await editRenew()) return true;
+  clearTimeout(editTimer); if(token) editTimer=setTimeout(async()=>{ if(token&&(csEdit?editExp<Date.now()+120000:csNet)&&await csRenew()===null) return; paintEdit(); },30000); } /* 編集用：切れる2分前に取り直す。通信の失敗で決まらなかった時も取り直す */
+async function needEdit(){ if(editing()) return true;
   if(EMB){ let d=null; if(!embEdit||embEditExp<Date.now()+60000) d=await embAsk(); if(embEdit&&embEditExp>Date.now()){ editTok=embEdit; editExp=embEditExp; paintEdit(); return true; }
     await uiAlert(d&&d.error||'顧客サイトを編集する権限がありません'); return false; } // 編集モードは普通の時と同じ30分
-  const pw=await uiPrompt('編集パスワード','',{pw:true,ok:'編集する'}); if(pw==null) return false; if(!pw){ toast('パスワードを入力してください'); return false; }
-  try{ const r=await rpc('cs_edit_login',{p_token:token,p_pw:pw}); if(r&&r.error){ await uiAlert('編集パスワードが違います'); return false; }
-    editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); paintEdit(); toast('編集モードにしました（30分）'); return true; }
-  catch(e){ await fail(e); return false; } }
+  const k=await csRenew(); if(k) return true; if(k===false&&csNet) await uiAlert('通信できませんでした。電波の良い所で再度お試しください'); return false; } /* v1.59：編集パスワードを聞く窓は出さない（閲覧用でログインした人には編集のボタン自体を出さない） */
 
 if(EMB) $('menuBtn').style.display='none'; /* v1.42：管理サイトの中ではメニューを出さない（中身が無いため。オーナー 2026-10-14） */
-$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EA?'':editing()?'<button class="ghost" data-a="end">編集モードを終了</button>':'<button class="edit" data-a="edit">編集パスワードを入力</button>'}${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
+$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
   s.querySelector('[data-x]').onclick=()=>done(); s.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; done();
-    if(a==='edit') await needEdit(); else if(a==='end'){ endEdit(); toast('編集モードを終了しました'); } else if(a==='reload') await loadList();
+    if(a==='reload') await loadList(); /* v1.59：「編集パスワードを入力」「編集モードを終了」は外した */
     else if(a==='out'){ if(!await uiConfirm('ログアウトしますか？\n次に開く時はパスワードが必要です。','ログアウト','danger')) return; try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(); } }); });
 
 // ---------- 日付 ----------
@@ -289,14 +288,14 @@ async function cxLoad(c){ let d; try{ d=await rpc('cs_contacts',{p_token:token,p
   const key=x=>String(x||'').replace(/[\s　]/g,''), un=((d&&d.unlinked)||[]).slice().sort((a,b)=>(key(b.name)===key(c.name))-(key(a.name)===key(c.name)));
   box.innerHTML=`${((d&&d.casts)||[]).length?d.casts.map(esc).join('・'):'<span class="muted">なし</span>'}`+(editing()&&un.length?`<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><select id="cxSel" style="flex:1;min-width:0;padding:8px 6px"><option value="">未選択の連絡先交換</option>${un.map(x=>`<option value="${x.id}">${esc(x.name)} 様（${esc(x.cast)} ${md(x.date)}）</option>`).join('')}</select><button class="ghost sm" id="cxGo" style="flex:none">選択</button></div>`:'');
   const go=$('cxGo'); if(go) go.onclick=async()=>{ const id=$('cxSel').value; if(!id){ await uiAlert('連絡先交換を選んでください'); return; } const x=un.find(z=>z.id===id); if(!await uiConfirm(`${x.name} 様（${x.cast}）の連絡先交換を\n${c.name} 様にしますか？`)) return; if(!await needEdit()) return; go.disabled=true; try{ await rpc('cs_contact_link',{p_token:token,p_edit_token:editTok,p_id:id,p_customer:c.id}); toast('顧客を選択しました'); cxLoad(c); }catch(e){ go.disabled=false; await fail(e); } }; }
-function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $('dName').textContent=c.name+' 様';
+function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モードが無いので、編集のボタンはいつも同じ形（閲覧だけの人には出さない） */ $('dName').textContent=c.name+' 様';
   const bts=(cur.bottles||[]).slice().sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); /* v1.25：開けた日の新しい順（POS と同じ） */ const open=bts.filter(b=>!b.is_finished&&!b.expired_on), fin=bts.filter(b=>b.is_finished&&!b.expired_on), exp=bts.filter(b=>b.expired_on);
   const kakari=c.kakari_staff_id?sname(c.kakari_staff_id):'';
   const good=(cur.good||[]).slice().sort((a,b)=>b.n-a.n||jaCmp(sname(a.staff_id),sname(b.staff_id))).slice(0,3)/* v1.28・SQL 066：全員を受け取り、多い順・同じ回数は名前順で3名（POS と同じ） */.map(g=>`<span style="margin-right:14px;white-space:nowrap;display:inline-block">${esc(sname(g.staff_id))} <small class="muted">${g.n}回</small></span>`).join('')||'<span class="muted">なし</span>';
   const reqs=(cur.requests||[]).map(q=>`<div class="req"><div class="who">${md(q.business_date)}　${esc(sname(q.author_staff_id))}　申請中</div><div style="white-space:pre-wrap">${esc(q.body)}</div></div>`).join('');
   const keep=(boot.keep_products||[]);
   $('detail').innerHTML=`
-  <div class="card" style="position:relative"><button class="${ed?'edit':'ghost'} sm" id="editInfo" style="position:absolute;top:10px;right:10px">${ed?'編集する':'編集'}</button>
+  <div class="card" style="position:relative"><button class="edit sm" id="editInfo" style="position:absolute;top:10px;right:10px">編集</button>
     <dl class="kv info">
       <dt>お誕生日</dt><dd>${esc(c.birthday||'—')}</dd>
       <dt>会社名</dt><dd>${esc(c.company||'—')}${c.is_industry?' <span class="badge k">同業</span>':''}</dd>
@@ -315,7 +314,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer, ed=editing(); $(
     <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px"><div class="muted" style="font-size:13px;margin-bottom:6px">新しくボトルを登録</div><div style="display:flex;gap:6px;align-items:center"><select id="btSel" style="flex:1;min-width:0;padding:10px 6px"><option value="">銘柄を選ぶ</option>${keep.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}<option value="__free">＋ リストに無い銘柄</option></select><select id="btRem" style="width:auto;flex:none;padding:10px 6px" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}">${n}/10</option>`).join('')}</select><button class="ok" id="btAdd" style="flex:none">登録</button></div></div>
     ${exp.length?`<div style="margin-top:4px">${exp.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((b.moved?'ボトル移動':'期限切れ')+'：'+b.name+'　'+(b.remaining??0)+'/10　'+(d=>d?String(d).slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on)+(b.moved&&(b.moved_to||b.moved_staff)?'　'+[b.moved_to?'移動先 '+b.moved_to:'',b.moved_staff?KL+' '+b.moved_staff:''].filter(Boolean).join('・'):''))}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
     ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>
-  <div class="card"><h2>メモ<button class="${ed?'edit':'ghost'} sm" id="editMemo">${ed?'編集する':'編集'}</button></h2>
+  <div class="card"><h2>メモ<button class="edit sm" id="editMemo">編集</button></h2>
     <div class="memo">${c.memo?esc(c.memo):'<span class="muted">なし</span>'}</div>${reqs}
     <button class="ok" id="reqBtn" style="width:100%;margin-top:12px">＋ 気づきを申請</button></div>
   <div class="card"><h2>請求先<button class="ghost sm" id="btcAdd">追加</button></h2><div id="dBt"><span class="muted">…</span></div></div>
@@ -376,7 +375,7 @@ function reqForm(){ const c=cur.customer; const ppl=(boot.staff||[]).filter(s=>s
 // v1.46・SQL 171：請求先（オーナー 2026-10-19「顧客サイトにも登録」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」）
 // POS で「請求書」にした時に選んだ・入れた請求先が並ぶ。ここで足す・直す・消すと、POS の請求先に出る。直しても消しても、もう会計した分の請求先は変わらない
 async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* v1.54：説明を外し、1件を1〜2行に（オーナー 2026-11-01「請求先に説明はいらない。もっとコンパクトに」）。「追加」は見出しの右 */
-  try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(/cs_bill_tos/.test(e.message||'')?'SQL 171 が未実行です':'読み込めません')}</span>`; return; }
+  try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(e.code==='SQL'?'SQL 171 が未実行です':(e.message||'読み込めません'))/* v1.59：関数が無い時だけ SQL の番号。ほかは本当の文（点検 B3） */}</span>`; return; }
   if(!cur||cur.customer.id!==c.id||!box()) return;
   box().innerHTML=rows.length?rows.map((x,i)=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;${i?'border-top:1px solid var(--line)':''}"><div style="flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere"><b>${esc(x.company)}</b>${x.attn?`　${esc(x.attn)} 様`:''}${x.address?`<div class="muted" style="font-size:13px;white-space:pre-line">${esc(x.address)}</div>`:''}</div>
     <button class="ghost sm" data-bte="${i}" style="flex:none">修正</button><button class="ghost sm" data-btd="${i}" style="flex:none;color:var(--warn)">削除</button></div>`).join('')
@@ -459,7 +458,7 @@ window.addEventListener('popstate',()=>{ curId=null; cur=null; show('vList'); re
 /* v1.25：ほかの端末（POS など）での変更を出す。画面に戻った時と、詳細を開いている間は1分ごとに読み直す。入力中・確認の画面が出ている間は読み直さない。失敗しても知らせない */
 async function csRefresh(listToo){ if(!token||document.visibilityState!=='visible'||$('modal').classList.contains('on')) return; const a=document.activeElement; if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&a.id!=='q') return;
   try{ if(!$('vDetail').classList.contains('hide')&&curId){ const id=curId; const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id||$('modal').classList.contains('on')) return; if(JSON.stringify(d)!==JSON.stringify(cur)){ cur=d; renderDetail(); } }
-    else if(listToo&&!$('vList').classList.contains('hide')){ const l=await rpc('cs_list',{p_token:token})||[]; if($('vList').classList.contains('hide')) return; l.sort(csOrder); if(JSON.stringify(l)!==JSON.stringify(custs)){ custs=l; renderList(); } } }catch(e){ if(e&&e.code==='CS_AUTH'){ logoutLocal(); showLogin('パスワードが変わったので、ログアウトしました'); } } }
+    else if(listToo&&!$('vList').classList.contains('hide')){ const l=await rpc('cs_list',{p_token:token})||[]; if($('vList').classList.contains('hide')) return; l.sort(csOrder); if(JSON.stringify(l)!==JSON.stringify(custs)){ custs=l; renderList(); } } }catch(e){ if(e&&e.code==='CS_AUTH'){ logoutLocal(); showLogin(CS_OUT); } } }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ paintEdit(); csRefresh(true); } });
 setInterval(()=>csRefresh(true),60000); /* v1.27：一覧の画面でも1分ごとに読み直す（パスワードが変わったらログアウト） */
 
