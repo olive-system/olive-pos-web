@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.59 -->
+<title>OLIVE 顧客</title><!-- customer v1.60 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -160,6 +160,8 @@ function embAsk(){ if(!embWait) embWait=new Promise(res=>{ const on=e=>{ if(e.or
   window.addEventListener('message',on); window.parent.postMessage({type:'olive-cs-need'},location.origin); }); return embWait; }
 let token=LS.get('olive_cs_token'), editTok=SS.get('olive_cs_edit'), editExp=Number(SS.get('olive_cs_edit_exp')||0);
 let boot=null, custs=[], mode='all', monthsSel=null, curId=null, cur=null;
+let fInfo=null; /* v1.60・SQL 324：強化リストの上限（cap）と、お客様ごとの連絡先の人数（contacts） */
+function loadFocus(){ rpc('cs_focus_info',{p_token:token}).then(x=>{ fInfo=x; if(mode==='focus') renderList(); }).catch(()=>{}); }
 
 // ---------- 通信 ----------
 class CsError extends Error{ constructor(code,msg){ super(msg||code); this.code=code; } }
@@ -263,13 +265,14 @@ document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ mode=b.datas
 $('q').oninput=()=>renderList();
 function renderList(){ const q=$('q').value.trim();
   document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
-  const ms=$('months'); const opts=[...new Set([1,2,3,6,12,monthsSel])].sort((a,b)=>a-b); ms.innerHTML=`<option value="" ${mode==='old'?'':'selected'}>全員</option>`+opts.map(n=>`<option value="${n}" ${mode==='old'&&n===monthsSel?'selected':''}>${n%12?n+"か月":n/12+"年"}以上ご来店なし</option>`).join(''); ms.onchange=()=>{ if(!ms.value){ mode='all'; renderList(); return; } monthsSel=Number(ms.value); mode='old'; renderList(); };
+  const ms=$('months'); const opts=[...new Set([1,2,3,6,12,monthsSel])].sort((a,b)=>a-b); ms.innerHTML=`<option value="" ${mode==='all'?'selected':''}>全員</option><option value="focus" ${mode==='focus'?'selected':''}>強化リスト</option>`+opts.map(n=>`<option value="${n}" ${mode==='old'&&n===monthsSel?'selected':''}>${n%12?n+"か月":n/12+"年"}以上ご来店なし</option>`).join(''); ms.onchange=()=>{ if(!ms.value){ mode='all'; renderList(); return; } if(ms.value==='focus'){ mode='focus'; renderList(); loadFocus(); return; } /* v1.60：強化リスト（並びは最後のご来店が古い順） */ monthsSel=Number(ms.value); mode='old'; renderList(); };
   const cut=cutoff(monthsSel);
   let list=custs.filter(c=>!q||[c.name,c.company,c.receipt_name,...(c.keep_names||[])].some(v=>v&&String(v).includes(q)));
   if(mode==='old') list=list.filter(c=>base(c)&&base(c)<=cut).sort((a,b)=>base(a).localeCompare(base(b)));
-  $('count').textContent=`${list.length}名`+(mode==='old'?`（${md(cut)} 以前）`:'');
+  if(mode==='focus') list=list.filter(c=>c.focus).sort((a,b)=>(a.last||'').localeCompare(b.last||''));
+  $('count').textContent=`${list.length}名`+(mode==='old'?`（${md(cut)} 以前）`:mode==='focus'&&fInfo?`（上限${fInfo.cap}名）`:'');
   const show=list.slice(0,300);
-  $('rows').innerHTML=show.map(c=>`<button class="row" data-id="${c.id}"><div class="nm">${esc(c.name)}${c.company?` <small class="muted" style="font-weight:400">${esc(c.company)}</small>`:''}${c.is_industry?' <span class="badge k">同業</span>':''}${c.req?` <span class="badge warnb">申請 ${c.req}件</span>`:''}</div><div class="sub" style="${mode==='old'?'color:var(--warn)':''}">${[c.last?md(c.last):'来店なし',c.kakari_staff_id?esc(sname(c.kakari_staff_id)):'',esc(bnLine(c.bottle_names,c.bottles))].filter(Boolean).join('・')}</div></button>`).join('')+(list.length>show.length?`<div class="muted" style="font-size:13px;padding:8px 0">ほか ${list.length-show.length}名（検索で絞り込んでください）</div>`:'')||'<div class="muted" style="padding:20px 0">該当なし</div>';
+  $('rows').innerHTML=show.map(c=>`<button class="row" data-id="${c.id}"><div class="nm">${esc(c.name)}${c.company?` <small class="muted" style="font-weight:400">${esc(c.company)}</small>`:''}${c.focus?' <span class="badge">強化</span>':''}${c.is_industry?' <span class="badge k">同業</span>':''}${c.req?` <span class="badge warnb">申請 ${c.req}件</span>`:''}</div><div class="sub" style="${mode==='old'?'color:var(--warn)':''}">${[c.last?md(c.last):'来店なし',c.kakari_staff_id?esc(sname(c.kakari_staff_id)):'',esc(bnLine(c.bottle_names,c.bottles)),mode==='focus'&&fInfo&&fInfo.contacts?(fInfo.contacts[c.id]?`連絡先 ${fInfo.contacts[c.id]}名`:'<span style="color:var(--warn)">連絡先なし</span>'):''].filter(Boolean).join('・')}</div></button>`).join('')+(list.length>show.length?`<div class="muted" style="font-size:13px;padding:8px 0">ほか ${list.length-show.length}名（検索で絞り込んでください）</div>`:'')||'<div class="muted" style="padding:20px 0">該当なし</div>';
   $('rows').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(b.dataset.id)); }
 
 $('newBtn').onclick=async()=>{ const name=await uiPrompt('新しいお客様のお名前',$('q').value.trim(),{ok:'登録'}); if(name==null) return; const nm=name.trim(); if(!nm){ toast('お名前を入力してください'); return; }
@@ -397,17 +400,17 @@ const EF=[['name','お名前'],['birthday','お誕生日'],['company','会社名
 function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draft)?draft[k]:c[k]; const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const curK=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?staffBy(c.kakari_staff_id):null;
   const fields=memoOnly?'':EF.map(([k,l])=>k==='kakari_staff_id'?`<label class="f">${l}<select data-k="${k}"><option value="">なし</option>${curK?`<option value="${curK.id}" selected>${esc(curK.name)}（退店）</option>`:''}${casts.map(s=>`<option value="${s.id}" ${dv(k)===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`
     :k==='tobacco'||k==='haisha'?`<label class="f">${l}<textarea data-k="${k}" rows="2" maxlength="300">${esc(dv(k)||'')}</textarea></label>`
-    :`<label class="f">${l}<input data-k="${k}" value="${esc(dv(k)||'')}" ${k==='birthday'?'placeholder="例 11/24" inputmode="numeric"':''}></label>`).join('')+`<label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="is_industry" ${dv('is_industry')?'checked':''} style="width:auto;margin:0">同業（会社名に店名を入れる）</label>`;
+    :`<label class="f">${l}<input data-k="${k}" value="${esc(dv(k)||'')}" ${k==='birthday'?'placeholder="例 11/24" inputmode="numeric"':''}></label>`).join('')+`<label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="is_industry" ${dv('is_industry')?'checked':''} style="width:auto;margin:0">同業（会社名に店名を入れる）</label><label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="focus" ${(draft&&('focus' in draft)?draft.focus:!!(custs.find(x=>x.id===c.id)||{}).focus)?'checked':''} style="width:auto;margin:0">強化</label>`; /* v1.60・SQL 324：強化リスト（店ごと・上限は出勤人数×3） */
   return sheet(`<h3>${esc(c.name)} 様　${memoOnly?'メモを編集':'お客様の情報を編集'}</h3>${fields}${memoOnly?`<label class="f">メモ<textarea data-k="memo" rows="12">${esc(dv('memo')||'')}</textarea></label>`:''}<div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{
     s.querySelector('[data-x]').onclick=()=>done(false);
-    s.querySelector('[data-ok]').onclick=async e=>{ const patch={}, before={}, dr={}; s.querySelectorAll('[data-k]').forEach(i=>{ dr[i.dataset.k]=i.type==='checkbox'?i.checked:(i.value||null); });
-      s.querySelectorAll('[data-k]').forEach(i=>{ const k=i.dataset.k; let v=i.type==='checkbox'?i.checked:(k==='memo'?i.value.replace(/\s+$/,''):i.value.trim()); if(v==='') v=null; if(k==='is_industry'){ if(v!==!!c.is_industry){ patch[k]=v; before[k]=!!c.is_industry; } return; } if(v!==(c[k]||null)){ patch[k]=v; before[k]=c[k]??null; } });
+    s.querySelector('[data-ok]').onclick=async e=>{ const patch={}, before={}, dr={}; let fNew=null; const li0=custs.find(x=>x.id===c.id), fChg=()=>fNew!=null&&fNew!==!!(li0&&li0.focus); s.querySelectorAll('[data-k]').forEach(i=>{ dr[i.dataset.k]=i.type==='checkbox'?i.checked:(i.value||null); });
+      s.querySelectorAll('[data-k]').forEach(i=>{ const k=i.dataset.k; let v=i.type==='checkbox'?i.checked:(k==='memo'?i.value.replace(/\s+$/,''):i.value.trim()); if(v==='') v=null; if(k==='focus'){ fNew=v; return; } if(k==='is_industry'){ if(v!==!!c.is_industry){ patch[k]=v; before[k]=!!c.is_industry; } return; } if(v!==(c[k]||null)){ patch[k]=v; before[k]=c[k]??null; } });
       if('name' in patch&&!patch.name){ toast('お名前は必須です'); return; }
       if(patch.birthday){ const m=patch.birthday.replace(/[０-９／]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).match(/^(\d{1,2})[\/月.\-](\d{1,2})日?$/); const dim=[31,29,31,30,31,30,31,31,30,31,30,31]; if(!m||+m[1]<1||+m[1]>12||+m[2]<1||+m[2]>dim[+m[1]-1]){ toast('お誕生日は 11/24 のように入力してください'); return; } patch.birthday=`${+m[1]}/${+m[2]}`; if(patch.birthday===(c.birthday||null)){ delete patch.birthday; delete before.birthday; } }
       const ind='is_industry' in patch?patch.is_industry:!!c.is_industry; const co='company' in patch?patch.company:c.company; if(ind&&!co){ toast('同業の時は店名を会社名に入力してください'); return; }
-      if(!Object.keys(patch).length){ done(false); toast('変更はありません'); return; }
+      if(!Object.keys(patch).length&&!fChg()){ done(false); toast('変更はありません'); return; }
       if(!editing()){ done(false); if(!await needEdit()) return; return editForm(memoOnly,dr); } /* v1.30：パスワードを入れ直しても、書いた内容は残す */
-      e.target.disabled=true; try{ await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:patch,p_before:before}); done(true); toast('保存しました'); await reloadDetail(); const li=custs.find(x=>x.id===c.id); if(li&&cur){ Object.assign(li,{name:cur.customer.name,company:cur.customer.company,receipt_name:cur.customer.receipt_name,kakari_staff_id:cur.customer.kakari_staff_id,is_industry:cur.customer.is_industry}); } }
+      e.target.disabled=true; try{ if(fChg()){ await rpc('cs_focus_set',{p_token:token,p_edit_token:editTok,p_id:c.id,p_on:fNew}); if(li0) li0.focus=fNew; delete dr.focus; loadFocus(); renderList(); } if(Object.keys(patch).length) await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:patch,p_before:before}); done(true); toast('保存しました'); await reloadDetail(); const li=custs.find(x=>x.id===c.id); if(li&&cur){ Object.assign(li,{name:cur.customer.name,company:cur.customer.company,receipt_name:cur.customer.receipt_name,kakari_staff_id:cur.customer.kakari_staff_id,is_industry:cur.customer.is_industry}); } }
       catch(err){ e.target.disabled=false; if(err.code==='CS_CONFLICT'){ done(false); await reloadDetail(); return csClash(memoOnly,c,patch,before,dr); } if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); if(!await needEdit()) return; return editForm(memoOnly,dr); } await fail(err); } }; }); }
 /* v1.30：ほかの人が先に変えていた時。メモは行ごとに自動で合わせて保存する（同じ行を両方が直した時だけ、どちらを残すか聞く）。メモ以外は最新にして、書いた内容と一緒に見せ直す */
 async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; if(!c||c.id!==c0.id){ await uiAlert('ほかの人が先にこのお客様を変更しました'); return; }
