@@ -8,10 +8,11 @@ async function absent(){
   const r = await sb.rpc('cast_absence_info', { p_token: TOKEN });
   if(r.error){ fail(r.error.message); return; }
   const A = r.data;
-  if(A.sent){ absentDone(A.date, A.sent.at, A.sent.fine_name, true); return; }
-  const t = A.types || {}, rows = [['13時までの連絡', t.early, false], ['13時以降・金曜日・イベント日', t.late, true]].filter(x => x[1]);
+  /* v1.05・点検 2026-11-02 C2・SQL 316：罰金を免除されている子（A.exempt）には、罰金の表も罰金の行も出さない。免除の種類は types から外して届く */
+  if(A.sent){ absentDone(A.date, A.sent.at, A.sent.fine_name, true, true, A.exempt); return; }
+  const t = A.types || {}, rows = [['13時までの連絡', t.early, false], ['13時以降・金曜日・イベント日', t.late, true]].filter(x => x[1]), nowRow = rows.some(x => x[2] === !!A.is_late);
   const rule = rows.length ? `<div class="warnbox"><b class="t">当日欠勤の罰金</b><table>${rows.map(x => `<tr class="${x[2]===!!A.is_late?'hi':''}"><td>${x[0]}</td><td>${esc(fineTxt(x[1], t.pay_type))}</td></tr>`).join('')}</table>
-    <div class="now">現在の連絡は「${A.is_late ? '13時以降・金曜日・イベント日' : '13時までの連絡'}」に該当します</div></div>` : '';
+    ${nowRow ? `<div class="now">現在の連絡は「${A.is_late ? '13時以降・金曜日・イベント日' : '13時までの連絡'}」に該当します</div>` : ''}</div>` : '';
   show(`${segHtml('absent')}<div class="subh">${dTxt(A.date)} ${tTxt(A.now)}</div>
     <div class="card"><label class="f" for="abR">理由</label><textarea id="abR" maxlength="300"></textarea></div>${rule}
     <button class="btn" id="abGo">欠勤連絡</button><p class="muted sm" style="margin:10px 2px">送信内容は公式 LINE のトークにも送信されます</p>`); segBind();
@@ -23,13 +24,13 @@ async function absent(){
     if(q.error){ $('abGo').disabled = false; await uiAlert(q.error.message); return; }
     let lineOk = true;
     try{ await liff.sendMessages([{ type:'text', text:`【当日欠勤】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
-    absentDone(q.data.date, q.data.at, q.data.fine_name, false, lineOk);
+    absentDone(q.data.date, q.data.at, q.data.fine_name, false, lineOk, A.exempt);
   };
 }
-function absentDone(date, at, fine, already, lineOk = true){
+function absentDone(date, at, fine, already, lineOk = true, exempt = false){
   setBack(home);
   show(`${already ? segHtml('absent') : ''}<div class="card c"><div class="big">${already ? '送信済み' : '送信完了'}</div><p>${dTxt(date)}の欠勤連絡を受付しました。</p>
-    <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div><div class="row" style="text-align:left"><span>罰金</span><b>${esc(fine || 'なし')}</b></div>
+    <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div>${exempt ? '' : `<div class="row" style="text-align:left"><span>罰金</span><b>${esc(fine || 'なし')}</b></div>`}
     <div class="muted sm">取消は黒服にご連絡ください</div>${lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>
     <button class="btn g" id="abHome">ホーム</button>`);
   $('abHome').onclick = home; segBind();
@@ -44,8 +45,9 @@ async function lateForm(hall){
   const r = await sb.rpc(hall ? 'hall_late_info' : 'cast_late_info', { p_token: TOKEN });
   if(r.error){ fail(r.error.message); return; }
   const L = r.data, seg = hall ? '' : segHtml('late');
-  if(L.sent){ lateDone(hall, L.date, L.sent.at, L.shift, L.sent.eta, L.sent.status, true); return; }
-  if(!L.open){ show(`${seg}<div class="subh">${dTxt(L.date)} ${tTxt(L.now)}</div><div class="card muted">${!L.shift ? '本日のシフトがありません' : hall ? 'シフトの時刻を過ぎたため送信できません' : 'シフトの時刻を過ぎたため送信できません。黒服にご連絡ください'}</div>`); if(!hall) segBind(); return; }
+  if(L.sent){ lateDone(hall, L.date, L.sent.at, L.shift, L.sent.eta, L.sent.status, true, true, L.sent.line === 0); return; } /* v1.05・点検 2026-11-02 A4・SQL 316：承認者に届いた数（line） */
+  /* v1.05・点検 2026-11-02 B4・SQL 316：シフトが「同伴」（時刻なし）の日は遅刻の罰金がかからない（late_fine_apply）ため、遅刻連絡は不要 */
+  if(!L.open){ show(`${seg}<div class="subh">${dTxt(L.date)} ${tTxt(L.now)}</div><div class="card muted">${!L.shift ? (L.douhan ? '本日は同伴のため、遅刻連絡は不要です' : '本日のシフトがありません') : hall ? 'シフトの時刻を過ぎたため送信できません' : 'シフトの時刻を過ぎたため送信できません。黒服にご連絡ください'}</div>`); if(!hall) segBind(); return; }
   const Q = 900000, s0 = new Date(L.shift_at).getTime(); let op = '';
   for(let t = s0 + Q; t <= s0 + 16 * Q; t += Q) op += `<option>${tTxt(t).replace(/^0(\d)/, '$1')}</option>`;
   show(`${seg}<div class="subh">${dTxt(L.date)} ${tTxt(L.now)}</div>
@@ -61,15 +63,16 @@ async function lateForm(hall){
     if(q.error){ $('ltGo').disabled = false; await uiAlert(q.error.message); return; }
     let lineOk = true;
     try{ await liff.sendMessages([{ type:'text', text:`【遅刻連絡】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\nシフト ${q.data.shift}\n出勤予定 ${eta}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
-    lateDone(hall, q.data.date, q.data.at, q.data.shift, eta, 'pending', false, lineOk);
+    lateDone(hall, q.data.date, q.data.at, q.data.shift, eta, 'pending', false, lineOk, q.data.sent === 0);
   };
 }
-function lateDone(hall, date, at, shift, eta, st, already, lineOk = true){
+function lateDone(hall, date, at, shift, eta, st, already, lineOk = true, noAppr = false){
+  const na = noAppr && st === 'pending'; /* v1.05・点検 2026-11-02 A4：承認者に届いていない時は「承認者が確認中」を出さず、赤い文 */
   setBack(hall ? hallHome : home);
   show(`${already && !hall ? segHtml('late') : ''}<div class="card c"><div class="big">${already ? '送信済み' : '送信完了'}</div><p>${dTxt(date)}の遅刻連絡を受付しました。</p>
     <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div><div class="row" style="text-align:left"><span>出勤予定</span><b>${esc(eta)}</b></div>
-    <div class="row" style="text-align:left"><span>罰金</span><b>${st === 'approved' ? 'なし（免除）' : st === 'rejected' ? '遅刻（通常）' : '承認者が確認中'}</b></div>
-    ${lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>
+    ${na ? '' : `<div class="row" style="text-align:left"><span>罰金</span><b>${st === 'approved' ? 'なし（免除）' : st === 'rejected' ? '遅刻（通常）' : '承認者が確認中'}</b></div>`}
+    ${na ? '<p class="err sm">承認者に LINE が届いていません。黒服に LINE でもご連絡ください</p>' : lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>
     <button class="btn g" id="ltHome">ホーム</button>`);
   $('ltHome').onclick = hall ? hallHome : home; if(already && !hall) segBind();
 }

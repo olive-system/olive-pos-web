@@ -9,7 +9,7 @@ async function contactList(openForm){
   const md = d => `${Number(String(d).slice(5,7))}/${Number(String(d).slice(8,10))}（${WD[new Date(d+'T00:00:00+09:00').getDay()]}）`;
   const tn = Number(r.data.today_n || 0), st = tn ? `<div class="sm" style="color:var(--ok);margin-bottom:8px">今日の提出 ${tn}人</div>` : r.data.today_none ? '<div class="sm" style="color:var(--ok);margin-bottom:8px">今日は交換なしで提出済み</div>' : '';
   show(`<div class="ttl">連絡先交換</div>${st}<button class="btn" id="cxNew" style="margin-bottom:12px">提出</button><div class="card"><div class="gh">今月 ${rows.length}人</div>${rows.map(x => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div>${md(x.date)}${esc(x.name)} 様</div>
-    <div class="muted sm">${KL} ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div></div>`).join('')||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
+    ${RV_NOKK() ? (x.memo ? `<div class="muted sm">${esc(x.memo)}</div>` : '') : `<div class="muted sm">${KL} ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div>`}</div>`).join('') /* v1.05・点検 2026-11-02 D2：広島は担当を出さない */||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
   $('cxNew').onclick = () => contactForm(r.data.today);
 }
 let cxRows = null;
@@ -21,6 +21,7 @@ async function contactForm(today){
   const me = (st.data||[]).find(s => s.name === ME.name);
   const d = new Date(today+'T00:00:00+09:00'), dl = `${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
   const KEY = 'olive_cast_contact_rows';
+  const NK = RV_NOKK(); /* v1.05・点検 2026-11-02 D2：広島は担当（係）が無い（オーナー「広島は担当は無い。係じゃないんだから」）。担当の欄を出さず、「なし」で提出する（cast_contact_submit は「なし」を受け付ける） */
   if(!cxRows){ try{ const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if(v && v.day === today && Array.isArray(v.rows) && v.rows.length) cxRows = v.rows; }catch(e){} }
   const restored = !!cxRows; if(!cxRows) cxRows = [{ n:'', k:'', m:'' }];
   const save = () => { try{ localStorage.setItem(KEY, JSON.stringify({ day: today, rows: cxRows })); }catch(e){} };
@@ -31,10 +32,10 @@ async function contactForm(today){
       ${cxRows.map((r, i) => `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b class="sm">${i+1}人目</b>${cxRows.length>1?`<button data-cxd="${i}" class="btn g" style="width:auto;padding:4px 10px;font-size:13px">外す</button>`:''}</div>
         <label class="f" style="margin-top:6px">お客様（フルネーム）<input data-cxn="${i}" maxlength="30" placeholder="例：孫 正義" value="${esc(r.n)}" style="${fld}"></label>
         ${i===0?'<div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/25))">ニックネームではなく、フルネームで入力してください</div>':''}
-        <label class="f" style="margin-top:8px">${esc(KL)}<select data-cxk="${i}" style="${fld}">${opts(r.k)}</select></label>
+        ${NK ? '' : `<label class="f" style="margin-top:8px">${esc(KL)}<select data-cxk="${i}" style="${fld}">${opts(r.k)}</select></label>`}
         <label class="f" style="margin-top:8px">メモ（任意）<input data-cxm="${i}" maxlength="300" value="${esc(r.m)}" style="${fld}"></label></div>`).join('')}
       <button class="btn g" id="cxAdd">＋ もう1人</button>
-      <button class="btn" id="cxGo" style="margin-top:8px">${cxRows.length}人を提出</button><p class="muted sm" style="margin:10px 2px">提出をすると${KL}に共有されます</p>
+      <button class="btn" id="cxGo" style="margin-top:8px">${cxRows.length}人を提出</button>${NK ? '' : `<p class="muted sm" style="margin:10px 2px">提出をすると${KL}に共有されます</p>`}
       <button class="btn g" id="cxNone">今日は交換なし</button>`);
     $('main').querySelectorAll('[data-cxn]').forEach(e => e.oninput = () => { cxRows[+e.dataset.cxn].n = e.value; save(); });
     $('main').querySelectorAll('[data-cxk]').forEach(e => e.onchange = () => { cxRows[+e.dataset.cxk].k = e.value; save(); });
@@ -42,11 +43,11 @@ async function contactForm(today){
     $('main').querySelectorAll('[data-cxd]').forEach(b => b.onclick = () => { cxRows.splice(+b.dataset.cxd, 1); save(); paint(); });
     $('cxAdd').onclick = () => { cxRows.push({ n:'', k:'', m:'' }); save(); paint(); window.scrollTo(0, document.body.scrollHeight); };
     $('cxGo').onclick = async () => {
-      const L = cxRows.map(r => ({ n: r.n.trim().replace(/[\s　]+/g, ' '), k: r.k, m: r.m.trim() }));
+      const L = cxRows.map(r => ({ n: r.n.trim().replace(/[\s　]+/g, ' '), k: NK ? 'none' : r.k, m: r.m.trim() }));
       const bad = L.findIndex(r => !r.n); if(bad >= 0){ await uiAlert(`${bad+1}人目のお客様のフルネームを入力してください`); return; }
       const nk = L.findIndex(r => !r.k); if(nk >= 0){ await uiAlert(`${nk+1}人目の${KL}を選んでください`); return; }
       const lab = k => { const o = $('main').querySelector(`[data-cxk] option[value="${k}"]`); return o ? o.textContent : ''; };
-      if(!await uiConfirm(`${L.map(r => `${r.n} 様　${KL} ${lab(r.k)}`).join('\n')}\nこの内容で提出しますか？`)) return;
+      if(!await uiConfirm(`${L.map(r => NK ? `${r.n} 様` : `${r.n} 様　${KL} ${lab(r.k)}`).join('\n')}\nこの内容で提出しますか？`)) return;
       $('cxGo').disabled = true; let sent = 0, done = 0;
       for(const r of L){ const mode = r.k === 'unknown' || r.k === 'none' ? r.k : 'staff';
         const q = await sb.rpc('cast_contact_submit', { p_token: TOKEN, p_name: r.n, p_mode: mode, p_kakari: mode === 'staff' ? r.k : null, p_memo: r.m || null });

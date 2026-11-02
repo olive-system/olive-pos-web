@@ -11,7 +11,7 @@ const mtSlot = (x, on, attr) => `<button ${attr} style="border:1px solid ${on===
 function mtTile(){
   const b = $('main').querySelector('[data-go=mtg]'); if(!b) return;
   sb.rpc('cast_meeting_get', { p_token: TOKEN }).then(r => { const t = $('main').querySelector('[data-go=mtg]'); if(!t) return;
-    if(r.error || !r.data.show){ t.remove(); return; }
+    if(r.error || !r.data.show){ t.remove(); if(r.error) loadNg(); /* v1.05・点検 2026-11-02 B5 */ return; }
     t.onclick = mtCast; if(r.data.open && !r.data.mine) t.insertAdjacentHTML('beforeend', '<small style="color:var(--warn)">未申請</small>'); });
 }
 
@@ -47,7 +47,7 @@ async function mtShiftMarks(S, pre){ /* v0.94：pre＝シフトと同時に読�
 
 // ---------- 黒服マイページ ----------
 function mtHallTile(pre){ /* v0.94：黒服のトップは60秒覚えておいた分（hcGet） */
-  (pre || sb.rpc('hall_meeting_get', { p_token: TOKEN })).then(r => { const t = $('main').querySelector('[data-go=mtg]'); if(!t || r.error) return;
+  (pre || sb.rpc('hall_meeting_get', { p_token: TOKEN })).then(r => { const t = $('main').querySelector('[data-go=mtg]'); if(!t) return; if(r.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5 */
     const n = (r.data.todo || []).filter(x => x.mine).length; if(n) t.insertAdjacentHTML('beforeend', `<small style="color:var(--warn)">未申請 ${n}人</small>`); });
 }
 async function mtHall(){

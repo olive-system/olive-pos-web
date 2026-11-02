@@ -44,9 +44,10 @@ const PT_KEY='olive_pos_terminal'+SLOT; const ptGet=()=>{ try{ return localStora
 const ptSet=v=>{ try{ localStorage.setItem(PT_KEY,v); }catch(e){} keyDb('readwrite',s=>s.put(v,PT_KEY)); };
 const ptLoad=async()=>{ const a=ptGet(); if(a) return [a,null]; const b=await keyDb('readonly',s=>s.get(PT_KEY)); if(b){ try{ localStorage.setItem(PT_KEY,b); }catch(e){} return [b,'restored']; } return ['',null]; };
 $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); const err=$('posRegErr'); err.textContent=''; const code=$('posRegCode').value.trim();
-  if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6けたの数字です'; return; }
+  if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6桁の数字です'; return; }
   const { data, error } = await sb.rpc('pos_term_register',{p_code:code}); if(error){ err.textContent=error.message; return; }
   ptSet(data.token); $('posReg').style.display='none'; if(hallOn){ location.reload(); return; } start(); }); /* 点検 2026-11-02：開いている途中で登録し直した時は読み直す（1分ごとの処理が二重にならないように） */
+$('posRegOut').onclick=async()=>{ await sb.auth.signOut(); location.reload(); }; /* v12.43：登録の画面からログアウト（点検 2026-11-02 B6）。端末の合鍵は消さない */
 /* 点検 2026-11-02・SQL 313：端末のログインと合鍵を確かめる。パスワードが変わった（古いログイン）→ ログイン画面へ。合鍵が外れた → 登録の画面へ。前は古いログインでも「この端末を登録」になり、登録しても断られた／開いたまま登録が外れると会計の締めなどが黙って0行で終わった */
 async function posTermLost(){ try{ const [tk]=await ptLoad(); const pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error||!pt.data) return false;
   if(pt.data.stale){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); return true; }
@@ -106,4 +107,5 @@ async function rtBillCheck(){ if(!cur||!(onView('v-bill')||onView('v-pay'))) ret
 
 
 // v12.32：在籍リスト・閉店作業の時刻の前のしるし（同じ幅。アフター・シフトは2行）
+/* v12.43：読めなかった項目は黙って消さず・0件として通さず、この1行を出す（点検 2026-11-02 B5） */ const RDERR_T='読み込めない項目があります。開き直してください', RDERR=`<div style="color:var(--warn);font-weight:700;font-size:14px;margin:2px 2px 8px;line-height:1.6">${RDERR_T}</div>`;
 const PL_IN='<span class="pl">出</span>', PL_OUT='<span class="pl">退</span>', PL_AF='<span class="pl af">アフ<br>ター</span>', PL_SH='<span class="pl af">シフ<br>ト</span>';
