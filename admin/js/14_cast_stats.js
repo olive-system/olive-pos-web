@@ -142,7 +142,10 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
       <label>遅刻・早退の減算額<input id="hfL" inputmode="numeric" value="${x.late_fixed?N(x.late_deduct):''}" placeholder="自動（${yen(N(x.late_deduct))}）"></label>
       <label>ボーナス<input id="hfB" inputmode="numeric" value="${x.bonus_fixed!=null?N(x.bonus_fixed):''}" placeholder="自動（${yen(N(x.bonus_auto))}）"></label>
       <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
-    md.querySelectorAll('[data-nc]').forEach(c=>c.onchange=()=>{ const b=md.querySelector(`[data-ncamt="${c.dataset.nc}"]`); b.textContent=yen(N(b.dataset.min)/15*2000*(c.checked?2:1)); });
+    /* v1.80（点検 2026-11-02 C5）：「連絡なし」を変更したら、手入力の減算額を空にして決まりどおりの額で計算し直す（前は手入力があると額が変わらなかった）。早退の分＝自動の減算額−遅刻日の額の合計 */
+    const ldAmt=c=>N(md.querySelector(`[data-ncamt="${c.dataset.nc}"]`).dataset.min)/15*2000*(c.checked?2:1), early=x.late_fixed?null:N(x.late_deduct)-ld.reduce((a,z)=>a+N(z.amount),0);
+    md.querySelectorAll('[data-nc]').forEach(c=>c.onchange=()=>{ const b=md.querySelector(`[data-ncamt="${c.dataset.nc}"]`); b.textContent=yen(ldAmt(c)); const L=md.querySelector('#hfL'); L.value='';
+      L.placeholder=early==null?'自動':`自動（${yen(early+[...md.querySelectorAll('[data-nc]')].reduce((a,y)=>a+ldAmt(y),0))}）`; });
     const v=await new Promise(res=>{ md.querySelector('[data-k=no]').onclick=()=>{ md.remove(); res(null); }; md.querySelector('[data-k=ok]').onclick=()=>{ const g=id=>md.querySelector(id).value.trim(); const o={l:g('#hfL'),b:g('#hfB'),nc:[...md.querySelectorAll('[data-nc]:checked')].map(c=>c.dataset.nc)}; md.remove(); res(o); }; });
     if(!v) return; const num=t=>t===''?null:slNum(t); const l=num(v.l), bb=num(v.b);
     if((l!=null&&!(Number.isInteger(l)&&l>=0))||(bb!=null&&!(Number.isInteger(bb)&&bb>=0))){ await uiAlert('金額は0以上の整数で入力してください'); return; }

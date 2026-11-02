@@ -42,9 +42,11 @@ function stCard(t,rows,users,ed){ const dis=ed?'':'disabled', b=stB(t.basis||'sa
     <span class="seg" data-k="unit">${[['hourly','時給'],['daily','日給']].map(([v,n])=>`<button data-v="${v}" class="${un===v?'on':''}" ${dis}>${n}</button>`).join('')}</span></div>
     <div class="slhd">${hd}${hd}${hd}</div><div class="slb">${body}</div>${rows.length?'':'<div class="muted" data-empty style="padding:8px 4px">まだ入っていません</div>'}
     ${ed?`<div class="fend"><button class="ghost sm" data-add>＋ 行を追加</button><span class="sp"></span>${t.id?'<button class="ghost sm" data-delt>この表を削除</button>':''}<button class="primary sm" data-save>保存</button></div>`:''}`,`data-st="${t.id||''}"`); }
-function stSection(tbls,rows,terms,ed){ const cur=csNowMonth(), by={};
-  terms.forEach(x=>{ if(x.month<=cur&&(x.month===cur||!x.only_month)){ const p=by[x.staff_id]; if(!p||x.month>p.month) by[x.staff_id]=x; } });
-  const users=id=>Object.values(by).filter(x=>(x.slide_ids||[]).includes(id)).length;
+function stSection(tbls,rows,terms,ed,act){ const cur=csNowMonth(), by={}, fut={};
+  terms.forEach(x=>{ if(x.month<=cur&&(x.month===cur||!x.only_month)){ const p=by[x.staff_id]; if(!p||x.month>p.month) by[x.staff_id]=x; } else if(x.month>cur) (fut[x.staff_id]=fut[x.staff_id]||[]).push(x); });
+  /* v1.80・SQL 317（点検 C7）：在籍キャストの今月以降の条件で数える（前は退店した人・前の月の条件も数え、0人なのに時給／日給を変更できなかった） */
+  const ids=act||[...new Set([...Object.keys(by),...Object.keys(fut)])];
+  const users=id=>ids.filter(sid=>(by[sid]?.slide_ids||[]).includes(id)||(fut[sid]||[]).some(x=>(x.slide_ids||[]).includes(id))).length;
   return `<div id="stGrid">${tbls.map(t=>stCard(t,rows.filter(r=>r.table_id===t.id),users(t.id),ed)).join('')||'<div class="card muted">スライド表がありません</div>'}</div>
     <div class="row" style="margin:2px 0 10px">${ed?'<button class="ghost sm" id="stAdd">＋ スライド表を追加</button>':''}<div class="muted hint" style="font-size:13px;line-height:1.6">キャストごとに使う表は「スタッフ設定」で選びます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">その人が選んだ表と保証時給のうち、一番高い金額になります<br>時給の人は時給の表、日給の人は日給の表だけ選べます<br>表の行は「○○以上 → 金額」。今月の数字が、その行の数字以上になっている行のうち一番下の行を使います</div></div></div>`; }
 function stWire(st){ const grid=$('stGrid'); if(!grid) return;
@@ -68,11 +70,11 @@ function stWire(st){ const grid=$('stGrid'); if(!grid) return;
 PAGES.set_pay=async()=>{
   const st=storeId, ed=perm('set_pay')==='edit';
   $('main').innerHTML=`<h1>報酬・罰金項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
-  const [ps,hb,pos,ft,ax,stb,srw,ctm,rwt]=await Promise.all([ sb.from('pay_slides').select('kind,threshold,wage').eq('store_id',st).order('threshold'),
+  const [ps,hb,pos,ft,ax,stb,srw,ctm,rwt,act]=await Promise.all([ sb.from('pay_slides').select('kind,threshold,wage').eq('store_id',st).order('threshold'),
     sb.from('hall_bonus_slides').select('*').eq('store_id',st).order('sales_man'), sb.from('pos_settings').select('*').eq('store_id',st).maybeSingle(),
     sb.from('fine_types').select('name,target,calc,value,per_unit,sort_order').eq('store_id',st).order('sort_order'), sb.rpc('admin_get_after_ext',{p_store:st}),
     sb.from('slide_tables').select('*').eq('store_id',st).eq('is_active',true).order('sort_order'), sb.from('slide_rows').select('table_id,threshold,amount').eq('store_id',st).order('threshold'),
-    sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).lte('month',csNowMonth()).order('id')), sb.rpc('admin_reward_types',{p_store:st}) ]);
+    sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).order('id')), sb.rpc('admin_reward_types',{p_store:st}), sb.from('staff').select('id').eq('store_id',st).eq('is_active',true) ]);
   if(page!=='set_pay'||storeId!==st) return;
   const er=ps.error||hb.error||pos.error; if(er){ $('main').innerHTML=`<h1>報酬・罰金項目</h1><div class="card err">${esc(/hall_bonus_slides/.test(er.message)&&/does not exist|schema cache/.test(er.message)?'SQL 050 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
   $('main').innerHTML=`<h1>報酬・罰金項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
@@ -85,7 +87,7 @@ PAGES.set_pay=async()=>{
   <div class="psec">報酬</div>
   ${rwt.error?`<div class="card err">${esc(/admin_reward_types/.test(rwt.error.message)?'SQL 140 が未実行です：':'報酬の種類を読み込めません：')}${esc(rwt.error.message)}</div>`:rwCard(rwt.data||{},ed)}
   <div class="psec">キャスト</div>
-  ${stb.error?`<div class="card err">${esc(/slide_tables/.test(stb.error.message)&&/does not exist|schema cache/.test(stb.error.message)?'SQL 058 が未実行です：':'スライド表を読み込めません：')}${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed)}
+  ${stb.error?`<div class="card err">${esc(/slide_tables/.test(stb.error.message)&&/does not exist|schema cache/.test(stb.error.message)?'SQL 058 が未実行です：':'スライド表を読み込めません：')}${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed,act.error?null:(act.data||[]).map(x=>x.id))}
   ${payPtCard(pos,ed)}
   <div id="cardBox"></div>
   <div id="dressBox"></div>
@@ -125,17 +127,17 @@ function rwCard(d,ed){ RWT=d.rows||[]; RWT0=JSON.parse(JSON.stringify(RWT)); RWP
   ${ed?'<div class="fend"><button class="ghost sm" data-rwadd>＋ 報酬を追加</button></div>':''}`,'data-rewards'); }
 function rwEdit(st,i){ const x=i==null?{name:'',kind:RWPS?'point':'yen',value:null,auto:null}:RWT[i];
   const md=modal(`<h2 style="margin:0">${i==null?'報酬の追加':esc(x.name)}</h2><label>名前<input id="rwN" value="${esc(x.name)}"></label>
-    <label>種類<select id="rwK"><option value="yen" ${x.kind==='yen'?'selected':''}>手当（円）</option><option value="point" ${x.kind==='point'?'selected':''}>ポイント</option></select></label>
+    <label>種類<select id="rwK"><option value="yen" ${x.kind==='yen'?'selected':''}>手当（円）</option>${RWPS?`<option value="point" ${x.kind==='point'?'selected':''}>ポイント</option>`:''}</select></label>
     <label>1回<span style="display:flex;gap:6px;align-items:center"><input id="rwV" inputmode="numeric" value="${x.value??''}" style="width:120px;text-align:right"><span id="rwU">${x.kind==='point'?'P':'円'}</span></span></label>
     <label>自動<select id="rwA"><option value="">なし（POS で付ける）</option><option value="contact" ${x.auto==='contact'?'selected':''}>連絡先交換の提出1件ごと</option></select></label>
     <div class="bar">${i==null?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
-  const q=id=>md.querySelector('#'+id); q('rwK').onchange=()=>{ q('rwU').textContent=q('rwK').value==='point'?'P':'円'; };
+  const q=id=>md.querySelector('#'+id); q('rwU').textContent=q('rwK').value==='point'?'P':'円'; /* v1.80・SQL 317（点検 C6）：ポイントスライドが無い店では種類「ポイント」を出さない（POS に出ないため） */ q('rwK').onchange=()=>{ q('rwU').textContent=q('rwK').value==='point'?'P':'円'; };
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   const save=async L=>{ const r=await rpc('admin_reward_types_save',{p_store:st,p_rows:L,p_base:RWT0}); return r.ok; };
   const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を報酬の一覧から消しますか？\n今までに付けたものは消えません`,'削除','danger')) return; if(!await save(RWT.filter((_,k)=>k!==i))) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('rwN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
     if(RWT.some((y,k)=>k!==i&&y.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }
-    const v=q('rwV').value.trim()===''?null:slNum(q('rwV').value); if(v!=null&&!(v>0)){ await uiAlert('1回の数は1以上にするか、空けてください'); return; }
+    const v=q('rwV').value.trim()===''?null:slNum(q('rwV').value); if(v==null){ await uiAlert('1回の数を入力してください'); return; } if(!(v>0)){ await uiAlert('1回の数は1以上にしてください'); return; } /* v1.80・SQL 317（点検 C6）：1回は必須（空だと POS に出なかった） */
     const y={name,kind:q('rwK').value,value:v,auto:q('rwA').value||null}; const L=RWT.slice(); if(i==null) L.push(y); else L[i]=y; if(!await save(L)) return; md.remove(); toast('保存しました'); PAGES.set_pay(); }); }
 function rwWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-rwi]').forEach(e=>e.onclick=()=>rwEdit(st,Number(e.dataset.rwi))); const a=document.querySelector('[data-rewards] [data-rwadd]'); if(a) a.onclick=()=>rwEdit(st,null); }
 // v0.17：罰金1つを1行にして、時給の人・日給の人の決め方を横に並べる（表は今と同じ fine_types。時給と日給が同じ「円」か「その都度」なら target='all' の1行＝黒服にもかかる。違えば hourly・daily の2行）

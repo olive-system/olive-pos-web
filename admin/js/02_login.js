@@ -3,9 +3,15 @@ $('loginForm').onsubmit=async e=>{ e.preventDefault(); $('loginErr').textContent
   const id=$('lid').value.trim().toLowerCase(), pw=$('lpw').value;
   if(!id||!pw){ $('loginErr').textContent='IDとパスワードを入力してください'; return; }
   const btn=e.submitter; if(btn) btn.disabled=true;
-  try{ const { error }=await sb.auth.signInWithPassword({email:id+EMAIL_DOMAIN,password:pw});
-    if(error){ $('loginErr').textContent='IDかパスワードが違います'; return; }
+  try{ let error=null; try{ ({ error }=await sb.auth.signInWithPassword({email:id+EMAIL_DOMAIN,password:pw})); }catch(ex){ error=ex||{}; }
+    if(error){ $('loginErr').textContent=loginErrText(error); return; }
     $('lpw').value=''; await start(); } finally{ if(btn) btn.disabled=false; } };
+/* v1.80（点検 2026-11-02 B1）：通信の失敗・回数の制限でも「IDかパスワードが違います」と出ていた → 原因ごとに出す */
+function loginErrText(e){ const st=Number(e?.status||0), c=String(e?.code||''), m=String(e?.message||'');
+  if(st===429||/rate_limit/.test(c)||/rate limit/i.test(m)) return 'ログインの回数が多いため、しばらく待ってから再度お試しください';
+  if(c==='invalid_credentials'||/invalid login credentials/i.test(m)) return 'IDかパスワードが違います';
+  if(!st||st>=500||e?.name==='AuthRetryableFetchError'||/fetch|network/i.test(m)) return '通信できませんでした。再度お試しください';
+  return 'ログインに失敗しました。再度お試しください'; }
 $('logoutBtn').onclick=async()=>{ if(!await uiConfirm('ログアウトしますか？')) return; await sb.auth.signOut(); location.reload(); };
 $('menuBtn').onclick=()=>$('nav').classList.toggle('open');
 function showLogin(msg){ $('vApp').classList.add('hide'); $('vLogin').classList.remove('hide'); $('loginErr').textContent=msg||''; }
