@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v12.42 -->
+<title>OLIVE 会計</title><!-- v12.43 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <link rel="stylesheet" href="pos.css"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
@@ -20,6 +20,7 @@
   <div style="font-size:15px;color:var(--muted);line-height:1.6">管理サイトの「パスワード」画面で発行した登録コード（6けた）を入力してください</div>
   <input id="posRegCode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="登録コード">
   <button class="primary" type="submit">登録する</button><div id="posRegErr" style="color:var(--warn);font-size:14px;min-height:18px"></div>
+  <!-- v12.43：登録コードが手元に無い時・別の店のIDで入った時に抜け出せるように（点検 2026-11-02 B6） --><button class="ghost" type="button" id="posRegOut">ログアウト</button>
 </form></div>
 
 <header>
