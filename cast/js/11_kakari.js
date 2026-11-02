@@ -22,6 +22,8 @@ function resvThanks(x){
     $('thGo').disabled = true;
     const q = await sb.rpc('cast_resv_thanks', { p_token: TOKEN, p_id: x.id, p_note: note || null });
     if(q.error){ $('thGo').disabled = false; await uiAlert(q.error.message); return; }
+    /* v1.05・点検 2026-11-02 A3・SQL 316：未連携と送信失敗で文を分ける。送信失敗の時は記録せず、送り直せる */
+    if(!q.data.sent && q.data.linked === true){ $('thGo').disabled = false; await uiAlert('ありがとうの送信に失敗しました。再度お試しください'); return; }
     await uiAlert(q.data.sent ? `${x.by}さんにありがとうを送信しました` : `ありがとうを記録しました。\n${x.by}さんは LINE 未連携のため、LINE は届いていません`);
     resvList();
   };

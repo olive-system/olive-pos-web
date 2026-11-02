@@ -71,7 +71,8 @@ async function loadMe(w0){
   $('tStore').textContent = ME.store_name || 'OLIVE';
   const fill = ([d, dc, bm, bd, n]) => { ME.dress = d.error ? null : d.data; ME.billMonths = bm.error ? null : (bm.data || []); ME.bdays = bd.error ? [] : (bd.data || []);
     DOCS = dc.error ? null : dc.data; ME.docs = DOCS ? { target: DOCS.target, left: [DOCS.contract, DOCS.id_doc, DOCS.roster].filter(x => !x).length } : null;
-    NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length; }; /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す） */
+    NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length;
+    ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す）。v1.05・点検 2026-11-02 B5：読めなかった分があれば、トップに1行 */
   const th = thxParam(), nt = urlParam('notice'), go = goParam();
   if(['contact','shift','sales','resv','perf'].includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* v0.64・SQL 221：リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
   fill(await pB);
@@ -100,6 +101,8 @@ function setBack(fn){ const b=$('tBack'); b.classList.toggle('hide', !fn); $('tS
 let backFn = null;
 window.addEventListener('popstate', () => { if(!backFn) return; const f = backFn; f(); if(backFn) { try{ history.pushState({ ol:1 }, ''); }catch(e){} } });
 
+// v1.05・点検 2026-11-02 B5：読めなかった時に、ボタン・件数が黙って消えないように、画面の上に1行（1回だけ）
+function loadNg(){ const m = $('main'); if(!m || m.querySelector('.ldng')) return; m.insertAdjacentHTML('afterbegin', '<p class="err sm ldng" style="margin:0 2px 8px">読み込めない項目があります。開き直してください</p>'); }
 function home(){
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
@@ -128,6 +131,7 @@ function home(){
   $('main').querySelector('[data-go=info]').onclick = noticeList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
   mtTile(); /* v0.93・SQL 287：ミーティング（申請できる時か、申請済みの枠がある時だけ） */
+  if(ME.loadNg) loadNg(); /* v1.05・点検 2026-11-02 B5 */
 }
 
 function perf(){

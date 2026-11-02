@@ -59,7 +59,11 @@ function salesShot(){
       const blob = await shrinkJpeg(file);
       const up = await sb.storage.from('sales-shots').upload(`${R.shot}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error;
       const q = await sb.rpc('cast_sales_shot', { p_token: TOKEN }); if(q.error) throw q.error;
-      await uiAlert(q.data.sent ? `スクショを送信しました（${q.data.to}）` : 'スクショを受付しました。\n送り先が LINE 未連携のため、LINE は届いていません');
+      /* v1.05・点検 2026-11-02 A1・SQL 316：届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
+      const ng = q.data.reason === 'no_to' ? '担当黒服 未選択のため、スクショは届いていません。黒服にご連絡ください'
+        : q.data.reason === 'fail' ? 'スクショの送信に失敗しました。再度お試しください'
+        : `送り先${q.data.to ? `（${q.data.to}）` : ''}が LINE 未連携のため、スクショは届いていません。黒服にご連絡ください`;
+      await uiAlert(q.data.sent ? `スクショを送信しました（${q.data.to}）` : ng);
       await salesLoad(); salesShot();
     }catch(e){ $('slShot').disabled = false; await uiAlert(e.message || String(e)); }
   };

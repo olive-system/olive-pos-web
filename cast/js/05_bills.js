@@ -66,14 +66,14 @@ function hallHome(){
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   $('main').querySelector('[data-go=open]').onclick = hallOpen; /* v0.55：開店作業 */
   $('main').querySelector('[data-go=close]').onclick = hallClose; /* v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
-  ['open', 'close'].forEach(ph => H[ph].then(r => { const b = $('main').querySelector(`[data-go=${ph}]`); if(!b) return; if(r.error){ if(ph === 'close') b.remove(); return; } if(!r.data.on){ b.remove(); return; } const L = r.data.items || []; if(!L.length) return; b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); }));
-  H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b || r.error) return; const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* v0.69・SQL 234：休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
+  ['open', 'close'].forEach(ph => H[ph].then(r => { const b = $('main').querySelector(`[data-go=${ph}]`); if(!b) return; if(r.error){ if(ph === 'close') b.remove(); loadNg(); return; } /* v1.05・点検 2026-11-02 B5：読めなかった時は1行 */ if(!r.data.on){ b.remove(); return; } const L = r.data.items || []; if(!L.length) return; b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); }));
+  H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b) return; if(r.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5 */ const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* v0.69・SQL 234：休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   $('main').querySelector('[data-go=docs]').onclick = docsList; /* v0.81・SQL 271：黒服も自分の書類（契約書は黒服の条文。オーナー 2026-10-27「その人の契約書をその人のマイページで」） */
-  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target){ b.remove(); return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
+  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target){ b.remove(); if(!ok) loadNg(); /* v1.05・点検 2026-11-02 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
   $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* v0.88・SQL 283：遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
   $('main').querySelector('[data-go=mtg]').onclick = mtHall; mtHallTile(H.mtg); /* v0.93・SQL 287：ミーティング（担当の子の割当） */
