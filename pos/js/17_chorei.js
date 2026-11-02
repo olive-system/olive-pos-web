@@ -222,9 +222,10 @@ async function clRenderMonth(){ const el=$('clMonthBox'); if(!el) return; const 
   el.querySelectorAll('[data-cld]').forEach(t=>t.onclick=()=>{ clDate=t.dataset.cld; clCounts={}; clDeposit=0; renderClosing(); }); }
 function setRows(def){ if(def.single) return [settings]; let r=({tables,categories,products,customers})[def.key]; if(def.key==='products'&&setCatFilter) r=r.filter(p=>p.category_id===setCatFilter); return r; }
 async function renderSettings(key, keepSel){ if(key!==setCur){ setSel=null; setEditMode=false; setCatFilter=null; $('setFilter').value=''; } setCur=key; await loadMasters(); { const r=await cuPull(); if(r.data) customers=r.data; } /* v12.30：お客様は変わった分だけ読む */ const def=SET.find(s=>s.key===key);
-  $('setMenu').innerHTML=SET.map(s=>`<button class="${s.key===key?'on':''}" data-k="${s.key}">${s.name}</button>`).join('')+'<button class="ghost" id="setLogout">ログアウト</button>';
+  $('setMenu').innerHTML=SET.map(s=>`<button class="${s.key===key?'on':''}" data-k="${s.key}">${s.name}</button>`).join('')+(storeSwOther()?'':'<button class="ghost" id="setStoreAdd">店舗追加</button>')+'<button class="ghost" id="setLogout">ログアウト</button>';
   $('setMenu').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>renderSettings(b.dataset.k));
-  $('setLogout').onclick=async()=>{ if(!await uiConfirm('ログアウトしますか？')) return; await sb.auth.signOut(); location.reload(); };
+  $('setLogout').onclick=async()=>{ if(!await uiConfirm('ログアウトしますか？')) return; await storeSwDrop(); await sb.auth.signOut(); location.reload(); };
+  if($('setStoreAdd')) $('setStoreAdd').onclick=async()=>{ if(!await uiConfirm('店舗を追加しますか？\n初回のみ、その店舗のログインと登録コードが必要です')) return; location.href=slotUrl('s'+Math.random().toString(36).slice(2,7)); }; /* v12.44 */
   $('setList').parentElement.style.gridColumn=(def.audit||def.bills||def.closing||def.chorei)?'2 / 4':''; $('setForm').parentElement.style.display=(def.audit||def.bills||def.closing||def.chorei)?'none':'';
   $('setAdd').style.display=def.single?'none':''; $('setEdit').style.display=(def.single||def.nosort)?'none':''; $('setEdit').textContent=setEditMode?'完了':'編集'; $('setEdit').classList.toggle('on',setEditMode);
   $('setFilter').style.display=def.single?'none':'';

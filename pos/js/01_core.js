@@ -47,7 +47,20 @@ $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); cons
   if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6桁の数字です'; return; }
   const { data, error } = await sb.rpc('pos_term_register',{p_code:code}); if(error){ err.textContent=error.message; return; }
   ptSet(data.token); $('posReg').style.display='none'; if(hallOn){ location.reload(); return; } start(); }); /* 点検 2026-11-02：開いている途中で登録し直した時は読み直す（1分ごとの処理が二重にならないように） */
-$('posRegOut').onclick=async()=>{ await sb.auth.signOut(); location.reload(); }; /* v12.43：登録の画面からログアウト（点検 2026-11-02 B6）。端末の合鍵は消さない */
+$('posRegOut').onclick=async()=>{ await storeSwDrop(); await sb.auth.signOut(); location.reload(); }; /* v12.43：登録の画面からログアウト（点検 2026-11-02 B6）。端末の合鍵は消さない */
+/* v12.44：オーナーの端末は、上の店名を押して銀座・広島を切り替える（オーナー 2026-11-02「いちいち消してログインし直すのが嫌」）。店ごとのログインは ?slot= で別々に残る（v11.96）。
+   この端末で開いた店を olive_pos_stores（2つの引き出し）に控え、2店ある時だけ店名で、もう1店へ。2店目は設定の「店舗追加」から（その店のログイン＋登録コード。登録コードはオーナーだけが発行） */
+const STORES_KEY='olive_pos_stores', SLOT_RAW=SLOT.slice(1); let posStores={};
+const slotUrl=s=>location.pathname+(s?'?slot='+encodeURIComponent(s):'');
+async function storeSwLoad(){ try{ posStores=JSON.parse(await dualStore.getItem(STORES_KEY)||'{}')||{}; }catch(e){ posStores={}; } }
+const storeSwSave=()=>dualStore.setItem(STORES_KEY,JSON.stringify(posStores));
+const storeSwOther=()=>Object.entries(posStores).find(([k,v])=>k!==store?.id&&v.slot!==SLOT_RAW)?.[1]||null;
+async function storeSwRec(){ if(!store) return; await storeSwLoad(); for(const k of Object.keys(posStores)) if(posStores[k].slot===SLOT_RAW) delete posStores[k]; posStores[store.id]={name:store.name||'',slot:SLOT_RAW}; await storeSwSave(); storeSwShow(); }
+async function storeSwDrop(){ await storeSwLoad(); for(const k of Object.keys(posStores)) if(posStores[k].slot===SLOT_RAW) delete posStores[k]; await storeSwSave(); }
+function storeSwShow(){ const o=storeSwOther(); $('storeName').style.cursor=o?'pointer':''; $('loginBack').style.display=$('posRegBack').style.display=o?'':'none'; }
+$('storeName').onclick=()=>{ const o=storeSwOther(); if(o) location.href=slotUrl(o.slot); };
+$('loginBack').onclick=$('posRegBack').onclick=()=>{ const o=storeSwOther(); if(o) location.href=slotUrl(o.slot); }; /* ログインの画面から、控えのある店へ戻る */
+storeSwLoad().then(storeSwShow);
 /* 点検 2026-11-02・SQL 313：端末のログインと合鍵を確かめる。パスワードが変わった（古いログイン）→ ログイン画面へ。合鍵が外れた → 登録の画面へ。前は古いログインでも「この端末を登録」になり、登録しても断られた／開いたまま登録が外れると会計の締めなどが黙って0行で終わった */
 async function posTermLost(){ try{ const [tk]=await ptLoad(); const pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error||!pt.data) return false;
   if(pt.data.stale){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); return true; }
@@ -62,7 +75,7 @@ async function start(){ const { data:{ session } } = await sb.auth.getSession();
     if(pt.error||!pt.data){ $('loginErr').textContent='端末を確認できません。通信を確認して、再度開いてください'; return; }
     if(pt.data.stale){ await sb.auth.signOut(); $('loginErr').textContent='パスワードが変わりました。新しいパスワードでログインしてください'; return; } /* 点検 2026-11-02・SQL 313 */
     if(pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } }
-  $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
+  $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 
 async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
   const [s,st,pm,tb,ca,pr,sf,cu] = await Promise.all([

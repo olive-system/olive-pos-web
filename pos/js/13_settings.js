@@ -29,7 +29,7 @@ async function leaveOk(){ if(!unsavedNow()) return true;
   for(let i=0,idle=0;i<1200;i++){ await new Promise(r=>setTimeout(r,100)); if(!b.isConnected||unsavedBtn!==b){ unsavedBtn=null; return true; } if(document.querySelector('.modal.on')||b.disabled) idle=0; else if(++idle>15) return false; }
   return false; }
 /* 移る操作を先に止めて、小窓の後でもう一度押す */
-document.addEventListener('click',async e=>{ if(unsavedPass||!unsavedNow()) return; const t=e.target.closest?.('#setMenu button,#setList .row,#setAdd,nav button,#navHall,#navOrder,#navCasts,#navCust,#navSettings'); if(!t||t.closest('.modal')) return;
+document.addEventListener('click',async e=>{ if(unsavedPass||!unsavedNow()) return; const t=e.target.closest?.('#setMenu button,#setList .row,#setAdd,nav button,#navHall,#navOrder,#navCasts,#navCust,#navSettings,#storeName'); if(!t||t.closest('.modal')) return;
   e.preventDefault(); e.stopPropagation(); if(!await leaveOk()) return; unsavedPass=true; try{ t.click(); } finally{ unsavedPass=false; } },true);
 window.addEventListener('beforeunload',e=>{ if(unsavedNow()){ e.preventDefault(); e.returnValue=''; } });
 
