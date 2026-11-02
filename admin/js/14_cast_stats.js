@@ -76,7 +76,11 @@ async function ksExcel(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xls
   XLSX.writeFile(wb,`data-${y}-${String(mo).padStart(2,'0')}${ksCode()}.xlsx`); toast('ダウンロードしました'); }
 async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'); await ksLoad('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const RN=await ksReal(), nmT=x=>esc(x.name)+(RN[x.id]?'/'+esc(RN[x.id]):'');
-  const rows=[...(d.rows||[]),...(h?.rows||[]).map(x=>({...x,hall:true}))], fn=ksFineNames(d.rows||[]), [y,mo]=String(d.month).split('-').map(Number), sn=curStore()?.name||'', v=n=>ksN(n)?ksN(n).toLocaleString('ja-JP'):'--';
+  const [y,mo]=String(d.month).split('-').map(Number);
+  // v1.81・SQL 319：受取確認（サイン）の後は、サインした時の明細を出す（マイページと同じ。オーナー 2026-11-02「PDF もサイン時の明細」）。読めない時は止める（ちがう金額の明細を出さない）
+  const rc=await sb.rpc('admin_pay_receipts',{p_store:storeId,p_month:`${y}-${String(mo).padStart(2,'0')}-01`}); if(rc.error&&!/admin_pay_receipts/.test(rc.error.message)){ await uiAlert('受取確認の明細の読み込みに失敗しました。再度お試しください'); return; }
+  const SG={}; (rc.data||[]).forEach(r=>{ if(r.slip) SG[r.staff_id]=r.slip; }); const sgd=x=>SG[x.id]?{...SG[x.id],name:x.name}:x;
+  const rows=[...(d.rows||[]).map(sgd),...(h?.rows||[]).map(x=>({...sgd(x),hall:true}))], fn=ksFineNames(rows.filter(x=>!x.hall)), sn=curStore()?.name||'', v=n=>ksN(n)?ksN(n).toLocaleString('ja-JP'):'--';
   const now=new Date(), pt=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
   // 列は3つ（縦の見出し・項目・金額）。見出しの無い行は最初の2つをまとめる。縦書きは1文字ずつ改行（PDF にする時に縦書きが崩れないように）
   const L=(l,val,c='')=>`<tr class="${c}"><td class="lb" colspan="2">${esc(l)}</td><td class="vl">${val}</td></tr>`, grp=(name,trs)=>trs.map((t,i)=>t.replace('<td class="lb" colspan="2">',(i===0?`<td class="gl" rowspan="${trs.length}">${[...name].join('<br>')}</td>`:'')+'<td class="gi">')).join('');
