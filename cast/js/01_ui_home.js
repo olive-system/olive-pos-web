@@ -131,6 +131,7 @@ function home(){
   $('main').querySelector('[data-go=info]').onclick = noticeList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
   mtTile(); /* v0.93・SQL 287：ミーティング（申請できる時か、申請済みの枠がある時だけ） */
+  keyTile(); /* v1.07・SQL 326：鍵（20_key.js） */
   if(ME.loadNg) loadNg(); /* v1.05・点検 2026-11-02 B5 */
 }
 
