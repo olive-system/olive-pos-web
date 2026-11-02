@@ -38,7 +38,7 @@ function keyApiEdit(st){
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const q=await rpc('admin_key_api_set',{p_store:st,p_key:md.querySelector('#kaK').value}); if(!q.ok) return; md.remove(); toast('保存しました'); PAGES.o_key(); });
 }
 // セサミのアプリの共有 QR（ssm://UI?t=sk&sk=…）：sk を base64 で戻すと、2〜17バイト目が秘密鍵、84〜99バイト目がセサミの UUID
-function keyFromShare(txt){ try{ const sk=new URL(String(txt).replace(/^ssm:\/\//,'https://x/')).searchParams.get('sk'); if(!sk) return null;
+function keyFromShare(txt){ try{ let sk=new URL(String(txt).replace(/^ssm:\/\//,'https://x/')).searchParams.get('sk'); if(!sk) return null; sk=sk.replace(/ /g,'+'); // QR の sk の「＋」は、そのまま読むと空白になる（2026-11-03）
   const b=Uint8Array.from(atob(sk.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0)); if(b.length<99) return null;
   const h=a=>[...a].map(x=>x.toString(16).padStart(2,'0')).join(''), u=h(b.slice(83,99));
   return { secret:h(b.slice(1,17)), uuid:`${u.slice(0,8)}-${u.slice(8,12)}-${u.slice(12,16)}-${u.slice(16,20)}-${u.slice(20)}` }; }catch(e){ return null; } }
@@ -50,7 +50,10 @@ function keyLockEdit(l){
   const q=id=>md.querySelector('#'+id);
   q('klF').onchange=async()=>{ const f=q('klF').files[0]; if(!f) return; q('klM').textContent='読取中…';
     try{ const im=await createImageBitmap(f), c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const x=c.getContext('2d'); x.drawImage(im,0,0);
-      const d=x.getImageData(0,0,c.width,c.height), qr=window.jsQR&&jsQR(d.data,c.width,c.height), k=qr&&keyFromShare(qr.data);
+      // 画面全体のスクリーンショットでは、ほかの QR を先に拾うことがある → 使えない QR は白で消して探し直す（2026-11-03）
+      let k=null; for(let i=0;i<5&&!k;i++){ const d=x.getImageData(0,0,c.width,c.height), qr=window.jsQR&&jsQR(d.data,c.width,c.height); if(!qr) break;
+        k=keyFromShare(qr.data); if(!k){ const L=qr.location, xs=[L.topLeftCorner.x,L.topRightCorner.x,L.bottomLeftCorner.x,L.bottomRightCorner.x], ys=[L.topLeftCorner.y,L.topRightCorner.y,L.bottomLeftCorner.y,L.bottomRightCorner.y];
+          const x0=Math.min(...xs), y0=Math.min(...ys), m=(Math.max(...xs)-x0)*.2; x.fillStyle='#fff'; x.fillRect(x0-m,y0-m,Math.max(...xs)-x0+2*m,Math.max(...ys)-y0+2*m); } }
       if(!k){ q('klM').innerHTML='<span class="err">読取エラー。別の画像を選択するか、UUID と秘密鍵を入力してください</span>'; return; }
       q('klU').value=k.uuid; q('klS').value=k.secret; q('klM').textContent='読取完了。保存してください'; }catch(e){ q('klM').innerHTML='<span class="err">読取エラー</span>'; } };
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
