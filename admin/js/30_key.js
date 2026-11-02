@@ -1,8 +1,10 @@
 // v1.84・SQL 326：鍵（セサミの解錠）。オーナー 2026-11-02「業者も設定したい。QR 1個で完結したい」「キャストは更衣室の鍵だけ、業者は店の鍵だけ、黒服は店と更衣室」
 //   在籍のキャスト・黒服は POS の LINE連携で自動（登録なし）。業者は追加 → QR（読むと鍵の画面）。セサミの設定（API キー・鍵ごとの UUID と秘密鍵）は入れるだけで表示しない
 //   セサミの設定は、セサミのアプリの「共有」の QR の画像からも読める（この画面の中で読み、送るのは UUID と秘密鍵だけ）
+// v1.87・SQL 329：名前を「鍵」→「セサミ連携」。在籍キャスト・黒服の鍵・日（シフトの日／営業日／常時）・開始・終了を表の中で変更（変更するとすぐ保存）
+//   オーナー 2026-11-03「編集できるように」「これ小窓で開く必要ある？」「ずっと（言い方考えて）がない」→ 常時
 const KEY_URL=new URL('../key/',location.href).href, KEY_WD=['日','月','火','水','木','金','土'], KEY_WD_ORDER=[1,2,3,4,5,6,0];
-PAGES.o_key=async()=>{ const st=storeId, head=`<h1>鍵 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+PAGES.o_key=async()=>{ const st=storeId, head=`<h1>セサミ連携 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_key_get',{p_store:st}); if(page!=='o_key'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_key_get/.test(r.error.message)?'SQL 326 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
@@ -15,9 +17,8 @@ PAGES.o_key=async()=>{ const st=storeId, head=`<h1>鍵 <small class="muted" styl
   $('main').innerHTML=head+`<div class="card"><b>セサミの設定</b><table class="t" style="margin-top:8px">
       <tr><td>API キー</td><td>${set(D.api)}</td><td style="text-align:right"><button class="ghost sm" data-api>設定</button></td></tr>
       ${L.map(l=>`<tr><td>${esc(l.name)}</td><td>${set(l.set)}</td><td style="text-align:right"><button class="ghost sm" data-lk="${l.id}">設定</button></td></tr>`).join('')}</table></div>
-    <div class="card"><b>在籍キャスト・黒服</b><table class="t" style="margin-top:8px">
-      ${who('cast')?`<tr><td>キャスト</td><td>${esc(who('cast'))}</td><td>シフトの日　シフトの2時間前〜翌8:00</td></tr>`:''}
-      ${who('hall')?`<tr><td>黒服</td><td>${esc(who('hall'))}</td><td>営業日　12:00〜翌8:00</td></tr>`:''}</table>
+    <div class="card"><b>在籍キャスト・黒服</b><table class="t" style="margin-top:8px"><tr><th></th><th>鍵</th><th>日</th><th>開始</th><th>終了</th></tr>
+      ${['cast','hall'].map(k=>keyRuleRow(k,(D.rules||{})[k]||{mode:'day',before:120,start:'12:00',end:'8:00'},L)).join('')}</table>
       <div class="muted" style="font-size:13px;margin-top:6px">POS の LINE連携で追加。退店・連携解除で停止</div></div>
     ${hasV?`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><b>業者 <small class="muted" style="font-weight:400">${esc(who('vendor'))}</small></b><button class="ghost sm" id="kvAdd">追加</button></div>
       ${(D.vendors||[]).length?`<table class="t" style="margin-top:8px"><tr><th>名称</th><th>曜日・時間</th><th>期限</th><th></th><th>状態</th></tr>
@@ -26,11 +27,24 @@ PAGES.o_key=async()=>{ const st=storeId, head=`<h1>鍵 <small class="muted" styl
     <div class="card"><b>解錠履歴</b>${(D.logs||[]).length?`<table class="t" style="margin-top:8px"><tr><th>日時</th><th>名前</th><th>鍵</th><th>操作</th><th>結果</th></tr>
       ${D.logs.map(g=>`<tr><td>${dt(g.at)}</td><td>${esc(g.who)}</td><td>${esc(g.lock||'')}</td><td>${g.cmd==='lock'?'施錠':'解錠'}</td><td>${g.ok?'完了':`<span class="err">エラー</span> <small class="muted">${esc(g.reason||'')}</small>`}</td></tr>`).join('')}</table>`:'<div class="muted" style="margin-top:6px">履歴なし</div>'}</div>`;
   $('main').querySelector('[data-api]').onclick=()=>keyApiEdit(st);
+  $('main').querySelectorAll('[data-klf]').forEach(c=>c.onchange=async()=>{ const [id,k]=c.dataset.klf.split(':'); const x=await rpc('admin_key_lock_for',{p_lock:id,p_kind:k,p_on:c.checked}); if(!x.ok){ c.checked=!c.checked; return; } toast('保存しました'); });
+  $('main').querySelectorAll('[data-krk]').forEach(tr=>tr.querySelectorAll('select').forEach(sel=>sel.onchange=async()=>{ const k=tr.dataset.krk, v=n=>tr.querySelector(`[data-kr=${n}]`)?.value;
+    const x=await rpc('admin_key_rule_set',{p_store:st,p_kind:k,p_mode:v('mode'),p_before:v('before')?+v('before'):null,p_start:v('start')||null,p_end:v('end')||null}); if(!x.ok) return; toast('保存しました'); PAGES.o_key(); }));
   $('main').querySelectorAll('[data-lk]').forEach(b=>b.onclick=()=>keyLockEdit(L.find(l=>l.id===b.dataset.lk)));
   const add=$('kvAdd'); if(add) add.onclick=()=>keyVendorEdit(st,null);
   $('main').querySelectorAll('[data-kv]').forEach(a=>a.onclick=()=>keyVendorEdit(st,D.vendors[+a.dataset.kv]));
   $('main').querySelectorAll('[data-kq]').forEach(b=>b.onclick=()=>keyVendorQr(D.vendors[+b.dataset.kq]));
 };
+// 在籍キャスト・黒服の1行：鍵（チェック）・日・開始・終了。常時は開始・終了なし
+function keyRuleRow(k,r,L){ const opt=(n,list,val)=>`<select data-kr="${n}" style="width:auto">${list.map(([v,t])=>`<option value="${v}" ${String(v)===String(val)?'selected':''}>${t}</option>`).join('')}</select>`;
+  const hm=(a,b)=>Array.from({length:(b-a)*2+1},(_,i)=>{ const m=a*60+i*30, t=`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; return [t,t]; });
+  const bf=Array.from({length:12},(_,i)=>{ const m=(i+1)*30; return [m,(m>=60?`${Math.floor(m/60)}時間`:'')+(m%60?`${m%60}分`:'')]; });
+  const al=r.mode==='always', dash='<span class="muted">—</span>';
+  return `<tr data-krk="${k}"><td>${k==='cast'?'キャスト':'黒服'}</td>
+    <td>${L.map(l=>`<label style="display:inline-flex;align-items:center;gap:4px;margin:0 12px 0 0"><input type="checkbox" data-klf="${l.id}:${k}" ${l[k]?'checked':''} style="width:auto">${esc(l.name)}</label>`).join('')}</td>
+    <td>${opt('mode',[['day',k==='cast'?'シフトの日':'営業日'],['always','常時']],r.mode)}</td>
+    <td>${al?dash:k==='cast'?`シフトの ${opt('before',bf,r.before)} 前`:opt('start',hm(8,23.5),r.start)}</td>
+    <td>${al?dash:`翌 ${opt('end',hm(0,12),r.end)}`}</td></tr>`; }
 function keyApiEdit(st){
   const md=modal(`<h2 style="margin:0">API キー</h2><div class="muted" style="font-size:13px">セサミの開発者ページ（CANDY HOUSE）の API キー。保存後は非表示</div>
     <label>API キー<input id="kaK" type="password" autocomplete="off"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
