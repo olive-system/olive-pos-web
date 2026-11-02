@@ -44,7 +44,7 @@ const PT_KEY='olive_pos_terminal'+SLOT; const ptGet=()=>{ try{ return localStora
 const ptSet=v=>{ try{ localStorage.setItem(PT_KEY,v); }catch(e){} keyDb('readwrite',s=>s.put(v,PT_KEY)); };
 const ptLoad=async()=>{ const a=ptGet(); if(a) return [a,null]; const b=await keyDb('readonly',s=>s.get(PT_KEY)); if(b){ try{ localStorage.setItem(PT_KEY,b); }catch(e){} return [b,'restored']; } return ['',null]; };
 $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); const err=$('posRegErr'); err.textContent=''; const code=$('posRegCode').value.trim();
-  if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6けたの数字です'; return; }
+  if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6桁の数字です'; return; }
   const { data, error } = await sb.rpc('pos_term_register',{p_code:code}); if(error){ err.textContent=error.message; return; }
   ptSet(data.token); $('posReg').style.display='none'; if(hallOn){ location.reload(); return; } start(); }); /* 点検 2026-11-02：開いている途中で登録し直した時は読み直す（1分ごとの処理が二重にならないように） */
 $('posRegOut').onclick=async()=>{ await sb.auth.signOut(); location.reload(); }; /* v12.43：登録の画面からログアウト（点検 2026-11-02 B6）。端末の合鍵は消さない */
