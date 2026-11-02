@@ -37,10 +37,11 @@ function keyApiEdit(st){
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const q=await rpc('admin_key_api_set',{p_store:st,p_key:md.querySelector('#kaK').value}); if(!q.ok) return; md.remove(); toast('保存しました'); PAGES.o_key(); });
 }
-// セサミのアプリの共有 QR（ssm://UI?t=sk&sk=…）：sk を base64 で戻すと、2〜17バイト目が秘密鍵、84〜99バイト目がセサミの UUID
+// セサミのアプリの共有 QR（ssm://UI?t=sk&sk=…）：sk を base64 で戻すと、2〜17バイト目が秘密鍵、最後の16バイトがセサミの UUID
+//   セサミ4 などは99バイト（84〜99バイト目）、セサミ5 などは39バイト（24〜39バイト目）。2026-11-03 更衣室が39バイトで読取エラー
 function keyFromShare(txt){ try{ let sk=new URL(String(txt).replace(/^ssm:\/\//,'https://x/')).searchParams.get('sk'); if(!sk) return null; sk=sk.replace(/ /g,'+'); // QR の sk の「＋」は、そのまま読むと空白になる（2026-11-03）
-  const b=Uint8Array.from(atob(sk.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0)); if(b.length<99) return null;
-  const h=a=>[...a].map(x=>x.toString(16).padStart(2,'0')).join(''), u=h(b.slice(83,99));
+  const b=Uint8Array.from(atob(sk.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0)); if(b.length<39) return null;
+  const h=a=>[...a].map(x=>x.toString(16).padStart(2,'0')).join(''), u=h(b.length>=99?b.slice(83,99):b.slice(-16));
   return { secret:h(b.slice(1,17)), uuid:`${u.slice(0,8)}-${u.slice(8,12)}-${u.slice(12,16)}-${u.slice(16,20)}-${u.slice(20)}` }; }catch(e){ return null; } }
 function keyLockEdit(l){
   const md=modal(`<h2 style="margin:0">${esc(l.name)}のセサミ</h2><div class="muted" style="font-size:13px">セサミのアプリ → この鍵 → 共有（オーナーかマネージャー）の QR の画像を選択すると入力されます。保存後は非表示</div>
