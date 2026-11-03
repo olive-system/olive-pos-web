@@ -182,7 +182,7 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; f.classList.toggle(
     <div class="c-hall" data-disp="grid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px;font-size:13px;color:var(--muted)"><div>担当キャスト売上<br><b style="color:var(--ink);font-size:15px" id="cMgrSum">…</b></div><div>売上シェア<br><b style="color:var(--ink);font-size:15px" id="cMgrPct">…</b></div></div>
     <label class="sw" id="cNoTcBox" style="display:none"><input type="checkbox" data-k="no_timecard" ${s.no_timecard?'checked':''}>タイムカードを打たない（売上歩合の人。在籍リストの下に手当の欄が出ます）</label>
     <div id="cTrialBox" style="display:none"><label>体験の報酬<select data-k="trial_pay_type"><option value="hourly" ${s.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input type="number" inputmode="numeric" data-k="trial_pay_amount" value="${s.trial_pay_amount||''}"></label><div class="muted" style="font-size:13px">在籍リストで日払（立替）を自動計算します（源泉 ${Number(settings?.trial_withholding_rate??10)}% を引いた全額）</div></div>
-    <div class="bar"><button class="primary" id="cSave">${s._new?'登録':'保存'}</button><button class="ghost sm" id="cDel" style="color:var(--muted);${s._new?'display:none':''}">退店</button>${s._new?'':'<span class="muted" style="font-size:13px">退店すると一覧・タイムカードから消えます</span>'}</div>`;
+    <div class="bar"><button class="primary" id="cSave">${s._new?'登録':'保存'}</button><button class="ghost sm" id="cDel" style="color:var(--muted);${s._new?'display:none':''}">退店</button>${s._new?'':'<span class="muted" style="font-size:13px">退店すると、タイムカード・シフト・鍵・お知らせ・伝票での選択が停止します。<br>報酬の受取待ちの人は、受取確認まで LINEマイページ（報酬明細のみ）と一覧の一番下に残ります</span>'}</div>`;
   // v11.57・SQL 122：シフトの希望出勤日数（週○日）と出勤可能時間（入店時に黒服がヒアリング）。変えたらすぐ保存（管理サイトのシフトの下書きに使う）
   if(!s._new){ const sv=async(k,v,l)=>{ const u=await sb.from('staff').update({[k]:v}).eq('id',s.id).select('id'); if(u.error||!(u.data||[]).length){ toast(u.error?.message||'保存できませんでした'); return; } s[k]=v; await logOp('シフトの希望',{name:s.display_name,[l]:v??'未設定'}); toast('保存しました'); };
     const w=$('cShW'), e=$('cShE'); if(w) w.onchange=()=>sv('shift_days_per_week',w.value?Number(w.value):null,'希望出勤日数'); if(e) e.onchange=()=>sv('shift_earliest',e.value||null,'出勤可能時間'); }
@@ -306,7 +306,7 @@ async function leaveDlg(s){
   const ms=inf.data?.months||[], pend=ms.length>0&&inf.data?.line;
   const lb=t=>`<div style="font-size:13px;color:var(--muted);margin:10px 0 2px">${t}</div>`;
   const box=document.createElement('div'); box.id='uiDlgLeave'; box.style.cssText='text-align:left;font-size:16px;line-height:1.6;margin:4px 0 8px';
-  box.innerHTML=lb('自動停止')+`<div>シフト・鍵・お知らせ${pend?'':'・LINEマイページ'}</div>`+(pend?lb('LINEマイページ')+'<div>報酬明細のみ（受取確認まで）</div>'+lb('受取待ち')+`<div>${esc(leaveMon(ms))}</div>`:'')
+  box.innerHTML=lb('自動停止')+`<div>タイムカード・シフト・鍵・お知らせ・伝票での選択${pend?'':'・LINEマイページ'}</div>`+(pend?lb('LINEマイページ')+'<div>報酬明細のみ（受取確認まで）</div>'+lb('受取待ち')+`<div>${esc(leaveMon(ms))}</div>`:'')
     +lb('手作業')+LEAVE_TODO.map(t=>`<label style="display:flex;align-items:center;gap:8px;margin:6px 0"><input type="checkbox" style="width:20px;height:20px">${esc(t)}</label>`).join('');
   $('uiDlgMsg').after(box); const ok=$('uiDlgOk'); ok.textContent='退店'; let y=false;
   try{ y=await uiConfirm(`${s.display_name}　退店`); } finally{ ok.textContent='OK'; box.remove(); } if(!y) return;
