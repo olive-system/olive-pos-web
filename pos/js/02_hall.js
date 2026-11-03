@@ -24,7 +24,7 @@ async function checkPwAlert(){ if(!store) return; try{
   const [a,s]=await Promise.all([sb.from('admin_store_settings').select('pw_alert,pw_alert_note').eq('store_id',store.id).maybeSingle(), sb.from('stores').select('id').limit(1)]);
   if(!s.error&&!(s.data||[]).length){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); /* v11.51：ブラウザの窓はアドレスが出るので画面の中の窓に */ return; }
   const el=$('pwAlert'); if(a.error||!a.data?.pw_alert){ el.style.display='none'; return; }
-  el.innerHTML=`${FX('warningsign')} 黒服（${esc(a.data.pw_alert_note||'')}）が削除されました。オーナーは管理サイトでパスワードを更新してください`; el.style.display='block';
+  el.innerHTML=`${FX('warningsign')} 黒服（${esc(a.data.pw_alert_note||'')}）が退店しました。オーナーは管理サイトでパスワードを更新してください`; el.style.display='block';
 }catch(e){ console.warn('pwAlert',e); } }
 let extOpen=false;
 const snm=id=>staffAll.find(x=>x.id===id)?.display_name||staff.find(x=>x.id===id)?.display_name||'';
