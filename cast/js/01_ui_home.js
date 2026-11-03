@@ -75,7 +75,7 @@ async function loadMe(w0){
     NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length;
     ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す）。v1.05・点検 2026-11-02 B5：読めなかった分があれば、トップに1行 */
   const th = thxParam(), nt = urlParam('notice'), go = goParam();
-  if(['contact','shift','sales','resv','perf'].includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* v0.64・SQL 221：リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
+  if(['contact','shift','sales','resv','perf','dress','meeting'].includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* v0.64・SQL 221：リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
   fill(await pB);
   home();
   { if(th) resvThanksById(th); if(nt) noticeOpen(nt); else castGo(go); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時。キャストが開けない go（黒服の画面など）はトップのまま */
@@ -85,6 +85,7 @@ async function loadMe(w0){
 function castGo(k){
   if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
   if(k === 'contact') contactList(true); else if(k === 'shift') (SHIFT_ALL ? shiftAll() : shiftHome()); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf();
+  else if(k === 'dress') dressReport(); else if(k === 'meeting') mtCast(); /* v1.14・SQL 339：締め切りのリマインドの LINE から、新調日・ミーティングの画面を直接開く */
 }
 
 // スライド表の「次の段」の文：あと○○で 時給○円
