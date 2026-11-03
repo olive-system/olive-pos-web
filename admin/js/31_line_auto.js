@@ -33,4 +33,11 @@ PAGES.o_line_auto=async()=>{ const st=storeId, head=`<h1>LINE自動送信 <small
   const rt=$('main').querySelector('[data-rk]'); if(rt) rt.querySelectorAll('select').forEach(sel=>sel.onchange=async()=>{ const v=n=>rt.querySelector(`[data-rv=${n}]`)?.value;
     const a={p_store:st,p_enabled:v('on')==='1'}; if(K.dow!=null){ a.p_dow=+v('dow'); a.p_at=v('at'); }
     const x=await rpc('admin_save_rank_settings',a); if(!x.ok){ PAGES.o_line_auto(); return; } toast('保存しました'); });
+  /* v2.00・SQL 343：連絡先交換の LINE（閉店時／退勤時／しない。オーナー 2026-11-03） */
+  const ca=await sb.rpc('admin_contact_ask_get',{p_store:st}); if(page!=='o_line_auto'||storeId!==st||ca.error) return;
+  const el=document.createElement('div'); el.className='card';
+  el.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>連絡先交換</b>${laSel('data-cav',[['close','閉店時'],['leave','退勤時'],['off','しない']],ca.data)}</div>
+    <div class="muted" style="font-size:13px;margin-top:4px;line-height:1.8">閉店時：POS の閉店作業を開いた時に、出勤したキャスト全員へ。本日来店のお客様から選んで提出します<br>退勤時：退勤の打刻の時に、そのキャストへ。退勤までに立ち上がった伝票のお客様から選びます<br>しない：今までどおり、1:00 に未提出のキャストへ LINE</div>`;
+  $('main').appendChild(el);
+  el.querySelector('[data-cav]').onchange=async e=>{ const x=await rpc('admin_contact_ask_set',{p_store:st,p_mode:e.target.value}); if(!x.ok){ PAGES.o_line_auto(); return; } toast('保存しました'); };
 };

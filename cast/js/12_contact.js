@@ -15,7 +15,7 @@ async function contactList(openForm){
 let cxRows = null;
 async function contactForm(today){
   setBack(() => contactList()); show('<div class="card c muted">読み込み中…</div>');
-  const T = await sb.rpc('cast_contact_today', { p_token: TOKEN }); /* v1.15・SQL 338：LINE で聞く店は、本日来店のお客様から選ぶ（SQL が未実行・しない の店は今までの画面） */
+  const T = await sb.rpc('cast_contact_today', { p_token: TOKEN }); /* v1.15・SQL 343：LINE で聞く店は、本日来店のお客様から選ぶ（SQL が未実行・しない の店は今までの画面） */
   if(!T.error && T.data && T.data.ask !== 'off'){ contactPick(T.data); return; }
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
   if(st.error){ fail(st.error.message); return; }
@@ -67,7 +67,7 @@ async function contactForm(today){
   paint();
 }
 
-// v1.15・SQL 338：連絡先交換を LINE で聞く（オーナー 2026-11-03）。本日来店のお客様から選ぶ。係はお客様の台帳から（無ければ係確認中。黒服が閉店作業で入力）。女の子は係を選ばない
+// v1.15・SQL 343：連絡先交換を LINE で聞く（オーナー 2026-11-03）。本日来店のお客様から選ぶ。係はお客様の台帳から（無ければ係確認中。黒服が閉店作業で入力）。女の子は係を選ばない
 //   一覧にいないお客様は「その他」にフルネーム。広島は係が無いので出さない
 let cpState = null;
 function contactPick(T){

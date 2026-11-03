@@ -41,12 +41,6 @@ PAGES.o_line=async()=>{ const st=storeId, head=`<h1>LINE メニュー <small cla
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:12px"><img src="../cast/${x.img}" alt="${x.nm}のリッチメニュー" style="width:300px;max-width:100%;border:1px solid var(--line);border-radius:8px">
       <div style="font-size:14px;line-height:1.9">${k==='minna'?'':`連携している${x.nm}：${Number(x.linked||0)}人<br>`}${x.note}${x.made?`<div style="margin-top:8px"><button class="ghost sm" data-rmre="${k}">メニューを作り直す</button></div>`:''}</div></div></div>`; };
   $('main').innerHTML=head+card('hall')+card('cast')+card('minna');
-  /* v2.00・SQL 338：連絡先交換の LINE（閉店時／退勤時／しない。オーナー 2026-11-03） */
-  sb.rpc('admin_contact_ask_get',{p_store:st}).then(q=>{ if(page!=='o_line'||storeId!==st) return; const v=q.error?null:q.data, el=document.createElement('div'); el.className='card';
-    el.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>連絡先交換の LINE</b><span class="seg">${[['close','閉店時'],['leave','退勤時'],['off','しない']].map(([k,n])=>`<button data-cav="${k}" class="${v===k?'on':''}" ${v?'':'disabled'}>${n}</button>`).join('')}</span></div>
-    <div class="muted" style="font-size:13px;margin-top:4px;line-height:1.8">${q.error?`<span class="err">${/admin_contact_ask_get/.test(q.error.message)?'SQL 338 が未実行です':esc(q.error.message)}</span>`:'閉店時：POS の閉店作業を開いた時に、出勤したキャスト全員へ。本日来店のお客様から選んで提出します<br>退勤時：退勤の打刻の時に、そのキャストへ。退勤までに立ち上がった伝票のお客様から選びます<br>しない：今までどおり、1:00 に未提出のキャストへ LINE'}</div>`;
-    $('main').appendChild(el);
-    el.querySelectorAll('[data-cav]').forEach(b=>b.onclick=guard(b,async()=>{ const k=b.dataset.cav; if(k===v) return; if(!await uiConfirm(`連絡先交換の LINE を「${b.textContent}」にしますか？`)) return; const r=await rpc('admin_contact_ask_set',{p_store:st,p_mode:k}); if(!r.ok) return; toast('保存しました'); PAGES.o_line(); })); });
   const make=async k=>{ const q=await sb.functions.invoke('line-richmenu',{body:{store:st,kind:k}}); let e=q.error?(q.data&&q.data.error)||q.error.message:(q.data&&q.data.error);
     if(e&&q.error&&q.error.context&&q.error.context.json){ try{ e=(await q.error.context.json()).error||e; }catch(x){} }
     if(e){ await uiAlert('メニューを作れませんでした：'+e); return false; } return true; };
