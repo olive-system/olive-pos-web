@@ -55,6 +55,7 @@ async function loadMe(w0){
   //   （オーナー 2026-10-26「シフト、予約、成績など読み込みまでに時間がかかる」。データベースはどれも 0.1秒以下で、待ちは通信を1つずつ順番に待っていたこと）
   // v0.94・SQL 292：cast_login から黒服かキャストかがわかる時は、黒服は hall_me だけ・キャストはキャストの分だけを同時に読む（前は黒服でもキャストの分を全部読んでいた）。わからない時（SQL 292 の前）は今までどおり
   const T = { p_token: TOKEN }, kd = w0 && w0.kind;
+  if(w0 && w0.leaving){ LEAVING = true; ME = { name: w0.name, hall: false }; leaveHome(); return; } /* v1.12・SQL 334：受取待ち（退店）は報酬明細だけ */
   if(kd){ SHIFT_ALL = !!w0.shift_all;
     if(kd === 'hall'){ await hallLoad(sb.rpc('hall_me', T)); return; }
     if(kd !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w0.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
@@ -104,6 +105,7 @@ window.addEventListener('popstate', () => { if(!backFn) return; const f = backFn
 // v1.05・点検 2026-11-02 B5：読めなかった時に、ボタン・件数が黙って消えないように、画面の上に1行（1回だけ）
 function loadNg(){ const m = $('main'); if(!m || m.querySelector('.ldng')) return; m.insertAdjacentHTML('afterbegin', '<p class="err sm ldng" style="margin:0 2px 8px">読み込めない項目があります。開き直してください</p>'); }
 function home(){
+  if(LEAVING){ leaveHome(); return; }
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
   const st = ME.stats||{}, sl = (ME.slides||[]).find(s=>s.basis==='sales') || (ME.slides||[])[0];
@@ -152,3 +154,11 @@ function perf(){
     <div class="card">${r('罰金（今月）', fines.length?yen(fsum):'なし')}${fl}</div>`);
 }
 
+
+// v1.12・SQL 334：受取待ち（退店した人。最後の報酬の受取確認まで）。報酬明細だけを出す
+var LEAVING = false;
+function leaveHome(){
+  setBack(null);
+  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles"><button class="tile" data-go="pay"><b>報酬明細</b><small>受取確認</small></button></div>`);
+  $('main').querySelector('[data-go=pay]').onclick = payslip;
+}
