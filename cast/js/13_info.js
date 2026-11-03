@@ -22,9 +22,16 @@ async function noticeOpen(id){
   if(!x){ await uiAlert('このお知らせは削除されています'); noticeList(); return; }
   noticeShow(x);
 }
+// v1.11・SQL 335：添付（写真は並べて表示・押すと大きく。PDF は［表示］で開く）
+const noticeFile = p => sb.storage.from('notice-files').getPublicUrl(p).data.publicUrl;
+function noticeAttach(a){
+  a = a || []; const im = a.filter(f => f.t === 'img'), pd = a.filter(f => f.t === 'pdf');
+  return (im.length ? `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px">${im.map(f => `<a href="${esc(noticeFile(f.p))}" target="_blank" rel="noopener"><img src="${esc(noticeFile(f.p))}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')}</div>` : '')
+    + pd.map(f => `<div class="row" style="border-top:1px solid var(--line);margin-top:10px;padding-top:8px"><span class="sm" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">PDF　${esc(f.n)}</span><a class="btn g" href="${esc(noticeFile(f.p))}" target="_blank" rel="noopener" style="width:auto;padding:8px 18px;white-space:nowrap;text-decoration:none">表示</a></div>`).join('');
+}
 function noticeShow(x){
   setBack(noticeList);
-  show(`<div class="card"><div class="gh">${noticeDay(x.at)} 掲載</div><div style="font-weight:700;font-size:17px">${esc(x.title)}</div>${x.body?`<div style="margin-top:10px;line-height:1.7;white-space:pre-wrap">${esc(x.body)}</div>`:''}</div>
+  show(`<div class="card"><div class="gh">${noticeDay(x.at)} 掲載</div><div style="font-weight:700;font-size:17px">${esc(x.title)}</div>${x.body?`<div style="margin-top:10px;line-height:1.7;white-space:pre-wrap">${esc(x.body)}</div>`:''}${noticeAttach(x.attach)}</div>
     ${x.read?'<div class="c sm" style="color:var(--ok);padding:8px">確認済み</div>':'<button class="btn" id="ntOk">確認</button>'}`);
   const b = $('ntOk'); if(b) b.onclick = async () => {
     b.disabled = true;
