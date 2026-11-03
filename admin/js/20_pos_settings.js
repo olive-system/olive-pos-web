@@ -347,6 +347,17 @@ async function dressFold(st,ed){ const box=$('dressBox'); if(!box) return; const
   const sv=$('drSave'); sv.onclick=guard(sv,async()=>{ const d=slNum($('drDay').value); if(!(Number.isInteger(d)&&d>=1&&d<=28)){ await uiAlert('提出の期限は 1〜28 日にしてください'); return; }
     if(!await uiConfirm(on?`ドレス新調日を「する」（毎月${d}日が期限）にしますか？`:'ドレス新調日を「しない」にしますか？')) return;
     const x=await rpc('admin_save_dress_settings',{p_store:st,p_enabled:on,p_due_day:d,p_fine_name:$('drFine').value}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
+// v1.96・SQL 340：ランキング（店ごとに する／しない。毎週月曜 12:00 に先週・毎月1日 12:00 に先月のランキングを、LINE連携している在籍キャストへ）
+async function rankFold(st,ed){ const box=$('rankBox'); if(!box) return; const r=await sb.rpc('admin_get_rank_settings',{p_store:st}); if(page!=='set_pay'||storeId!==st) return;
+  if(r.error){ box.innerHTML=foldCard('rank','ランキング','','',`<div class="err">${esc(/admin_get_rank_settings/.test(r.error.message)?'SQL 340 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`); foldWire(box); return; }
+  const c=r.data||{}; let on=!!c.enabled; const dis=ed?'':'disabled', it=c.points?'ポイント':KL+'小計';
+  box.innerHTML=foldCard('rank','ランキング','',on?'する・毎週月曜／毎月1日 12:00':'しない',`<div class="muted" style="font-size:13px;margin-bottom:8px">LINE連携している在籍キャストに、毎週月曜 12:00 に先週のランキング、毎月1日 12:00 に先月のランキングを LINE で送ります。${esc(it)}と同伴の回数の順位です${c.points?'':`（${esc(it)}は順位と名前のみ）`}</div>
+    <div class="row"><span class="seg" id="rkOn">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${on===v?'on':''}" ${dis}>${n}</button>`).join('')}</span></div>
+    ${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="rkSave">保存</button></div>':''}`);
+  foldWire(box); if(!ed) return;
+  box.querySelectorAll('#rkOn button').forEach(b=>b.onclick=()=>{ on=b.dataset.v==='true'; box.querySelectorAll('#rkOn button').forEach(x=>x.classList.toggle('on',x===b)); });
+  const sv=$('rkSave'); sv.onclick=guard(sv,async()=>{ if(!await uiConfirm(on?'ランキングを「する」にしますか？\n次の月曜または1日の 12:00 から LINE で送ります':'ランキングを「しない」にしますか？')) return;
+    const x=await rpc('admin_save_rank_settings',{p_store:st,p_enabled:on}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
 // v0.95・SQL 105：名刺発注の設定（LINEマイページの名刺発注。宛先・件名・返信先・枚数・金額。店ごと）
 async function cardFold(st,ed){ const box=$('cardBox'); if(!box) return; const r=await sb.rpc('admin_get_card_settings',{p_store:st}); if(r.error||page!=='set_pay'||storeId!==st) return; const c=r.data||{};
   const inp=(id,l,v,ph='')=>`<label>${l}<input id="${id}" value="${esc(v??'')}" placeholder="${ph}" ${ed?'':'disabled'}></label>`;
