@@ -102,7 +102,7 @@ async function billEdit(id){
     <div class="bar" style="justify-content:space-between"><button class="ghost" id="beDel">伝票を削除</button><span class="row"><button class="ghost" id="beNo">閉じる</button><button class="primary" id="beOk">保存</button></span></div>`;
     const q=s=>box.querySelector(s), qa=s=>box.querySelectorAll(s), redo=()=>{ S._reason=q('#beR').value; draw(); };
     q('#beR').oninput=e=>{ S._reason=e.target.value; };
-    q('#beG').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=1)){ e.target.value=B.guest_count; return; } const old=B.guest_count; if(n===old) return;
+    q('#beG').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=1)){ e.target.value=B.guest_count; return; } const old=B.guest_count; if(n===old) return; const dn=S.casts.filter(x=>beDh(x.role)).length; if(n<dn){ e.target.value=old; uiAlert(`同伴は客数（${n}名）までです`); return; } /* v1.94・SQL 337：同伴は客数まで（オーナー 2026-11-03） */
       if(B.set_guest_count!=null){ if(n>old) B.set_guest_count+=n-old; } else S.items.filter(i=>live(i)&&(i.product_id===hcId||i.product_id===bcId)&&i.product_id).forEach(i=>{ i.qty=n; resplit(i); }); // POS と同じ：途中で帰った人がいなければ、自動の HC・BC の数も客数に
       B.guest_count=n; redo(); };
     const tm=(k,v)=>{ if(!v) return; const ts=toTs(v); if(k==='opened_at'&&B.set_start){ B.set_start=new Date(new Date(B.set_start).getTime()+(ceil5(ts)-ceil5(B.opened_at))).toISOString(); } B[k]=ts; reExt(); redo(); };
