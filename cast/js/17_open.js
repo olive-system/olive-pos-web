@@ -2,8 +2,8 @@
 // v0.57・SQL 209：閉店作業も同じ画面（オーナー 2026-10-23「閉店作業も黒服のマイページに」「保存した人がやったことに」「誰が作業中かの表示」）
 // v0.59・SQL 214：項目の中の確認（checks。名刺の Eight 登録＝登録済みの確認・変更の確認）。全部に印を付けると「完了」を押せる（オーナー 2026-10-23「登録済みか確認のチェックボタンを中に」）
 // v0.76・SQL 262：コメントが「要る」の項目は、作業中にコメントの欄（書くのは任意。オーナー 2026-10-26「相違があれば、コメントで報告」）。完了の後はコメントをほかの黒服にも出す
-// v0.83・SQL 272：決まった画面の項目（ボトル残量など）も、写真「要る」なら写真を選んで保存・コメント「要る」ならコメントの欄（オーナー 2026-10-27「全部編集できるようにして」）
-// 開始 → 作業中（ほかの黒服の画面にも出る）→ 完了（写真の項目は写真を選んで完了・決まった画面の項目は保存）。ほかの人が作業中の時は「交代」。対象が「限定」の項目は、限定項目「可」の黒服だけ
+// v0.83・SQL 272：決まった画面の項目（ボトル残量など）も、写真「要る」なら写真を撮って保存・コメント「要る」ならコメントの欄（オーナー 2026-10-27「全部編集できるようにして」）
+// 開始 → 作業中（ほかの黒服の画面にも出る）→ 完了（写真の項目は写真を撮って完了・決まった画面の項目は保存）。ほかの人が作業中の時は「交代」。対象が「限定」の項目は、限定項目「可」の黒服だけ
 let opShots = {}, opChecks = {}, opNotes = {}, opSwitch = false; /* v0.63：リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
 const TASK_TTL = { open:'開店作業', close:'閉店作業' };
 const hm = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
@@ -31,7 +31,7 @@ async function hallTasks(ph){
     else if(na) right = `${x.wip_by ? wipTag(x.wip_by) : ''}<span class="muted sm">対象外</span>`;
     else if(other) right = `${wipTag(x.wip_by)}${tBtn('opt', i, '交代', true)}`;
     else if(!mine) right = tBtn('ops', i, '開始');
-    else if(simple) right = `${x.need_photo ? `<label class="btn g" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" multiple data-opp="${i}" style="display:none"></label>` : ''}${tBtn('opd', i, '完了').replace('<button', ckAll(x) ? '<button' : '<button disabled')}`;
+    else if(simple) right = `${x.need_photo && (opShots[x.id] || []).length < 10 ? `<label class="btn g" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" data-opp="${i}" style="display:none"></label>` : ''}${tBtn('opd', i, '完了').replace('<button', ckAll(x) ? '<button' : '<button disabled')}`;
     else right = `${wipTag(x.wip_by)}${tBtn('opv', i, '表示')}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid var(--line)">
     <div style="flex:1;line-height:1.4">${esc(x.name)}${x.status === 'done' && x.detail && x.detail.comment ? `<div class="sm" style="white-space:pre-wrap;margin-top:2px">コメント：${esc(x.detail.comment)}</div>` : ''}${mine && simple && x.status !== 'done' ? `<div class="muted sm" data-opn="${i}">${opWip(x)}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}${x.need_comment ? `<textarea data-opk="${i}" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;margin-top:8px;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}` : ''}</div>${right}</div>`; };
@@ -48,11 +48,11 @@ async function hallTasks(ph){
   $('main').querySelectorAll('[data-opt]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`${x.wip_by}さんが作業中です。\n交代しますか？`, '交代')) return; if(!await start(x, true)) return; if(x.kind === 'simple') again(); else hallCloseTask(x, ph); });
   $('main').querySelectorAll('[data-opv]').forEach(b => b.onclick = () => hallCloseTask(at(b), ph));
   $('main').querySelectorAll('[data-optd]').forEach(b => b.onclick = hallTodo);
-  $('main').querySelectorAll('[data-opp]').forEach(inp => inp.onchange = () => { const x = at(inp); const f = [...inp.files].slice(0, 10); if(!f.length) return; opShots[x.id] = f;
-    const el = $('main').querySelector(`[data-opn="${inp.dataset.opp}"]`); if(el) el.textContent = opWip(x); else again(); }); /* v0.94：その行の枚数だけ直す（前は全部読み直していた） */
+  $('main').querySelectorAll('[data-opp]').forEach(inp => inp.onchange = () => { const x = at(inp); const f = inp.files[0]; inp.value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); /* v1.09：カメラで1枚ずつ撮って足す（10枚まで） */
+    if(opShots[x.id].length >= 10) return again(); const el = $('main').querySelector(`[data-opn="${inp.dataset.opp}"]`); if(el) el.textContent = opWip(x); else again(); }); /* v0.94：その行の枚数だけ直す（前は全部読み直していた） */
   $('main').querySelectorAll('[data-opd]').forEach(b => b.onclick = async () => { const x = at(b); if(!ckAll(x)) return; b.disabled = true;
     try{
-      if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ await uiAlert('写真を選んでから「完了」を押してください'); b.disabled = false; return; }
+      if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ await uiAlert('写真を撮ってください'); b.disabled = false; return; }
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* v0.94：3枚ずつ同時に送る */
       const q = await sb.rpc('hall_open_done', { p_token: TOKEN, p_task: x.id, ...(x.need_comment ? { p_comment: opNotes[x.id] || '' } : {}) }); if(q.error) throw q.error;
@@ -112,9 +112,9 @@ async function hallCloseTask(x, ph){
   }
   show(head + body);
   const again = () => hallCloseTask(x, ph), s = $('clSv');
-  if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真を選ぶ<input type="file" accept="image/*" multiple id="clPh" style="display:none"></label></div>` : ''}
+  if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span>${(opShots[x.id] || []).length < 10 ? `<label class="btn g" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label>` : ''}</div>` : ''}
     ${x.need_comment ? `<textarea id="clCm" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;box-sizing:border-box;${x.need_photo ? 'margin-top:8px;' : ''}font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}</div>`);
-  if($('clPh')) $('clPh').onchange = () => { const f = [...$('clPh').files].slice(0, 10); if(f.length){ opShots[x.id] = f; $('clPhN').textContent = `写真　${f.length}枚`; } };
+  if($('clPh')) $('clPh').onchange = () => { const f = $('clPh').files[0]; $('clPh').value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); $('clPhN').textContent = `写真　${opShots[x.id].length}枚`; if(opShots[x.id].length >= 10) $('clPh').closest('label').remove(); }; /* v1.09：カメラで1枚ずつ足す */
   if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
   if(k === 'memo_req') [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
@@ -123,7 +123,7 @@ async function hallCloseTask(x, ph){
     const z = await sb.rpc('hall_close_kimono', { p_token: TOKEN, p_task: x.id, p_staff: c.id, p_on: !c.kimono }); if(z.error){ await uiAlert(z.error.message); } again(); });
   if(s) s.onclick = async () => { s.disabled = true;
     try{
-      if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ s.disabled = false; await uiAlert('写真を選んでから保存してください'); return; }
+      if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ s.disabled = false; await uiAlert('写真を撮ってください'); return; }
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* v0.94：3枚ずつ同時に送る */
       const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
