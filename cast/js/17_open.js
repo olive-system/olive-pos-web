@@ -112,6 +112,12 @@ async function hallCloseTask(x, ph){
       <select data-ck="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px">${opt(r)}</select></div>`).join('') || (dd ? '<div class="muted">連絡先交換はありません</div>' : '')}</div>
       ${sv('', R.length ? `${KL}を変更して保存すると、提出したキャストに LINE が届きます。正しい${KL}には次の朝のまとめで届きます` : '')}`;
     getData = () => ({ rows: R.map((r, i) => ({ id: r.id, kakari: $('main').querySelector(`[data-ck="${i}"]`).value })) });
+  } else if(k === 'contact_pending'){   // v1.15・SQL 338：閉店作業「連絡先交換の係の確認」（係確認中を黒服が入力。入力した係へは次の朝のまとめで。台帳に係が無いお客様は台帳にも。オーナー 2026-11-03）
+    const R = D.rows || [], C = D.casts || [], md = x => { const t = new Date(x + 'T00:00:00+09:00'); return `${t.getMonth() + 1}/${t.getDate()}（${'日月火水木金土'[t.getDay()]}）`; };
+    body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">${KL}確認中　${R.length}件</div>${R.map((r, i) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(r.customer)} 様<div class="muted sm">${md(r.day)}　交換 ${esc(r.by)}</div></div>
+      <select data-ck="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選んでください</option>${C.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="none">なし</option></select></div>`).join('') || `<div class="muted">${KL}確認中はありません</div>`}</div>
+      ${sv('', R.length ? `入力した${KL}には、次の朝のまとめで届きます` : '')}`;
+    getData = () => ({ rows: R.map((r, i) => ({ id: r.id, kakari: $('main').querySelector(`[data-ck="${i}"]`).value })) });
   } else if(k === 'day_memo'){
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;
