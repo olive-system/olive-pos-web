@@ -121,7 +121,7 @@ PAGES.set_pay=async()=>{
 // v1.26・SQL 140：報酬の種類（オーナー 2026-10-17「罰金の種類だけではなく、報酬の種類も作れ」「広島はポイントの加算でスライド表作ってる」）
 // 名前・手当（円）かポイント・1回の数・自動（連絡先交換の提出）。ポイントはその月のポイント（ポイントスライド）に、手当は報酬の手当に足す。POS の在籍リストの「手当」で選ぶ
 let RWT=[], RWPS=false, RWT0=[]; /* v1.75：RWT0＝読んだ時の一覧（保存の時に送って、ほかの画面で変わっていたら断る。点検 2026-10-30） */
-const rwTxt=x=>`${x.value!=null?`${Number(x.value).toLocaleString('ja-JP')}${x.kind==='point'?'P':'円'}／1回`:'<span class="muted">数 未設定</span>'}${x.auto?'　自動':''}`;
+const rwTxt=x=>`${x.value!=null?`${Number(x.value).toLocaleString('ja-JP')}${x.kind==='point'?'P':'円'}／${x.auto==='after'?'お客様1名':'1回'}`:'<span class="muted">数 未設定</span>'}${x.auto?'　自動':''}`;
 function rwCard(d,ed){ RWT=d.rows||[]; RWT0=JSON.parse(JSON.stringify(RWT)); RWPS=!!d.point_slide; return foldCard('rewards','報酬の種類','',`${RWT.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS：在籍リストの「手当」${RWPS?'（手当／ポイント）':''}　自動：連絡先交換の提出1件ごと</div>
   <div style="border:1px solid var(--line);border-radius:10px;background:#fff">${RWT.map((x,i)=>`<div ${ed?`data-rwi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(x.name)}　<small class="muted">${x.kind==='point'?'ポイント':'手当'}</small></span><b style="font-weight:600">${rwTxt(x)}</b></div>`).join('')||'<div class="muted" style="padding:10px 14px">なし</div>'}</div>
   ${ed?'<div class="fend"><button class="ghost sm" data-rwadd>＋ 報酬を追加</button></div>':''}`,'data-rewards'); }
@@ -129,7 +129,7 @@ function rwEdit(st,i){ const x=i==null?{name:'',kind:RWPS?'point':'yen',value:nu
   const md=modal(`<h2 style="margin:0">${i==null?'報酬の追加':esc(x.name)}</h2><label>名前<input id="rwN" value="${esc(x.name)}"></label>
     <label>種類<select id="rwK"><option value="yen" ${x.kind==='yen'?'selected':''}>手当（円）</option>${RWPS?`<option value="point" ${x.kind==='point'?'selected':''}>ポイント</option>`:''}</select></label>
     <label>1回<span style="display:flex;gap:6px;align-items:center"><input id="rwV" inputmode="numeric" value="${x.value??''}" style="width:120px;text-align:right"><span id="rwU">${x.kind==='point'?'P':'円'}</span></span></label>
-    <label>自動<select id="rwA"><option value="">なし（POS で付ける）</option><option value="contact" ${x.auto==='contact'?'selected':''}>連絡先交換の提出1件ごと</option><option value="douhan" ${x.auto==='douhan'?'selected':''}>同伴1回ごと</option></select></label>
+    <label>自動<select id="rwA"><option value="">なし（POS で付ける）</option><option value="contact" ${x.auto==='contact'?'selected':''}>連絡先交換の提出1件ごと</option><option value="douhan" ${x.auto==='douhan'?'selected':''}>同伴1回ごと</option><option value="after" ${x.auto==='after'?'selected':''}>アフター（お客様1名ごと・人数で分配）</option></select></label>
     <div class="bar">${i==null?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
   const q=id=>md.querySelector('#'+id); q('rwU').textContent=q('rwK').value==='point'?'P':'円'; /* v1.80・SQL 317（点検 C6）：ポイントスライドが無い店では種類「ポイント」を出さない（POS に出ないため） */ q('rwK').onchange=()=>{ q('rwU').textContent=q('rwK').value==='point'?'P':'円'; };
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
