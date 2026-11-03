@@ -20,7 +20,7 @@ PAGES.o_line_auto=async()=>{ const st=storeId, head=`<h1>LINE自動送信 <small
     if(k==='dress'&&!dr.enabled) return `<tr><td>${n}</td><td class="muted">—</td><td colspan="3" class="muted">新調日「しない」（報酬・罰金項目で変更）</td></tr>`;
     return `<tr data-la="${k}"><td>${n}</td><td>${due[k]}</td><td>期限の ${laDays('data-lv="days"',x.days_before)}</td><td>${laTime('data-lv="at"',x.at_time)}</td><td>${laOn('data-lv="on"',x.enabled)}</td></tr>`; };
   const h=R.hall||{enabled:true,at_time:'19:00'};
-  const rank=!K?'':`<div class="card"><b>ランキング</b><div class="muted" style="font-size:13px;margin-top:4px">キャスト全員へ、今月の累計と先週の順位（LINE連携済みのみ）</div>
+  const rank=!K?'':`<div class="card"><b>ランキング</b><div class="muted" style="font-size:13px;margin-top:4px">キャスト全員へ、先週の順位・毎月1日は先月の順位（LINE連携済みのみ）</div>
     <table class="t" style="margin-top:8px;table-layout:fixed">${LA_HEAD}<tr data-rk><td>ランキング</td><td class="muted">—</td>
       <td>${K.dow!=null?`毎週 ${laSel('data-rv="dow"',LA_WD.map((w,i)=>[i,w]),K.dow)}`:'毎週月曜・毎月1日'}</td><td>${K.at_time?laTime('data-rv="at"',K.at_time):'12:00'}</td><td>${laOn('data-rv="on"',K.enabled)}</td></tr></table></div>`;
   $('main').innerHTML=head+`<div class="card"><b>リマインド（キャスト）</b><div class="muted" style="font-size:13px;margin-top:4px">未提出の子へ、提出画面のリンク付きの LINE（LINE連携済みのみ）</div>
