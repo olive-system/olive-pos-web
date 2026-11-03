@@ -97,7 +97,7 @@ function hcFc(F){ const md = x => { const t = new Date(x+'T00:00:00+09:00'); ret
     <table style="border-collapse:collapse;width:100%;font-size:14px"><tr><th style="${th}"></th><th style="${th}">目標</th><th style="${th}">現在</th><th style="${th}">予測</th></tr>
     <tr><td style="${tl}">売上</td><td style="${td}">${y(F.target)}</td><td style="${td}">${yen(F.sales)}</td><td style="${td}">${y(F.fc_sales)}</td></tr>
     <tr><td style="${tl}">組数</td><td style="${td}">${g(F.tgt_groups)}</td><td style="${td}">${F.groups}組</td><td style="${td}">${g(F.fc_groups)}</td></tr></table>
-    <div class="row"><span class="muted">1日平均売上</span><b>${y(F.avg)}</b></div><div class="row"><span class="muted">1日必要組数</span><b>${g(F.need)}</b></div><div class="row"><span class="muted">平均客単価</span><b>${y(F.unit)}</b></div>`; }
+    <div class="row" style="font-size:14px"><span class="muted">1日平均売上</span><b>${y(F.avg)}</b></div><div class="row" style="font-size:14px"><span class="muted">1日必要組数</span><b>${g(F.need)}</b></div><div class="row" style="font-size:14px"><span class="muted">平均客単価</span><b>${y(F.unit)}</b></div>`; }
 /* v0.94：朝礼のデータと天気は覚えておき、お客様を開く・閉じる時は読み直さない（前は押すたびに hall_chorei と天気を読み直していた）。読み直すのは開いた時と「確認」「確認の取消」の後（天気はそのまま） */
 let hcD = null, hcWx = null;
 async function hallChorei(keepWx){
