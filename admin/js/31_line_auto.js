@@ -40,4 +40,24 @@ PAGES.o_line_auto=async()=>{ const st=storeId, head=`<h1>LINE自動送信 <small
     <div class="muted" style="font-size:13px;margin-top:4px;line-height:1.8">閉店時：POS の閉店作業を開いた時に、出勤したキャスト全員へ。本日来店のお客様から選んで提出します<br>退勤時：退勤の打刻の時に、そのキャストへ。退勤までに立ち上がった伝票のお客様から選びます<br>しない：今までどおり、1:00 に未提出のキャストへ LINE</div>`;
   $('main').appendChild(el);
   el.querySelector('[data-cav]').onchange=async e=>{ const x=await rpc('admin_contact_ask_set',{p_store:st,p_mode:e.target.value}); if(!x.ok){ PAGES.o_line_auto(); return; } toast('保存しました'); };
+  /* v2.04・SQL 348：応募者（応募から入店。オーナー 2026-11-04「管理サイトで文章を変更できるように。またタブが増えるな」→ この画面に箱を1つ。見本 作業場/応募者_体験の後_案4.png の④）。はじめは全部「しない」 */
+  const ap=await sb.rpc('admin_ap_line_get',{p_store:st}); if(page!=='o_line_auto'||storeId!==st||ap.error) return;
+  const A=ap.data||{}, AR=[['greet','あいさつ','友だち追加',0],['greet_scout','あいさつ（面接の時）','QR',0],['iv_eve','面接の前日','面接予約',1],['trial_next','体験の翌日','検討中のみ',1],['join','入店','入店',0],['reapproach','再アプローチ','次回連絡日',1]];
+  const ae=document.createElement('div'); ae.className='card';
+  ae.innerHTML=`<b>応募者</b><div class="muted" style="font-size:13px;margin-top:4px">応募の人へ（再アプローチはオーナーと担当へ）</div>
+    <table class="t" style="margin-top:8px;table-layout:fixed">${LA_HEAD.replace('<th>期限</th><th>送信日</th>','<th>対象</th><th>文</th>')}${AR.map(([k,n,tg,t])=>{ const x=A[k]||{};
+      return `<tr data-ap="${k}"><td>${n}</td><td>${tg}</td><td><button class="ghost sm" data-ape>編集</button>${x.custom?' <span class="muted" style="font-size:12px">変更済み</span>':''}</td><td>${t?laTime('data-apv="at"',x.at_time):'<span class="muted">すぐ</span>'}</td><td>${laOn('data-apv="on"',x.enabled)}</td></tr>`; }).join('')}</table>
+    <div id="apEd"></div>`;
+  $('main').appendChild(ae);
+  const apSave=async(k,body)=>{ const tr=ae.querySelector(`[data-ap="${k}"]`), v=n=>tr.querySelector(`[data-apv=${n}]`)?.value;
+    const x=await rpc('admin_ap_line_set',{p_store:st,p_kind:k,p_enabled:v('on')==='1',p_at:v('at')||null,p_body:body===undefined?(A[k]?.custom?A[k].body:null):body}); if(!x.ok){ PAGES.o_line_auto(); return false; } toast('保存しました'); return true; };
+  ae.querySelectorAll('[data-ap]').forEach(tr=>{ const k=tr.dataset.ap;
+    tr.querySelectorAll('select').forEach(sel=>sel.onchange=()=>apSave(k));
+    tr.querySelector('[data-ape]').onclick=()=>{ const n=AR.find(r=>r[0]===k)[1];
+      $('apEd').innerHTML=`<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px"><div class="muted" style="font-size:13px">${esc(n)}（編集）</div>
+        <textarea id="apTx" style="width:100%;height:220px;font:inherit;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:6px;box-sizing:border-box">${esc(A[k]?.body||'')}</textarea>
+        <div class="muted" style="font-size:12px;margin-top:4px">{店名}{名前}{日時}{住所}{担当}{一覧} は送る時に入れかわります</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="ghost" id="apRs">戻す</button><button class="primary" id="apSv">保存</button></div></div>`;
+      $('apSv').onclick=async()=>{ if(await apSave(k,$('apTx').value)) PAGES.o_line_auto(); };
+      $('apRs').onclick=async()=>{ if(!await uiConfirm('最初の文に戻しますか？','戻す')) return; if(await apSave(k,'')) PAGES.o_line_auto(); }; }; });
 };
