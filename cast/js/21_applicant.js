@@ -126,6 +126,7 @@ async function apLiff(go){
   show('<div class="card c muted">読み込み中…</div>');
   if(go === 'book'){ const r = await sb.rpc('applicant_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }
     show('<div class="card c muted">面接予約のページを表示しています…</div>'); try{ liff.openWindow({ url: r.data, external: false }); }catch(e){ location.href = r.data; } return; }
+  if(go === 'judge'){ document.title = '体験のジャッジ'; await judgeLiff(idt); return; } /* v1.23・SQL 355（24_judge.js） */
   if(go === 'sheet'){ await sheetForm(idt); return; } /* v1.21・SQL 350（22_sheet.js） */
   const g = await sb.rpc('applicant_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
   if(!g.data.ok){ fail('表示できません'); return; }

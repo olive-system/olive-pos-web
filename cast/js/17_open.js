@@ -118,6 +118,9 @@ async function hallCloseTask(x, ph){
       <select data-ck="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選んでください</option>${C.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="none">なし</option></select></div>`).join('') || `<div class="muted">${KL}確認中はありません</div>`}</div>
       ${sv('', R.length ? `入力した${KL}には、次の朝のまとめで届きます` : '')}`;
     getData = () => ({ rows: R.map((r, i) => ({ id: r.id, kakari: $('main').querySelector(`[data-ck="${i}"]`).value })) });
+  } else if(k === 'trial_judge'){   // v1.23・SQL 355：閉店作業「体験のジャッジ」（体験の子が来た日だけ。出勤した黒服が全員押すまで完了にできない）
+    body = `${(D.items || []).map(judgeCard).join('') || '<div class="card muted">本日の体験はありません</div>'}${sv()}`;
+    getData = () => ({});
   } else if(k === 'day_memo'){
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;
@@ -134,6 +137,7 @@ async function hallCloseTask(x, ph){
   if(k === 'memo_req') [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
     const z = await sb.rpc('hall_close_memo_req', { p_token: TOKEN, p_task: x.id, p_req: q.id, p_status: st }); if(z.error){ await uiAlert(z.error.message); } again(); }));
+  if(k === 'trial_judge') judgeWire($('main'), async (id, v) => { const z = await sb.rpc('tj_vote_staff', { p_token: TOKEN, p_ap: id, p_vote: v }); if(z.error){ await uiAlert(z.error.message); } again(); });
   if(k === 'kimono') $('main').querySelectorAll('[data-km]').forEach(b => b.onclick = async () => { const c = D[+b.dataset.km]; b.disabled = true;
     const z = await sb.rpc('hall_close_kimono', { p_token: TOKEN, p_task: x.id, p_staff: c.id, p_on: !c.kimono }); if(z.error){ await uiAlert(z.error.message); } again(); });
   if(s) s.onclick = async () => { s.disabled = true;

@@ -334,6 +334,7 @@ async function punch(staff){
   const type = currentType;
   document.getElementById('grid').classList.add('busy');
   try {
+    if (type === 'clock_out' && !await tcJudge(staff)) return; /* 2026-11-04・SQL 355：体験のジャッジを押してから退勤（オーナー「押すまで退勤できない」） */
     if (type === 'clock_out') { /* 2026-10-18・SQL 161：出勤から30分より短い時は聞く（まちがえて押すのを防ぐ） */
       const q = await sb.rpc('tc_in_at', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
       const min = q.data ? Math.floor((Date.now() - new Date(q.data).getTime()) / 60000) : null;
@@ -365,6 +366,26 @@ async function punch(staff){
     document.getElementById('grid').classList.remove('busy');
     setType(null);   // 毎回、未選択に戻す
   }
+}
+
+// 体験のジャッジ（SQL 355）：その日出勤した黒服は、体験の子に［採用］［不採用］を押してから退勤。押したら true（押す物が無い時も true）
+async function tcJudge(staff){
+  const r = await sb.rpc('tc_judge', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
+  const L = (!r.error && Array.isArray(r.data)) ? r.data : [];
+  for (const it of L) {
+    const v = await new Promise(res => { const el = document.createElement('div'); el.className = 'ask show';
+      el.innerHTML = `<div class="box" style="text-align:left;min-width:0;width:min(420px,92vw)"><div style="font-size:16px;color:var(--muted);margin-bottom:6px">体験のジャッジ</div>
+        <div style="display:flex;gap:14px;align-items:flex-start">${it.photo ? `<img src="${it.photo}" alt="" style="flex:none;width:96px;height:128px;object-fit:cover;border-radius:10px">` : ''}<div><div class="nm" style="font-size:24px">${esc(it.name)}</div><div style="font-size:15px;color:var(--muted)">体験 ${esc(it.time || '')}〜</div></div></div>
+        <div style="margin:14px 0 8px;font-size:17px">${esc(staff.display_name)}　あなたの判断</div>
+        <div style="display:flex;gap:10px"><button class="jy" style="flex:1;font-size:20px;padding:14px;border-radius:12px;border:2px solid var(--in);background:#fff;color:var(--in);font-weight:700">採用</button><button class="jn" style="flex:1;font-size:20px;padding:14px;border-radius:12px;border:2px solid var(--out);background:#fff;color:var(--out);font-weight:700">不採用</button></div>
+        <button class="jx" style="margin-top:12px;width:100%;font-size:16px;padding:10px;border-radius:12px;border:1px solid #ccc;background:#fff">キャンセル</button></div>`;
+      document.body.appendChild(el); const done = x => { el.remove(); res(x); };
+      el.querySelector('.jy').onclick = () => done('yes'); el.querySelector('.jn').onclick = () => done('no'); el.querySelector('.jx').onclick = () => done(null); });
+    if (!v) return false;
+    const q = await sb.rpc('tc_judge_vote', { p_staff_id: staff.id, p_terminal: tcGet() || '', p_ap: it.id, p_vote: v });
+    if (q.error) { await showToast('押せませんでした', esc(q.error.message), 2500); return false; }
+  }
+  return true;
 }
 
 function tcAsk(name, min){
