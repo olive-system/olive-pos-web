@@ -81,11 +81,11 @@ async function plInvoices(dir,month){
   const I=r.data||{}, rows=I.rows||[]; if(!rows.length) return true;
   try{ await ksLoad('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'); }catch(e){ await uiAlert(e.message); return false; }
   let logo=null; try{ const b=new Uint8Array(await (await fetch('img/olive_logo.png')).arrayBuffer()); let t=''; for(let i=0;i<b.length;i+=8192) t+=String.fromCharCode(...b.subarray(i,i+8192)); logo=btoa(t); }catch(e){}
-  const G='FF4B5320', LG='FF6B7436', who=x=>(x.company?'c:'+x.company+'|':'n:')+(x.attn||x.receipt_name||x.name||''), groups=[];
+  const G='FF4B5320', LG='FF6B7436', who=x=>(x.company?'c:'+x.company+'|':'n:')+(x.attn||String(x.receipt_name||'').split('\n')[0]||x.name||''), groups=[];
   rows.forEach(x=>{ let g=groups.find(z=>z.k===who(x)); if(!g){ g={k:who(x),h:x,days:[]}; groups.push(g); } const dd=g.days.find(z=>z.date===x.date); if(dd) dd.amount+=Number(x.amount||0); else g.days.push({date:x.date,amount:Number(x.amount||0)}); });
   const zipSplit=a=>{ const m=String(a||'').match(/^(〒?\s*\d{3}-?\d{4})[\s　]+(.*)$/s); return (m?[m[1].replace(/\s/g,''),m[2]]:[String(a||'')]).flatMap(l=>l.split(/\n/)).map(l=>l.trim()).filter(Boolean); };
   const used={};
-  for(const g of groups){ const h=g.h, nm=(h.attn||h.receipt_name||h.name||'').trim(), wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('請求書',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.5,right:0.5,top:0.6,bottom:0.6,header:0.3,footer:0.3}},views:[{showGridLines:false}]});
+  for(const g of groups){ const h=g.h, nm=(h.attn||String(h.receipt_name||'').split('\n')[0]||h.name||'').trim() /* v2.03：領収書名が2社以上の時は1社目 */, wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('請求書',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.5,right:0.5,top:0.6,bottom:0.6,header:0.3,footer:0.3}},views:[{showGridLines:false}]});
     ws.columns=[{width:2},{width:30},{width:12},{width:10},{width:15},{width:2}];
     const font=(c,o={})=>{ c.font={size:10,...o}; }, bar=r=>{ ['B','C','D'].forEach(k=>{ ws.getCell(k+r).fill={type:'pattern',pattern:'solid',fgColor:{argb:G}}; }); ws.getRow(r).height=5; };
     bar(2);

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.60 -->
+<title>OLIVE 顧客</title><!-- customer v1.61 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -302,7 +302,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
     <dl class="kv info">
       <dt>お誕生日</dt><dd>${esc(c.birthday||'—')}</dd>
       <dt>会社名</dt><dd>${esc(c.company||'—')}${c.is_industry?' <span class="badge k">同業</span>':''}</dd>
-      <dt>領収書名</dt><dd>${esc(c.receipt_name||'—')}</dd>
+      <dt>領収書名</dt><dd style="white-space:pre-line">${esc(c.receipt_name||'—')}</dd>
       <dt>${KL}</dt><dd>${esc(kakari||'—')}</dd>
       <dt>会社住所</dt><dd>${esc(c.company_address||'—')}</dd>
       <dt>タバコ</dt><dd style="white-space:pre-line">${esc(c.tobacco||'—')}</dd>
@@ -389,19 +389,25 @@ async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* v1.54：説明�
 function btcForm(c,x){ return sheet(`<h3>${esc(c.name)} 様　${x?'請求先を修正':'請求先を追加'}</h3>
   <label class="f">会社名（部署も書ける）<input id="bfCo" maxlength="100" value="${esc(x?.company||'')}"></label>
   <label class="f">住所（〒から）<textarea id="bfAd" rows="3" maxlength="200">${esc(x?.address||'')}</textarea></label>
-  <label class="f">宛名（様の前）<input id="bfAt" maxlength="60" value="${esc(x?x.attn||'':c.receipt_name||c.name)}"></label>
+  <label class="f">宛名（様の前）<input id="bfAt" maxlength="60" value="${esc(x?x.attn||'':rnFirst(c.receipt_name)||c.name)}"></label>
   <div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{
     s.querySelector('[data-x]').onclick=()=>done(false);
     s.querySelector('[data-ok]').onclick=async e=>{ const co=s.querySelector('#bfCo').value.trim(); if(!co){ toast('会社名を入力してください'); return; }
       e.target.disabled=true; try{ await rpc('cs_bill_to_save',{p_token:token,p_edit_token:editTok,p_customer:c.id,p_id:x?.id||null,p_company:co,p_address:s.querySelector('#bfAd').value.trim(),p_attn:s.querySelector('#bfAt').value.trim()}); done(true); toast('保存しました'); btcLoad(c); }
       catch(err){ e.target.disabled=false; if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); return; } await fail(err); } }; }); }
 // 基本情報・メモの編集（編集パスワードが必要）
+/* v1.61：領収書名は1社1枠（2社・3社の方がいる。オーナー 2026-11-04「スペースを食わない形で」）。保存は改行でつなぐ。「追加」は最後の枠のすぐ右。枠を空にして保存すると、その社は削除。value で読み書きできるので、ほかの欄と同じに扱える */
+const rnFirst=v=>String(v||'').split('\n')[0].trim();
+function rnBox(el){ let a=String(el.dataset.v||'').split('\n'); const vals=()=>[...el.querySelectorAll('input')].map(i=>i.value);
+  const draw=()=>{ el.innerHTML=a.map((x,i)=>`<input value="${esc(x)}" style="margin:0">${i===a.length-1?'<button type="button" class="ghost" data-rnadd style="padding:0 14px">追加</button>':'<span></span>'}`).join(''); el.querySelector('[data-rnadd]').onclick=()=>{ a=vals(); a.push(''); draw(); el.querySelector('input:last-of-type').focus(); }; };
+  Object.defineProperty(el,'value',{get:()=>vals().map(x=>x.trim()).filter(Boolean).join('\n'),set:v=>{ a=String(v||'').split('\n'); draw(); }}); draw(); }
 const EF=[['name','お名前'],['birthday','お誕生日'],['company','会社名'],['receipt_name','領収書名'],['kakari_staff_id',''+KL+''],['company_address','会社住所'],['tobacco','タバコ'],['haisha','配車']]; /* v1.54・SQL 304：タバコ・配車（オーナー 2026-11-01。メモの【タバコ】【配車】から移した。2行になることがあるので入力は2行の枠） */
 function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draft)?draft[k]:c[k]; const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const curK=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?staffBy(c.kakari_staff_id):null;
   const fields=memoOnly?'':EF.map(([k,l])=>k==='kakari_staff_id'?`<label class="f">${l}<select data-k="${k}"><option value="">なし</option>${curK?`<option value="${curK.id}" selected>${esc(curK.name)}（退店）</option>`:''}${casts.map(s=>`<option value="${s.id}" ${dv(k)===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`
     :k==='tobacco'||k==='haisha'?`<label class="f">${l}<textarea data-k="${k}" rows="2" maxlength="300">${esc(dv(k)||'')}</textarea></label>`
+    :k==='receipt_name'?`<div class="f" style="margin-bottom:10px;font-size:13px;color:var(--muted)">${l}<div data-k="${k}" data-rn data-v="${esc(dv(k)||'')}" style="display:grid;grid-template-columns:1fr auto;gap:4px 6px;margin-top:4px;color:var(--ink)"></div></div>`
     :`<label class="f">${l}<input data-k="${k}" value="${esc(dv(k)||'')}" ${k==='birthday'?'placeholder="例 11/24" inputmode="numeric"':''}></label>`).join('')+`<label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="is_industry" ${dv('is_industry')?'checked':''} style="width:auto;margin:0">同業（会社名に店名を入れる）</label><label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="focus" ${(draft&&('focus' in draft)?draft.focus:!!(custs.find(x=>x.id===c.id)||{}).focus)?'checked':''} style="width:auto;margin:0">強化</label>`; /* v1.60・SQL 324：強化リスト（店ごと・上限は出勤人数×3） */
-  return sheet(`<h3>${esc(c.name)} 様　${memoOnly?'メモを編集':'お客様の情報を編集'}</h3>${fields}${memoOnly?`<label class="f">メモ<textarea data-k="memo" rows="12">${esc(dv('memo')||'')}</textarea></label>`:''}<div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{
+  return sheet(`<h3>${esc(c.name)} 様　${memoOnly?'メモを編集':'お客様の情報を編集'}</h3>${fields}${memoOnly?`<label class="f">メモ<textarea data-k="memo" rows="12">${esc(dv('memo')||'')}</textarea></label>`:''}<div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ s.querySelectorAll('[data-rn]').forEach(rnBox);
     s.querySelector('[data-x]').onclick=()=>done(false);
     s.querySelector('[data-ok]').onclick=async e=>{ const patch={}, before={}, dr={}; let fNew=null; const li0=custs.find(x=>x.id===c.id), fChg=()=>fNew!=null&&fNew!==!!(li0&&li0.focus); s.querySelectorAll('[data-k]').forEach(i=>{ dr[i.dataset.k]=i.type==='checkbox'?i.checked:(i.value||null); });
       s.querySelectorAll('[data-k]').forEach(i=>{ const k=i.dataset.k; let v=i.type==='checkbox'?i.checked:(k==='memo'?i.value.replace(/\s+$/,''):i.value.trim()); if(v==='') v=null; if(k==='focus'){ fNew=v; return; } if(k==='is_industry'){ if(v!==!!c.is_industry){ patch[k]=v; before[k]=!!c.is_industry; } return; } if(v!==(c[k]||null)){ patch[k]=v; before[k]=c[k]??null; } });
