@@ -27,7 +27,7 @@ function shiftPaint(ng){
   const fixed = (S.fixed || []).map(F => { const D = {}; (F.days||[]).forEach(x => D[x.day] = x.time); const M = {}; (F.marks||[]).forEach(x => (M[x.day] = M[x.day] || []).push(x));
     return `<div class="card"><div class="gh">${Number(String(F.month).slice(5,7))}月の出勤（確定）${(F.days||[]).length}日</div>${calGrid(F.month, (iso, d) => { const t = D[iso], k = M[iso];
       return `<div data-sd="${iso}" style="${box};cursor:pointer;${t?'background:var(--gold-soft);font-weight:700':''}">${d}${t?`<small style="display:block;font-size:10px;color:var(--pri)">${t}</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':(k?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">出勤なし</small>':'')}${['同伴','予約','係予約','ミーティング'].map(n => { const c = (k||[]).filter(x => x.kind === n).length; return c ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">${n.replace('係', KL)}${n === 'ミーティング' ? '' : c}</small>` : ''; }).join('')}</div>`; })}</div>`; }).join('');
-  show(`<div style="display:flex;justify-content:flex-end;margin-bottom:-28px"><button class="lkb" id="shAtt">打刻一覧</button></div><div class="ttl">シフト</div>${fixed}
+  show(`<div style="display:flex;justify-content:flex-end;margin-bottom:-28px"><button class="lkb" id="shAtt">打刻一覧</button></div><div class="ttl">シフト</div>${mtShiftBox()}${fixed}
     <div class="card"><div class="sm" style="font-weight:700;margin-bottom:8px">${mo}月分${OK?'出勤希望':'休み希望'}　提出期限 ${dueD}</div>
     ${calGrid(S.month, (iso, d) => { const on = ng.has(iso), of = OFF.has(iso), fu = (full.has(iso) && !on) || of;
       return `<div ${S.closed||fu?'':`data-ng="${iso}"`} style="${box};${S.closed||fu?'':'cursor:pointer;'}${on?'background:var(--soft)':''}${fu?';color:var(--muted);background:var(--bg)':''}">${d}${on?(OK?'<small style="display:block;color:var(--ok);font-size:12px">○</small>':'<small style="display:block;color:var(--warn);font-size:12px">×</small>'):fu?`<small style="display:block;font-size:10px">${of?'休':'満'}</small>`:''}</div>`; })}
@@ -36,6 +36,7 @@ function shiftPaint(ng){
     ${S.closed?'':`<button class="btn" id="shGo">${S.submitted?'再提出':'提出'}</button>`}<button class="btn g" id="shChg" style="margin-top:10px">シフト変更（メッセージにてご相談ください）</button>`);
   $('main').querySelectorAll('[data-ng]').forEach(b => b.onclick = () => { const k = b.dataset.ng; ng.has(k) ? ng.delete(k) : ng.add(k); const y = window.scrollY; shiftPaint(ng); window.scrollTo(0, y); });
   $('main').querySelectorAll('[data-sd]').forEach(b => b.onclick = () => shiftDay(b.dataset.sd));
+  if($('mtGo')) $('mtGo').onclick = () => mtCast(shiftHome); /* v1.17 */
   $('shAtt').onclick = () => attend(null); /* v0.42：打刻一覧はシフトの中から（オーナー 2026-10-18） */
   $('shChg').onclick = async () => { try{ if(liff.isInClient()){ liff.closeWindow(); return; } }catch(e){} await uiAlert('公式 LINE のトークからご連絡ください'); }; // v0.29：お店のトークに戻る
   if($('shGo')) $('shGo').onclick = async () => {
@@ -59,7 +60,9 @@ let SHALL = null;
 const SH_STORE = { ginza: '銀座', hiroshima: '広島' };
 async function shiftAll(store){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  const pMt = ME && ME.hall ? Promise.resolve(sb.rpc('hall_meeting_get', { p_token: TOKEN })).catch(() => null) : null; /* v1.17：黒服は一番上にミーティング（ボタンはシフトに。見本 共有メモ_案3） */
   const r = await sb.rpc('cast_shift_all', { p_token: TOKEN, p_store: store || null }); if(r.error){ fail(r.error.message); return; }
+  const mt = pMt ? await pMt : null, mtBox = mt && !mt.error ? mtHallBox(mt.data) : '';
   const A = SHALL = r.data, td = new Date(A.today+'T00:00:00+09:00'), KLs = A.kakari_label || '係';
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   // v0.72・SQL 259：同伴がある人は「同伴」の行にまとめて件数だけ（オーナー 2026-10-26 案ア）。黒服はシフトに出さない（休みの日だけ「黒服の休み」）
@@ -80,7 +83,8 @@ async function shiftAll(store){
     return `<div class="card"><div class="gh">${Number(String(M.month).slice(5,7))}月の出勤（確定）</div>${M.fixed ? calGrid(M.month, (iso, d) => { const L = D[iso] || [], dh = L.reduce((a, x) => a + Number(x.douhan || 0), 0), rv = RV[iso] || 0;
       return `<div ${L.length||rv||(iso>=A.today&&!OFF.has(iso))?`data-sa="${iso}"`:''} style="${box};${L.length?'cursor:pointer;background:var(--gold-soft);font-weight:700':''}">${d}${L.length?`<small style="display:block;font-size:10px;color:var(--pri)">${L.length}人</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':''}${L.length || rv ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">同伴${RVD[iso] || 0}</small><small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">予約${rv - (RVD[iso] || 0)}</small>` : ''}</div>`; })
       + '<div class="muted sm" style="margin-top:6px">タップで詳細表示</div>' : '<div class="muted sm">まだ確定していません</div>'}</div>`; };
-  show(`${sw}<div class="ttl">シフト（全員）</div><div class="card"><div class="gh">本日 ${td.getMonth()+1}/${td.getDate()}（${WD[td.getDay()]}） 出勤 ${tL.length}人</div>${rows(tL) || '<div class="muted sm">シフトなし</div>'}${todayExtra}</div>${(A.months || []).map(cal).join('')}`);
+  show(`${sw}<div class="ttl">シフト（全員）</div>${mtBox}<div class="card"><div class="gh">本日 ${td.getMonth()+1}/${td.getDate()}（${WD[td.getDay()]}） 出勤 ${tL.length}人</div>${rows(tL) || '<div class="muted sm">シフトなし</div>'}${todayExtra}</div>${(A.months || []).map(cal).join('')}`);
+  if($('mtGo')) $('mtGo').onclick = () => mtHall(() => shiftAll(store)); /* v1.17 */
   $('main').querySelectorAll('[data-shst]').forEach(b => b.onclick = () => { if(b.dataset.shst !== A.store) shiftAll(b.dataset.shst); });
   $('main').querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { if(b.dataset.sa >= A.today && !(A.months || []).some(M => (M.off || []).includes(b.dataset.sa))){ shiftDayEdit(b.dataset.sa, A.store); return; } const iso = b.dataset.sa, d = new Date(iso+'T00:00:00+09:00'), L = all('shifts').filter(x => x.day === iso), off = hallOff(iso), R = resvOf(iso);
     uiAlert(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人\n${groups(L).map(([t, n]) => `${t}　${n}`).join('\n')}`
