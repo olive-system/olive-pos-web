@@ -10,7 +10,8 @@ const apLegend = () => `<span style="margin-left:12px;font-weight:400;white-spac
 const apDt = iso => { if(!iso) return '未定'; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 const apIsoDay = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : '';
 const apIsoTime = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 16) : '20:00';
-const AP_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)]; // 2026-11-04：23:00 まで（シフトと同じ）;
+// v1.21：シフトの時刻と同じく 19:50 と 20:00〜23:00（PR #343）
+const AP_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
 const AP_IV_T = Array.from({ length: 24 }, (_, i) => `${12 + Math.floor(i / 2)}:${i % 2 ? '30' : '00'}`); // 面接の時刻 12:00〜23:30
 const apSel = (opts, v, attr) => `<select ${attr} style="${AP_FS}">${opts.map(([k, n]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
 const apChk = (k, name, on) => `<label style="display:flex;align-items:center;gap:6px;padding:7px 0;font-size:14px;white-space:nowrap;color:var(--ink);margin:0"><input type="checkbox" data-${k}="${esc(name)}" ${on ? 'checked' : ''} style="width:18px;height:18px;margin:0;accent-color:var(--pri)">${esc(name)}</label>`;
@@ -49,6 +50,9 @@ async function apPage(id, store, back){
   const photos = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
       <div><div class="f">ヒアリングシート</div><div style="display:flex;gap:6px;flex-wrap:wrap">${sheet.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="sheet" style="width:64px;height:86px;padding:0">撮影</button></div></div>
       <div><div class="f">バストアップ写真</div><div style="display:flex;gap:6px">${bust.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="bust" style="width:64px;height:86px;padding:0">撮影</button></div></div></div>`;
+  const hl = sheetLines(A.hearing); /* v1.21・SQL 350：本人が LINE で入力したヒアリングシート */
+  const hs = `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">ヒアリングシートの入力内容</b><button class="btn g" id="apSh" style="width:auto;padding:8px 16px">編集</button></div>` + (hl.length ? `<div class="sm" style="line-height:1.8;padding-top:6px">${hl.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:45%">${esc(k)}</span><span style="min-width:0">${esc(v)}</span></div>`).join('')}</div>` : '');
+  const _old = hl.length ? `<div class="f" style="margin-top:12px">ヒアリングシート（LINE）</div><div class="sm" style="line-height:1.8;border-top:1px solid var(--line);padding-top:6px">${hl.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:45%">${esc(k)}</span><span style="min-width:0">${esc(v)}</span></div>`).join('')}</div>` : '';
   const iv = `<div class="card"><div class="gh">面接　${esc(apDt(A.interview_at))}</div>
     ${ivOpen ? `<div class="f">面接結果</div>${apSeg('iv', [['trial', '体験'], ['joined', '入店'], ['declined', '辞退'], ['rejected', '不採用']], ivRes)}
       <div id="apTrialIn" style="${ivRes === 'trial' ? '' : 'display:none'}">
@@ -56,7 +60,7 @@ async function apPage(id, store, back){
         <label class="f" style="margin-top:8px">体験の報酬</label><div style="display:flex;gap:8px"><select id="apTp" style="${AP_FS};width:auto;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([k, n]) => `<option value="${k}" ${k === (A.trial_pay_type || 'daily') ? 'selected' : ''}>${n}</option>`).join('')}</select><input id="apTa" type="number" inputmode="numeric" min="1" placeholder="円" value="${A.trial_pay_amount || ''}" style="${AP_FS};flex:1;min-width:0"></div>
         ${A.name ? '' : `<label class="f" style="margin-top:8px">名前<input id="apNm" maxlength="30" style="${AP_FS}"></label>`}
         <label class="f" style="margin-top:8px">本名<input id="apRn" maxlength="60" value="${esc(A.real_name || '')}" style="${AP_FS}"></label></div>
-      ${photos}<button class="btn" id="apIvOk" style="margin-top:14px">保存</button>` : `<div style="padding:4px 0">面接結果　${esc(({ trial: '体験', considering: '体験', joined: '入店', declined: '辞退', rejected: '不採用' })[A.status] || '')}</div>${photos}`}</div>`;
+      ${photos}<button class="btn" id="apIvOk" style="margin-top:14px">保存</button>` : `<div style="padding:4px 0">面接結果　${esc(({ trial: '体験', considering: '体験', joined: '入店', declined: '辞退', rejected: '不採用' })[A.status] || '')}</div>${photos}`}${hs}</div>`;
   // 体験
   const trRes = ({ joined: 'joined', considering: 'considering', declined: 'declined' })[A.status] || '';
   const tr = A.trial_name ? `<div class="card"><div class="gh">体験　${esc(apDt(A.trial_at))}</div>
@@ -94,6 +98,7 @@ async function apPage(id, store, back){
     e.target.disabled = true;
     const q = await sb.rpc('ap_trial_result', { p_token: TOKEN, p_store: store || null, p_id: id, p_result: v, p_good: pick('good'), p_concern: pick('concern'), p_memo: $('apMemo').value });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
+  $('apSh').onclick = () => sheetStaff(id, store, again); /* v1.21：お店が書き込む */
   if($('apQr')) $('apQr').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('ap_qr', { p_token: TOKEN, p_store: store || null, p_id: id }); e.target.disabled = false; if(q.error){ await uiAlert(q.error.message); return; } /* v1.19・SQL 348：15分の間の友だち追加をこの人につなぐ */
     const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); const w = document.createElement('div'); w.className = 'dlg';
     w.innerHTML = `<div class="box"><p style="font-weight:700;margin:0 0 10px">${esc(STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div><button class="btn g" data-k="no" style="margin-top:12px">閉じる</button></div>`;
@@ -121,7 +126,7 @@ async function apLiff(go){
   show('<div class="card c muted">読み込み中…</div>');
   if(go === 'book'){ const r = await sb.rpc('applicant_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }
     show('<div class="card c muted">面接予約のページを表示しています…</div>'); try{ liff.openWindow({ url: r.data, external: false }); }catch(e){ location.href = r.data; } return; }
-  if(go === 'sheet'){ show('<div class="card">ヒアリングシートは、ご来店の時にご記入いただけます。<br>お会いできるのを楽しみにしております🙇‍♀️</div>'); return; }
+  if(go === 'sheet'){ await sheetForm(idt); return; } /* v1.21・SQL 350（22_sheet.js） */
   const g = await sb.rpc('applicant_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
   if(!g.data.ok){ fail('表示できません'); return; }
   if(g.data.sent){ show('<div class="card">ご感想は送信済みです。<br>ありがとうございました🙇‍♀️</div>'); return; }
