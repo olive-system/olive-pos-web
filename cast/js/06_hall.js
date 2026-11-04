@@ -90,6 +90,14 @@ let hcOpen = new Set();
 /* v0.38：天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー 2026-10-18「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
 const WXT=c=>c==null?['—',null]:c<=1?['晴れ','clear-night']:c===2?['晴れ時々くもり','partly-cloudy-night']:c===3?['くもり','overcast-night']:c<=48?['霧','fog-night']:c<=57?['霧雨','drizzle']:c<=67?['雨','rain']:c<=77?['雪','snow']:c<=82?['にわか雨','partly-cloudy-night-rain']:c<=86?['にわか雪','partly-cloudy-night-snow']:['雷雨','thunderstorms-night-rain'];
 const WXN=c=>WXT(c)[0], WXI=(c,px)=>{ const [t,n]=WXT(c); return n?`<img src="https://cdn.jsdelivr.net/npm/@bybas/weather-icons@2.0.0/production/fill/all/${n}.svg" alt="${t}" style="width:${px}px;height:${px}px;display:block;margin:0 auto">`:'—'; };
+/* v1.16・SQL 344：売上予測（目標・現在・予測。昨日まで。POS の朝礼と同じ。2026-11-04 オーナー・見本 作業場/売上予測_案7.png） */
+function hcFc(F){ const md = x => { const t = new Date(x+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}`; }, no = '<span class="muted">—</span>', g = n => n==null ? no : `${n}組`, y = n => n==null ? no : yen(n);
+  const th = 'color:var(--muted);font-weight:700;font-size:12px;text-align:right;padding:4px 0 4px 6px;border-top:1px solid var(--line)', td = 'padding:4px 0 4px 6px;border-top:1px solid var(--line);font-weight:700;text-align:right;white-space:nowrap', tl = 'padding:4px 0;border-top:1px solid var(--line);font-weight:700';
+  return `<div class="gh" style="margin-top:8px">${F.month}月（${md(F.from)}〜${md(F.to)}）　営業日数 ${F.done} / ${F.days}日</div>
+    <table style="border-collapse:collapse;width:100%;font-size:14px"><tr><th style="${th}"></th><th style="${th}">目標</th><th style="${th}">現在</th><th style="${th}">予測</th></tr>
+    <tr><td style="${tl}">売上</td><td style="${td}">${y(F.target)}</td><td style="${td}">${yen(F.sales)}</td><td style="${td}">${y(F.fc_sales)}</td></tr>
+    <tr><td style="${tl}">組数</td><td style="${td}">${g(F.tgt_groups)}</td><td style="${td}">${F.groups}組</td><td style="${td}">${g(F.fc_groups)}</td></tr></table>
+    <div class="row" style="font-size:14px"><span class="muted">1日平均売上</span><b>${y(F.avg)}</b></div><div class="row" style="font-size:14px"><span class="muted">1日必要組数</span><b>${g(F.need)}</b></div><div class="row" style="font-size:14px"><span class="muted">平均客単価</span><b>${y(F.unit)}</b></div>`; }
 /* v0.94：朝礼のデータと天気は覚えておき、お客様を開く・閉じる時は読み直さない（前は押すたびに hall_chorei と天気を読み直していた）。読み直すのは開いた時と「確認」「確認の取消」の後（天気はそのまま） */
 let hcD = null, hcWx = null;
 async function hallChorei(keepWx){
@@ -118,7 +126,7 @@ function hcPaint(){
     <div class="card"><div class="gh">本日来店予定のお客様 ${G.length}組${left?`　<span class="err">未確認 ${left}組</span>`:''}</div>${G.map(guest).join('')||'<div class="muted sm">なし</div>'}${G.length?'<div class="muted sm" style="margin-top:6px">未確認をタップで顧客メモを確認してください。</div>':''}</div>
     <div class="card"><div class="gh">天気</div><div id="hcWx" class="${hcWx ? hcWx.c : 'muted sm'}">${hcWx ? hcWx.h : '読み込み中…'}</div></div>
     <div class="card"><div class="gh">本日の出勤 ${(C.shifts||[]).length}人</div>${Object.keys(SH).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${SH[t].join('・')}</span></div>`).join('')||'<div class="muted sm">シフトなし</div>'}</div>
-    <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdj(y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0'))}</span><b>${yen(C.sales_y)}</b></div>${C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
+    <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdj(y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0'))}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
     <div class="card"><div class="gh">2週間以内のお誕生日</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様'; return `<div class="row"><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`);
   $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* v0.94：読み直さない */
   $('main').querySelectorAll('[data-hs]').forEach(x => { x.onclick = e => e.stopPropagation(); x.onchange = async () => { const id = x.dataset.hs, g = G.find(g => String(g.id) === id), was = g?.seat || ''; x.disabled = true;
