@@ -141,10 +141,10 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2)];
   const head=shSwitch('shift')+`<h1>シフト <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const [tr,mr]=await Promise.all([sb.rpc('admin_shift_today',{p_store:st}), sb.rpc('admin_shift_month',{p_store:st,p_month:m})]);
+  const [tr,mr,ir]=await Promise.all([sb.rpc('admin_shift_today',{p_store:st}), sb.rpc('admin_shift_month',{p_store:st,p_month:m}), sb.rpc('admin_shift_iv',{p_store:st,p_month:m})]);
   if(page!=='shift'||storeId!==st||shMonth!==m) return;
   if(mr.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(mr.error.message)}</div>`; return; }
-  const T=tr.error?null:tr.data, M=mr.data, C=M.casts||[], cName=id=>C.find(c=>c.id===id)?.name||'';
+  const T=tr.error?null:tr.data, M=mr.data, IV=ir.error?{}:ir.data||{} /* v2.06・SQL 353：日ごとの面接の数 */, C=M.casts||[], cName=id=>C.find(c=>c.id===id)?.name||'';
   const md=d=>{ const x=new Date(d+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()}（${SH_WD[x.getDay()]}）`; };
   // 本日
   let today='';
@@ -165,11 +165,13 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const mainOrd=(a,b)=>(mCnt[b.staff_id]||0)-(mCnt[a.staff_id]||0)||since(a.staff_id).localeCompare(since(b.staff_id))||ord(a)-ord(b);
   let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+SH_WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){ const k=iso(d);
-    if(OFF.has(k)){ cal+=`<div style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:96px;font-size:12px;line-height:1.5;background:var(--soft);color:var(--muted)"><b style="color:var(--ink)">${d}</b><div style="font-size:13px;margin-top:4px">休</div></div>`; continue; } // v1.07・SQL 128：お店の休み
+    if(OFF.has(k)){ cal+=`<div style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;background:var(--soft);color:var(--muted)"><b style="color:var(--ink)">${d}</b><div style="font-size:13px;margin-top:4px">休</div></div>`; continue; } // v1.07・SQL 128：お店の休み
     const L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
-    cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><b>${d}</b>${R.length?`<small style="color:var(--muted);font-size:11px">予約${R.length-dn}${dn?'・同伴'+dn:''}</small>`:''}</div>
-      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:6px;font-size:11px;color:var(--muted);white-space:nowrap">${L.length<tg(k)?`<b style="color:var(--warn)">${L.length}／${tg(k)}人</b>`:`<span>${L.length}／${tg(k)}人</span>`}${e<need&&tg(k)>0?`<span style="color:var(--warn);font-weight:700">19:50 不足${need-e}人</span>`:''}</div>
+    // v2.06・SQL 353：数は1行ずつ、言葉を先に（出勤・19:50 不足・同伴・予約・面接）。前は「予約○・同伴○」「○／○人」「19:50 不足○人」が横に並び、スマホで折れて読めなかった（オーナー 2026-11-04「面接が何人なんかキャストが何人なんか注意が何人なんかが分かんない」→ 見本 作業場/シフトのマス_案1.png）
+    cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
+      <b>${d}</b><div style="font-size:10px;letter-spacing:-.3px;white-space:nowrap;color:var(--muted)">
+        <div${L.length<tg(k)?' style="color:var(--warn);font-weight:700"':''}>出勤${L.length}${tg(k)?'/'+tg(k):''}</div>${e<need&&tg(k)>0?`<div style="color:var(--warn);font-weight:700">19:50<br>不足${need-e}人</div>`:''}
+        <div style="color:var(--ok)">同伴${dn}</div><div>予約${R.length-dn}</div><div>面接${IV[k]||0}</div></div>
       <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).flatMap(r=>r.dh&&r.dh.length?r.dh:[r.by])) /* v1.63・SQL 265：同伴の子も */, isD=x=>DH.has(cName(x.staff_id)); const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
         return (P.slice(0,4).map(x=>isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
   cal+='</div>';
@@ -181,9 +183,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
       <span style="background:var(--gold-soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--ink)">イベント日</span>
       <span style="background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px">休</span>
       <b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>
-      <b style="color:var(--warn)">19:50 不足</b>
-      <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--ink);font-weight:400">6／8人</b>出勤人数／目安</span>
-      <span style="display:inline-flex;gap:4px;align-items:center"><b style="color:var(--warn)">3／6人</b>人数不足</span>${Object.keys(M.targets||{}).length?'':'<button class="ghost sm" id="shGoSet">目安人数の入力（シフト設定）</button>'}</div>${cal}
+      ${Object.keys(M.targets||{}).length?'':'<button class="ghost sm" id="shGoSet">目安人数の入力（シフト設定）</button>'}</div>${cal}
     <div class="muted" style="font-size:12px;margin-top:6px">タップで詳細表示</div></div>`;
   $('shM').onchange=()=>{ shMonth=$('shM').value; PAGES.shift(); };
   $('main').querySelectorAll('[data-shd]').forEach(b=>b.onclick=()=>shiftDayEdit(st,M,b.dataset.shd,ed));
