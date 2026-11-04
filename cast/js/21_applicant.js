@@ -1,0 +1,110 @@
+// v1.18・SQL 347：応募から入店（2026-11-04 オーナー。決まり 仕様書/応募から入店の動線（2026-11-04）.md・見本 作業場/応募者_シフトにまとめる_案6.png・応募者_マイページ_案4.png）
+//   ［応募者］のボタンは作らない。シフト（全員）の面接・体験の名前を押すと、その人のページ（全員のシフトを見られる人＝黒服・ママ）
+//   一番上にバストアップ写真と担当・区分・電話。面接（面接結果・体験日と報酬・ヒアリングシートとバストアップ写真）→ 体験（体験結果・よかった点・気になった点）→ 入店（契約書は対面で［開始］）／辞退（次回連絡日）
+//   写真は公開の置き場に置かない（顔とヒアリングシート）。ap_photo で1枚ずつ読む
+const AP_PT = ['給料', '人間関係（キャスト）', '人間関係（黒服）', '雰囲気', '客層', '時間', 'その他'];
+const AP_FS = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)';
+// 体験の人のしるし：名前を丸で囲む。外側の線（outline）で描くので、文字の大きさ・行の高さ・幅はほかの名前と同じ（オーナー 2026-11-04「体験の子だけスペース食ってない？」）
+const apRing = (name, id) => `<span${id ? ` data-ap="${id}"` : ''} style="white-space:nowrap;border-radius:999px;outline:1.5px solid var(--pri);outline-offset:2px${id ? ';cursor:pointer' : ''}">${esc(name)}</span>`;
+const apLegend = () => `<span style="margin-left:12px;font-weight:400;white-space:nowrap"><span style="display:inline-block;width:1.8em;height:1.1em;border:1.5px solid var(--pri);border-radius:999px;vertical-align:-0.2em;box-sizing:border-box"></span> 体験</span>`;
+const apDt = iso => { if(!iso) return '未定'; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
+const apIsoDay = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : '';
+const apIsoTime = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 16) : '20:00';
+const AP_T = ['19:50', ...Array.from({ length: 16 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
+const AP_IV_T = Array.from({ length: 24 }, (_, i) => `${12 + Math.floor(i / 2)}:${i % 2 ? '30' : '00'}`); // 面接の時刻 12:00〜23:30
+const apSel = (opts, v, attr) => `<select ${attr} style="${AP_FS}">${opts.map(([k, n]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+const apChk = (k, name, on) => `<label style="display:flex;align-items:center;gap:6px;padding:7px 0;font-size:14px;white-space:nowrap;color:var(--ink);margin:0"><input type="checkbox" data-${k}="${esc(name)}" ${on ? 'checked' : ''} style="width:18px;height:18px;margin:0;accent-color:var(--pri)">${esc(name)}</label>`;
+const apGrid = (k, on) => `<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:8px">${AP_PT.map(t => apChk(k, t, (on || []).includes(t))).join('')}</div>`;
+const apSeg = (k, opts, v) => `<div class="seg" data-seg="${k}">${opts.map(([x, n]) => `<button type="button" data-v="${x}" class="${x === v ? 'on' : ''}" style="white-space:nowrap;padding:9px 4px">${n}</button>`).join('')}</div>`;
+
+async function apPhotoUrl(store, id){ const r = await sb.rpc('ap_photo', { p_token: TOKEN, p_store: store || null, p_photo: id }); return r.error ? '' : r.data; }
+const apBlob64 = blob => new Promise((ok, ng) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = ng; f.readAsDataURL(blob); });
+// 写真を撮る（カメラ）→ 縮めて送る（09_dress.js の shrinkJpeg）
+function apShoot(store, id, kind, done){ const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment';
+  i.onchange = async () => { const f = i.files && i.files[0]; if(!f) return; try{ const d = await apBlob64(await shrinkJpeg(f));
+    const r = await sb.rpc('ap_photo_add', { p_token: TOKEN, p_store: store || null, p_id: id, p_kind: kind, p_data: d }); if(r.error){ await uiAlert(r.error.message); return; } done(); }catch(e){ await uiAlert('写真を送信できませんでした'); } };
+  i.click(); }
+// 写真を大きく表示（削除もここ）
+async function apPhotoBig(store, id, src, done){ const w = document.createElement('div'); w.className = 'dlg';
+  w.innerHTML = `<div class="box"><img src="${src}" style="width:100%;border-radius:8px;display:block"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button><button class="btn g" data-k="no">閉じる</button></div></div>`;
+  document.body.appendChild(w); w.querySelector('[data-k=no]').onclick = () => w.remove();
+  w.querySelector('[data-k=del]').onclick = async () => { if(!await uiConfirm('この写真を削除しますか？', '削除')) return; const r = await sb.rpc('ap_photo_del', { p_token: TOKEN, p_store: store || null, p_photo: id }); w.remove(); if(r.error){ await uiAlert(r.error.message); return; } done(); }; }
+
+async function apPage(id, store, back){
+  setBack(back); show('<div class="card c muted">読み込み中…</div>');
+  const r = await sb.rpc('ap_get', { p_token: TOKEN, p_store: store || null, p_id: id }); if(r.error){ fail(r.error.message); return; }
+  const A = r.data, again = () => apPage(id, store, back), ivOpen = ['applied', 'interview', 'trial', 'declined', 'rejected'].includes(A.status) && !A.joined;
+  const thumb = (p, w, h) => `<img data-ph="${p.id}" alt="" style="flex:none;width:${w}px;height:${h}px;object-fit:cover;border:1px solid var(--line);border-radius:8px;background:var(--soft);cursor:pointer">`;
+  const bust = (A.photos || []).filter(p => p.kind === 'bust'), sheet = (A.photos || []).filter(p => p.kind === 'sheet');
+  const kv = (k, v) => `<div style="display:flex;gap:8px;padding:6px 0;align-items:baseline"><span class="muted" style="flex:none;width:3em">${k}</span><span style="min-width:0">${v}</span></div>`;
+  const kindTxt = A.kind === 'hall' ? '黒服' : 'キャスト';
+  const top = `<div class="card"><div style="display:flex;gap:12px;align-items:flex-start">
+      ${bust.length ? thumb(bust[0], 84, 112) : `<button type="button" data-shoot="bust" style="flex:none;width:84px;height:112px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font:inherit;font-size:12px;cursor:pointer">バストアップ</button>`}
+      <div style="flex:1;min-width:0"><label class="f">担当${apSel([['', '未定'], ...(A.halls || []).map(h => [h.id, h.name])], A.hall_staff_id || '', 'id="apHall"')}</label>
+      ${A.trial_name || A.joined ? kv('区分', kindTxt) : `<div style="margin-top:6px">${apSel([['cast', 'キャスト'], ['hall', '黒服']], A.kind, 'id="apKind"')}</div>`}
+      ${A.phone ? kv('電話', `<span style="white-space:nowrap">${esc(A.phone)}</span>`) : ''}</div></div></div>`;
+  // 面接
+  const ivRes = ({ trial: 'trial', considering: 'trial', joined: 'joined', declined: 'declined', rejected: 'rejected' })[A.status] || '';
+  const photos = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+      <div><div class="f">ヒアリングシート</div><div style="display:flex;gap:6px;flex-wrap:wrap">${sheet.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="sheet" style="width:64px;height:86px;padding:0">撮影</button></div></div>
+      <div><div class="f">バストアップ写真</div><div style="display:flex;gap:6px">${bust.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="bust" style="width:64px;height:86px;padding:0">撮影</button></div></div></div>`;
+  const iv = `<div class="card"><div class="gh">面接　${esc(apDt(A.interview_at))}</div>
+    ${ivOpen ? `<div class="f">面接結果</div>${apSeg('iv', [['trial', '体験'], ['joined', '入店'], ['declined', '辞退'], ['rejected', '不採用']], ivRes)}
+      <div id="apTrialIn" style="${ivRes === 'trial' ? '' : 'display:none'}">
+        <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px"><label class="f">体験日<input id="apTd" type="date" value="${apIsoDay(A.trial_at)}" min="${A.today}" style="${AP_FS}"></label><label class="f">時刻${apSel(AP_T.map(t => [t, t]), apIsoTime(A.trial_at), 'id="apTt"')}</label></div>
+        <label class="f" style="margin-top:8px">体験の報酬</label><div style="display:flex;gap:8px"><select id="apTp" style="${AP_FS};width:auto;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([k, n]) => `<option value="${k}" ${k === (A.trial_pay_type || 'daily') ? 'selected' : ''}>${n}</option>`).join('')}</select><input id="apTa" type="number" inputmode="numeric" min="1" placeholder="円" value="${A.trial_pay_amount || ''}" style="${AP_FS};flex:1;min-width:0"></div>
+        ${A.name ? '' : `<label class="f" style="margin-top:8px">名前<input id="apNm" maxlength="30" style="${AP_FS}"></label>`}
+        <label class="f" style="margin-top:8px">本名<input id="apRn" maxlength="60" value="${esc(A.real_name || '')}" style="${AP_FS}"></label></div>
+      ${photos}<button class="btn" id="apIvOk" style="margin-top:14px">保存</button>` : `<div style="padding:4px 0">面接結果　${esc(({ trial: '体験', considering: '体験', joined: '入店', declined: '辞退', rejected: '不採用' })[A.status] || '')}</div>${photos}`}</div>`;
+  // 体験
+  const trRes = ({ joined: 'joined', considering: 'considering', declined: 'declined' })[A.status] || '';
+  const tr = A.trial_name ? `<div class="card"><div class="gh">体験　${esc(apDt(A.trial_at))}</div>
+    ${A.joined ? '<div style="padding:4px 0">体験結果　入店</div>' : `<div class="f">体験結果</div>${apSeg('tr', [['joined', '入店'], ['considering', '検討中'], ['declined', '辞退']], trRes)}`}
+    <div class="f">よかった点</div>${apGrid('good', A.good)}<div class="f" style="margin-top:8px">気になった点</div>${apGrid('concern', A.concern)}
+    ${A.voice ? `<div class="f" style="margin-top:8px">ご感想（${esc(apDt(A.voice_at))}）</div><div class="sm" style="line-height:1.7">よかった点：${esc((A.voice.good || []).join('・') || 'なし')}<br>気になった点：${esc((A.voice.concern || []).join('・') || 'なし')}${A.voice.text ? `<br>${esc(A.voice.text)}` : ''}</div>` : ''}
+    <button class="btn" id="apTrOk" style="margin-top:12px">保存</button></div>` : '';
+  // 入店：契約書は対面
+  const jn = A.joined ? `<div class="card"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">契約書</b>${A.docs_hold ? '<span class="muted" style="flex:none">未開始</span><button class="btn" id="apDoc" style="width:auto;padding:8px 16px">開始</button>' : '<span class="muted">開始済み</span>'}</div></div>` : '';
+  // 辞退：次回連絡日
+  const dc = A.status === 'declined' ? `<div class="card"><label class="f">次回連絡日<input id="apNx" type="date" value="${A.next_contact || ''}" style="${AP_FS}"></label></div>` : '';
+  const memo = `<div class="card"><label class="f">メモ<textarea id="apMemo" maxlength="500">${esc(A.memo || '')}</textarea></label></div>`;
+  show(`<div class="ttl">${esc(A.name || A.line_name || '（名前なし）')}</div>${top}${iv}${tr}${jn}${dc}${memo}`);
+  const M = $('main');
+  M.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if(s.dataset.seg === 'iv' && $('apTrialIn')) $('apTrialIn').style.display = b.dataset.v === 'trial' ? '' : 'none'; }));
+  const segV = k => { const b = M.querySelector(`[data-seg="${k}"] button.on`); return b ? b.dataset.v : ''; };
+  const save = async p => { const q = await sb.rpc('ap_save', { p_token: TOKEN, p_store: store || null, p_id: id, p }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
+  $('apHall').onchange = () => save({ hall_staff_id: $('apHall').value });
+  if($('apKind')) $('apKind').onchange = () => save({ kind: $('apKind').value });
+  $('apMemo').onchange = () => save({ memo: $('apMemo').value });
+  if($('apNx')) $('apNx').onchange = () => save({ next_contact: $('apNx').value });
+  M.querySelectorAll('[data-shoot]').forEach(b => b.onclick = () => apShoot(store, id, b.dataset.shoot, again));
+  M.querySelectorAll('img[data-ph]').forEach(async im => { const src = await apPhotoUrl(store, im.dataset.ph); if(src) im.src = src; im.onclick = () => im.src && apPhotoBig(store, im.dataset.ph, im.src, again); });
+  if($('apIvOk')) $('apIvOk').onclick = async e => { const v = segV('iv'); if(!v){ await uiAlert('面接結果を選んでください'); return; }
+    if($('apNm')){ const n = $('apNm').value.trim(); if(!n){ await uiAlert('名前を入力してください'); return; } if(!await save({ name: n })) return; }
+    if(v === 'joined' && !await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します', '入店')) return;
+    if(v === 'rejected' && !await uiConfirm('不採用にしますか？', '不採用')) return;
+    e.target.disabled = true;
+    const q = await sb.rpc('ap_interview_result', { p_token: TOKEN, p_store: store || null, p_id: id, p_result: v, p_day: v === 'trial' ? $('apTd').value || null : null, p_time: v === 'trial' ? $('apTt').value : null,
+      p_pay_type: v === 'trial' ? $('apTp').value : null, p_amount: v === 'trial' ? (parseInt($('apTa').value || '0', 10) || 0) : null, p_real: v === 'trial' ? $('apRn').value.trim() : null });
+    if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
+  if($('apTrOk')) $('apTrOk').onclick = async e => { const v = A.joined ? 'joined' : segV('tr'); if(!v){ await uiAlert('体験結果を選んでください'); return; }
+    if(v === 'joined' && !A.joined && !await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します', '入店')) return;
+    const pick = k => [...M.querySelectorAll(`[data-${k}]`)].filter(x => x.checked).map(x => x.dataset[k]);
+    e.target.disabled = true;
+    const q = await sb.rpc('ap_trial_result', { p_token: TOKEN, p_store: store || null, p_id: id, p_result: v, p_good: pick('good'), p_concern: pick('concern'), p_memo: $('apMemo').value });
+    if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
+  if($('apDoc')) $('apDoc').onclick = async e => { if(!await uiConfirm('契約書を開始しますか？\n本人のマイページに「書類」が表示されます', '開始')) return; e.target.disabled = true;
+    const q = await sb.rpc('ap_docs_open', { p_token: TOKEN, p_store: store || null, p_id: id }); if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
+}
+
+// シフトの［追加］→「面接」（スカウトの紹介でいきなり面接の時。オーナー 2026-11-04）
+function apIvAddDlg(w, iso, store, back, done){ const d = new Date(iso + 'T00:00:00+09:00'), lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`, fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)';
+  w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">面接　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</p>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><div>${lb('名前')}<input id="ivN" maxlength="30" style="${fs}"></div><div>${lb('時刻')}<select id="ivT" style="${fs}">${AP_IV_T.map(t => `<option ${t === '19:00' ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
+    ${lb('区分')}<select id="ivK" style="${fs}"><option value="cast">キャスト</option><option value="hall">黒服</option></select>
+    <div class="bt" style="margin-top:14px"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
+  w.querySelector('[data-k=no]').onclick = back;
+  w.querySelector('[data-k=ok]').onclick = async e => { const n = w.querySelector('#ivN').value.trim(); if(!n){ await uiAlert('名前を入力してください'); return; } e.target.disabled = true;
+    const q = await sb.rpc('ap_iv_add', { p_token: TOKEN, p_store: store || null, p_day: iso, p_name: n, p_time: w.querySelector('#ivT').value, p_kind: w.querySelector('#ivK').value });
+    if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } done(); };
+}
