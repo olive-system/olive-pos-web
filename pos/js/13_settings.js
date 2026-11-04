@@ -10,7 +10,7 @@ const SET = [
   { key:'print', name:'印刷設定', local:true, cols:[['print_method','印刷方法','select',[['tmpa','プリンター（TM Print Assistant）'],['browser','ブラウザ印刷（PDF）']]]] },
   { key:'audit', name:'操作ログ', audit:true },
 ];
-let RW={point_slide:false,types:[],points:[],auto:{}}, alwMode={}; /* v11.67・SQL 140 */
+let RW={point_slide:false,types:[],points:[],auto:{}}, alwMode={}, afMode={}; /* v11.67・SQL 140／afMode v12.56 */
 let setCur='chorei', setSel=null, setEditMode=false, setCatFilter=null, auDate=null;
 $('navSettings').onclick=()=>{ renderSettings(setCur); show('v-settings'); };
 // v11.66：保存忘れのお知らせ（オーナー 2026-10-17。管理サイト v1.22 と同じ）。設定の「詳細」と閉店作業「⑧ その日のメモ」で、入力して保存を押さずに、設定のタブ・一覧・下のボタンで移ろうとした時
