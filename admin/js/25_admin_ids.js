@@ -92,9 +92,10 @@ PAGES.o_shiftreq=async()=>{ const st=storeId, head=`<h1>出勤希望 <small clas
 const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',none:'なし'}, TODO_WD=['日','月','火','水','木','金','土'];
 // v1.31・SQL 148：いつ に「隔週」「毎月 第◯ ◯曜日」「毎年」（オーナー 2026-10-18。TimeTree の TODO を入れるため）
 // v1.88・SQL 332：月末は店の月の最終営業日（休みの日は数えない）
-const TODO_KIND=[['daily','毎日'],['weekly','毎週'],['biweekly','隔週'],['monthly','毎月（日にち）'],['nth','毎月（第◯ ◯曜日）'],['month_end','月末（最終営業日）'],['yearly','毎年'],['once','その日だけ']];
+// v2.07・SQL 354：イベント最終日（シフト設定のイベント日が続く時は最後の日。休みの日は飛ばす。オーナー 2026-11-04 銀座のイベントのノルマ）
+const TODO_KIND=[['daily','毎日'],['weekly','毎週'],['biweekly','隔週'],['monthly','毎月（日にち）'],['nth','毎月（第◯ ◯曜日）'],['month_end','月末（最終営業日）'],['event_last','イベント最終日'],['yearly','毎年'],['once','その日だけ']];
 const todoMd=d=>String(d||'').slice(5).split('-').map(Number).join('/'), todoWds=x=>(x.rule_dows||[]).map(d=>TODO_WD[d]).join('・');
-const todoWhen=x=>x.rule_kind==='daily'?'毎日':x.rule_kind==='weekly'?`毎週 ${todoWds(x)}`:x.rule_kind==='biweekly'?`隔週 ${todoWds(x)}`:x.rule_kind==='monthly'?`毎月 ${(x.rule_days||[]).join('・')}日`:x.rule_kind==='nth'?`毎月 第${(x.rule_nth||[]).join('・')} ${todoWds(x)}`:x.rule_kind==='month_end'?'月末':x.rule_kind==='yearly'?`毎年 ${todoMd(x.rule_date)}`:`${todoMd(x.rule_date)} だけ`;
+const todoWhen=x=>x.rule_kind==='daily'?'毎日':x.rule_kind==='weekly'?`毎週 ${todoWds(x)}`:x.rule_kind==='biweekly'?`隔週 ${todoWds(x)}`:x.rule_kind==='monthly'?`毎月 ${(x.rule_days||[]).join('・')}日`:x.rule_kind==='nth'?`毎月 第${(x.rule_nth||[]).join('・')} ${todoWds(x)}`:x.rule_kind==='month_end'?'月末':x.rule_kind==='event_last'?'イベント最終日':x.rule_kind==='yearly'?`毎年 ${todoMd(x.rule_date)}`:`${todoMd(x.rule_date)} だけ`;
 // v1.34・SQL 153：TODO は設定の中の1つだけ（オーナー 2026-10-18「わざわざタブ一つつくる必要ある？」）。上＝その日の TODO（済・できない・未・写真）、下＝月のカレンダー（TimeTree のように）。「項目」で足す・変える
 let todoDay=null, todoMon=null, todoView='cal';
 PAGES.todo=()=>{ page='set_todo'; return PAGES.set_todo(); };
