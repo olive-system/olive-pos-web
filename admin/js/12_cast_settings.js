@@ -7,6 +7,7 @@ const CS_SP={pay:'支給',deduct:'控除',text:'文字だけ',wage:'支給（時
 let csMonth=null, csEdit=false, csDetail=null, csTab='memo', csOrdM=null;
 // v0.52：キャスト・黒服のタブをやめて、1つの画面に（上にキャスト、下に黒服）。編集はどちらか片方ずつ（csEdit＝'cast'／'hall'）
 // v0.23：「今月」は営業日（朝8時で日付が変わる）の月
+const CS_CTAX_FROM='2026-11-01'; // v2.02・SQL 346：消費税が空のキャストは、この月以降 3％（体験は除く）
 const csNowMonth=()=>businessDate().slice(0,7)+'-01';
 const csAddMonth=(m,n)=>{ const [y,mo]=m.split('-').map(Number); const d=new Date(Date.UTC(y,mo-1+n,1)); return d.toISOString().slice(0,7)+'-01'; };
 const csMLabel=m=>{ const [y,mo]=m.split('-').map(Number); return `${y}年${mo}月`; };
@@ -58,7 +59,7 @@ async function csCastPart(box,st,ed,m){
     const wf=t.welfare_mode==='amount'?yen(t.welfare_amount):t.welfare_mode==='none'?'なし':'標準';
     if(!E) return [hallName(s.manager_staff_id), PT[t.pay_type]||'時給', slTxt(s,t), daily&&t.daily_wage!=null?yen(t.daily_wage):'—', !sp&&t.guaranteed_wage!=null?yen(t.guaranteed_wage):'—',
       !sp&&t.guaranteed_wage!=null?csDate(t.guarantee_until):'—', !sp&&t.douhan_quota!=null?t.douhan_quota+'回':'—', back, t.withhold==null?'—':t.withhold?'する':'しない',
-      t.ctax_pct==null?'—':Number(t.ctax_pct)+'%', wf, t.exempt_fines.length?esc(t.exempt_fines.join('・')):'—', s.day_pay_ok==null?'—':s.day_pay_ok?'可':'不可',
+      t.ctax_pct==null?(m>=CS_CTAX_FROM?'3%':'—'):Number(t.ctax_pct)+'%', wf, t.exempt_fines.length?esc(t.exempt_fines.join('・')):'—', s.day_pay_ok==null?'—':s.day_pay_ok?'可':'不可',
       s.contract_done==null?'—':s.contract_done?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>'];
     const fe=t.guarantee_until===CS_FOREVER;
     return [sel('mgr',s.manager_staff_id||'',[['','未選択'],...halls.map(h=>[h.id,h.display_name])]),
@@ -66,7 +67,7 @@ async function csCastPart(box,st,ed,m){
       `<button class="ghost sm" data-k="sl" data-v="${esc(JSON.stringify(slOk(t.slide_ids,unitOf(s,t))))}" ${sp?'disabled':''}>${slTxt(s,t)}</button>`, inp('dw',daily?t.daily_wage:'',80,!daily),
       inp('g',sp?'':t.guaranteed_wage,80,sp), `<span class="cs-gu"><input type="date" data-k="gu" value="${fe||sp?'':esc(t.guarantee_until||'')}" ${fe||sp?'disabled':''}><label><input type="checkbox" data-k="gf" ${fe&&!sp?'checked':''} ${sp?'disabled':''}>無期限</label></span>`,
       inp('q',sp?'':t.douhan_quota,50,sp)+' 回', inp('bk',t.back_pct==null?'':Number(t.back_pct),50)+' %',
-      sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct==null?'':Number(t.ctax_pct),50)+' %',
+      sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct==null?'':Number(t.ctax_pct),50).replace('<input',`<input placeholder="${m>=CS_CTAX_FROM?3:''}"`)+' %',
       sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'),
       `<button class="ghost sm" data-k="ex" data-v="${esc(JSON.stringify(t.exempt_fines))}">${t.exempt_fines.length?esc(t.exempt_fines.join('・')):'—'}</button>`,
       sel('dp',s.day_pay_ok==null?'':String(s.day_pay_ok),[['','—'],['true','可'],['false','不可']]), sel('ct2',s.contract_done==null?'':String(s.contract_done),[['','—'],['true','済'],['false','未']])]; };
