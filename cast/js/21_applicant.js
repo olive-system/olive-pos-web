@@ -10,7 +10,7 @@ const apLegend = () => `<span style="margin-left:12px;font-weight:400;white-spac
 const apDt = iso => { if(!iso) return '未定'; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 const apIsoDay = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : '';
 const apIsoTime = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 16) : '20:00';
-const AP_T = ['19:50', ...Array.from({ length: 16 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
+const AP_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)]; // 2026-11-04：23:00 まで（シフトと同じ）;
 const AP_IV_T = Array.from({ length: 24 }, (_, i) => `${12 + Math.floor(i / 2)}:${i % 2 ? '30' : '00'}`); // 面接の時刻 12:00〜23:30
 const apSel = (opts, v, attr) => `<select ${attr} style="${AP_FS}">${opts.map(([k, n]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
 const apChk = (k, name, on) => `<label style="display:flex;align-items:center;gap:6px;padding:7px 0;font-size:14px;white-space:nowrap;color:var(--ink);margin:0"><input type="checkbox" data-${k}="${esc(name)}" ${on ? 'checked' : ''} style="width:18px;height:18px;margin:0;accent-color:var(--pri)">${esc(name)}</label>`;

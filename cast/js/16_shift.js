@@ -101,7 +101,8 @@ async function shiftAll(store){
 // v0.78・SQL 263：全員のシフトで、今日から先の日の出勤を直す（オーナー 2026-10-27「追加や削除や出勤時間の変更」「全員のシフトが見れる人のみ」「×マークで」「追加ボタンで小窓でキャスト、選んだら時間を入力」「15分刻み」「PMはいらん」）
 //   直すとキャストに LINE（【シフトの追加】【シフトの変更】【シフトの取消】）・操作ログ「シフトの変更」。同伴のシフトは予約から入るので直さない
 // 時刻は営業時間の中だけ：19:50 と 20:00〜23:45 の15分ごと（オーナー 2026-10-27「PMはいらん」「営業時間外に出勤できんだろ」。type=time は iPhone で午前・午後が出るので選ぶ形）
-const SH_EDIT_T = ['19:50', ...Array.from({ length: 16 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
+// 2026-11-04：23:00 まで（オーナー「23時まで可能。変更して全部」）
+const SH_EDIT_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
 async function shiftDayEdit(iso, store){
   setBack(() => shiftAll(store)); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_shift_day', { p_token: TOKEN, p_store: store || null, p_day: iso }); if(r.error){ fail(r.error.message); return; }
