@@ -68,7 +68,7 @@ async function resvForm(ed){
   // v1.06・SQL 321：シフトの無い日・同伴なしの時だけ「出勤希望」（オーナー 2026-11-02「出勤承認か出勤却下（予約は受ける）は、私が指定した権限者＋私に来たラインで決定」「本人が出勤要請をしたらね」）
   //   出勤時刻は 19:50 か 20:00〜来店時刻の15分ごと（はじめは来店時刻。オーナー「来店時間にもよるよね」）。申請の後に cast_shift_request で承認者に LINE
   let sr = false; const srOn = () => !$('rvSW').classList.contains('hide') && sr;
-  const srTimes = () => { const v = $('rvT').value || '23:45', L = ['19:50']; for(let m = 20*60; m <= 23*60+45; m += 15){ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
+  const srTimes = () => { const v = $('rvT').value || '23:00', L = ['19:50']; for(let m = 20*60; m <= 23*60; m += 15) /* 2026-11-04：23:00 まで */{ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
   const srPaint = () => { const d = $('rvD')?.value; if(!d) return; const no = !dh && !(DAY.shifts || {})[me?.id] && !offs.has(d) && DAY.date === d;
     $('rvSW').classList.toggle('hide', !no); $('rvNoS').classList.toggle('hide', !no); $('rvNoS').textContent = no ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はシフトがありません。出勤する時は「出勤希望 あり」` : '';
     [['rvSr1', sr], ['rvSr0', !sr]].forEach(([id, on]) => { $(id).style.background = on ? 'var(--ink)' : ''; $(id).style.color = on ? '#fff' : ''; });
