@@ -42,12 +42,13 @@ function hallGo(k){
   const h = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24;
   if(k === 'chorei') hallChorei(); else if(k === 'todo') hallTodo(); else if(k === 'cs') hallCs();
   else if(k === 'work'){ opSwitch = true; hallTasks(h >= 22 || h < 8 ? 'close' : 'open'); }
+  else if(k === 'memo') memoList(); /* v1.22・SQL 352：退店の LINE（要変更）から */
   else if(k === 'daily'){ const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.click(); }
 }
 /* v0.94：黒服のトップの数（開店・閉店作業の完了・TODO・書類・ミーティング）は60秒まで覚えておく（ほとんどの画面の「戻る」がトップで、そのたびに5つ読んでいた）。
    読むだけの関数（HC_READ）のほかを呼んだら（保存・完了・取消など）すぐ忘れる */
 let HC = null;
-const HC_READ = new Set(['hall_me', 'hall_tasks', 'hall_todos', 'hall_todo_ahead', 'hall_meeting_get', 'hall_chorei', 'hall_casts', 'hall_close_data', 'hall_cs_session', 'cast_docs_info', 'cast_who', 'cast_me',
+const HC_READ = new Set(['memo_list', 'memo_get', 'hall_me', 'hall_tasks', 'hall_todos', 'hall_todo_ahead', 'hall_meeting_get', 'hall_chorei', 'hall_casts', 'hall_close_data', 'hall_cs_session', 'cast_docs_info', 'cast_who', 'cast_me',
   'cast_shift_all', 'cast_shift_day', 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll']);
 { const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)) HC = null; return rpc0(fn, ...a); }; }
 function hcGet(){
@@ -68,10 +69,11 @@ function hallHome(){
   const sh = t => `<div class="sm" style="font-weight:700;color:var(--muted);margin:14px 2px 6px">${t}</div>`;
   show(`<div class="hello">${esc(ME.name)} さん</div>${sh('本日の業務')}<div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('work',night?'閉店作業':'開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('daily','日報','',!!ME.form)}</div>
     ${sh('キャスト')}<div class="tiles">${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('shift','シフト','全員',true)}</div>
-    ${sh('店舗情報')}<div class="tiles">${tile('cs','顧客サイト','',true)}</div>
+    ${sh('店舗情報')}<div class="tiles" data-info="1">${tile('cs','顧客サイト','',true)}</div>
     ${sh('個人')}<div class="tiles" data-me="1">${tile('late','遅刻連絡','',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('docs','書類','',true)}${tile('card','名刺発注','',true)}</div>`);
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   keyTile(); /* v1.07・SQL 326：鍵（20_key.js）。店と更衣室 */
+  memoTile(); /* v1.22・SQL 352：共有メモ（共有された時だけ。22_memo.js） */
   { const b = $('main').querySelector('[data-go=work]'); let ph = night ? 'close' : 'open', closeOn = true; /* v0.55：開店作業。v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
     b.onclick = () => { opSwitch = closeOn; hallTasks(ph); };
     const cnt = r => { b.querySelector('small')?.remove(); const L = r.data.items || []; if(L.length) b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); };
