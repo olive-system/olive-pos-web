@@ -42,7 +42,8 @@ async function apPage(id, store, back){
       ${bust.length ? thumb(bust[0], 84, 112) : `<button type="button" data-shoot="bust" style="flex:none;width:84px;height:112px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font:inherit;font-size:12px;cursor:pointer">バストアップ</button>`}
       <div style="flex:1;min-width:0"><label class="f">担当${apSel([['', '未定'], ...(A.halls || []).map(h => [h.id, h.name])], A.hall_staff_id || '', 'id="apHall"')}</label>
       ${A.trial_name || A.joined ? kv('区分', kindTxt) : `<div style="margin-top:6px">${apSel([['cast', 'キャスト'], ['hall', '黒服']], A.kind, 'id="apKind"')}</div>`}
-      ${A.phone ? kv('電話', `<span style="white-space:nowrap">${esc(A.phone)}</span>`) : ''}</div></div></div>`;
+      ${A.phone ? kv('電話', `<span style="white-space:nowrap">${esc(A.phone)}</span>`) : ''}</div></div>
+      ${A.line ? '' : `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">LINE</b><span class="muted" style="flex:none">未追加</span><button class="btn" id="apQr" style="width:auto;padding:8px 16px">QR表示</button></div>`}</div>`;
   // 面接
   const ivRes = ({ trial: 'trial', considering: 'trial', joined: 'joined', declined: 'declined', rejected: 'rejected' })[A.status] || '';
   const photos = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
@@ -61,14 +62,14 @@ async function apPage(id, store, back){
   const tr = A.trial_name ? `<div class="card"><div class="gh">体験　${esc(apDt(A.trial_at))}</div>
     ${A.joined ? '<div style="padding:4px 0">体験結果　入店</div>' : `<div class="f">体験結果</div>${apSeg('tr', [['joined', '入店'], ['considering', '検討中'], ['declined', '辞退']], trRes)}`}
     <div class="f">よかった点</div>${apGrid('good', A.good)}<div class="f" style="margin-top:8px">気になった点</div>${apGrid('concern', A.concern)}
-    ${A.voice ? `<div class="f" style="margin-top:8px">ご感想（${esc(apDt(A.voice_at))}）</div><div class="sm" style="line-height:1.7">よかった点：${esc((A.voice.good || []).join('・') || 'なし')}<br>気になった点：${esc((A.voice.concern || []).join('・') || 'なし')}${A.voice.text ? `<br>${esc(A.voice.text)}` : ''}</div>` : ''}
     <button class="btn" id="apTrOk" style="margin-top:12px">保存</button></div>` : '';
   // 入店：契約書は対面
   const jn = A.joined ? `<div class="card"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">契約書</b>${A.docs_hold ? '<span class="muted" style="flex:none">未開始</span><button class="btn" id="apDoc" style="width:auto;padding:8px 16px">開始</button>' : '<span class="muted">開始済み</span>'}</div></div>` : '';
   // 辞退：次回連絡日
   const dc = A.status === 'declined' ? `<div class="card"><label class="f">次回連絡日<input id="apNx" type="date" value="${A.next_contact || ''}" style="${AP_FS}"></label></div>` : '';
+  const vc = A.voice ? `<div class="card"><div class="gh">ご感想（${esc(apDt(A.voice_at))}）</div><div class="sm" style="line-height:1.7">よかった点：${esc((A.voice.good || []).join('・') || 'なし')}<br>気になった点：${esc((A.voice.concern || []).join('・') || 'なし')}${A.voice.text ? `<br>ひとこと：${esc(A.voice.text)}` : ''}</div></div>` : ''; /* v1.19・SQL 348：本人が LINE で送ったご感想 */
   const memo = `<div class="card"><label class="f">メモ<textarea id="apMemo" maxlength="500">${esc(A.memo || '')}</textarea></label></div>`;
-  show(`<div class="ttl">${esc(A.name || A.line_name || '（名前なし）')}</div>${top}${iv}${tr}${jn}${dc}${memo}`);
+  show(`<div class="ttl">${esc(A.name || A.line_name || '（名前なし）')}</div>${top}${iv}${tr}${vc}${jn}${dc}${memo}`);
   const M = $('main');
   M.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if(s.dataset.seg === 'iv' && $('apTrialIn')) $('apTrialIn').style.display = b.dataset.v === 'trial' ? '' : 'none'; }));
   const segV = k => { const b = M.querySelector(`[data-seg="${k}"] button.on`); return b ? b.dataset.v : ''; };
@@ -93,6 +94,10 @@ async function apPage(id, store, back){
     e.target.disabled = true;
     const q = await sb.rpc('ap_trial_result', { p_token: TOKEN, p_store: store || null, p_id: id, p_result: v, p_good: pick('good'), p_concern: pick('concern'), p_memo: $('apMemo').value });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
+  if($('apQr')) $('apQr').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('ap_qr', { p_token: TOKEN, p_store: store || null, p_id: id }); e.target.disabled = false; if(q.error){ await uiAlert(q.error.message); return; } /* v1.19・SQL 348：15分の間の友だち追加をこの人につなぐ */
+    const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); const w = document.createElement('div'); w.className = 'dlg';
+    w.innerHTML = `<div class="box"><p style="font-weight:700;margin:0 0 10px">${esc(STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div><button class="btn g" data-k="no" style="margin-top:12px">閉じる</button></div>`;
+    document.body.appendChild(w); w.querySelector('[data-k=no]').onclick = () => { w.remove(); again(); }; };
   if($('apDoc')) $('apDoc').onclick = async e => { if(!await uiConfirm('契約書を開始しますか？\n本人のマイページに「書類」が表示されます', '開始')) return; e.target.disabled = true;
     const q = await sb.rpc('ap_docs_open', { p_token: TOKEN, p_store: store || null, p_id: id }); if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
 }
@@ -107,4 +112,23 @@ function apIvAddDlg(w, iso, store, back, done){ const d = new Date(iso + 'T00:00
   w.querySelector('[data-k=ok]').onclick = async e => { const n = w.querySelector('#ivN').value.trim(); if(!n){ await uiAlert('名前を入力してください'); return; } e.target.disabled = true;
     const q = await sb.rpc('ap_iv_add', { p_token: TOKEN, p_store: store || null, p_day: iso, p_name: n, p_time: w.querySelector('#ivT').value, p_kind: w.querySelector('#ivK').value });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } done(); };
+}
+
+// v1.19・SQL 348：応募の人に届く LINE のボタン（LINE連携していない人も開く）。［面接予約］は押した時刻を残して予約ページへ・［ご感想］は体験の翌日
+async function apLiff(go){
+  if($('tSub')) $('tSub').textContent = ''; document.title = STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座'; /* 応募の人に「LINEマイページ」は出さない */
+  const idt = liff.getIDToken(); if(!idt){ liff.login({ redirectUri: location.href }); return; }
+  show('<div class="card c muted">読み込み中…</div>');
+  if(go === 'book'){ const r = await sb.rpc('applicant_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }
+    show('<div class="card c muted">面接予約のページを表示しています…</div>'); try{ liff.openWindow({ url: r.data, external: false }); }catch(e){ location.href = r.data; } return; }
+  if(go === 'sheet'){ show('<div class="card">ヒアリングシートは、ご来店の時にご記入いただけます。<br>お会いできるのを楽しみにしております🙇‍♀️</div>'); return; }
+  const g = await sb.rpc('applicant_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
+  if(!g.data.ok){ fail('表示できません'); return; }
+  if(g.data.sent){ show('<div class="card">ご感想は送信済みです。<br>ありがとうございました🙇‍♀️</div>'); return; }
+  show(`<div class="ttl">ご感想</div><div class="card"><div class="f">よかった点</div>${apGrid('good', [])}<div class="f" style="margin-top:12px">気になった点</div>${apGrid('concern', [])}
+    <label class="f" style="margin-top:10px">ひとこと（任意）<textarea id="vcT" maxlength="500"></textarea></label><button class="btn" id="vcOk" style="margin-top:14px">送信</button></div>`);
+  $('vcOk').onclick = async e => { const M = $('main'), pick = k => [...M.querySelectorAll(`[data-${k}]`)].filter(x => x.checked).map(x => x.dataset[k]); e.target.disabled = true;
+    const q = await sb.rpc('applicant_voice_save', { p_store: STORE, p_id_token: idt, p_good: pick('good'), p_concern: pick('concern'), p_text: $('vcT').value });
+    if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; }
+    show('<div class="card">送信しました。<br>ありがとうございました🙇‍♀️</div>'); };
 }
