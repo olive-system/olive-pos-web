@@ -48,7 +48,7 @@ const btCusts=()=>(cur?.bill_customers||[]).map(x=>customers.find(c=>c.id===x.cu
 async function btLoad(){ const cs=btCusts(), ids=cs.map(c=>c.id); let rows=[];
   if(ids.length){ const r=await sb.from('customer_bill_tos').select('*').in('customer_id',ids).order('last_used_on',{ascending:false,nullsFirst:false}).order('created_at',{ascending:false}); if(r.error){ toast(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); } else rows=r.data||[]; }
   // まだ請求先が無いお客様は、顧客の「会社名・会社住所」を候補に出す（選ぶと、そのお客様の請求先として覚える）
-  cs.forEach(c=>{ const co=(c.company||'').trim(); if(co&&!rows.some(x=>x.customer_id===c.id&&x.company===co)) rows.push({id:null,customer_id:c.id,company:co,address:c.company_address||'',attn:c.receipt_name||c.name,fromCust:true}); });
+  cs.forEach(c=>{ const co=(c.company||'').trim(); if(co&&!rows.some(x=>x.customer_id===c.id&&x.company===co)) rows.push({id:null,customer_id:c.id,company:co,address:c.company_address||'',attn:rnFirst(c.receipt_name)||c.name,fromCust:true}); });
   btList={bill:cur.id,sig:cur.id+':'+ids.join(','),rows}; }
 function btLine(x){ const many=btCusts().length>1, cn=customers.find(c=>c.id===x.customer_id)?.name; return `<b>${esc(x.company)}</b>${x.attn?`　${esc(x.attn)} 様`:''}<div class="muted" style="font-size:13px;white-space:pre-line">${esc([x.address||'',x.last_used_on?'最後 '+md(x.last_used_on):x.fromCust?'顧客の会社名から':'',many&&cn?cn+' 様の請求先':''].filter(Boolean).join('　'))}</div>`; }
 async function btRender(){ const box=$('payBillTo'); if(!box) return; const on=payMethod==='invoice'&&cur&&cur.status==='open'; box.classList.toggle('hidden',!on); if(!on) return;
@@ -65,7 +65,7 @@ function btNew(){ const cs=btCusts(), c0=cs[0], m=document.createElement('div');
   m.innerHTML=`<div class="box" style="width:min(480px,92vw)"><h2 style="margin:0 0 8px">新しい請求先</h2>
     <label>会社名（部署も書ける）<input data-k="company" maxlength="100" style="width:100%"></label>
     <label>住所（〒から）<textarea data-k="address" rows="3" maxlength="200" style="width:100%;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></label>
-    <label>宛名（様の前）<input data-k="attn" maxlength="60" style="width:100%" value="${esc(c0?.receipt_name||c0?.name||'')}"></label>
+    <label>宛名（様の前）<input data-k="attn" maxlength="60" style="width:100%" value="${esc(rnFirst(c0?.receipt_name)||c0?.name||'')}"></label>
     ${cs.length>1?`<label>どのお客様の請求先として覚えるか<select data-k="cust" style="width:100%">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="">覚えない（この会計だけ）</option></select></label>`
       :cs.length?`<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-k="keep" checked>${esc(c0.name)} さんの請求先として覚える（次から選べる）</label>`:'<div class="muted" style="font-size:13px;margin-top:6px">伝票にお客様がいないので、この会計だけに使います</div>'}
     <div class="bar" style="justify-content:flex-end"><button class="ghost" data-k="no">戻る</button><button class="primary" data-k="ok">この請求先にする</button></div></div>`;
