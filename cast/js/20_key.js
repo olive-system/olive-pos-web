@@ -3,7 +3,7 @@
 let KEY_MY;
 async function keyTile(){
   if(KEY_MY === undefined){ const r = await sb.rpc('cast_key_my', { p_token: TOKEN }); KEY_MY = r.error ? null : r.data; }
-  const t = $('main').querySelector('.tiles'); if(!KEY_MY || !t || t.querySelector('[data-go=key]')) return;
+  const t = $('main').querySelector('.tiles[data-me]') || $('main').querySelector('.tiles'); /* v1.17：黒服は「個人」の見出しの中 */ if(!KEY_MY || !t || t.querySelector('[data-go=key]')) return;
   t.insertAdjacentHTML('beforeend', `<button class="tile" data-go="key"><b>鍵</b>${KEY_MY.window ? `<small>${esc(KEY_MY.window)}</small>` : ''}</button>`);
   t.querySelector('[data-go=key]').onclick = () => { const u = new URL('../key/?t=' + encodeURIComponent(KEY_MY.t), location.href).href; try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } };
 }

@@ -62,22 +62,32 @@ function hcGet(){
 function hallHome(){
   setBack(null); opSwitch = false; const H = hcGet();
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  show(`<div class="hello">${esc(ME.name)} さん</div><div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('open','開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('close','閉店作業','',true)}${tile('daily','日報','',!!ME.form)}${tile('cs','顧客サイト','',true)}${tile('shift','シフト','全員',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('card','名刺発注','',true)}${tile('docs','書類','',true)}${tile('late','遅刻連絡','',true)}${tile('mtg','ミーティング','',true)}</div>`); /* v0.51：黒服にも名刺発注（キャストと同じ画面・名刺代は報酬から。オーナー 2026-10-21）。v0.60：並びを 朝礼・担当キャスト／開店作業・TODO／閉店作業・日報／報酬明細・名刺発注 に（オーナー 2026-10-23）。v0.62：4段目の左に顧客サイト（右は空き）、報酬明細・名刺発注は5段目（オーナー 2026-10-23） */
+  /* v1.17：トップの整理（オーナー 2026-11-04「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。見出しで4つに分ける。
+     開店作業・閉店作業は1つ（リッチメニューと同じく 22時〜朝8時は閉店作業。閉店作業を POS でする店は開店作業のみ）。ミーティングはシフトの中（全員のシフトの一番上）。書類は未提出の時だけ */
+  const hr = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24, night = hr >= 22 || hr < 8;
+  const sh = t => `<div class="sm" style="font-weight:700;color:var(--muted);margin:14px 2px 6px">${t}</div>`;
+  show(`<div class="hello">${esc(ME.name)} さん</div>${sh('本日の業務')}<div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('work',night?'閉店作業':'開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('daily','日報','',!!ME.form)}</div>
+    ${sh('キャスト')}<div class="tiles">${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('shift','シフト','全員',true)}</div>
+    ${sh('店舗情報')}<div class="tiles">${tile('cs','顧客サイト','',true)}</div>
+    ${sh('個人')}<div class="tiles" data-me="1">${tile('late','遅刻連絡','',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('docs','書類','',true)}${tile('card','名刺発注','',true)}</div>`);
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   keyTile(); /* v1.07・SQL 326：鍵（20_key.js）。店と更衣室 */
-  $('main').querySelector('[data-go=open]').onclick = hallOpen; /* v0.55：開店作業 */
-  $('main').querySelector('[data-go=close]').onclick = hallClose; /* v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
-  ['open', 'close'].forEach(ph => H[ph].then(r => { const b = $('main').querySelector(`[data-go=${ph}]`); if(!b) return; if(r.error){ if(ph === 'close') b.remove(); loadNg(); return; } /* v1.05・点検 2026-11-02 B5：読めなかった時は1行 */ if(!r.data.on){ b.remove(); return; } const L = r.data.items || []; if(!L.length) return; b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); }));
+  { const b = $('main').querySelector('[data-go=work]'); let ph = night ? 'close' : 'open', closeOn = true; /* v0.55：開店作業。v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
+    b.onclick = () => { opSwitch = closeOn; hallTasks(ph); };
+    const cnt = r => { b.querySelector('small')?.remove(); const L = r.data.items || []; if(L.length) b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); };
+    H.close.then(rc => { if(rc.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5：読めなかった時は1行 */ closeOn = !!rc.data.on;
+      if(night && closeOn){ cnt(rc); return; } ph = 'open'; b.querySelector('b').textContent = '開店作業';
+      H.open.then(ro => { if(ro.error){ loadNg(); return; } cnt(ro); }); }); }
   H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b) return; if(r.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5 */ const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* v0.69・SQL 234：休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   $('main').querySelector('[data-go=docs]').onclick = docsList; /* v0.81・SQL 271：黒服も自分の書類（契約書は黒服の条文。オーナー 2026-10-27「その人の契約書をその人のマイページで」） */
-  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target){ b.remove(); if(!ok) loadNg(); /* v1.05・点検 2026-11-02 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
+  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* v1.17：未提出の時だけ */ if(!ok) loadNg(); /* v1.05・点検 2026-11-02 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
   $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* v0.88・SQL 283：遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
-  $('main').querySelector('[data-go=mtg]').onclick = mtHall; mtHallTile(H.mtg); /* v0.93・SQL 287：ミーティング（担当の子の割当） */
+  mtHallTile(H.mtg); /* v0.93・SQL 287：ミーティング（担当の子の割当）。v1.17：ボタンはシフトの中。未申請はシフトのボタンに */
   $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* v0.70・SQL 257：キャスト全員のシフト（4段目の右の空きに） */
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
 }

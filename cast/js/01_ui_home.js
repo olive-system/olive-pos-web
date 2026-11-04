@@ -96,6 +96,8 @@ function nextTxt(s){
   const rest = Number(s.next_threshold) - Number(s.value||0), f = UNIT[s.basis] || (v=>v);
   return `あと ${f(s.basis==='points'?Math.round(rest*10)/10:Math.ceil(rest))}で ${u} ${yen(s.next_amount)}`;
 }
+// v1.17：ドレス新調日のボタンは、する店で、今月まだ提出していない時だけ（免除・着物・提出済みは出さない）
+function dressDue(){ const D = ME.dress; if(!D || !D.enabled || D.exempt) return false; const rp = D.report; return !(rp && rp.status !== 'pending_photo'); }
 function wageNow(){ const st = ME.stats||{}; if(st.wage) return Number(st.wage); const a = (ME.slides||[]).map(s=>Number(s.cur_amount||0)); return a.length ? Math.max(...a) : 0; }
 
 function setBack(fn){ const b=$('tBack'); b.classList.toggle('hide', !fn); $('tSub').classList.toggle('hide', !!fn); b.onclick = fn || null; backFn = fn || null; if(fn && !(history.state && history.state.ol)) { try{ history.pushState({ ol:1 }, ''); }catch(e){} } }
@@ -120,7 +122,9 @@ function home(){
   const bdCard = (ME.bdays||[]).length ? `<div class="card"><div class="gh">お誕生日（前後1週間）</div>${ME.bdays.map(bdRow).join('')}</div>` : '';
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41・v0.44：成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
-    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('contact','連絡先交換','',true)}${tile('sales','アプローチ','',true)}${tile('mtg','ミーティング','',true)}${ME.docs&&ME.docs.target?tile('docs','書類',ME.docs.left?`未提出 ${ME.docs.left}件`:'',true):''}${tile('card','名刺発注','',true)}${ME.dress?.enabled?tile('dress','ドレス新調日','',true):''}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}</div>`);
+    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
+  /* v1.17：トップの整理（オーナー 2026-11-04「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
+     連絡先交換・アプローチは LINE のリンクとリッチメニューから（画面は今のまま）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
   $('main').querySelector('[data-go=perf]').onclick = perf;
   $('main').querySelector('[data-go=absent]').onclick = absent;
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
@@ -128,12 +132,10 @@ function home(){
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   { const b = $('main').querySelector('[data-go=docs]'); if(b) b.onclick = docsList; }
   $('main').querySelector('[data-go=resv]').onclick = resvList;
-  $('main').querySelector('[data-go=contact]').onclick = () => contactList();
-  $('main').querySelector('[data-go=sales]').onclick = salesHome;
   $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* v0.70：ママは全員のシフト */
   $('main').querySelector('[data-go=info]').onclick = noticeList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
-  mtTile(); /* v0.93・SQL 287：ミーティング（申請できる時か、申請済みの枠がある時だけ） */
+  mtTile(); /* v0.93・SQL 287：ミーティング。v1.17：申請していない間はシフトのボタンに「ミーティング未申請」 */
   keyTile(); /* v1.07・SQL 326：鍵（20_key.js） */
   if(ME.loadNg) loadNg(); /* v1.05・点検 2026-11-02 B5 */
 }
