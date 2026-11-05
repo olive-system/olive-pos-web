@@ -82,8 +82,8 @@ async function resvForm(ed){
   let dhIds = ed && ed.douhan && ed.dh && ed.dh.length ? [...ed.dh] : (me ? [me.id] : []), DAY = { rooms: [], busy: [], shifts: {} };
   // v1.29・SQL 368：黒ドレス（同伴キャストから1名・店ごとに1日1名の先着。決定済みの日は「受付終了」で、着用者は出さない）
   let blk = ed ? ed.black_id || null : null;
-  const bkPaint = () => { const x = $('rvB'); if(!x) return; if(blk && !dhIds.includes(blk)) blk = null; if(DAY.black_taken){ blk = null; x.disabled = true; x.innerHTML = '<option value="">受付終了</option>'; return; }
-    x.disabled = false; x.innerHTML = `<option value="">なし</option>${dhIds.map(id => `<option value="${id}"${id === blk ? ' selected' : ''}>${esc(nmOf(id))}</option>`).join('')}`; x.value = blk || ''; };
+  const bkPaint = () => { const x = $('rvB'); if(!x) return; if(blk && !dhIds.includes(blk)) blk = null; if(DAY.black_taken){ blk = null; x.disabled = true; x.style.color = 'var(--muted)'; x.innerHTML = '<option value="">受付終了</option>'; return; }
+    x.disabled = false; x.style.color = ''; x.innerHTML = `<option value="">なし</option>${dhIds.map(id => `<option value="${id}"${id === blk ? ' selected' : ''}>${esc(nmOf(id))}</option>`).join('')}`; x.value = blk || ''; };
   const chipPaint = () => { const b = $('rvDhC'); if(!b) return; const on = dh; /* v1.29：同伴キャストは「あり」の時はいつも（黒ドレスのとなり） */
     $('rvBW').classList.toggle('hide', !dh); bkPaint();
     b.innerHTML = on ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:48px">${dhIds.map((id, i) => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:16px;padding:5px 10px;background:var(--card);font-size:15px">${esc(nmOf(id))}<button data-dhx="${i}" aria-label="外す" style="background:none;border:none;padding:0 2px;font:inherit;color:var(--warn)">×</button></span>`).join('')}${dhIds.length < guests() ? '<button class="btn g" id="rvDhAdd" style="width:auto;padding:6px 16px">追加</button>' : ''}</div>` : '';
