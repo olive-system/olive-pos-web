@@ -1,8 +1,8 @@
 // v0.11：確認・お知らせは画面の中の窓で出す（ブラウザの窓にはサイトのアドレスが出るため。オーナー 2026-10-15）
-function dlg(msg, ok, cancel){ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
-  d.innerHTML = `<div class="box"><p>${esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn" data-k="ok">${esc(ok)}</button></div></div>`;
+function dlg(msg, ok, cancel, html){ /* v1.31：html は呼ぶ側でエスケープ済み（黒ドレスのしるしを出す小窓） */ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
+  d.innerHTML = `<div class="box"><p>${html ? msg : esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn" data-k="ok">${esc(ok)}</button></div></div>`;
   document.body.appendChild(d); d.querySelector('[data-k=ok]').onclick = () => { d.remove(); res(true); }; const n = d.querySelector('[data-k=no]'); if(n) n.onclick = () => { d.remove(); res(false); }; }); }
-const uiAlert = m => dlg(m, 'OK', false), uiConfirm = (m, ok = 'OK') => dlg(m, ok, true);
+const uiAlert = m => dlg(m, 'OK', false), uiAlertH = m => dlg(m, 'OK', false, true), uiConfirm = (m, ok = 'OK') => dlg(m, ok, true);
 function show(html){ $('main').innerHTML = html; window.scrollTo(0,0); }
 function fail(msg){ show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(msg)}</p><p class="muted sm">公式 LINE のメニューから再度開いてください</p></div>`); }
 
