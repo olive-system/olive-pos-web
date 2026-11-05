@@ -40,16 +40,15 @@ async function apPage(id, store, back){
   const kv = (k, v) => `<div style="display:flex;gap:8px;padding:6px 0;align-items:baseline"><span class="muted" style="flex:none;width:3em">${k}</span><span style="min-width:0">${v}</span></div>`;
   const kindTxt = A.kind === 'hall' ? '黒服' : 'キャスト';
   const top = `<div class="card"><div style="display:flex;gap:12px;align-items:flex-start">
-      ${bust.length ? thumb(bust[0], 84, 112) : `<button type="button" data-shoot="bust" style="flex:none;width:84px;height:112px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font:inherit;font-size:12px;cursor:pointer">バストアップ</button>`}
+      ${bust.length ? thumb(bust[0], 84, 112) : `<button type="button" data-shoot="bust" style="flex:none;width:84px;height:112px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font:inherit;font-size:12px;padding:0;white-space:nowrap;cursor:pointer">バストアップ</button>`}
       <div style="flex:1;min-width:0"><label class="f">担当${apSel([['', '未定'], ...(A.halls || []).map(h => [h.id, h.name])], A.hall_staff_id || '', 'id="apHall"')}</label>
       ${A.trial_name || A.joined ? kv('区分', kindTxt) : `<div style="margin-top:6px">${apSel([['cast', 'キャスト'], ['hall', '黒服']], A.kind, 'id="apKind"')}</div>`}
       ${A.phone ? kv('電話', `<span style="white-space:nowrap">${esc(A.phone)}</span>`) : ''}</div></div>
       ${A.line ? '' : `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">LINE</b><span class="muted" style="flex:none">未追加</span><button class="btn" id="apQr" style="width:auto;padding:8px 16px">QR表示</button></div>`}</div>`;
   // 面接
   const ivRes = ({ trial: 'trial', considering: 'trial', joined: 'joined', declined: 'declined', rejected: 'rejected' })[A.status] || '';
-  const photos = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
-      <div><div class="f">ヒアリングシート</div><div style="display:flex;gap:6px;flex-wrap:wrap">${sheet.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="sheet" style="width:64px;height:86px;padding:0">撮影</button></div></div>
-      <div><div class="f">バストアップ写真</div><div style="display:flex;gap:6px">${bust.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="bust" style="width:64px;height:86px;padding:0">撮影</button></div></div></div>`;
+  /* v1.33：バストアップの撮影は左上の四角だけ（同じ撮影が2か所で迷う。オーナー 2026-11-05「直感的に操作したい」） */
+  const photos = `<div style="margin-top:12px"><div class="f">ヒアリングシート</div><div style="display:flex;gap:6px;flex-wrap:wrap">${sheet.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="sheet" style="width:64px;height:86px;padding:0">撮影</button></div></div>`;
   const hl = sheetLines(A.hearing); /* v1.21・SQL 350：本人が LINE で入力したヒアリングシート */
   const hs = `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">ヒアリングシートの入力内容</b><button class="btn g" id="apSh" style="width:auto;padding:8px 16px">編集</button></div>` + (hl.length ? `<div class="sm" style="line-height:1.8;padding-top:6px">${hl.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:45%">${esc(k)}</span><span style="min-width:0">${esc(v)}</span></div>`).join('')}</div>` : '');
   const _old = hl.length ? `<div class="f" style="margin-top:12px">ヒアリングシート（LINE）</div><div class="sm" style="line-height:1.8;border-top:1px solid var(--line);padding-top:6px">${hl.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:45%">${esc(k)}</span><span style="min-width:0">${esc(v)}</span></div>`).join('')}</div>` : '';
