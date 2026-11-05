@@ -65,7 +65,7 @@ function imagePrint(r){ const W=r.width,H=r.height, g=r.getContext('2d');
 // ボトルの名札（v12.66・v12.67 オーナー 2026-11-06）：名札のカード（よこ 53mm・たて 55mm・「様」の付いた丸い枠にキープ名）をレシートの紙に
 // v12.67：はさみで切るのを1か所に（オーナー「左右をカットする手間」「点線もいらない」）。カードのたてを紙の出る向きにして、印刷機が 55mm ちょうどで切る。カードの横は紙の端に合わせる（反対側の1か所だけ切る）
 // 印刷機は刃と印字の位置が約 10mm 離れている（NT.off）ので、紙の最初の off mm には印刷できない。カードの上は何も書かない所なので、そこに当てる
-const NT={ ch:55, cw:53, edge:4, off:10.3, bw:40, bh:11, bb:7, px:48, mw:30 }; /* ch/cw：カード・edge：紙の端から印刷できる所までの幅・off：刃と印字の位置の差・bw/bh/bb：丸い枠（幅・高さ・カードの下からの位置）・px：字の高さ・mw：名前の幅の上限（mm） */
+const NT={ ch:55, cw:53, edge:4, off:10.3, bw:40, bh:11, bb:7, px:48, mw:30, mk:2 }; /* ch/cw：カード・edge：紙の端から印刷できる所までの幅・off：刃と印字の位置の差・bw/bh/bb：丸い枠（幅・高さ・カードの下からの位置）・px：字の高さ・mw：名前の幅の上限・mk：切る所の目印の長さ（mm） */
 function nametagPrint(name){ const D=8, W=576, H=Math.round((NT.ch-NT.off)*D); const r=document.createElement('canvas'); r.width=W; r.height=H; const g=r.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000';
   const x0=-NT.edge*D, bw=NT.bw*D, bh=NT.bh*D, bx=x0+(NT.cw*D-bw)/2, by=H-(NT.bb*D)-bh, rad=bh/2; /* カードの左＝紙の左の端（印刷できる所の 4mm 外） */
   g.lineWidth=2; g.beginPath(); g.moveTo(bx+rad,by); g.lineTo(bx+bw-rad,by); g.arc(bx+bw-rad,by+rad,rad,-Math.PI/2,Math.PI/2); g.lineTo(bx+rad,by+bh); g.arc(bx+rad,by+rad,rad,Math.PI/2,Math.PI*1.5); g.closePath(); g.stroke();
@@ -73,6 +73,7 @@ function nametagPrint(name){ const D=8, W=576, H=Math.round((NT.ch-NT.off)*D); c
   g.font=MI(32,600); g.textAlign='right'; g.fillText('様',bx+bw-3*D,by+bh/2+2);
   const mw=NT.mw*D, cx=bx+(bw-6*D)/2, cy=by+bh/2+2; g.textAlign='center';
   const t=name.trim(); g.font=MI(NT.px,600); const tw=g.measureText(t).width; g.save(); g.translate(cx,cy); if(tw>mw) g.scale(mw/tw,1); g.fillText(t,0,0); g.restore(); /* キープ名をそのまま1行（入らない時は字の幅を細く） */
+  const mx=x0+NT.cw*D; g.lineWidth=2; g.beginPath(); g.moveTo(mx,0); g.lineTo(mx,NT.mk*D); g.moveTo(mx,H-NT.mk*D); g.lineTo(mx,H); g.stroke(); /* v12.68：はさみで切る所の目印（上と下に短い線。オーナー 2026-11-06「やっぱりイ」） */
   r.dataset.nt=1; imagePrint(r); } /* 絵の終わりまで送って切る（3行の余白を入れない）：紙の長さ＝off＋絵の長さ＝55mm */
 // サイン画面（大きく別に出す）。OK でサインの canvas、キャンセルで null
 function askSign(){ return new Promise(res=>{ const m=document.createElement('div'); m.style.cssText='position:fixed;inset:0;z-index:70;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px'; const S=Math.floor(Math.min(innerWidth*0.9,innerHeight*0.72));
