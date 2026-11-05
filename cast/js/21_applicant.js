@@ -21,8 +21,10 @@ const apSeg = (k, opts, v) => `<div class="seg" data-seg="${k}">${opts.map(([x, 
 async function apPhotoUrl(store, id){ const r = await sb.rpc('ap_photo', { p_token: TOKEN, p_store: store || null, p_photo: id }); return r.error ? '' : r.data; }
 const apBlob64 = blob => new Promise((ok, ng) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = ng; f.readAsDataURL(blob); });
 // 写真を撮る（カメラ）→ 縮めて送る（09_dress.js の shrinkJpeg）
-function apShoot(store, id, kind, done){ const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment';
-  i.onchange = async () => { const f = i.files && i.files[0]; if(!f) return; try{ const d = await apBlob64(await shrinkJpeg(f));
+// v1.34：入力欄を画面に置いてから開く（画面に無い入力欄は、iPhone の LINE でカメラから戻った時に写真が届かないことがある。2026-11-05 広島で1回あった）
+function apShoot(store, id, kind, done){ document.querySelectorAll('input[data-apshoot]').forEach(x => x.remove());
+  const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment'; i.dataset.apshoot = '1'; i.style.display = 'none'; document.body.appendChild(i);
+  i.onchange = async () => { const f = i.files && i.files[0]; i.remove(); if(!f) return; try{ const d = await apBlob64(await shrinkJpeg(f));
     const r = await sb.rpc('ap_photo_add', { p_token: TOKEN, p_store: store || null, p_id: id, p_kind: kind, p_data: d }); if(r.error){ await uiAlert(r.error.message); return; } done(); }catch(e){ await uiAlert('写真を送信できませんでした'); } };
   i.click(); }
 // 写真を大きく表示（削除もここ）
