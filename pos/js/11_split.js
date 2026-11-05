@@ -11,6 +11,10 @@ function openSplit(item){ splitItem=item; const base={back:item.back_amount*item
   $('splitModal').dataset.base=JSON.stringify(base); $('splitModal').classList.add('on'); }
 $('splitEven').onclick=()=>{ const base=JSON.parse($('splitModal').dataset.base); const ch=[...$('splitTable').querySelectorAll('input[type=checkbox]:checked')].map(c=>c.dataset.s); if(!ch.length){toast('キャストにチェックを入力してください');return;}
   ch.forEach(sid=>{ $('splitTable').querySelector(`select[data-f=back][data-s="${sid}"]`).value=Math.floor(base.back/ch.length/1000)*1000; const p=$('splitTable').querySelector(`select[data-f=pts][data-s="${sid}"]`); if(p) p.value=Math.floor(base.pts/ch.length/10)*10; }); };
+function splitParts(it,rows){ const rs=rows.map(r=>({staff_id:r.staff_id,back_amount:r.back_amount,back_points:r.back_points})); if(!(it.rows&&it.rows.length>1)) return [{id:it.id,rows:rs}];
+  const per=it.rows.map(r=>({id:r.id,cap:{back_amount:it.back_amount*r.qty,back_points:Number(it.back_points)*r.qty},q:r.qty,rows:rs.map(x=>({staff_id:x.staff_id,back_amount:0,back_points:0}))}));
+  ['back_amount','back_points'].forEach(f=>rs.forEach((x,k)=>{ let left=x[f]; per.forEach(p=>{ const v=Math.min(left,Math.floor(x[f]*p.q/it.qty)); p.rows[k][f]=v; left-=v; }); /* 端数は、空きがある注文に順に入れる */ per.forEach(p=>{ if(left<=0) return; const v=Math.min(left,p.cap[f]-p.rows.reduce((a,y)=>a+y[f],0)); if(v>0){ p.rows[k][f]+=v; left-=v; } }); }));
+  return per; }
 $('splitCancel').onclick=()=>$('splitModal').classList.remove('on');
 $('splitOk').onclick=guard($('splitOk'),async()=>{ /* 通しチェック3：二度押しでバックが二重になっていた */ const base=JSON.parse($('splitModal').dataset.base); const g=(f,sid)=>Number($('splitTable').querySelector(`select[data-f=${f}][data-s="${sid}"]`)?.value||0);
   const rows=[...$('splitTable').querySelectorAll('input[type=checkbox]:checked')].map(c=>({bill_item_id:splitItem.id,staff_id:c.dataset.s,sales_amount:0,back_amount:g('back',c.dataset.s),back_points:g('pts',c.dataset.s)})).filter(r=>r.back_amount>0||r.back_points>0);
@@ -18,6 +22,6 @@ $('splitOk').onclick=guard($('splitOk'),async()=>{ /* 通しチェック3：二�
   if(sb_>base.back){ toast(`バックの合計が ${yen(base.back)} を超えています（今 ${yen(sb_)}）`); return; } if(sp_>base.pts){ toast(`ポイントの合計が ${base.pts} を超えています（今 ${sp_}）`); return; }
   const nm=id=>staff.find(x=>x.id===id)?.display_name||'';
   /* v12.30・SQL 291：消して入れ直すのを1回で（途中で切れても振分が消えたままにならない）。記録は保存できた後 */
-  const sv=await sb.rpc('pos_split_save',{p_item:splitItem.id,p_rows:rows.map(r=>({staff_id:r.staff_id,back_amount:r.back_amount,back_points:r.back_points}))}); if(sv.error){ if(isStale(sv.error)){ $('splitModal').classList.remove('on'); await staleReload(sv.error.message); return; } toast('振り分けを保存できません：'+sv.error.message); return; }
+  /* v12.66：まとめた行は、元の注文それぞれの数に合わせて分けて保存する */ let sv={}; for(const pr of splitParts(splitItem,rows)){ sv=await sb.rpc('pos_split_save',{p_item:pr.id,p_rows:pr.rows.filter(r=>r.back_amount>0||r.back_points>0)}); if(sv.error) break; } if(sv.error){ if(isStale(sv.error)){ $('splitModal').classList.remove('on'); await staleReload(sv.error.message); return; } toast('振り分けを保存できません：'+sv.error.message); return; }
   await logOp('バック振り分け変更',{item:splitItem.name,before:(splitItem.bill_item_splits||[]).map(x=>`${nm(x.staff_id)}:${x.back_amount}`),after:rows.map(x=>`${nm(x.staff_id)}:${x.back_amount}`)}); $('splitModal').classList.remove('on'); await openBill(cur.id); });
 
