@@ -13,7 +13,7 @@ const payOpen=new Set();
 const foldCard=(key,title,extra,sum,body,attr='')=>`<div class="card fold${payOpen.has(key)?' open':''}" data-fold="${esc(key)}" ${attr}><div class="fh"><span class="ar">▸</span><b>${title}</b>${extra||''}<span class="sm2">${sum||''}</span></div><div class="fb">${body}</div></div>`;
 const foldWire=root=>root.querySelectorAll('.fold>.fh').forEach(h=>{ if(h.dataset.w) return; h.dataset.w=1; h.onclick=()=>{ const f=h.parentElement, k=f.dataset.fold; f.classList.toggle('open'); f.classList.contains('open')?payOpen.add(k):payOpen.delete(k); }; });
 function slideCard(kind,rows,ed,note){ const d=SLIDE_DEF[kind];
-  const body=rows.map((r,i)=>`<tr data-i="${i}">${d.cols.map(c=>`<td><input inputmode="decimal" data-c="${c.k}" value="${esc(slShow(r[c.k],c.sc))}" ${ed?'':'disabled'}></td>`).join('')}${ed?`<td class="x"><button class="ghost sm" data-del="${i}" aria-label="行を削除">✕</button></td>`:''}</tr>`).join('');
+  const body=rows.map((r,i)=>`<tr data-i="${i}">${d.cols.map(c=>`<td><input inputmode="decimal" data-c="${c.k}" value="${esc(slShow(r[c.k],c.sc))}" ${ed?'':'disabled'}></td>`).join('')}${ed?`<td class="x"><button class="xb" data-del="${i}" aria-label="行を削除">×</button></td>`:''}</tr>`).join('');
   return foldCard('sl:'+kind,d.t,'',`${rows.length}行`,`${note||''}
     <div class="slw"><table class="sl"><tr>${d.cols.map(c=>`<th>${c.l}</th>`).join('')}${ed?'<th></th>':''}</tr>${body||`<tr><td colspan="${d.cols.length}" class="muted" style="padding:8px 4px">まだ入っていません</td></tr>`}</table></div>
     ${ed?`<div class="fend"><button class="ghost sm" data-add>＋ 行を追加</button><span class="sp"></span><button class="primary sm" data-save>保存</button></div>`:''}`,`data-sl="${kind}"`); }
@@ -28,7 +28,7 @@ function slideRead(card,kind){ const d=SLIDE_DEF[kind]; const out=[];
 const ST_BASIS=[['sales',''+KL+'小計',''+KL+'小計（万円以上）',10000],['points','ポイント','ポイント（以上）',1],['douhan','同伴数','同伴（回以上）',1],['days','稼働日数','稼働日数（日以上）',1],['reactions','反応数','反応◎（回以上）',1],['groups','組数',''+KL+'の組数（組以上）',1],['guests','人数',''+KL+'の人数（名以上）',1]];
 const stB=k=>ST_BASIS.find(x=>x[0]===k)||ST_BASIS[0];
 const SL_COLS=()=>matchMedia('(max-width:640px)').matches?1:3;
-const srHtml=(th,am,ed)=>`<div class="sr" data-i><input inputmode="decimal" data-c="th" value="${esc(th)}" ${ed?'':'disabled'}><input inputmode="numeric" data-c="am" value="${esc(am)}" ${ed?'':'disabled'}>${ed?'<button class="ghost sm" data-del aria-label="行を削除">✕</button>':'<span></span>'}</div>`;
+const srHtml=(th,am,ed)=>`<div class="sr" data-i><input inputmode="decimal" data-c="th" value="${esc(th)}" ${ed?'':'disabled'}><input inputmode="numeric" data-c="am" value="${esc(am)}" ${ed?'':'disabled'}>${ed?'<button class="xb" data-del aria-label="行を削除">×</button>':'<span></span>'}</div>`;
 // 行の数に合わせて、上から下へ3列に流す（見出しは使っている列だけ）
 function slFlow(card){ const bx=card.querySelector('.slb'); if(!bx) return; const c=SL_COLS(), n=bx.querySelectorAll('[data-i]').length;
   card.querySelectorAll('.slb,.slhd').forEach(x=>x.style.setProperty('--slc',c)); bx.style.gridTemplateRows=`repeat(${Math.max(1,Math.ceil(n/c))},auto)`;
@@ -109,7 +109,7 @@ PAGES.set_pay=async()=>{
   } }
   stWire(st);
   $('main').querySelectorAll('[data-sl]').forEach(card=>{ const kind=card.dataset.sl, d=SLIDE_DEF[kind];
-    card.querySelector('[data-add]').onclick=()=>{ const tb=card.querySelector('table.sl'); const ph=tb.querySelector('td[colspan]'); if(ph) ph.parentElement.remove(); const i=tb.querySelectorAll('tr[data-i]').length+Date.now(); const tr=document.createElement('tr'); tr.dataset.i=i; tr.innerHTML=d.cols.map(c=>`<td><input inputmode="decimal" data-c="${c.k}"></td>`).join('')+`<td class="x"><button class="ghost sm" aria-label="行を削除">✕</button></td>`; tr.querySelector('button').onclick=()=>tr.remove(); tb.appendChild(tr); tr.querySelector('input').focus(); };
+    card.querySelector('[data-add]').onclick=()=>{ const tb=card.querySelector('table.sl'); const ph=tb.querySelector('td[colspan]'); if(ph) ph.parentElement.remove(); const i=tb.querySelectorAll('tr[data-i]').length+Date.now(); const tr=document.createElement('tr'); tr.dataset.i=i; tr.innerHTML=d.cols.map(c=>`<td><input inputmode="decimal" data-c="${c.k}"></td>`).join('')+`<td class="x"><button class="xb" aria-label="行を削除">×</button></td>`; tr.querySelector('button').onclick=()=>tr.remove(); tb.appendChild(tr); tr.querySelector('input').focus(); };
     card.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>x.closest('tr').remove());
     const sv=card.querySelector('[data-save]'); sv.onclick=guard(sv,async()=>{ const g=slideRead(card,kind); if(g.err){ await uiAlert(g.err); return; }
       if(!await uiConfirm(`${d.t}を保存しますか？（${g.rows.length}行）`)) return;
@@ -152,7 +152,7 @@ function fineGroup(rows){ const g=new Map();
 function fineSide(k,c,ed){ const dis=ed?'':'disabled', os=k==='h'?FINE_H:FINE_D, cl=c?.calc||'';
   return `<td><select data-f="${k}c" ${dis}>${os.map(([v,n])=>`<option value="${v}" ${cl===v?'selected':''}>${n}</option>`).join('')}</select></td>
     <td><input data-f="${k}v" inputmode="numeric" value="${c?.value??''}" ${dis}><span class="u" data-f="${k}u"></span></td><td><label class="pu"><input type="checkbox" data-f="${k}p" ${c?.per_unit?'checked':''} ${dis}>個数</label></td>`; }
-function fineRowHtml(r,ed){ return `<tr data-fr><td><input data-f="name" value="${esc(r.name||'')}" ${ed?'':'disabled'}></td>${fineSide('h',r.h,ed)}<td class="sep"></td>${fineSide('d',r.d,ed)}${ed?'<td class="x"><button class="ghost sm" data-fdel aria-label="行を削除">✕</button></td>':''}</tr>`; }
+function fineRowHtml(r,ed){ return `<tr data-fr><td><input data-f="name" value="${esc(r.name||'')}" ${ed?'':'disabled'}></td>${fineSide('h',r.h,ed)}<td class="sep"></td>${fineSide('d',r.d,ed)}${ed?'<td class="x"><button class="xb" data-fdel aria-label="行を削除">×</button></td>':''}</tr>`; }
 function fineRowWire(tr,ed){ for(const k of ['h','d']){ const q=f=>tr.querySelector(`[data-f=${k}${f}]`), cl=q('c'), v=q('v'), pu=q('p'), u=q('u');
     const upd=()=>{ const c=cl.value; u.textContent=c==='yen'?'円':(c===''||c==='input')?'':'%'; v.disabled=!ed||c===''||c==='input'; if(c===''||c==='input') v.value=''; v.placeholder=FINE_TIME(c)?'加算（%）':''; pu.disabled=!ed||c!=='yen'; if(c!=='yen') pu.checked=false; }; cl.onchange=upd; upd(); }
   const d=tr.querySelector('[data-fdel]'); if(d) d.onclick=()=>tr.remove(); }

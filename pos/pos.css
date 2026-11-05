@@ -122,3 +122,4 @@
 .cgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px}.lp{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 @media (max-width:900px){.cgrid{grid-template-columns:minmax(0,1fr)}.cgrid>.cside{order:-1}.cgrid>.cside:has(#cForm.empty){display:none}}
 .pl{display:inline-block;width:20px;vertical-align:middle;line-height:1;text-align:left}.pl.af{font-size:9px}
+  button.xb{background:none!important;border:none!important;box-shadow:none;border-radius:6px;padding:4px 6px!important;margin:0;width:auto!important;min-width:0;height:auto!important;min-height:0;font:inherit;font-size:18px!important;line-height:1;color:var(--muted)!important;flex:none;cursor:pointer}button.xb.img{position:absolute;top:2px;right:4px;color:var(--card)!important;text-shadow:0 0 4px var(--ink)} /* 2026-11-05：行・写真の × は枠なし・うすく小さく（オーナー「×に枠はダサい、スペース食う」） */

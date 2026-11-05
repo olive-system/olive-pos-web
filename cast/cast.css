@@ -33,3 +33,4 @@
   .dlg .bt{display:flex;gap:8px}.dlg .bt .btn{flex:1}
   .hide{display:none!important}
   .seg{display:flex;border:1px solid var(--pri);border-radius:10px;overflow:hidden;margin-bottom:12px}.seg button{flex:1;padding:9px;font:inherit;background:var(--card);color:var(--ink);border:0}.seg button.on{background:var(--pri);color:#fff} /* v0.88：欠勤／遅刻の切り替え */
+  button.xb{background:none!important;border:none!important;box-shadow:none;border-radius:6px;padding:4px 6px!important;margin:0;width:auto!important;min-width:0;height:auto!important;min-height:0;font:inherit;font-size:18px!important;line-height:1;color:var(--muted)!important;flex:none;cursor:pointer}button.xb.img{position:absolute;top:2px;right:4px;color:var(--card)!important;text-shadow:0 0 4px var(--ink)} /* 2026-11-05：行・写真の × は枠なし・うすく小さく（オーナー「×に枠はダサい、スペース食う」） */

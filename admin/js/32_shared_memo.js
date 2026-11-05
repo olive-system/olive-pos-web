@@ -40,7 +40,7 @@ async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<di
       ${M?`<div class="muted" style="font-size:13px;margin-top:10px">更新 ${esc(M.updated)}${M.updated_by?' '+esc(M.updated_by):''}</div>`:''}</div>
     <div class="row" style="gap:8px"><button class="primary" id="amSv">保存</button>${M?'<button class="ghost" id="amDel">削除</button>':''}<button class="ghost" id="amBk">戻る</button></div>`;
   hiMemoSwOn();
-  const paint=()=>{ $('amFs').innerHTML=amFiles.map((f,i)=>`<div class="row" style="gap:8px;margin-bottom:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.t==='pdf'?'PDF':'写真'}　${esc(f.n)}</span><button class="ghost sm" data-amo="${i}">表示</button><button class="ghost sm" data-amx="${i}" aria-label="削除">×</button></div>`).join('')||'<span class="muted">なし</span>';
+  const paint=()=>{ $('amFs').innerHTML=amFiles.map((f,i)=>`<div class="row" style="gap:8px;margin-bottom:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.t==='pdf'?'PDF':'写真'}　${esc(f.n)}</span><button class="ghost sm" data-amo="${i}">表示</button><button class="xb" data-amx="${i}" aria-label="削除">×</button></div>`).join('')||'<span class="muted">なし</span>';
     $('amFs').querySelectorAll('[data-amo]').forEach(b=>b.onclick=()=>amFileOpen(M?.id||null,amFiles[Number(b.dataset.amo)].p));
     $('amFs').querySelectorAll('[data-amx]').forEach(b=>b.onclick=()=>{ amFiles.splice(Number(b.dataset.amx),1); paint(); }); };
   paint(); $('amFa').onclick=()=>$('amF').click();

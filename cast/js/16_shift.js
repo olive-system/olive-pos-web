@@ -115,7 +115,7 @@ async function shiftDayEdit(iso, store){
   const IVd = D.iv || [], HTd = D.hall_trial || []; /* v1.18・SQL 347 */
   show(`<div class="ttl">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人</div>${L.some(x => x.trial) || HTd.length ? `<div class="muted sm" style="margin:-4px 0 8px 6px">${apLegend()}</div>` : ''}<div class="card">
     ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${x.trial ? `${apRing(x.name, x.ap)} <small class="muted">${esc(x.pay || '')}</small>` : esc(x.name) + (x.black ? DRESS : '')}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
-      : `${tin(x.time, `data-sdt="${i}"`)}<button class="btn g" data-sdx="${i}" aria-label="消す" style="width:auto;padding:6px 12px;color:var(--warn)">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
+      : `${tin(x.time, `data-sdt="${i}"`)}<button class="xb" data-sdx="${i}" aria-label="消す">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
     ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
     ${off.length ? `<div class="card"><div class="gh">黒服の休み</div><div>${esc(off.join('・'))}</div></div>` : ''}
     ${R.length ? `<div class="card"><div class="gh">予約 ${R.length}件</div>${R.map((x, i) => D.edit && x.douhan ? `<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0">${rvRow(x, '', i)}</div><button class="btn g" data-dcx="${i}" style="width:auto;padding:6px 12px;color:var(--warn)">取消</button></div>` : rvRow(x, '', i)).join('')}</div>` : ''}
