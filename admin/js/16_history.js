@@ -15,11 +15,16 @@ function hiPeriod(k,extra,note){ const today=businessDate(); if(!hiFrom){ hiFrom
 const hiErr=e=>{ $('hiBox').innerHTML=`<div class="card err">読み込めません：${esc(e.message)}</div>`; };
 
 // メモ一覧：POS の閉店作業で書く「日のメモ」を月で
-PAGES.hist_memo=async()=>{ const st=storeId, now=csNowMonth(); if(!hiMonth) hiMonth=now; const m=hiMonth, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
-  $('main').innerHTML=hiHead('hist_memo')+`<div class="row" style="margin-bottom:12px"><select id="hiM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select></div><div id="hiBox"><div class="card muted">読み込み中…</div></div>`;
-  $('hiM').onchange=()=>{ hiMonth=$('hiM').value; PAGES.hist_memo(); };
+// v2.09・SQL 363：上に「その日のメモ｜共有メモ」の切り替え（共有メモはオーナーのみ。32_shared_memo.js）
+let hiMemoTab='day';
+const hiMemoSw=()=>me?.is_owner?`<div class="seg" style="margin-bottom:14px">${[['day','その日のメモ'],['share','共有メモ']].map(([k,n])=>`<button data-hmsw="${k}" class="${k===hiMemoTab?'on':''}">${n}</button>`).join('')}</div>`:'';
+const hiMemoSwOn=()=>$('main').querySelectorAll('[data-hmsw]').forEach(b=>b.onclick=()=>{ hiMemoTab=b.dataset.hmsw; PAGES.hist_memo(); });
+PAGES.hist_memo=async()=>{ if(!me?.is_owner) hiMemoTab='day'; if(hiMemoTab==='share'){ amList(); return; }
+  const st=storeId, now=csNowMonth(); if(!hiMonth) hiMonth=now; const m=hiMonth, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
+  $('main').innerHTML=hiMemoSw()+hiHead('hist_memo')+`<div class="row" style="margin-bottom:12px"><select id="hiM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select></div><div id="hiBox"><div class="card muted">読み込み中…</div></div>`;
+  hiMemoSwOn(); $('hiM').onchange=()=>{ hiMonth=$('hiM').value; PAGES.hist_memo(); };
   const r=await sb.from('daily_memos').select('business_date,memo').eq('store_id',st).gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date',{ascending:false});
-  if(page!=='hist_memo'||storeId!==st||hiMonth!==m) return; if(r.error){ hiErr(r.error); return; }
+  if(page!=='hist_memo'||storeId!==st||hiMonth!==m||hiMemoTab!=='day') return; if(r.error){ hiErr(r.error); return; }
   const rows=(r.data||[]).filter(x=>String(x.memo||'').trim());
   $('hiBox').innerHTML=`<div class="card">${rows.length?`<table class="t"><tr><th style="white-space:nowrap">営業日</th><th>メモ</th></tr>${rows.map(x=>`<tr><td style="white-space:nowrap;vertical-align:top">${hiDay(x.business_date)}</td><td style="white-space:pre-wrap;width:100%">${esc(x.memo)}</td></tr>`).join('')}</table>`:'<div class="muted">メモはありません</div>'}</div>
     <div class="muted" style="font-size:13px">POS の閉店作業で書いたメモです</div>`; };
