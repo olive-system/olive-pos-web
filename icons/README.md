@@ -6,3 +6,6 @@
 
 dress.svg：黒ドレスのしるし（Phosphor Icons の dress-fill）。ライセンス：MIT License（https://github.com/phosphor-icons/core）。
 2026-11-05 オーナーが選んだ（「イ 黒いドレスの形」）。
+
+printer.svg：ボトルの名札の印刷（Phosphor Icons の printer）。ライセンス：MIT License（https://github.com/phosphor-icons/core）。
+2026-11-06 オーナーが選んだ（「イ 印刷のアイコン」）。

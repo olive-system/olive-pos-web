@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.64 -->
+<title>OLIVE 顧客</title><!-- customer v1.65 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -78,7 +78,7 @@
 .bt .ops select,.bt .ops button{height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}
 /* v1.10：ボトル欄を POS の顧客画面と同じ2段に（銘柄・日付・残量／キープ名・飲切・期限切・ボトル移動）。枠の高さは36pxでそろえる */
 .bt .b1{display:flex;align-items:center;gap:8px;margin-bottom:6px}.bt .b1 .nm{flex:1 1 0;min-width:0;overflow-wrap:anywhere;line-height:1.35}.bt .b1 .nm small{font-size:12px;font-weight:400;margin-left:6px;white-space:nowrap;color:var(--muted)}
-.bt .b2{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.bt .b2 .kn{flex:1 1 90px;min-width:0;display:flex;align-items:center;gap:4px}.bt .b2 .kn span{white-space:nowrap;font-size:11px}/* v1.12：キープ名の文字を小さく・ボタンは「移動」 */.bt .b2 .kn input{flex:1 1 0;min-width:0;width:0}.bt .b3{display:flex;gap:6px;flex:none;margin-left:auto}.bt .b3 button{white-space:nowrap}
+.bt .b2{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.bt .b2 .kn{flex:1 1 90px;min-width:0;display:flex;align-items:center;gap:4px}.bt .b2 .kn span{white-space:nowrap;font-size:11px}/* v1.12：キープ名の文字を小さく・ボタンは「移動」 */.bt .b2 .kn input{flex:1 1 0;min-width:0;width:0}.bt .b2 .kn{position:relative}.bt .b2 .kn span{position:absolute;left:7px;top:2px;font-size:9px;line-height:1;pointer-events:none;z-index:1}.bt .b2 .kn input{padding-top:11px}/* v1.65：「キープ名」は欄の左上に小さく（POS と同じ。オーナー 2026-11-06） */.bt .b3{display:flex;gap:6px;flex:none;margin-left:auto}.bt .b3 button{white-space:nowrap}
 .bt .b1 select{flex:none;width:auto;padding-left:8px;padding-right:4px}
 .bt .b3{gap:4px}.bt .b3 button{padding-left:5px;padding-right:5px;font-size:13px} /* v1.55：ボタンが4つ（共同）でもキープ名の枠を狭くしない */
 /* v1.58：銘柄が長い時は銘柄を「…」で短くして、開けた日と「共同 ○○ 様」は必ず出す（2026-11-01 成田様のマッカランで共同が切れていた） */

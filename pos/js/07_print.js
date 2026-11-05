@@ -54,11 +54,25 @@ function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g
   g.font=MI(15); g.textAlign='center'; let y=346+oy; for(const t of [d.address,d.tel?('TEL '+d.tel):'',d.regno?('登録番号 '+d.regno):'']){ if(t){ g.fillText(t,cx,y,380); y+=28; } }
   const R=30,cy=480,scx=sx+R; if(d.sig){ g.save(); g.beginPath(); g.arc(scx,cy,R-3,0,Math.PI*2); g.clip(); g.drawImage(d.sig,scx-R+4,cy-R+4,(R-4)*2,(R-4)*2); g.restore(); } g.lineWidth=1; g.beginPath(); g.arc(scx,cy,R,0,Math.PI*2); g.stroke(); }
 function receiptPrint(cv){ const W=576,H=1240; const r=document.createElement('canvas'); r.width=W; r.height=H; const g=r.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.translate(W,0); g.rotate(Math.PI/2); g.drawImage(cv,0,0);
+  imagePrint(r); }
+// 576ドット幅の絵を印刷する（領収書・名札で共通）。白黒は明るさ 150 未満が黒
+function imagePrint(r,cut){ const W=r.width,H=r.height, g=r.getContext('2d'); /* cut：'no_feed' は絵の終わりで送らずに切る（名札。紙を絵の長さだけ出す） */
   if(PRINT.method==='browser'){ $('printArea').innerHTML=`<img src="${r.toDataURL('image/png')}" style="width:72mm">`; setTimeout(()=>window.print(),80); return; }
   const px=g.getImageData(0,0,W,H).data, bw=W/8, buf=new Uint8Array(bw*H); for(let yy=0;yy<H;yy++) for(let xx=0;xx<W;xx++){ const i=(yy*W+xx)*4; if((px[i]*299+px[i+1]*587+px[i+2]*114)/1000<150) buf[yy*bw+(xx>>3)]|=(0x80>>(xx&7)); }
   let bin=''; for(let i=0;i<buf.length;i+=8192) bin+=String.fromCharCode.apply(null,buf.subarray(i,i+8192));
-  const xml=`<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><image width="${W}" height="${H}" color="color_1" mode="mono">${btoa(bin)}</image><feed line="3"/><cut type="feed"/></epos-print>`;
+  const xml=`<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><image width="${W}" height="${H}" color="color_1" mode="mono">${btoa(bin)}</image>${cut==='no_feed'?'<cut type="no_feed"/>':'<feed line="3"/><cut type="feed"/>'}</epos-print>`;
   location.href='tmprintassistant://tmprintassistant.epson.com/print?ver=1&data-type=eposprintxml&reselect=yes&data='+encodeURIComponent(xml)+'&back='+encodeURIComponent(location.href); }
+// ボトルの名札（v12.66・オーナー 2026-11-06）：名札のカード（よこ 53mm・たて 55mm・「様」の付いた丸い枠に名前）をレシートの紙に。紙は 70mm だけ出して自動で切る。カードは紙の最初の端にぴったり付ける
+// 向きは領収書と同じ（横長に描いて 90度回す）。1mm＝8ドット。大きさは NT で変える
+const NT={ len:70, cw:53, ch:55, bw:40, bh:11, bb:7, px:48, mw:30 }; /* len：紙を出す長さ・cw/ch：カード・bw/bh/bb：丸い枠（幅・高さ・下からの位置）・px：字の高さ・mw：名前の幅の上限（mm） */
+function nametagPrint(name){ const D=8, W=NT.len*D, H=576; const cv=document.createElement('canvas'); cv.width=W; cv.height=H; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000';
+  const cw=NT.cw*D, ch=NT.ch*D, x=0, y=H-ch; g.lineWidth=1; g.setLineDash([6,5]); g.strokeRect(x+0.5,y+0.5,cw-1,ch-1); g.setLineDash([]); /* カードの線（切る目印） */
+  const bw=NT.bw*D, bh=NT.bh*D, bx=x+(cw-bw)/2, by=y+ch-bh-NT.bb*D, r=bh/2; g.lineWidth=2; g.beginPath(); g.moveTo(bx+r,by); g.lineTo(bx+bw-r,by); g.arc(bx+bw-r,by+r,r,-Math.PI/2,Math.PI/2); g.lineTo(bx+r,by+bh); g.arc(bx+r,by+r,r,Math.PI/2,Math.PI*1.5); g.closePath(); g.stroke();
+  const MI=(px,w)=>`${w} ${px}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`; g.textBaseline='middle';
+  g.font=MI(32,600); g.textAlign='right'; g.fillText('様',bx+bw-3*D,by+bh/2+2);
+  const mw=NT.mw*D, cx=bx+(bw-6*D)/2, cy=by+bh/2+2; g.textAlign='center';
+  const t=name.trim(); g.font=MI(NT.px,600); const tw=g.measureText(t).width; g.save(); g.translate(cx,cy); if(tw>mw) g.scale(mw/tw,1); g.fillText(t,0,0); g.restore(); /* キープ名をそのまま1行（入らない時は字の幅を細く） */
+  const rr=document.createElement('canvas'); rr.width=H; rr.height=W; const h=rr.getContext('2d'); h.fillStyle='#fff'; h.fillRect(0,0,H,W); h.translate(H,0); h.rotate(Math.PI/2); h.drawImage(cv,0,0); imagePrint(rr,'no_feed'); }
 // サイン画面（大きく別に出す）。OK でサインの canvas、キャンセルで null
 function askSign(){ return new Promise(res=>{ const m=document.createElement('div'); m.style.cssText='position:fixed;inset:0;z-index:70;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px'; const S=Math.floor(Math.min(innerWidth*0.9,innerHeight*0.72));
   m.innerHTML=`<canvas style="width:${S}px;height:${S}px;border:3px solid var(--ink);border-radius:50%;touch-action:none;background:#fff"></canvas><div class="bar"><button class="ghost" data-k="redo">再入力</button><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">OK</button></div>`; document.body.appendChild(m);
