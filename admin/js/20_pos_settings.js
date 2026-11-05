@@ -82,7 +82,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
     const q=await rpc('admin_notice_sched_cancel',{p_id:x.id}); if(!q.ok) return; await ntRemove((x.attach||[]).map(f=>f.p)); toast('取り消しました'); if(ntSched===x.id) ntSched=null; PAGES.notice(); }));
   // 添付：並べる・［×］で外す・［追加］で選ぶ
   const paintA=()=>{ $('ntA').innerHTML=ntFiles.map((f,i)=>`<div style="position:relative">${f.t==='pdf'?`<div style="width:96px;height:64px;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;color:var(--pri)">PDF<small class="muted" style="font-weight:400;font-size:10px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.n)}</small></div>`
-      :`<img src="${esc(f.p?ntUrl(f.p):f.url)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;display:block">`}<button class="xb img" data-ax="${i}">×</button></div>`).join('')
+      :`<img src="${esc(f.p?ntUrl(f.p):f.url)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;display:block">`}<button class="xb img${f.t==='pdf'?' lt':''}" data-ax="${i}" aria-label="削除">×</button></div>`).join('')
       +(ntFiles.length<4?'<button class="ghost sm" id="ntAdd">追加</button>':'');
     $('ntA').querySelectorAll('[data-ax]').forEach(b=>b.onclick=()=>{ ntFiles.splice(+b.dataset.ax,1); paintA(); });
     if($('ntAdd')) $('ntAdd').onclick=()=>{ $('ntF').value=''; $('ntF').click(); }; };
