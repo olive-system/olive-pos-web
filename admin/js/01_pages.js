@@ -5,6 +5,7 @@ const SCREENS=[
   {k:'pl',n:'収支'},
   {k:'bills',n:'伝票一覧'},
   {k:'cast_sales',n:'スタッフ'},
+  {k:'product_sum',n:'商品集計'}, // v2.13・SQL 370：注文集計と棚卸し（棚卸しはオーナーのみ。オーナー 2026-11-05「棚卸しは集計になるんじゃない。商品集計を作って、タブで切り替え」）
   {k:'register',n:'現金管理'},
   {k:'punches',n:'打刻一覧'},
   {k:'shift',n:'シフト・予約'}, {k:'resv',n:'予約',nav:false}, // v1.48：開くとシフトと予約を切り替え（オーナー 2026-10-23）
@@ -25,8 +26,8 @@ const SCREENS=[
 ];
 // v0.21：パスワードはオーナーだけ（「アカウント」の見出しをやめて、オーナーの下へ）
 // v1.39：7つを4つのタブにまとめた（中の画面は nav:false で残す。27_owner_groups.js。オーナー 2026-10-21）
-const OWNER_SCREENS=[{grp:'オーナー'},{k:'o_view',n:'表示設定'},{k:'o_idpw',n:'ID・パスワード'},{k:'o_link',n:'連携・メール'},{k:'o_stock',n:'棚卸し'} /* v2.10・SQL 364 */,{k:'o_contract',n:'契約書'},
-  {k:'o_perms',n:'表示設定',nav:false},{k:'o_share',n:'OLIVE 顧客情報',nav:false},{k:'o_ids',n:'管理サイトのID',nav:false},{k:'pw',n:'パスワード',nav:false},{k:'o_square',n:'Square 連携',nav:false},{k:'o_line',n:'LINE メニュー',nav:false},{k:'o_waive',n:'罰金免除申請',nav:false},{k:'o_shiftreq',n:'出勤希望',nav:false},{k:'o_key',n:'セサミ連携',nav:false},{k:'o_line_auto',n:'LINE自動送信',nav:false},{k:'o_daily',n:'日報メール',nav:false}];
+const OWNER_SCREENS=[{grp:'オーナー'},{k:'o_view',n:'表示設定'},{k:'o_idpw',n:'ID・パスワード'},{k:'o_link',n:'連携・メール'},{k:'o_contract',n:'契約書'},
+  {k:'o_perms',n:'表示設定',nav:false},{k:'o_share',n:'OLIVE 顧客情報',nav:false},{k:'o_ids',n:'管理サイトのID',nav:false},{k:'pw',n:'パスワード',nav:false},{k:'o_square',n:'Square 連携',nav:false},{k:'o_line',n:'LINE メニュー',nav:false},{k:'o_waive',n:'罰金免除申請',nav:false},{k:'o_shiftreq',n:'出勤希望',nav:false},{k:'o_key',n:'セサミ連携',nav:false},{k:'o_line_auto',n:'LINE自動送信',nav:false},{k:'o_daily',n:'日報メール',nav:false},{k:'o_stock',n:'棚卸し',nav:false} /* v2.10・SQL 364。v2.13：集計「商品集計」のタブ */];
 // v1.69：Excel・PDF のダウンロード（収支・伝票一覧・スタッフ・入出金履歴・顧客サイト）はオーナーだけ。黒服にはボタンを出さない（オーナー 2026-10-28）
 const PERM_LABEL={none:'非表示',view:'閲覧',edit:'編集'};
 

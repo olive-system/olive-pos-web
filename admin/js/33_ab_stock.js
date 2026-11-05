@@ -1,6 +1,6 @@
 // v2.10・SQL 364：棚卸し（オーナーのみ）。AB棚の品の追加・理論在庫の修正・× で外す・棚卸しの記録（オーナー 2026-11-05「AB棚のボトルを編集したり追加できるようにしたい、削除したり」「上下いらん。ボトルキープもいらん。2列」「削除じゃなくて×マーク」・見本 作業場/棚卸し_案2_AB棚の品.png）
 // 理論在庫＝修正した本数＋その後の仕入れ（開店作業）−販売（POS の伝票・取消は除く）。棚卸しでは変わらない（差は修正するまで毎回出る）
-PAGES.o_stock=async()=>{ const st=storeId, head=`<h1>棚卸し <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
+PAGES.o_stock=async()=>{ const st=storeId, head=psHead('o_stock'); /* v2.13：集計「商品集計」のタブ */
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_ab_get',{p_store:st}); if(page!=='o_stock'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_ab_get/.test(r.error.message)?'SQL 364 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
