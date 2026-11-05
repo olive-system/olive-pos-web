@@ -172,8 +172,8 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
       <b>${d}</b><div style="font-size:10px;letter-spacing:-.3px;white-space:nowrap;color:var(--muted)">
         <div${L.length<tg(k)?' style="color:var(--warn);font-weight:700"':''}>出勤${L.length}${tg(k)?'/'+tg(k):''}</div>${e<need&&tg(k)>0?`<div style="color:var(--warn);font-weight:700">19:50<br>不足${need-e}人</div>`:''}
         <div style="color:var(--ok)">同伴${dn}</div><div>予約${R.length-dn}</div><div>面接${IV[k]||0}</div></div>
-      <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).flatMap(r=>r.dh&&r.dh.length?r.dh:[r.by])) /* v1.63・SQL 265：同伴の子も */, isD=x=>DH.has(cName(x.staff_id)); const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
-        return (P.slice(0,4).map(x=>isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
+      <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).flatMap(r=>r.dh&&r.dh.length?r.dh:[r.by])) /* v1.63・SQL 265：同伴の子も */, isD=x=>DH.has(cName(x.staff_id)), BK=new Set(R.map(r=>r.black).filter(Boolean)) /* v2.15・SQL 368：月のマスにも黒ドレスのしるし（オーナー 2026-11-05「付ける」） */, bk=x=>BK.has(cName(x.staff_id))?FX('dress',11):''; const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
+        return (P.slice(0,4).map(x=>(isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))+bk(x))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
   cal+='</div>';
   const sub=C.filter(c=>c.submitted).length;
   $('main').innerHTML=head+today+`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="shM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
