@@ -68,7 +68,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
       <span style="width:9.5em;white-space:nowrap">${ntWhen(x.send_at)}</span><span style="width:6em;white-space:nowrap">${NT_TO[x.target]||''}</span><span style="width:2.5em;white-space:nowrap">${esc(stLbl(x.stores))}</span>
       <b style="flex:1;min-width:8em">${esc(x.title)}${(x.attach||[]).length?` <small class="muted" style="font-weight:400">${ntCount(x.attach)}</small>`:''}${x.target==='pick'?`<br><small class="muted" style="font-weight:400">${x.names.map(esc).join('・')}</small>`:''}</b>${ed?`<button class="ghost sm" data-se="${x.id}">編集</button><button class="ghost sm" data-sc="${x.id}">取消</button>`:''}</div>`).join('')}</div>`:'';
   const list=L.map(x=>`<div class="card"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b>${esc(x.title)}</b> <small class="muted">${day(x.at)} 掲載${x.pick?'・個別':''}${x.updated_at?'（修正済み）':''}${x.pushed?`・LINE 通知 ${x.pushed}人`:''}</small></div>
-      ${ed?`<button class="ghost sm" data-ne="${x.id}">編集</button><button class="ghost sm" data-nd="${x.id}">削除</button>`:''}</div>
+      ${ed?`<button class="ghost sm" data-ne="${x.id}">編集</button><button class="ghost sm" data-nd="${x.id}" aria-label="削除">×</button>`:''}</div>
     ${x.body?`<div style="white-space:pre-wrap;margin-top:6px;font-size:14px;line-height:1.6">${esc(x.body)}</div>`:''}${ntAttachView(x.attach)}
     <div class="muted" style="font-size:13px;margin-top:8px">確認済み ${x.read}人／未確認 ${x.unread.length}人${x.unread.length?`<br>未確認：${x.unread.map(esc).join('・')}`:''}</div></div>`).join('')||'<div class="card muted">お知らせはありません</div>';
   $('main').innerHTML=head+form+sched+list;
