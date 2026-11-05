@@ -26,6 +26,7 @@ async function amShrink(file){ const img=await new Promise((ok,ng)=>{ const i=ne
 async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<div class="card muted">読み込み中…</div>`; hiMemoSwOn();
   const [g,l]=await Promise.all([id?sb.rpc('admin_memo_get',{p_id:id}):{data:null},sb.rpc('admin_memo_list',{p_store:st})]);
   if(page!=='hist_memo'||storeId!==st||hiMemoTab!=='share') return; if(g.error||l.error){ $('main').innerHTML=hiMemoSw()+`<div class="card err">読み込めません：${esc((g.error||l.error).message)}</div>`; hiMemoSwOn(); return; }
+  /* v2.14・SQL 369：黒服が作成して共有を設定していないメモは、members が店の黒服全員（今見られる人）。保存すると、印を付けた黒服だけに */
   const M=g.data, mem=new Set(M?.members||[]); amFiles=(M?.files||[]).map(f=>({...f}));
   $('main').innerHTML=hiMemoSw()+`<h1>${esc(M?M.title:'追加')} <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
     ${M?.needs_change?`<div class="card"><b style="color:var(--warn)">要変更</b>　${esc(M.change_note||'')}</div>`:''}
