@@ -8,8 +8,12 @@ const bdStart=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
 const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
 const WJ=['日','月','火','水','木','金','土'];
 let regDate=null, regMonth=null, regTab='day';
-const regHead=()=>`<h1>現金管理 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:14px"><span class="seg">${[['month','月次'],['day','日次']].map(([v,n])=>`<button data-rt="${v}" class="${regTab===v?'on':''}">${n}</button>`).join('')}</span></div>`;
-function regTabs(){ $('main').querySelectorAll('[data-rt]').forEach(b=>b.onclick=()=>{ if(b.dataset.rt==='month'&&regTab==='day'&&regDate) regMonth=regDate.slice(0,7); /* v0.08：日次で見ている日の月を開く */ regTab=b.dataset.rt; PAGES.register(); }); }
+// v2.16：切り替えに「入出金履歴」（16_history.js の hist_cash。権限は表示設定の「入出金履歴」）。見られるものだけ出す
+const regHead=(k='register')=>{ const on=k==='hist_cash'?'hist':regTab, tabs=[...(visible('register')?[['month','月次'],['day','日次']]:[]),...(visible('hist_cash')?[['hist','入出金履歴']]:[])];
+  return `<h1>現金管理 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`+(tabs.length>1?`<div class="row" style="margin-bottom:14px"><span class="seg">${tabs.map(([v,n])=>`<button data-rt="${v}" class="${on===v?'on':''}">${n}</button>`).join('')}</span></div>`:''); };
+function regTabs(){ $('main').querySelectorAll('[data-rt]').forEach(b=>b.onclick=async()=>{ const v=b.dataset.rt; if(v==='hist'){ if(page!=='hist_cash'&&await leaveOk()) go('hist_cash'); return; }
+  if(page==='hist_cash'){ regTab=v; go('register'); return; }
+  if(v==='month'&&regTab==='day'&&regDate) regMonth=regDate.slice(0,7); /* v0.08：日次で見ている日の月を開く */ regTab=v; PAGES.register(); }); }
 PAGES.register=()=>regTab==='month'?regMonthPage():regDayPage();
 // 期間（from〈含まない〉〜to〈含まない〉）の日ごとの 現金売上・入金・出金（日払い含む）
 // v0.65：1000行で切れないように分けて読む（精算の間が空いた時に「未精算分」が少なく出た）
