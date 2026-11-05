@@ -69,6 +69,7 @@ async function hallTasks(ph){
     const q = await sb.rpc('hall_open_undo', { p_token: TOKEN, p_task: x.id }); if(q.error){ await uiAlert(q.error.message); return; } again(); });
 }
 
+const shRows = {};   // v1.25：仕入れの入力中の行（追加・× で描き直しても残す）
 // 閉店作業の決まった画面（ボトル残量・顧客メモの更新申請・係・同伴・反応◎の確認・着物・今日出たお酒・ドリンク・オールアップ確認・その日のメモ）と、開店作業の「連絡先交換の係の確認」
 async function hallCloseTask(x, ph){
   setBack(() => hallTasks(ph)); show('<div class="muted" style="padding:20px">読み込み中…</div>');
@@ -121,6 +122,18 @@ async function hallCloseTask(x, ph){
   } else if(k === 'trial_judge'){   // v1.23・SQL 355：閉店作業「体験のジャッジ」（体験の子が来た日だけ。出勤した黒服が全員押すまで完了にできない）
     body = `${(D.items || []).map(judgeCard).join('') || '<div class="card muted">本日の体験はありません</div>'}${sv()}`;
     getData = () => ({});
+  } else if(k === 'shiire'){   // v1.25・SQL 364：開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー 2026-11-05・見本 作業場/棚卸し_案2.png）
+    const P = D.products || [], cats = [...new Set(P.map(p => p.cat))], ab = id => (P.find(p => p.id === id) || {}).ab;
+    if(!shRows[x.id]) shRows[x.id] = (D.rows || []).map(r => ({ pid: r.product_id || '', name: r.product_id ? '' : r.name, qty: String(r.qty), free: !r.product_id }));
+    const R = shRows[x.id], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
+    const opts = r => `<option value="">選択</option>${cats.map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!r.free && r.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${r.free ? 'selected' : ''}>品名入力</option>`;
+    body = `<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">仕入れ</b><button class="btn g" id="shAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
+      ${R.map((r, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-shp="${i}" style="flex:1;min-width:0;${fs}">${opts(r)}</select>
+        <input data-shq="${i}" inputmode="numeric" maxlength="3" value="${esc(r.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="btn g" data-shx="${i}" aria-label="削除" style="display:inline-block;width:auto;padding:6px 10px;font-size:14px">×</button></div>
+        <input data-shn="${i}" maxlength="60" placeholder="品名" value="${esc(r.name)}" style="display:${r.free ? 'block' : 'none'};width:100%;margin-top:6px;${fs}">
+        <span data-sha="${i}" style="display:${!r.free && ab(r.pid) ? 'inline-block' : 'none'};margin-top:4px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)">AB棚</span></div>`).join('') || '<div class="muted" style="padding:9px 2px">入荷なし</div>'}
+      <div class="muted sm" style="margin-top:8px">入荷した品を全部入力します。品は POS のメニューから選び、メニューに無い品は品名入力です。AB棚の品は在庫に加算されます</div></div>${sv()}`;
+    getData = () => ({ rows: R.map(r => r.free ? { name: r.name, qty: r.qty } : { product_id: r.pid, qty: r.qty }) });
   } else if(k === 'day_memo'){
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;
@@ -134,6 +147,13 @@ async function hallCloseTask(x, ph){
     $('clPg').querySelectorAll('[data-opx]').forEach(b => b.onclick = () => { opDrop(x, +b.dataset.opx.split(':')[1]); clShots(); }); };
   if($('clPh')){ clShots(); $('clPh').onchange = () => { const f = $('clPh').files[0]; $('clPh').value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); clShots(); }; } /* v1.09：カメラで1枚ずつ足す */
   if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
+  if(k === 'shiire'){ const R = shRows[x.id], ab = id => ((D.products || []).find(p => p.id === id) || {}).ab, q = (a, i) => $('main').querySelector(`[data-${a}="${i}"]`);
+    $('shAdd').onclick = () => { R.push({ pid: '', name: '', qty: '', free: false }); again(); };
+    $('main').querySelectorAll('[data-shx]').forEach(b => b.onclick = () => { R.splice(+b.dataset.shx, 1); again(); });
+    $('main').querySelectorAll('[data-shp]').forEach(b => b.onchange = () => { const i = +b.dataset.shp, r = R[i]; r.free = b.value === 'free'; r.pid = r.free ? '' : b.value;
+      q('shn', i).style.display = r.free ? 'block' : 'none'; q('sha', i).style.display = !r.free && ab(r.pid) ? 'inline-block' : 'none'; });
+    $('main').querySelectorAll('[data-shq]').forEach(b => b.oninput = () => { R[+b.dataset.shq].qty = b.value.trim(); });
+    $('main').querySelectorAll('[data-shn]').forEach(b => b.oninput = () => { R[+b.dataset.shn].name = b.value; }); }
   if(k === 'memo_req') [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
     const z = await sb.rpc('hall_close_memo_req', { p_token: TOKEN, p_task: x.id, p_req: q.id, p_status: st }); if(z.error){ await uiAlert(z.error.message); } again(); }));
@@ -146,6 +166,6 @@ async function hallCloseTask(x, ph){
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* v0.94：3枚ずつ同時に送る */
       const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
-      delete opShots[x.id]; delete opNotes[x.id]; hallTasks(ph);
+      delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; hallTasks(ph);
     }catch(e){ s.disabled = false; await uiAlert(e.message || String(e)); } };
 }
