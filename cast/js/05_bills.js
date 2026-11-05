@@ -49,7 +49,8 @@ function hallGo(k){
    読むだけの関数（HC_READ）のほかを呼んだら（保存・完了・取消など）すぐ忘れる */
 let HC = null;
 const HC_READ = new Set(['memo_list', 'memo_get', 'hall_me', 'hall_tasks', 'hall_todos', 'hall_todo_ahead', 'hall_meeting_get', 'hall_chorei', 'hall_casts', 'hall_close_data', 'hall_cs_session', 'cast_docs_info', 'cast_who', 'cast_me',
-  'cast_shift_all', 'cast_shift_day', 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll']);
+  'cast_shift_all', 'cast_shift_day', 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll',
+  'cast_key_my' /* v1.29：鍵のタイル（20_key.js）が読むだけ。前は入っておらず、トップを開いた直後に60秒のためおきが消えていた */]);
 { const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)) HC = null; return rpc0(fn, ...a); }; }
 function hcGet(){
   if(HC && Date.now() - HC.at < 60000) return HC;
