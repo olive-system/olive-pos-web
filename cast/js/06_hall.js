@@ -2,7 +2,8 @@
 const TODO_SLOT = { open:'開店作業', close:'閉店作業', by17:'17時まで', none:'' };
 async function hallTodo(){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
-  const r = await sb.rpc('hall_todos', { p_token: TOKEN }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
+  const [r, ab] = await Promise.all([sb.rpc('hall_todos', { p_token: TOKEN }), sb.rpc('hall_ab_items', { p_token: TOKEN })]); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
+  tdAB = ab.error ? null : ab.data; /* v1.25・SQL 364：AB棚の棚卸し */
   const D = r.data, L = D.items || [], d = new Date(D.day+'T00:00:00+09:00');
   const st = x => x.status === 'done' ? `<b style="color:var(--ok)">完了　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>${x.late?' <b style="color:var(--warn)">17:00 超過</b>':''}` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : `<b style="color:var(--warn)">未完了${x.late?'　17:00 超過':''}</b>`;
   /* v0.69・SQL 234：休日分（休みの日の TODO を次の営業日に。オーナー 2026-10-25「営業日初日に全部やる」「長い連休は17時まで」）。言葉は用語集：休日分・本日分・期限 閉店・期限 17:00 */
@@ -21,15 +22,27 @@ async function hallTodo(){
 // v0.87・SQL 276：写真は40枚まで（広島の黒服の報告 2026-10-28「充電の写真は24枚上げる必要があるが10枚までしか送れない」）
 // v0.52：写真は10枚まで（並べて見て × で外せる）・完了の後も精算までは「やり直す」（黒服の報告 2026-10-22 → オーナー「この形でよい」「精算までは直せる」・SQL 176）
 let tdShots = [];
+/* v1.25・SQL 364：AB棚の棚卸し（オーナー 2026-11-05「先入観なくできる棚卸しで」）。数える人には理論在庫も前回の数も出さない。空欄から入力 */
+let tdAB = null, tdAbVals = {};
+const tdAbOk = v => /^\d{1,3}$/.test(String(v ?? '').trim());
+function tdAbHtml(x, done){
+  if(!tdAB || tdAB.item !== x.id || !(tdAB.products || []).length) return '';
+  const P = tdAB.products, C = tdAB.counts || {}, row = (p, i, r) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(p.name)}</div>${r}<span class="muted sm" style="width:1.5em">本</span></div>`;
+  if(done) return Object.keys(C).length ? `<div class="card"><b>AB棚</b>${P.map((p, i) => row(p, i, `<b>${C[p.id] ?? ''}</b>`)).join('')}</div>` : '';
+  const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length;
+  return `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">AB棚</b><span class="muted sm" id="tdAbN">入力済み ${n}品・未入力 ${P.length - n}品</span></div>
+    ${P.map((p, i) => row(p, i, `<input data-ab="${p.id}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px">`)).join('')}</div>`;
+}
 function hallTodoOne(x, keep){
-  setBack(hallTodo); if(!keep) tdShots = [];
+  setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; }
   const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
   const done = x.status === 'done', ph = (x.photos && x.photos.length) ? x.photos : (x.photo ? [x.photo] : []);
   const grid = L => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${L}</div>`;
   show(`<div class="ttl">${esc(x.name)}</div><div class="card">${TODO_SLOT[x.slot]?`<div class="muted" style="font-size:13px;margin-bottom:6px">${TODO_SLOT[x.slot]}</div>`:''}<div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps||'手順なし')}</div></div>
-    ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${ph.length?` <small class="muted">（写真 ${ph.length}枚）</small>`:''}${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${ph.length?grid(ph.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')):''}</div>
+    ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${ph.length?` <small class="muted">（写真 ${ph.length}枚）</small>`:''}${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${ph.length?grid(ph.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')):''}</div>${tdAbHtml(x, true)}
     <button class="btn g" id="tdRedo">やり直す</button><div class="muted sm" style="text-align:center;margin-top:4px">その日の精算を保存するまで直せます</div>` : `
     ${x.status === 'skip' ? `<div class="card"><b class="muted">できない　${esc(x.by||'')}</b><div style="margin-top:4px">${esc(x.reason||'')}</div></div>` : ''}
+    ${tdAbHtml(x)}
     ${x.need_note ? `<label class="f" style="display:block;margin-top:8px">${esc(x.note_hint||'内容')}<textarea id="tdN" maxlength="2000" style="${fld};min-height:120px">${esc(keep&&keep.note!=null?keep.note:(x.note||''))}</textarea></label>` : ''}
     ${x.need_photo ? `<div id="tdPs">${grid(tdShots.map((f,i)=>`<div style="position:relative"><img src="${f.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button data-tdx="${i}" aria-label="外す" style="position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:14px;border:none;background:var(--ink);color:var(--card);font-size:16px;line-height:1;padding:0">×</button></div>`).join('') + (tdShots.length<40?`<label style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px dashed var(--line);border-radius:8px;cursor:pointer;color:var(--muted)">＋撮る<input type="file" id="tdP" accept="image/*" capture="environment" style="display:none"></label>`:''))}<div class="muted sm" style="text-align:center;margin-top:4px">${tdShots.length?`写真 ${tdShots.length}枚`:'写真を撮ってください'}${tdShots.length>=40?'（40枚まで）':''}</div></div>` : ''}
     <button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`);
@@ -37,20 +50,24 @@ function hallTodoOne(x, keep){
       $('tdRedo').disabled = true; const q = await sb.rpc('hall_todo_redo', { p_token: TOKEN, p_item: x.id , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ $('tdRedo').disabled = false; await uiAlert(q.error.message); return; }
       hallTodoOne({ ...x, status: 'open', photos: [], photo: null }); }; return; }
   const redraw = () => hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null });
+  const abP = tdAB && tdAB.item === x.id ? tdAB.products || [] : [];
+  $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const n = abP.filter(p => tdAbOk(tdAbVals[p.id])).length; $('tdAbN').textContent = `入力済み ${n}品・未入力 ${abP.length - n}品`; });
   if($('tdP')) $('tdP').onchange = () => { const f = $('tdP').files[0]; if(!f) return; tdShots.push({ file: f, url: URL.createObjectURL(f) }); redraw(); };
   $('main').querySelectorAll('[data-tdx]').forEach(b => b.onclick = () => { const k = +b.dataset.tdx; URL.revokeObjectURL(tdShots[k].url); tdShots.splice(k, 1); redraw(); });
   $('tdGo').onclick = async () => {
     const note = $('tdN') ? $('tdN').value.trim() : null;
     if(x.need_note && !note){ await uiAlert(`${x.note_hint||'内容'}を書いてください`); return; }
+    if(abP.some(p => !tdAbOk(tdAbVals[p.id]))){ await uiAlert('AB棚の未入力の品があります'); return; }
     if(x.need_photo && !tdShots.length){ await uiAlert('写真を撮ってください'); return; }
     $('tdGo').disabled = true;
     try{
+      if(abP.length){ const c = await sb.rpc('hall_ab_count', { p_token: TOKEN, p_item: x.id, p_rows: Object.fromEntries(abP.map(p => [p.id, tdAbVals[p.id]])), ...(x.carry ? { p_day: x.day } : {}) }); if(c.error) throw c.error; }
       if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length , ...(x.carry ? { p_day: x.day } : {}) }); if(p.error) throw p.error;
         const n = tdShots.length; $('tdGo').textContent = `送っています（0/${n}）`; /* v0.94：3枚ずつ同時に送る。数は送り終わった枚数 */
         await upPool(n, async i => { const blob = await shrinkJpeg(tdShots[i].file); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; },
           k => { $('tdGo').textContent = `送っています（${k}/${n}）`; }); }
       const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error) throw q.error;
-      tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = [];
+      tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = []; tdAbVals = {};
       await uiAlert('完了しました'); hallTodo();
     }catch(e){ $('tdGo').disabled = false; $('tdGo').textContent = x.need_photo ? '写真を送って完了' : '完了'; await uiAlert(e.message || String(e)); }
   };
