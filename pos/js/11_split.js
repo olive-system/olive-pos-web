@@ -22,6 +22,6 @@ $('splitOk').onclick=guard($('splitOk'),async()=>{ /* 通しチェック3：二�
   if(sb_>base.back){ toast(`バックの合計が ${yen(base.back)} を超えています（今 ${yen(sb_)}）`); return; } if(sp_>base.pts){ toast(`ポイントの合計が ${base.pts} を超えています（今 ${sp_}）`); return; }
   const nm=id=>staff.find(x=>x.id===id)?.display_name||'';
   /* v12.30・SQL 291：消して入れ直すのを1回で（途中で切れても振分が消えたままにならない）。記録は保存できた後 */
-  /* v12.69：まとめた行は、元の注文それぞれの数に合わせて分けて保存する */ let sv={}; for(const pr of splitParts(splitItem,rows)){ sv=await sb.rpc('pos_split_save',{p_item:pr.id,p_rows:pr.rows.filter(r=>r.back_amount>0||r.back_points>0)}); if(sv.error) break; } if(sv.error){ if(isStale(sv.error)){ $('splitModal').classList.remove('on'); await staleReload(sv.error.message); return; } toast('振り分けを保存できません：'+sv.error.message); return; }
+  /* v12.70：まとめた行は、元の注文それぞれの数に合わせて分けて保存する */ let sv={}; for(const pr of splitParts(splitItem,rows)){ sv=await sb.rpc('pos_split_save',{p_item:pr.id,p_rows:pr.rows.filter(r=>r.back_amount>0||r.back_points>0)}); if(sv.error) break; } if(sv.error){ if(isStale(sv.error)){ $('splitModal').classList.remove('on'); await staleReload(sv.error.message); return; } toast('振り分けを保存できません：'+sv.error.message); return; }
   await logOp('バック振り分け変更',{item:splitItem.name,before:(splitItem.bill_item_splits||[]).map(x=>`${nm(x.staff_id)}:${x.back_amount}`),after:rows.map(x=>`${nm(x.staff_id)}:${x.back_amount}`)}); $('splitModal').classList.remove('on'); await openBill(cur.id); });
 
