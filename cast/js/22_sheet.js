@@ -46,8 +46,11 @@ const SHEET = staff => [
   ]]] : [])];
 const SH_FS = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);height:46px';
 // 入力の中身を「見出し：答え」の行にする（その人のページで使う）
+// 生年月日から今日の年齢（v1.32：オーナー 2026-11-05「生年月日の横に自動で年齢」）
+function shAge(b){ const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(b || ''); if(!m) return ''; const t = new Date(Date.now() + 9 * 3600e3), y = t.getUTCFullYear(), md = (t.getUTCMonth() + 1) * 100 + t.getUTCDate();
+  const a = y - +m[1] - (md < +m[2] * 100 + +m[3] ? 1 : 0); return a >= 0 && a < 120 ? `（${a}歳）` : ''; }
 function sheetLines(h){ if(!h) return []; const L = [];
-  SHEET(true).forEach(([, items]) => items.forEach(([k, lb, t, o]) => { const v = h[k]; if(v == null || v === '') return; L.push([lb, t === 'num' ? `${v}${o}` : v]); })); return L; }
+  SHEET(true).forEach(([, items]) => items.forEach(([k, lb, t, o]) => { const v = h[k]; if(v == null || v === '') return; L.push([lb, t === 'num' ? `${v}${o}` : k === 'birth' ? `${v}${shAge(v)}` : v]); })); return L; }
 
 // 入力の画面（応募の人・お店の両方で使う）。staff はお店（面接官メモの欄も）
 function sheetBody(H, staff){ const fld = (k, t, o, v) => t === 'seg' ? `<div class="seg" data-sh="${k}">${o.map(x => `<button type="button" data-v="${esc(x)}" class="${x === v ? 'on' : ''}" style="white-space:nowrap;padding:9px 4px">${esc(x)}</button>`).join('')}</div>`
