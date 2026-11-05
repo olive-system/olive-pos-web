@@ -5,7 +5,7 @@ const hiDay=x=>{ if(!x) return '—'; const wd=new Date(x+'T00:00:00').getDay();
 const hiDT=t=>t?new Date(t).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 const hiHead=k=>`<h1>${esc(nameOf(k))} <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
 function hiPeriod(k,extra,note){ const today=businessDate(); if(!hiFrom){ hiFrom=today.slice(0,8)+'01'; hiTo=today; }
-  $('main').innerHTML=hiHead(k)+`<div class="card"><div class="row" style="flex-wrap:wrap;gap:8px;align-items:center"><input type="date" id="hiF" value="${hiFrom}" style="width:auto"><span>〜</span><input type="date" id="hiT" value="${hiTo}" style="width:auto">
+  $('main').innerHTML=(k==='hist_cash'?regHead(k):hiHead(k))+`<div class="card"><div class="row" style="flex-wrap:wrap;gap:8px;align-items:center"><input type="date" id="hiF" value="${hiFrom}" style="width:auto"><span>〜</span><input type="date" id="hiT" value="${hiTo}" style="width:auto">
     <button class="ghost" id="hiMon">月間反映</button>${extra||''}<button class="primary" id="hiGo">検索</button></div>
     <div class="muted" style="font-size:13px;margin-top:6px">期間は31日まで${note||''}</div></div><div id="hiBox"><div class="card muted">読み込み中…</div></div>`;
   $('hiGo').onclick=()=>{ const a=$('hiF').value, b=$('hiT').value; if(!a||!b){ uiAlert('期間を入力してください'); return; } if(b<a){ uiAlert('期間が逆になっています'); return; }
@@ -30,8 +30,9 @@ PAGES.hist_memo=async()=>{ if(!me?.is_owner) hiMemoTab='day'; if(hiMemoTab==='sh
     <div class="muted" style="font-size:13px">POS の閉店作業で書いたメモです</div>`; };
 
 // 入出金履歴：期間の入金・出金（今あるものだけ。消したものは削除履歴）。Excel
+// v2.16：左の「履歴」ではなく、現金管理のタブ（見出しと切り替えは 10_register.js の regHead）
 PAGES.hist_cash=async()=>{ const st=storeId;
-  hiPeriod('hist_cash',`<select id="hiK" style="width:auto">${[['all','全部'],['in','入金'],['out','出金']].map(([k,n])=>`<option value="${k}" ${hiCashK===k?'selected':''}>${n}</option>`).join('')}</select>`,'。削除した入出金は「削除履歴」に表示されます');
+  hiPeriod('hist_cash',`<select id="hiK" style="width:auto">${[['all','全部'],['in','入金'],['out','出金']].map(([k,n])=>`<option value="${k}" ${hiCashK===k?'selected':''}>${n}</option>`).join('')}</select>`,'。削除した入出金は「削除履歴」に表示されます'); regTabs();
   const f=hiFrom, t=hiTo; let all=[], rows=[];
   const draw=()=>{ rows=all.filter(x=>hiCashK==='all'||x.kind===hiCashK); const sum=k=>rows.filter(x=>x.kind===k).reduce((a,x)=>a+Number(x.amount||0),0);
     $('hiBox').innerHTML=`<div class="row" style="margin-bottom:8px;gap:8px">${me?.is_owner?`<button class="ghost" id="hiXls" ${rows.length?'':'disabled'}>Excel</button>`:''}<span class="muted" style="font-size:13px">${rows.length}件</span></div>
