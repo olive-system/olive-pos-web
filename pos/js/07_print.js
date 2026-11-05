@@ -34,7 +34,7 @@ $('prReceipt').onclick=async()=>{ // 領収書（v10.41）：入金のあった�
   if(remain<=0){ max=cap; why=await askReason(`この伝票の領収書は、入金額 ${yen(cap)} の分まで発行済です（${(prev.data||[]).length}回）。再発行します。`); if(!why)return; }
   const lastAmt=Number((prev.data||[]).slice(-1)[0]?.amount)||max; const cashAll=recv.filter(p=>p.method==='cash').reduce((a,p)=>a+p.amount,0); const usedCash=why?0:first.reduce((a,r)=>a+(r.cash_amount||0),0);
   const c0=(cur.bill_customers||[]).map(c=>customers.find(x=>x.id===c.customer_id)).filter(Boolean)[0];
-  openReceipt({max, amount:remain>0?remain:Math.min(lastAmt,max), name:rnFirst(c0?.receipt_name)||c0?.name||'', names:rnList(c0?.receipt_name), guests:cur.set_guest_count??cur.guest_count, cashAvail:Math.max(0,cashAll-usedCash), why}); };
+  openReceipt({max, amount:remain>0?remain:Math.min(lastAmt,max), name:c0?.receipt_none?'':rnFirst(c0?.receipt_name)||c0?.name||'', names:c0?.receipt_none?[]:rnList(c0?.receipt_name), /* v12.61・SQL 368：領収書 不要のお客様は宛名を入れない */ guests:cur.set_guest_count??cur.guest_count, cashAvail:Math.max(0,cashAll-usedCash), why}); };
 // 領収書の絵（横長 1240×576）。印刷は 90度回して 80mm 幅（576ドット）で出す
 function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g=cv.getContext('2d'); const F=(px,w)=>`${w||400} ${px}px "Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif`; g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
   const LW=1.5, AMT={px:38,w:300}; /* v10.42：線の太さ・金額の文字（サイズ・太さ）はここで変える */ g.lineWidth=LW; g.strokeRect(10,10,W-20,H-20);

@@ -20,7 +20,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
     // v1.63・SQL 265：VIPルームのしるしと、同伴の子（お客様の人数まで）
   const dhN=x=>(x.dh_names&&x.dh_names.length?x.dh_names:[x.by_name||'']);
   const row=(x,i)=>`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;font-size:14px"><b style="min-width:3em">${esc(x.time||'未定')}</b>${x.douhan?'<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>':''}${x.vip?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">${esc(x.vip)}</b>`:''}
-    <span style="flex:1 1 200px">${esc(x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${x.douhan?'同伴 '+esc(dhN(x).join('・'))+(dhN(x).includes(x.by_name)?'':'・誘客 '+esc(x.by_name||'')):'誘客 '+esc(x.by_name||'')}${x.kakari_name&&!rvNoKK()?'・'+KL+' '+esc(x.kakari_name):''}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
+    <span style="flex:1 1 200px">${esc(x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${x.douhan?'同伴 '+dhN(x).map(n=>esc(n)+(n===x.black?FX('dress',15):'')).join('・') /* v2.14・SQL 368：黒ドレスのしるし */+(dhN(x).includes(x.by_name)?'':'・誘客 '+esc(x.by_name||'')):'誘客 '+esc(x.by_name||'')}${x.kakari_name&&!rvNoKK()?'・'+KL+' '+esc(x.kakari_name):''}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
     ${ed?`<button class="ghost sm" data-rve="${i}">直す</button><button class="ghost sm" data-rvx="${i}">取消</button>`:''}</div>`;
   const wireRows=(box,L,day,close)=>{ if(!ed) return;
     box.querySelectorAll('[data-rve]').forEach(b=>b.onclick=()=>{ close&&close(); resvForm(st,S,day,L[+b.dataset.rve]); });

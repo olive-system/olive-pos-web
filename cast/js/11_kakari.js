@@ -51,15 +51,18 @@ async function resvForm(ed){
   let dh = ed ? !!ed.douhan : false, cid = ed ? ed.customer_id || null : null, cTimer = null;
   show(`<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label><div id="rvOff" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div><div id="rvNoS" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div>
       <label class="f" style="margin-top:8px">来店時刻<input type="time" id="rvT" value="${ed?ed.time:'21:00'}" style="${fld}"></label>
-      <label class="f" style="margin-top:8px">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
+      <div style="display:flex;gap:8px;margin-top:8px"><label class="f" style="flex:1;min-width:0;margin:0">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
+        <label class="f" style="width:64px;flex:none;margin:0">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label></div>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
       ${NK?'':`<label class="f" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>`}
-      <label class="f" style="margin-top:8px">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label>
-      <div style="display:flex;gap:14px;margin-top:8px;align-items:flex-end"><div><div class="f">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 18px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 18px">あり</button></div></div>
-        <label class="f hide" id="rvVW" style="flex:1;min-width:0;margin:0">VIPルーム<select id="rvV" style="${fld}"><option value="">なし</option></select></label></div>
+      ${/* v1.30・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end"><label class="f hide" id="rvVW" style="flex:1;min-width:0;margin:0">VIPルーム<select id="rvV" style="${fld}"><option value="">なし</option></select></label>
+        <div style="flex:none"><div class="f">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 14px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 14px">あり</button></div></div></div>
+      <div id="rvBW" class="hide" style="display:flex;gap:8px;margin-top:8px;align-items:flex-start"><label class="f" style="width:110px;flex:none;margin:0">黒ドレス<select id="rvB" style="${fld};padding:0 6px"></select></label>
+        <div style="flex:1;min-width:0"><div class="f">同伴キャスト</div><div id="rvDhC"></div></div></div>
       <div id="rvSW" class="hide"><div style="display:flex;gap:14px;margin-top:8px;align-items:flex-end"><div><div class="f">出勤希望</div><div style="display:flex;gap:8px"><button class="btn g" id="rvSr0" style="width:auto;padding:8px 18px">なし</button><button class="btn g" id="rvSr1" style="width:auto;padding:8px 18px">あり</button></div></div>
         <label class="f hide" id="rvSTW" style="flex:1;min-width:0;margin:0">出勤時刻<select id="rvST" style="${fld}"></select></label></div></div>
-      <div id="rvDhC"></div><div id="rvVB" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:6px"></div>
+      <div id="rvVB" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:6px"></div>
       <label class="f" style="margin-top:8px">メモ（任意）<textarea id="rvMemo" maxlength="300" style="min-height:60px">${ed&&ed.memo?esc(ed.memo):''}</textarea></label></div>
     <button class="btn" id="rvGo">${ed?'変更':'予約／同伴申請'}</button><p class="muted sm" style="margin:10px 2px">${ed?'変更':'申請'}すると、お店と${NK?'':KL+'・'}同伴のキャストに LINE が届きます<span id="rvSN" class="hide"><br>出勤希望は、承認されるとシフトに入ります</span></p>`);
   const setDh = v => { dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; };
@@ -77,8 +80,13 @@ async function resvForm(ed){
   // v0.79・SQL 265：同伴の子（お客様の人数まで・自分も外せる。オーナー 2026-10-27）と VIPルーム（POS の卓の名前に VIP。最初は「なし」）
   const ST = (st.data || []).slice().sort((a, b) => (b.id === me?.id) - (a.id === me?.id)) /* 小窓は「自分」を一番上に */, nmOf = id => id === me?.id ? '自分' : (ST.find(s => s.id === id)?.name || ''), guests = () => parseInt($('rvN').value, 10) || 1;
   let dhIds = ed && ed.douhan && ed.dh && ed.dh.length ? [...ed.dh] : (me ? [me.id] : []), DAY = { rooms: [], busy: [], shifts: {} };
-  const chipPaint = () => { const b = $('rvDhC'); if(!b) return; const on = dh && (guests() > 1 || dhIds.length !== 1 || dhIds[0] !== me?.id);
-    b.innerHTML = on ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px">${dhIds.map((id, i) => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:16px;padding:5px 10px;background:var(--card);font-size:15px">${esc(nmOf(id))}<button data-dhx="${i}" aria-label="外す" style="background:none;border:none;padding:0 2px;font:inherit;color:var(--warn)">×</button></span>`).join('')}${dhIds.length < guests() ? '<button class="btn g" id="rvDhAdd" style="width:auto;padding:6px 16px">追加</button>' : ''}</div>` : '';
+  // v1.30・SQL 368：黒ドレス（同伴キャストから1名・店ごとに1日1名の先着。決定済みの日は「受付終了」で、着用者は出さない）
+  let blk = ed ? ed.black_id || null : null;
+  const bkPaint = () => { const x = $('rvB'); if(!x) return; if(blk && !dhIds.includes(blk)) blk = null; if(DAY.black_taken){ blk = null; x.disabled = true; x.style.color = 'var(--muted)'; x.innerHTML = '<option value="">受付終了</option>'; return; }
+    x.disabled = false; x.style.color = ''; x.innerHTML = `<option value="">なし</option>${dhIds.map(id => `<option value="${id}"${id === blk ? ' selected' : ''}>${esc(nmOf(id))}</option>`).join('')}`; x.value = blk || ''; };
+  const chipPaint = () => { const b = $('rvDhC'); if(!b) return; const on = dh; /* v1.30：同伴キャストは「あり」の時はいつも（黒ドレスのとなり） */
+    $('rvBW').classList.toggle('hide', !dh); bkPaint();
+    b.innerHTML = on ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:48px">${dhIds.map((id, i) => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:16px;padding:5px 10px;background:var(--card);font-size:15px">${esc(nmOf(id))}<button data-dhx="${i}" aria-label="外す" style="background:none;border:none;padding:0 2px;font:inherit;color:var(--warn)">×</button></span>`).join('')}${dhIds.length < guests() ? '<button class="btn g" id="rvDhAdd" style="width:auto;padding:6px 16px">追加</button>' : ''}</div>` : '';
     b.querySelectorAll('[data-dhx]').forEach(x => x.onclick = () => { dhIds.splice(+x.dataset.dhx, 1); chipPaint(); });
     if($('rvDhAdd')) $('rvDhAdd').onclick = () => dhPick(); };
   // 小窓：お客様の人数まで。人数を減らした時は、残す子を選ぶ（キャンセルは人数を戻す）
@@ -95,7 +103,8 @@ async function resvForm(ed){
     b.classList.toggle('hide', !(r && T.length)); b.textContent = r && T.length ? `${r.name}：${T.join('・')} 予約あり` : ''; };
   const dayLoad = async () => { const d = $('rvD').value; if(!d) return; const q = await sb.rpc('cast_resv_day', { p_token: TOKEN, p_date: d, p_id: ed ? ed.id : null }); if(q.error || $('rvD')?.value !== d) return;
     DAY = q.data; DAY.date = d; const v = $('rvV').value || (ed && !DAY.loaded ? ed.vip_id || '' : ''); $('rvV').innerHTML = `<option value="">なし</option>${(DAY.rooms || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}`; $('rvV').value = v; DAY.loaded = true;
-    $('rvVW').classList.toggle('hide', !(DAY.rooms || []).length); vipPaint(); srPaint(); };
+    $('rvVW').classList.toggle('hide', !(DAY.rooms || []).length); vipPaint(); srPaint(); bkPaint(); };
+  $('rvB').onchange = () => { blk = $('rvB').value || null; };
   $('rvV').onchange = vipPaint; $('rvD').addEventListener('change', dayLoad); dayLoad();
   setDh(dh); $('rvDh0').onclick = () => { setDhT(false); chipPaint(); srPaint(); }; $('rvDh1').onclick = () => { setDhT(true); chipPaint(); srPaint(); }; chipPaint();
   $('rvSr0').onclick = () => { sr = false; srPaint(); }; $('rvSr1').onclick = () => { sr = true; $('rvST').value = ''; srPaint(); }; $('rvT').addEventListener('change', srPaint);
@@ -122,9 +131,9 @@ async function resvForm(ed){
     if(dh && dhIds.length > n){ dhPick(true); return; }
     const vip = $('rvV').value || null, vn = vip ? (DAY.rooms.find(r => r.id === vip) || {}).name : null;
     const kn = NK ? '自分' : $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, guests:n, douhan:dh, meet:null, memo:memo || null, vip:vn, dh_names: dh ? dhIds.map(id => id === me?.id ? ME.name : nmOf(id)) : [] };
-    if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${srOn()?`\n出勤希望 ${$('rvST').value}`:''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
+    if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${srOn()?`\n出勤希望 ${$('rvST').value}`:''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
     $('rvGo').disabled = true;
-    const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: cid, p_vip: vip, p_dh: dh ? dhIds : null });
+    const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: cid, p_vip: vip, p_dh: dh ? dhIds : null, p_black: dh && blk && !DAY.black_taken ? blk : null });
     if(q.error){ $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
     dft?.clear();
     let lineOk = true;
