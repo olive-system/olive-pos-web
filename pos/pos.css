@@ -28,7 +28,7 @@
   .pillbtn.brown.on{background:var(--head);box-shadow:0 0 0 3px var(--brand)}
   .list{display:flex;flex-direction:column;gap:6px}
   .item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--soft);border:1px solid var(--line)}
-  .item .n{flex:1}.item .amt{font-variant-numeric:tabular-nums;min-width:90px;text-align:right}.item small{color:var(--muted)}
+  .item .n{flex:1}.item .amt{font-variant-numeric:tabular-nums;min-width:90px;text-align:right}.item small{color:var(--muted)}.item .qb{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
   .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--gold);color:#fff}.badge.k{background:var(--ink)}
   .totals{display:grid;grid-template-columns:auto auto;gap:4px 20px;font-variant-numeric:tabular-nums;justify-content:end}.totals .big{font-size:28px;font-weight:800}
   .bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}

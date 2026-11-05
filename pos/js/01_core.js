@@ -122,3 +122,10 @@ async function rtBillCheck(){ if(!cur||!(onView('v-bill')||onView('v-pay'))) ret
 // v12.32：在籍リスト・閉店作業の時刻の前のしるし（同じ幅。アフター・シフトは2行）
 /* v12.43：読めなかった項目は黙って消さず・0件として通さず、この1行を出す（点検 2026-11-02 B5） */ const RDERR_T='読み込めない項目があります。開き直してください', RDERR=`<div style="color:var(--warn);font-weight:700;font-size:14px;margin:2px 2px 8px;line-height:1.6">${RDERR_T}</div>`;
 const PL_IN='<span class="pl">出</span>', PL_OUT='<span class="pl">退</span>', PL_AF='<span class="pl af">アフ<br>ター</span>', PL_SH='<span class="pl af">シフ<br>ト</span>';
+// v12.70：伝票の同じ注文を1行にまとめる（データは注文ごとのまま。見た目だけ）。品・単価・係小計の価格・バック額・ポイント・バックの人が同じもの
+function groupItems(items){ const out=[], by=new Map();
+  items.forEach(i=>{ const who=[...new Set((i.bill_item_splits||[]).filter(s=>(s.back_amount||0)>0||Number(s.back_points||0)>0).map(s=>s.staff_id))].sort().join(',');
+    const k=[i.product_id,i.name,i.category_id,i.unit_price,i.cast_subtotal_price,i.back_amount,Number(i.back_points||0),!!i.is_service_target,!!i.is_keep,who].join('|');
+    let g=by.get(k); if(!g){ g={...i,qty:0,rows:[],bill_item_splits:[]}; by.set(k,g); out.push(g); } g.rows.push(i); g.qty+=i.qty;
+    (i.bill_item_splits||[]).forEach(s=>{ const e=g.bill_item_splits.find(z=>z.staff_id===s.staff_id); if(e){ e.back_amount=(e.back_amount||0)+(s.back_amount||0); e.back_points=Number(e.back_points||0)+Number(s.back_points||0); } else g.bill_item_splits.push({...s}); }); });
+  out.forEach(g=>{ g.ids=g.rows.map(r=>r.id); g.rows.sort((a,b)=>String(a.added_at||'').localeCompare(String(b.added_at||''))); }); return out; }
