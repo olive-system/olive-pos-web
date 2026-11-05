@@ -139,7 +139,7 @@ async function resvForm(ed){
     let lineOk = true;
     try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){ lineOk = false; }
     let srMsg = ''; if(srOn()){ const w = await sb.rpc('cast_shift_request', { p_token: TOKEN, p_resv: q.data.id, p_time: $('rvST').value }); /* v1.06・SQL 321 */
-      srMsg = w.error ? `\n出勤希望：${w.error.message}` : w.data?.sent ? '\n出勤希望は、承認者に LINE で送りました' : '\n出勤希望の LINE が承認者に届いていません。お店にご連絡ください'; }
+      srMsg = w.error ? `\n出勤希望：${w.error.message}` : w.data?.auto ? '\n出勤のシフトが入りました' /* v1.36・SQL 372：シフトが未確定の月は承認なしで出勤 */ : w.data?.sent ? '\n出勤希望は、承認者に LINE で送りました' : '\n出勤希望の LINE が承認者に届いていません。お店にご連絡ください'; }
     await uiAlert(`${ed?'予約を変更しました':'予約／同伴申請を受付しました'}${q.data.notified?`\n${NK?'':KL+'・'}同伴のキャストにも LINE で送りました`:''}${srMsg}`);
     resvListNg(lineOk);
   };
