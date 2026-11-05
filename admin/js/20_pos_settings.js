@@ -1,7 +1,7 @@
 // ---------- POS設定 v0.22・SQL 062：料金（メニュー以外）はここだけで変える。POS では見るだけ ----------
 // HC・BC は伝票を立ち上げた時に人数分つける。金額だけ選ぶ（伝票の名前は HC／BC）。HC は係にバック100%（振分できる）、BC は誰にもバックなし
 const HCBC_OPTS=[[null,'付けない'],...Array.from({length:10},(_,i)=>[(i+1)*1000,((i+1)*1000).toLocaleString('ja-JP')+'円'])];
-const vipRow=(t,ed,dis)=>`<tr data-tb="${t.id}"><td>${esc(t.name)}</td><td><input inputmode="numeric" data-v="set" value="${esc(String(t.vip_set_fee||0))}" ${dis}></td><td><input inputmode="numeric" data-v="ext" value="${esc(String(t.vip_ext_fee||0))}" ${dis}></td>${ed?'<td style="width:1%"><button class="ghost sm" data-vrm aria-label="外す">×</button></td>':''}</tr>`;
+const vipRow=(t,ed,dis)=>`<tr data-tb="${t.id}"><td>${esc(t.name)}</td><td><input inputmode="numeric" data-v="set" value="${esc(String(t.vip_set_fee||0))}" ${dis}></td><td><input inputmode="numeric" data-v="ext" value="${esc(String(t.vip_ext_fee||0))}" ${dis}></td>${ed?'<td style="width:1%"><button class="xb" data-vrm aria-label="外す">×</button></td>':''}</tr>`;
 // v0.97・SQL 118：お知らせ（LINEマイページに出す。補助として、過去のお知らせの置き場所。オーナー 2026-10-16）。掲載のたびに「LINE 通知」を選べる。キャストが「確認」を押すと確認済み
 // v1.77：修正の時の見出しは「修正」だけ（オーナー 2026-10-30「送信予定の修正ではなく修正でいい」。掲載済みのお知らせの修正も同じ）
 // v1.76・SQL 302：宛先（全員／黒服のみ）・店舗（銀座／広島／両店。上の店のプルダウンとは別）・送信時刻（今すぐ／時刻指定・15分ごと）（オーナー 2026-10-30）
@@ -68,7 +68,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
       <span style="width:9.5em;white-space:nowrap">${ntWhen(x.send_at)}</span><span style="width:6em;white-space:nowrap">${NT_TO[x.target]||''}</span><span style="width:2.5em;white-space:nowrap">${esc(stLbl(x.stores))}</span>
       <b style="flex:1;min-width:8em">${esc(x.title)}${(x.attach||[]).length?` <small class="muted" style="font-weight:400">${ntCount(x.attach)}</small>`:''}${x.target==='pick'?`<br><small class="muted" style="font-weight:400">${x.names.map(esc).join('・')}</small>`:''}</b>${ed?`<button class="ghost sm" data-se="${x.id}">編集</button><button class="ghost sm" data-sc="${x.id}">取消</button>`:''}</div>`).join('')}</div>`:'';
   const list=L.map(x=>`<div class="card"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b>${esc(x.title)}</b> <small class="muted">${day(x.at)} 掲載${x.pick?'・個別':''}${x.updated_at?'（修正済み）':''}${x.pushed?`・LINE 通知 ${x.pushed}人`:''}</small></div>
-      ${ed?`<button class="ghost sm" data-ne="${x.id}">編集</button><button class="ghost sm" data-nd="${x.id}" aria-label="削除">×</button>`:''}</div>
+      ${ed?`<button class="ghost sm" data-ne="${x.id}">編集</button><button class="xb" data-nd="${x.id}" aria-label="削除">×</button>`:''}</div>
     ${x.body?`<div style="white-space:pre-wrap;margin-top:6px;font-size:14px;line-height:1.6">${esc(x.body)}</div>`:''}${ntAttachView(x.attach)}
     <div class="muted" style="font-size:13px;margin-top:8px">確認済み ${x.read}人／未確認 ${x.unread.length}人${x.unread.length?`<br>未確認：${x.unread.map(esc).join('・')}`:''}</div></div>`).join('')||'<div class="card muted">お知らせはありません</div>';
   $('main').innerHTML=head+form+sched+list;
@@ -82,7 +82,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
     const q=await rpc('admin_notice_sched_cancel',{p_id:x.id}); if(!q.ok) return; await ntRemove((x.attach||[]).map(f=>f.p)); toast('取り消しました'); if(ntSched===x.id) ntSched=null; PAGES.notice(); }));
   // 添付：並べる・［×］で外す・［追加］で選ぶ
   const paintA=()=>{ $('ntA').innerHTML=ntFiles.map((f,i)=>`<div style="position:relative">${f.t==='pdf'?`<div style="width:96px;height:64px;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;color:var(--pri)">PDF<small class="muted" style="font-weight:400;font-size:10px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.n)}</small></div>`
-      :`<img src="${esc(f.p?ntUrl(f.p):f.url)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;display:block">`}<button class="ghost" data-ax="${i}" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;min-height:0;padding:0;border-radius:50%;font-size:12px;line-height:1;background:var(--card)">×</button></div>`).join('')
+      :`<img src="${esc(f.p?ntUrl(f.p):f.url)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;display:block">`}<button class="xb img${f.t==='pdf'?' lt':''}" data-ax="${i}" aria-label="削除">×</button></div>`).join('')
       +(ntFiles.length<4?'<button class="ghost sm" id="ntAdd">追加</button>':'');
     $('ntA').querySelectorAll('[data-ax]').forEach(b=>b.onclick=()=>{ ntFiles.splice(+b.dataset.ax,1); paintA(); });
     if($('ntAdd')) $('ntAdd').onclick=()=>{ $('ntF').value=''; $('ntF').click(); }; };

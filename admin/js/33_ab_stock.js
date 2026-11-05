@@ -7,7 +7,7 @@ PAGES.o_stock=async()=>{ const st=storeId, head=psHead('o_stock'); /* v2.13：�
   const D=r.data, I=D.items||[], S=D.stock||[], M=D.menu||[], C=D.counts||[], cats=[...new Set(M.map(m=>m.cat))], all=[...I,...S.flatMap(g=>g.items||[])];
   const md=x=>{ const t=new Date(x+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}（${'日月火水木金土'[t.getDay()]}）`; };
   const hm=x=>new Date(x).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
-  const cell=(x,rm=true)=>`<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.name)}</span><input data-abq="${x.id}" inputmode="numeric" maxlength="3" value="${x.theory??''}" style="width:48px;text-align:right"><span class="muted">本</span>${rm?`<button class="ghost sm" data-abx="${x.id}" aria-label="削除">×</button>`:''}</div>`;
+  const cell=(x,rm=true)=>`<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.name)}</span><input data-abq="${x.id}" inputmode="numeric" maxlength="3" value="${x.theory??''}" style="width:48px;text-align:right"><span class="muted">本</span>${rm?`<button class="xb" data-abx="${x.id}" aria-label="削除">×</button>`:''}</div>`;
   /* v2.12・SQL 367：ワイン・シャンパンも理論在庫を修正できる（品はメニューから。価格だけの品は出ない。まだ数えていない品は空欄） */
   const grid=L=>`<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px">${L.join('')}</div>`;
   const th=['品','前回','仕入れ','販売','理論在庫','実在庫','差'];
