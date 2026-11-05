@@ -25,13 +25,15 @@ let tdShots = [];
 /* v1.25・SQL 364：AB棚の棚卸し（オーナー 2026-11-05「先入観なくできる棚卸しで」）。数える人には理論在庫も前回の数も出さない。空欄から入力 */
 let tdAB = null, tdAbVals = {};
 const tdAbOk = v => /^\d{1,3}$/.test(String(v ?? '').trim());
+/* v1.28・SQL 367：AB棚の下にワイン・シャンパンも品ごと（オーナー 2026-11-05「ア 品ごと」・見本 作業場/棚卸し_ワイン・シャンパン_案.png） */
+const tdAbGroups = () => (tdAB && tdAB.groups) || (tdAB ? [{ title: 'AB棚', products: tdAB.products || [] }] : []);
+const tdAbCnt = P => { const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length; return `入力済み ${n}品・未入力 ${P.length - n}品`; };
 function tdAbHtml(x, done){
   if(!tdAB || tdAB.item !== x.id || !(tdAB.products || []).length) return '';
-  const P = tdAB.products, C = tdAB.counts || {}, row = (p, i, r) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(p.name)}</div>${r}<span class="muted sm" style="width:1.5em">本</span></div>`;
-  if(done) return Object.keys(C).length ? `<div class="card"><b>AB棚</b>${P.map((p, i) => row(p, i, `<b>${C[p.id] ?? ''}</b>`)).join('')}</div>` : '';
-  const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length;
-  return `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">AB棚</b><span class="muted sm" id="tdAbN">入力済み ${n}品・未入力 ${P.length - n}品</span></div>
-    ${P.map((p, i) => row(p, i, `<input data-ab="${p.id}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px">`)).join('')}</div>`;
+  const G = tdAbGroups().filter(g => (g.products || []).length), C = tdAB.counts || {}, row = (p, i, r) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(p.name)}</div>${r}<span class="muted sm" style="width:1.5em">本</span></div>`;
+  if(done) return Object.keys(C).length ? G.map(g => `<div class="card"><b>${esc(g.title)}</b>${g.products.map((p, i) => row(p, i, `<b>${C[p.id] ?? ''}</b>`)).join('')}</div>`).join('') : '';
+  return G.map((g, gi) => `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">${esc(g.title)}</b><span class="muted sm" data-abn="${gi}">${tdAbCnt(g.products)}</span></div>
+    ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px">`)).join('')}</div>`).join('');
 }
 function hallTodoOne(x, keep){
   setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; }
@@ -51,13 +53,13 @@ function hallTodoOne(x, keep){
       hallTodoOne({ ...x, status: 'open', photos: [], photo: null }); }; return; }
   const redraw = () => hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null });
   const abP = tdAB && tdAB.item === x.id ? tdAB.products || [] : [];
-  $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const n = abP.filter(p => tdAbOk(tdAbVals[p.id])).length; $('tdAbN').textContent = `入力済み ${n}品・未入力 ${abP.length - n}品`; });
+  $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); });
   if($('tdP')) $('tdP').onchange = () => { const f = $('tdP').files[0]; if(!f) return; tdShots.push({ file: f, url: URL.createObjectURL(f) }); redraw(); };
   $('main').querySelectorAll('[data-tdx]').forEach(b => b.onclick = () => { const k = +b.dataset.tdx; URL.revokeObjectURL(tdShots[k].url); tdShots.splice(k, 1); redraw(); });
   $('tdGo').onclick = async () => {
     const note = $('tdN') ? $('tdN').value.trim() : null;
     if(x.need_note && !note){ await uiAlert(`${x.note_hint||'内容'}を書いてください`); return; }
-    if(abP.some(p => !tdAbOk(tdAbVals[p.id]))){ await uiAlert('AB棚の未入力の品があります'); return; }
+    if(abP.some(p => !tdAbOk(tdAbVals[p.id]))){ await uiAlert('未入力の品があります'); return; }
     if(x.need_photo && !tdShots.length){ await uiAlert('写真を撮ってください'); return; }
     $('tdGo').disabled = true;
     try{
