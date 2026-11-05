@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.61 -->
+<title>OLIVE 顧客</title><!-- customer v1.62 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -381,7 +381,7 @@ async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* v1.54：説明�
   try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(e.code==='SQL'?'SQL 171 が未実行です':(e.message||'読み込めません'))/* v1.59：関数が無い時だけ SQL の番号。ほかは本当の文（点検 B3） */}</span>`; return; }
   if(!cur||cur.customer.id!==c.id||!box()) return;
   box().innerHTML=rows.length?rows.map((x,i)=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;${i?'border-top:1px solid var(--line)':''}"><div style="flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere"><b>${esc(x.company)}</b>${x.attn?`　${esc(x.attn)} 様`:''}${x.address?`<div class="muted" style="font-size:13px;white-space:pre-line">${esc(x.address)}</div>`:''}</div>
-    <button class="ghost sm" data-bte="${i}" style="flex:none">修正</button><button class="ghost sm" data-btd="${i}" style="flex:none;color:var(--warn)">削除</button></div>`).join('')
+    <button class="ghost sm" data-bte="${i}" style="flex:none">修正</button><button class="ghost sm" data-btd="${i}" style="flex:none" aria-label="削除">×</button></div>`).join('')
     :'<span class="muted">なし</span>';
   box().querySelectorAll('[data-bte]').forEach(b=>b.onclick=async()=>{ if(await needEdit()) btcForm(c,rows[+b.dataset.bte]); });
   box().querySelectorAll('[data-btd]').forEach(b=>b.onclick=async()=>{ const x=rows[+b.dataset.btd]; if(!await needEdit()) return; if(!await uiConfirm(`請求先「${x.company}」を削除しますか？\n会計済みの伝票の請求先は変わりません`,'削除','danger')) return;
