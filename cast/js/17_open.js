@@ -70,6 +70,7 @@ async function hallTasks(ph){
 }
 
 const shRows = {};   // v1.25：仕入れの入力中の行（追加・× で描き直しても残す）
+const drOut = {};   // v1.28：配達・買い出しの入力中の本数
 // 閉店作業の決まった画面（ボトル残量・顧客メモの更新申請・係・同伴・反応◎の確認・着物・今日出たお酒・ドリンク・オールアップ確認・その日のメモ）と、開店作業の「連絡先交換の係の確認」
 async function hallCloseTask(x, ph){
   setBack(() => hallTasks(ph)); show('<div class="muted" style="padding:20px">読み込み中…</div>');
@@ -95,9 +96,16 @@ async function hallCloseTask(x, ph){
   } else if(k === 'kimono'){
     body = `<div class="card">${D.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${D.map((c, i) => `<button class="btn${c.kimono ? '' : ' g'}" data-km="${i}" ${c.done || c.other_day ? 'disabled' : ''} style="display:inline-block;width:auto;padding:8px 12px;font-size:14px">${esc(c.name)}${c.kimono ? '　着物' : ''}${c.done ? '<br><small>新調済み</small>' : ''}${c.other_day ? `<br><small>着物 ${td(c.other_day)}</small>` : ''}</button>`).join('')}</div>` : '<div class="muted">今日出勤したキャストがいません</div>'}
       <div class="muted sm" style="margin-top:8px">着物で出勤したキャストを選んで保存します（いない日はそのまま保存）</div></div>${sv()}`;
-  } else if(k === 'drinks'){
-    body = `<div class="card">${D.map((g, i) => `<div style="display:flex;gap:4px 12px;flex-wrap:wrap;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(g.cat)}</b>${g.items.map(a => `<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>`).join('') || '<div class="muted">なし</div>'}
-      <div class="muted sm" style="margin-top:8px">発注に回したら保存します</div></div>${sv()}`;
+  } else if(k === 'drinks'){   // v1.28・SQL 367：ワイン・シャンパン・ボトルキープは配達・買い出しの本数を入力。発注＝販売−配達・買い出し（オーナー 2026-11-05・見本 作業場/発注の照合_案2.png）
+    const T = D.flatMap(g => g.items.filter(a => a.track)), cnt = 'width:36px;text-align:right;font-variant-numeric:tabular-nums';
+    if(!drOut[x.id]) drOut[x.id] = Object.fromEntries(T.map(a => [a.id, a.out ? String(a.out) : '0']));
+    const O = drOut[x.id], hd = `<div style="display:flex;align-items:flex-end;gap:8px;font-size:12px;color:var(--muted);padding:0 2px 4px"><span style="flex:1"></span><span style="${cnt}">販売</span><span style="width:64px;text-align:center;font-size:11px;line-height:1.2">配達・<br>買い出し</span><span style="${cnt}">発注</span></div>`;
+    const tr = a => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-top:1px solid var(--line)"><span style="flex:1;line-height:1.4">${esc(a.name)}</span><b style="${cnt}">${a.qty}</b>
+      <input data-dro="${a.id}" inputmode="numeric" maxlength="3" value="${esc(O[a.id] ?? '0')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box"><b data-drn="${a.id}" style="${cnt}">${Math.max(0, a.qty - (+O[a.id] || 0))}</b></div>`;
+    body = `<div class="card">${D.map((g, i) => { const t = g.items.filter(a => a.track), o = g.items.filter(a => !a.track);
+      return `<div style="padding:9px 2px 2px;${i ? 'border-top:1px solid var(--line)' : ''}">${t.length ? `<b>${esc(g.cat)}</b>${hd}${t.map(tr).join('')}` : ''}${o.length ? `<div style="display:flex;gap:4px 12px;flex-wrap:wrap;padding:${t.length ? '8px 2px 6px;border-top:1px solid var(--line)' : '0 0 6px'}">${t.length ? '' : `<b>${esc(g.cat)}</b>`}${o.map(a => `<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>` : ''}</div>`; }).join('') || '<div class="muted">なし</div>'}
+      <div class="muted sm" style="margin-top:8px">${T.length ? '配達・買い出しで用意した本数を入力します。発注＝販売−配達・買い出し。' : ''}発注に回したら保存します</div></div>${sv()}`;
+    getData = () => ({ rows: T.map(a => ({ id: a.id, out: (O[a.id] ?? '0').trim() })) });
   } else if(k === 'allup'){   // v0.61・SQL 217：オールアップ確認（オーナー 2026-10-23「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須。v0.95・SQL 296：基準を 1:05 に（オーナー 2026-10-30「1時ではなく1時5分に。広島も銀座も」）
     const R = D.rows || [], np = D.pending > 0;
     body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">退勤の遅い順（3名）</div>${R.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);font-size:15px${c.pending || c.over ? ';color:var(--warn)' : ''}"><div style="flex:1">${esc(c.name)}</div>
@@ -147,6 +155,8 @@ async function hallCloseTask(x, ph){
     $('clPg').querySelectorAll('[data-opx]').forEach(b => b.onclick = () => { opDrop(x, +b.dataset.opx.split(':')[1]); clShots(); }); };
   if($('clPh')){ clShots(); $('clPh').onchange = () => { const f = $('clPh').files[0]; $('clPh').value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); clShots(); }; } /* v1.09：カメラで1枚ずつ足す */
   if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
+  if(k === 'drinks') $('main').querySelectorAll('[data-dro]').forEach(b => b.oninput = () => { const O = drOut[x.id], a = D.flatMap(g => g.items).find(i => i.id === b.dataset.dro); O[b.dataset.dro] = b.value;
+    $('main').querySelector(`[data-drn="${b.dataset.dro}"]`).textContent = Math.max(0, a.qty - (+b.value || 0)); });
   if(k === 'shiire'){ const R = shRows[x.id], ab = id => ((D.products || []).find(p => p.id === id) || {}).ab, q = (a, i) => $('main').querySelector(`[data-${a}="${i}"]`);
     $('shAdd').onclick = () => { R.push({ pid: '', name: '', qty: '', free: false }); again(); };
     $('main').querySelectorAll('[data-shx]').forEach(b => b.onclick = () => { R.splice(+b.dataset.shx, 1); again(); });
@@ -166,6 +176,6 @@ async function hallCloseTask(x, ph){
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* v0.94：3枚ずつ同時に送る */
       const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
-      delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; hallTasks(ph);
+      delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; delete drOut[x.id]; hallTasks(ph);
     }catch(e){ s.disabled = false; await uiAlert(e.message || String(e)); } };
 }
