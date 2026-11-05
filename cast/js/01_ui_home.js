@@ -119,14 +119,17 @@ function home(){
     top += `<div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div><div class="muted sm">${esc(nextTxt(sl))}</div>`;
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  const bdRow = b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}" style="display:inline-block;min-width:5.6em">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>${esc(b.name)}${cu?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; };
-  const bdCard = (ME.bdays||[]).length ? `<div class="card"><div class="gh">お誕生日（前後1週間）</div>${ME.bdays.map(bdRow).join('')}</div>` : '';
+  const bdRow = b => { const cu = (b.kind_label||'お客様') === 'お客様'; return `<div class="row"><span><b class="${b.in===0?'err':''}" style="display:inline-block;min-width:5.6em">${b.in===0?'本日':'あと'+b.in+'日'}</b>${esc(b.name)}${cu?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; };
+  /* v1.27・SQL 365：本日・明日・明後日だけ（過ぎた人は出さない）。いない日も箱と［カレンダー］は出す（オーナー 2026-11-05「本日から3日間のみ表示…タップするとお客様のお誕生日一覧をカレンダーで」見本 マイページ_お誕生日カレンダー_案3） */
+  const bd3 = (ME.bdays||[]).filter(b => b.in >= 0 && b.in <= 2);
+  const bdCard = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="gh">お誕生日（3日間）</div><button class="lkb" data-go="bdcal">カレンダー</button></div>${bd3.length ? bd3.map(bdRow).join('') : '<div class="muted sm">該当なし</div>'}</div>`;
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41・v0.44：成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
     <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
   /* v1.17：トップの整理（オーナー 2026-11-04「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
      連絡先交換・アプローチは LINE のリンクとリッチメニューから（画面は今のまま）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
   $('main').querySelector('[data-go=perf]').onclick = perf;
+  $('main').querySelector('[data-go=bdcal]').onclick = () => bdayCal(); /* v1.27（25_bday.js） */
   $('main').querySelector('[data-go=absent]').onclick = absent;
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
   $('main').querySelector('[data-go=pay]').onclick = payslip;
