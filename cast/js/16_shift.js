@@ -67,7 +67,7 @@ async function shiftAll(store){
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   // v0.72・SQL 259：同伴がある人は「同伴」の行にまとめて件数だけ（オーナー 2026-10-26 案ア）。黒服はシフトに出さない（休みの日だけ「黒服の休み」）
   const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x); }); /* v0.84・SQL 273。v1.18：体験は「（体験）」を付けず、名前を丸で囲む（オーナー 2026-11-04） */
-    const g = Object.keys(T).sort().map(t => [t, T[t].map(x => x.name).join('・'), T[t].map(x => x.trial ? apRing(x.name, x.ap) : esc(x.name)).join('・')]); if(DH.length){ const n = DH.map(x => `${x.name}（${Math.max(1, Number(x.douhan) || 0)}件）`).join('・'); g.push(['同伴', n, esc(n)]); } return g; };
+    const g = Object.keys(T).sort().map(t => [t, T[t].map(x => x.name).join('・'), T[t].map(x => x.trial ? apRing(x.name, x.ap) : esc(x.name)).join('・')]); if(DH.length){ const c = x => `（${Math.max(1, Number(x.douhan) || 0)}件）`, n = DH.map(x => x.name + c(x)).join('・'); g.push(['同伴', n, DH.map(x => esc(x.name) + (x.black ? DRESS : '') + c(x)).join('・')]); } return g; }; /* v1.29・SQL 368：黒ドレスのしるし */
   const rows = L => groups(L).map(([t, n, h]) => `<div class="row" style="justify-content:flex-start"><b>${esc(t)}</b><span>${h}</span></div>`).join('');
   const all = k => (A.months || []).flatMap(M => M[k] || []);
   const hallOff = iso => all('hall_off').filter(x => x.day === iso).map(x => x.name);
@@ -112,7 +112,7 @@ async function shiftDayEdit(iso, store){
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   const IVd = D.iv || [], HTd = D.hall_trial || []; /* v1.18・SQL 347 */
   show(`<div class="ttl">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人</div>${L.some(x => x.trial) || HTd.length ? `<div class="muted sm" style="margin:-4px 0 8px 6px">${apLegend()}</div>` : ''}<div class="card">
-    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${x.trial ? `${apRing(x.name, x.ap)} <small class="muted">${esc(x.pay || '')}</small>` : esc(x.name)}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
+    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${x.trial ? `${apRing(x.name, x.ap)} <small class="muted">${esc(x.pay || '')}</small>` : esc(x.name) + (x.black ? DRESS : '')}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
       : `${tin(x.time, `data-sdt="${i}"`)}<button class="btn g" data-sdx="${i}" aria-label="消す" style="width:auto;padding:6px 12px;color:var(--warn)">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
     ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
     ${off.length ? `<div class="card"><div class="gh">黒服の休み</div><div>${esc(off.join('・'))}</div></div>` : ''}

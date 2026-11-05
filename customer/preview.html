@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.62 -->
+<title>OLIVE 顧客</title><!-- customer v1.63 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -302,7 +302,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
     <dl class="kv info">
       <dt>お誕生日</dt><dd>${esc(c.birthday||'—')}</dd>
       <dt>会社名</dt><dd>${esc(c.company||'—')}${c.is_industry?' <span class="badge k">同業</span>':''}</dd>
-      <dt>領収書名</dt><dd style="white-space:pre-line">${esc(c.receipt_name||'—')}</dd>
+      <dt>領収書名</dt><dd style="white-space:pre-line">${c.receipt_none?'不要':esc(c.receipt_name||'—')}</dd>
       <dt>${KL}</dt><dd>${esc(kakari||'—')}</dd>
       <dt>会社住所</dt><dd>${esc(c.company_address||'—')}</dd>
       <dt>タバコ</dt><dd style="white-space:pre-line">${esc(c.tobacco||'—')}</dd>
@@ -405,12 +405,12 @@ const EF=[['name','お名前'],['birthday','お誕生日'],['company','会社名
 function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draft)?draft[k]:c[k]; const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const curK=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?staffBy(c.kakari_staff_id):null;
   const fields=memoOnly?'':EF.map(([k,l])=>k==='kakari_staff_id'?`<label class="f">${l}<select data-k="${k}"><option value="">なし</option>${curK?`<option value="${curK.id}" selected>${esc(curK.name)}（退店）</option>`:''}${casts.map(s=>`<option value="${s.id}" ${dv(k)===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`
     :k==='tobacco'||k==='haisha'?`<label class="f">${l}<textarea data-k="${k}" rows="2" maxlength="300">${esc(dv(k)||'')}</textarea></label>`
-    :k==='receipt_name'?`<div class="f" style="margin-bottom:10px;font-size:13px;color:var(--muted)">${l}<div data-k="${k}" data-rn data-v="${esc(dv(k)||'')}" style="display:grid;grid-template-columns:1fr auto;gap:4px 6px;margin-top:4px;color:var(--ink)"></div></div>`
+    :k==='receipt_name'?`<div class="f" style="margin-bottom:10px;font-size:13px;color:var(--muted)"><span style="display:flex;align-items:center;gap:12px">${l}<label style="display:inline-flex;align-items:center;gap:4px;margin:0;font-size:13px;color:var(--ink)"><input type="checkbox" data-k="receipt_none" ${dv('receipt_none')?'checked':''} style="width:auto;margin:0">不要</label></span><div data-k="${k}" data-rn data-v="${esc(dv(k)||'')}" class="${dv('receipt_none')?'hide':''}" style="display:grid;grid-template-columns:1fr auto;gap:4px 6px;margin-top:4px;color:var(--ink)"></div></div>` /* v1.63・SQL 368：領収書名の横の「不要」（オーナー 2026-11-05）。不要の時は枠を非表示 */
     :`<label class="f">${l}<input data-k="${k}" value="${esc(dv(k)||'')}" ${k==='birthday'?'placeholder="例 11/24" inputmode="numeric"':''}></label>`).join('')+`<label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="is_industry" ${dv('is_industry')?'checked':''} style="width:auto;margin:0">同業（会社名に店名を入れる）</label><label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="focus" ${(draft&&('focus' in draft)?draft.focus:!!(custs.find(x=>x.id===c.id)||{}).focus)?'checked':''} style="width:auto;margin:0">強化</label>`; /* v1.60・SQL 324：強化リスト（店ごと・上限は出勤人数×3） */
-  return sheet(`<h3>${esc(c.name)} 様　${memoOnly?'メモを編集':'お客様の情報を編集'}</h3>${fields}${memoOnly?`<label class="f">メモ<textarea data-k="memo" rows="12">${esc(dv('memo')||'')}</textarea></label>`:''}<div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ s.querySelectorAll('[data-rn]').forEach(rnBox);
+  return sheet(`<h3>${esc(c.name)} 様　${memoOnly?'メモを編集':'お客様の情報を編集'}</h3>${fields}${memoOnly?`<label class="f">メモ<textarea data-k="memo" rows="12">${esc(dv('memo')||'')}</textarea></label>`:''}<div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ s.querySelectorAll('[data-rn]').forEach(rnBox); const rnNo=s.querySelector('[data-k=receipt_none]'); if(rnNo) rnNo.onchange=()=>s.querySelector('[data-rn]').classList.toggle('hide',rnNo.checked);
     s.querySelector('[data-x]').onclick=()=>done(false);
     s.querySelector('[data-ok]').onclick=async e=>{ const patch={}, before={}, dr={}; let fNew=null; const li0=custs.find(x=>x.id===c.id), fChg=()=>fNew!=null&&fNew!==!!(li0&&li0.focus); s.querySelectorAll('[data-k]').forEach(i=>{ dr[i.dataset.k]=i.type==='checkbox'?i.checked:(i.value||null); });
-      s.querySelectorAll('[data-k]').forEach(i=>{ const k=i.dataset.k; let v=i.type==='checkbox'?i.checked:(k==='memo'?i.value.replace(/\s+$/,''):i.value.trim()); if(v==='') v=null; if(k==='focus'){ fNew=v; return; } if(k==='is_industry'){ if(v!==!!c.is_industry){ patch[k]=v; before[k]=!!c.is_industry; } return; } if(v!==(c[k]||null)){ patch[k]=v; before[k]=c[k]??null; } });
+      s.querySelectorAll('[data-k]').forEach(i=>{ const k=i.dataset.k; let v=i.type==='checkbox'?i.checked:(k==='memo'?i.value.replace(/\s+$/,''):i.value.trim()); if(v==='') v=null; if(k==='focus'){ fNew=v; return; } if(k==='is_industry'||k==='receipt_none'){ if(v!==!!c[k]){ patch[k]=v; before[k]=!!c[k]; } return; } if(v!==(c[k]||null)){ patch[k]=v; before[k]=c[k]??null; } });
       if('name' in patch&&!patch.name){ toast('お名前は必須です'); return; }
       if(patch.birthday){ const m=patch.birthday.replace(/[０-９／]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).match(/^(\d{1,2})[\/月.\-](\d{1,2})日?$/); const dim=[31,29,31,30,31,30,31,31,30,31,30,31]; if(!m||+m[1]<1||+m[1]>12||+m[2]<1||+m[2]>dim[+m[1]-1]){ toast('お誕生日は 11/24 のように入力してください'); return; } patch.birthday=`${+m[1]}/${+m[2]}`; if(patch.birthday===(c.birthday||null)){ delete patch.birthday; delete before.birthday; } }
       const ind='is_industry' in patch?patch.is_industry:!!c.is_industry; const co='company' in patch?patch.company:c.company; if(ind&&!co){ toast('同業の時は店名を会社名に入力してください'); return; }
@@ -421,7 +421,7 @@ function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draf
 /* v1.30：ほかの人が先に変えていた時。メモは行ごとに自動で合わせて保存する（同じ行を両方が直した時だけ、どちらを残すか聞く）。メモ以外は最新にして、書いた内容と一緒に見せ直す */
 async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; if(!c||c.id!==c0.id){ await uiAlert('ほかの人が先にこのお客様を変更しました'); return; }
   const same=(x,y)=>JSON.stringify(x??null)===JSON.stringify(y??null);
-  const clash=Object.keys(patch).filter(k=>!same(k==='is_industry'?!!c[k]:c[k],before[k]));
+  const clash=Object.keys(patch).filter(k=>!same(k==='is_industry'||k==='receipt_none'?!!c[k]:c[k],before[k]));
   if(clash.includes('memo')){ const r=memoMerge(before.memo,patch.memo,c.memo), ch=[];
     for(const x of r.conflicts){ const v=await pickClash(x); if(v==null){ return editForm(true,{memo:patch.memo}); } ch.push(v); }
     const memo=memoMergeDone(r,ch).replace(/\s+$/,'')||null;
@@ -429,7 +429,7 @@ async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; 
     try{ await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:{memo},p_before:{memo:c.memo??null}}); toast('ほかの人の変更と合わせて保存しました'); await reloadDetail(); }
     catch(err){ if(err.code==='CS_CONFLICT'){ await reloadDetail(); return csClash(true,c0,{memo},{memo:c.memo??null},{memo}); } if(err.code==='CS_EDIT'){ await uiAlert(err.message); if(!await needEdit()) return; return editForm(true,{memo}); } await fail(err); }
     return; }
-  const lb=Object.fromEntries(EF.concat([['is_industry','同業']])); const d={...dr}; clash.forEach(k=>{ d[k]=c[k]; });
+  const lb=Object.fromEntries(EF.concat([['is_industry','同業'],['receipt_none','領収書名 不要']])); const d={...dr}; clash.forEach(k=>{ d[k]=c[k]; });
   await uiAlert(`ほかの人が先に「${clash.map(k=>lb[k]||k).join('・')}」を変更していました。そこは最新にして、ほかの欄は書いた内容を残したので、確かめて保存してください`);
   return editForm(memoOnly,d); }
 function pickClash(x){ return sheet(`<h3>同じ箇所をほかの人も修正していました</h3><div class="muted" style="font-size:13px">どちらを残しますか？</div>
