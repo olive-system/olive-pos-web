@@ -7,7 +7,7 @@ const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
 const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const DRESS = '<img src="../icons/dress.svg" alt="黒ドレス" style="width:15px;height:15px;vertical-align:-2px;margin-left:2px">'; /* v1.29・SQL 368：黒ドレスの着用者の名前の横（オーナー 2026-11-05「イ 黒いドレスの形」。Phosphor） */
+const DRESS = '<img src="../icons/dress.svg" alt="黒ドレス" style="width:15px;height:15px;vertical-align:-2px;margin-left:2px">'; /* v1.30・SQL 368：黒ドレスの着用者の名前の横（オーナー 2026-11-05「イ 黒いドレスの形」。Phosphor） */
 const yen = n => Number(n||0).toLocaleString('ja-JP') + '円';
 const HM = h => { const t=Math.round(Number(h||0)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
 let TOKEN = null, ME = null, KL = '係', pollT = null, SHIFT_ALL = false;

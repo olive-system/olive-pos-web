@@ -67,7 +67,7 @@ async function shiftAll(store){
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   // v0.72・SQL 259：同伴がある人は「同伴」の行にまとめて件数だけ（オーナー 2026-10-26 案ア）。黒服はシフトに出さない（休みの日だけ「黒服の休み」）
   const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x); }); /* v0.84・SQL 273。v1.18：体験は「（体験）」を付けず、名前を丸で囲む（オーナー 2026-11-04） */
-    const g = Object.keys(T).sort().map(t => [t, T[t].map(x => x.name).join('・'), T[t].map(x => x.trial ? apRing(x.name, x.ap) : esc(x.name)).join('・')]); if(DH.length){ const c = x => `（${Math.max(1, Number(x.douhan) || 0)}件）`, n = DH.map(x => x.name + c(x)).join('・'); g.push(['同伴', n, DH.map(x => esc(x.name) + (x.black ? DRESS : '') + c(x)).join('・')]); } return g; }; /* v1.29・SQL 368：黒ドレスのしるし */
+    const g = Object.keys(T).sort().map(t => [t, T[t].map(x => x.name).join('・'), T[t].map(x => x.trial ? apRing(x.name, x.ap) : esc(x.name)).join('・')]); if(DH.length){ const c = x => `（${Math.max(1, Number(x.douhan) || 0)}件）`, n = DH.map(x => x.name + c(x)).join('・'); g.push(['同伴', n, DH.map(x => esc(x.name) + (x.black ? DRESS : '') + c(x)).join('・')]); } return g; }; /* v1.30・SQL 368：黒ドレスのしるし */
   const rows = L => groups(L).map(([t, n, h]) => `<div class="row" style="justify-content:flex-start"><b>${esc(t)}</b><span>${h}</span></div>`).join('');
   const all = k => (A.months || []).flatMap(M => M[k] || []);
   const hallOff = iso => all('hall_off').filter(x => x.day === iso).map(x => x.name);

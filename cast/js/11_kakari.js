@@ -55,7 +55,7 @@ async function resvForm(ed){
         <label class="f" style="width:64px;flex:none;margin:0">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label></div>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
       ${NK?'':`<label class="f" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>`}
-      ${/* v1.29・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
+      ${/* v1.30・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
       <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end"><label class="f hide" id="rvVW" style="flex:1;min-width:0;margin:0">VIPルーム<select id="rvV" style="${fld}"><option value="">なし</option></select></label>
         <div style="flex:none"><div class="f">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 14px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 14px">あり</button></div></div></div>
       <div id="rvBW" class="hide" style="display:flex;gap:8px;margin-top:8px;align-items:flex-start"><label class="f" style="width:110px;flex:none;margin:0">黒ドレス<select id="rvB" style="${fld};padding:0 6px"></select></label>
@@ -80,11 +80,11 @@ async function resvForm(ed){
   // v0.79・SQL 265：同伴の子（お客様の人数まで・自分も外せる。オーナー 2026-10-27）と VIPルーム（POS の卓の名前に VIP。最初は「なし」）
   const ST = (st.data || []).slice().sort((a, b) => (b.id === me?.id) - (a.id === me?.id)) /* 小窓は「自分」を一番上に */, nmOf = id => id === me?.id ? '自分' : (ST.find(s => s.id === id)?.name || ''), guests = () => parseInt($('rvN').value, 10) || 1;
   let dhIds = ed && ed.douhan && ed.dh && ed.dh.length ? [...ed.dh] : (me ? [me.id] : []), DAY = { rooms: [], busy: [], shifts: {} };
-  // v1.29・SQL 368：黒ドレス（同伴キャストから1名・店ごとに1日1名の先着。決定済みの日は「受付終了」で、着用者は出さない）
+  // v1.30・SQL 368：黒ドレス（同伴キャストから1名・店ごとに1日1名の先着。決定済みの日は「受付終了」で、着用者は出さない）
   let blk = ed ? ed.black_id || null : null;
   const bkPaint = () => { const x = $('rvB'); if(!x) return; if(blk && !dhIds.includes(blk)) blk = null; if(DAY.black_taken){ blk = null; x.disabled = true; x.style.color = 'var(--muted)'; x.innerHTML = '<option value="">受付終了</option>'; return; }
     x.disabled = false; x.style.color = ''; x.innerHTML = `<option value="">なし</option>${dhIds.map(id => `<option value="${id}"${id === blk ? ' selected' : ''}>${esc(nmOf(id))}</option>`).join('')}`; x.value = blk || ''; };
-  const chipPaint = () => { const b = $('rvDhC'); if(!b) return; const on = dh; /* v1.29：同伴キャストは「あり」の時はいつも（黒ドレスのとなり） */
+  const chipPaint = () => { const b = $('rvDhC'); if(!b) return; const on = dh; /* v1.30：同伴キャストは「あり」の時はいつも（黒ドレスのとなり） */
     $('rvBW').classList.toggle('hide', !dh); bkPaint();
     b.innerHTML = on ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:48px">${dhIds.map((id, i) => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:16px;padding:5px 10px;background:var(--card);font-size:15px">${esc(nmOf(id))}<button data-dhx="${i}" aria-label="外す" style="background:none;border:none;padding:0 2px;font:inherit;color:var(--warn)">×</button></span>`).join('')}${dhIds.length < guests() ? '<button class="btn g" id="rvDhAdd" style="width:auto;padding:6px 16px">追加</button>' : ''}</div>` : '';
     b.querySelectorAll('[data-dhx]').forEach(x => x.onclick = () => { dhIds.splice(+x.dataset.dhx, 1); chipPaint(); });

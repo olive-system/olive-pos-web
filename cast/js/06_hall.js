@@ -139,7 +139,7 @@ function hcPaint(){
       <div class="row"><span class="muted">タバコ</span><span style="text-align:right;white-space:pre-line">${esc(cu.tobacco||'—')}</span></div><div class="row"><span class="muted">配車</span><span style="text-align:right;white-space:pre-line">${esc(cu.haisha||'—')}</span></div>
       <div style="background:var(--gold-soft);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;line-height:1.7">${esc(cu.memo||'メモなし')}</div>
       ${g.ok_at?`<button class="btn g" data-hu="${g.id}" style="margin-top:8px">確認の取消</button>`:`<button class="btn" data-hk="${g.id}" style="margin-top:8px">確認</button>`}</div>`; };
-  const SH = {}; (C.shifts||[]).forEach(x => { (SH[x.time] = SH[x.time] || []).push(esc(x.name) + (x.black?DRESS:'') + (x.douhan?'（同伴）':'')); }); /* v1.29・SQL 368：黒ドレスのしるし */
+  const SH = {}; (C.shifts||[]).forEach(x => { (SH[x.time] = SH[x.time] || []).push(esc(x.name) + (x.black?DRESS:'') + (x.douhan?'（同伴）':'')); }); /* v1.30・SQL 368：黒ドレスのしるし */
   const y = new Date(C.date+'T00:00:00+09:00'); y.setDate(y.getDate()-1);
   show(`<div id="hcBox"><div class="ttl">朝礼　${mdj(C.date)}${C.event?' <small class="muted">イベント日</small>':''}</div>
     <div class="card"><div class="gh">本日来店予定のお客様 ${G.length}組${left?`　<span class="err">未確認 ${left}組</span>`:''}</div>${G.map(guest).join('')||'<div class="muted sm">なし</div>'}${G.length?'<div class="muted sm" style="margin-top:6px">未確認をタップで顧客メモを確認してください。</div>':''}</div>
