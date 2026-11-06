@@ -16,7 +16,7 @@ PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class
       <li>「アプリケーション」→「＋」で新しいアプリを作る（名前は OLIVE など）</li>
       <li>上の切り替えを「本番環境」にして、「認証情報」の「本番アクセストークン」をコピー</li>
       <li>この画面に貼り付けて「つなぐ」</li></ol>
-      <div class="muted" style="font-size:13px;margin-top:6px">使うのは支払いの読み込みだけです。閉店作業の「⑧ レジ金合わせ」で、その営業日（朝8時〜翌朝8時）の Square のカード売上と POS のカードの入金を比べます</div></div>`;
+      <div class="muted" style="font-size:13px;margin-top:6px">使うのは支払いの読み込みだけです。閉店作業の「レジ金合わせ」で、その営業日（朝8時〜翌朝8時）の Square のカード売上と POS のカードの入金を比べます</div></div>`;
   const locPaint=async()=>{ if(!D.set||D.location_id) return; const q=await rpc('admin_square_locations',{p_store:st}); if(!q.ok) return; const L=q.data||[];
     $('sqLoc').innerHTML=`<div class="muted" style="font-size:13px">Square の店舗を選んでください</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${L.map(x=>`<button class="ghost sm" data-loc="${esc(x.id)}" data-nm="${esc(x.name)}">${esc(x.name)}</button>`).join('')||'<span class="muted">店舗がありません</span>'}</div>`;
     $('sqLoc').querySelectorAll('[data-loc]').forEach(b=>b.onclick=async()=>{ const q2=await rpc('admin_square_location',{p_store:st,p_id:b.dataset.loc,p_name:b.dataset.nm}); if(!q2.ok) return; toast('保存しました'); PAGES.o_square(); }); };

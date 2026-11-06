@@ -1,7 +1,7 @@
 // ---------- customer modal ----------
-let custPick=null;
-$('custAddBtn').onclick=()=>{ $('custCancel').textContent='伝票へ戻る'; custPick=null; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); };
-$('custCancel').onclick=()=>$('custModal').classList.remove('on');
+let custPick=null, custBill=null; /* v12.72：閉店作業「① お客様登録」から追加する時の伝票（新規のお連れ様の係に使う） */
+$('custAddBtn').onclick=()=>{ $('custCancel').textContent='伝票へ戻る'; custPick=null; custBill=null; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); };
+$('custCancel').onclick=()=>{ $('custModal').classList.remove('on'); if(custBill){ custPick=null; custBill=null; } };
 /* v12.28・SQL 276：お客様を追加の並びも最近出てきた順（来店・予約・情報の更新。顧客の画面と同じ。オーナー 2026-10-29）。顧客の画面をまだ開いていない時は、最近出てきた時刻だけ読む */
 function custActLoad(){ if(custActLoad.on||Object.keys(cuInfo.act||{}).length) return; custActLoad.on=true; sb.rpc('pos_cust_act').then(r=>{ custActLoad.on=false; if(r.error||!r.data||typeof r.data!=='object') return; cuInfo.act=r.data; if($('custModal').classList.contains('on')) renderCust($('custSearch').value.trim()); }); }
 function renderCust(q){ custActLoad(); const on=new Set(custPick?[]:((cur&&cur.bill_customers)||[]).map(x=>x.customer_id)); const list=customers.filter(c=>!on.has(c.id)&&(!q||c.name.includes(q)||kanaHit(c,q))).sort((a,b)=>cuAct(b)-cuAct(a)||jaCmp(a.name,b.name)||String(a.id).localeCompare(String(b.id))).slice(0,40);
@@ -15,10 +15,10 @@ $('custNew').onclick=guard($('custNew'),async()=>{ /* v12.30：二度押しで�
   let km=''; if(kk){ const kr=await sb.from('customer_kakari').upsert({customer_id:data.id,store_id:store.id,staff_id:kk,updated_at:new Date().toISOString()},{onConflict:'customer_id,store_id'}); if(kr.error) toast(''+KL+'を保存できません：'+kr.error.message); else { data.kakari_staff_id=kk; km=`係 ${snm(kk)} を登録しました`; } }
   customers.push(data); customers.sort((a,b)=>a.name.localeCompare(b.name,'ja')); await attachCust(data.id); if(km) toast(km); });
 /* v12.46・SQL 328：銀座（係の店）だけ。伝票に新規のお客様（お連れ様）を登録した時、伝票の最初のお客様の係を、新規のお客様の係にする。最初のお客様に係が無い時は伝票の係（1人の時だけ）。広島（担当の店）ではしない（オーナー 2026-11-02「銀座ルール」） */
-async function custTsureKakari(){ if(custPick||!cur||KL!=='係') return null; const act=id=>staffAll.some(s=>s.id===id&&s.is_active);
-  const r=await sb.from('bill_customers').select('customer_id').eq('bill_id',cur.id).order('created_at').limit(1); if(r.error) return null;
+async function custTsureKakari(){ const bl=custBill||cur; if((custPick&&!custBill)||!bl||KL!=='係') return null; const act=id=>staffAll.some(s=>s.id===id&&s.is_active);
+  const r=await sb.from('bill_customers').select('customer_id').eq('bill_id',bl.id).order('created_at').limit(1); if(r.error) return null;
   if(r.data?.length){ const k=await sb.from('customer_kakari').select('staff_id').eq('customer_id',r.data[0].customer_id).eq('store_id',store.id).maybeSingle(); if(k.data?.staff_id&&act(k.data.staff_id)) return k.data.staff_id; }
-  const ks=[...new Set((cur.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id))]; return ks.length===1&&act(ks[0])?ks[0]:null; }
+  const ks=[...new Set((bl.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id))]; return ks.length===1&&act(ks[0])?ks[0]:null; }
 async function attachCust(id){ if(custPick){ const c=customers.find(x=>x.id===id); $('custModal').classList.remove('on'); custPick(c); custPick=null; return; } const { error } = await sb.from('bill_customers').insert({bill_id:cur.id,customer_id:id}); if(error&&!error.message.includes('duplicate')) toast(error.message); else if(!error) await logOp('お客様を伝票に追加',{customer:customers.find(x=>x.id===id)?.name});
   const kc=customers.find(x=>x.id===id)?.kakari_staff_id; if(kc&&settings.cust_auto_kakari!==false&&!(cur.bill_casts||[]).some(c=>c.staff_id===kc)){ const r=await sb.from('bill_casts').insert({bill_id:cur.id,staff_id:kc,role:'none',is_kakari:true}); if(r.error) toast(r.error.message); else await syncHcBack(); } $('custModal').classList.remove('on'); openBill(cur.id); }
 
