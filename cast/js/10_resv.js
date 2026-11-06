@@ -33,5 +33,5 @@ async function resvList(){
   $('main').querySelectorAll('[data-cx]').forEach(b => b.onclick = () => resvCancel(RESV[b.dataset.cx], b)); /* v0.94：押したボタンを送っている間は押せない */
   $('main').querySelectorAll('[data-th]').forEach(b => b.onclick = () => resvThanks(RESV[b.dataset.th]));
   /* v0.77：「ありがとう済み」を押すと、送ったありがとうの文を小窓で（オーナー 2026-10-27「なんてありがとうを送ったのかがわかるように。小窓で良い」）。文は SQL 113 の cast_resv_thanks と同じ形 */
-  $('main').querySelectorAll('[data-thv]').forEach(b => b.onclick = () => { const x = RESV[b.dataset.thv]; uiAlert(`${x.by}さんに送ったありがとう\n\n【ありがとう】${ME.name}\n${resvLine(x).split('　')[0]}　${x.guests}名\n${x.name} 様${x.thanks_note ? `\nひとこと：${x.thanks_note}` : ''}`); });
+  $('main').querySelectorAll('[data-thv]').forEach(b => b.onclick = () => { const x = RESV[b.dataset.thv]; uiView(`${x.by}さんに送ったありがとう\n\n【ありがとう】${ME.name}\n${resvLine(x).split('　')[0]}　${x.guests}名\n${x.name} 様${x.thanks_note ? `\nひとこと：${x.thanks_note}` : ''}`); });
 }
