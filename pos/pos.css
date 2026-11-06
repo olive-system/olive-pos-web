@@ -49,6 +49,7 @@
   .num{display:inline-flex;align-items:center;gap:8px;font-size:22px;font-weight:700}.num button{width:40px;height:40px;border-radius:50%;font-size:22px;padding:0}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}.modal.on{display:flex}
   .modal .box{background:#fff;border-radius:16px;padding:18px;width:min(760px,92vw);max-height:88vh;overflow:auto}
+  .modal .box:has(>.dx){position:relative;padding-right:44px}.modal .box:has(>.dx)>.bar{margin-right:-26px}button.xb.dx{position:absolute;top:10px;right:10px;font-size:24px!important} /* v12.71：見るだけの小窓は下の「閉じる」ではなく右上の × で閉じる（オーナー 2026-11-06「閉じるんだったら×でいいよね」） */
   table.t{width:100%;border-collapse:collapse}table.t td,table.t th{padding:6px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}table.t input{width:100%}table.t input.n{width:110px;text-align:right}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;display:none;z-index:80}.toast.on{display:block}
   .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}

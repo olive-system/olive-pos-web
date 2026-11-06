@@ -90,9 +90,9 @@ function keyVendorEdit(st,v){ const isNew=!v; v=v||{name:'',days:[1,2,3,4,5,6,0]
     if(!r.ok) return; md.remove(); toast('保存しました'); await PAGES.o_key(); if(isNew) keyVendorQr({name:q('kvN').value.trim(),text:r.data.text,token:r.data.token}); });
 }
 function keyVendorQr(v){ const u=KEY_URL+'?t='+encodeURIComponent(v.token), qr=qrcode(0,'M'); qr.addData(u); qr.make();
-  const md=modal(`<h2 style="margin:0">${esc(v.name)}</h2><div style="text-align:left">${qr.createSvgTag(5,8)}<div style="font-size:14px;line-height:1.8">${esc(v.text)}</div>
+  const md=modal(`<button class="xb dx" data-k="no" aria-label="閉じる">×</button><h2 style="margin:0">${esc(v.name)}</h2><div style="text-align:left">${qr.createSvgTag(5,8)}<div style="font-size:14px;line-height:1.8">${esc(v.text)}</div>
     <div class="muted" style="font-size:13px">業者のスマホのカメラで読むと鍵の画面を表示します。ホーム画面に追加して使います</div></div>
-    <div class="bar"><button class="ghost" data-k="cp">リンクのコピー</button><button class="primary" data-k="no">閉じる</button></div>`);
+    <div class="bar"><button class="ghost" data-k="cp">リンクのコピー</button></div>`);
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   md.querySelector('[data-k=cp]').onclick=async()=>{ try{ await navigator.clipboard.writeText(u); toast('コピーしました'); }catch(e){ await uiAlert(u); } };
 }
