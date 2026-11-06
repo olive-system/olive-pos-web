@@ -109,6 +109,7 @@ window.addEventListener('popstate', () => { if(!backFn) return; const f = backFn
 // v1.05・点検 2026-11-02 B5：読めなかった時に、ボタン・件数が黙って消えないように、画面の上に1行（1回だけ）
 function loadNg(){ const m = $('main'); if(!m || m.querySelector('.ldng')) return; m.insertAdjacentHTML('afterbegin', '<p class="err sm ldng" style="margin:0 2px 8px">読み込めない項目があります。開き直してください</p>'); }
 function home(){
+  SHQ = ''; /* v1.38：シフト（全員）の名前の検索は、ホームに戻ったら解除 */
   if(LEAVING){ leaveHome(); return; }
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
