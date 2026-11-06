@@ -62,10 +62,12 @@ async function apPage(id, store, back){
         <label class="f" style="margin-top:8px">本名<input id="apRn" maxlength="60" value="${esc(A.real_name || '')}" style="${AP_FS}"></label></div>
       ${photos}<button class="btn" id="apIvOk" style="margin-top:14px">保存</button>` : `<div style="padding:4px 0">面接結果　${esc(({ trial: '体験', considering: '体験', joined: '入店', declined: '辞退', rejected: '不採用' })[A.status] || '')}</div>${photos}`}${hs}</div>`;
   // 体験
-  const trRes = ({ joined: 'joined', considering: 'considering', declined: 'declined' })[A.status] || '';
+  /* v1.42・SQL 388：体験結果に不採用。ジャッジが不採用なら最初から選択。辞退・不採用は理由が必須（オーナー 2026-11-06「入店にならなかった場合、その理由を強制的に」） */
+  const trRes = ({ joined: 'joined', considering: 'considering', declined: 'declined', rejected: 'rejected' })[A.status] || (A.status === 'trial' && A.judge === 'not' ? 'rejected' : '');
   const tr = A.trial_name ? `<div class="card"><div class="gh">体験　${esc(apDt(A.trial_at))}</div>
-    ${A.joined ? '<div style="padding:4px 0">体験結果　入店</div>' : `<div class="f">体験結果</div>${apSeg('tr', [['joined', '入店'], ['considering', '検討中'], ['declined', '辞退']], trRes)}`}
+    ${A.joined ? '<div style="padding:4px 0">体験結果　入店</div>' : `<div class="f">体験結果</div>${apSeg('tr', [['joined', '入店'], ['considering', '検討中'], ['declined', '辞退'], ['rejected', '不採用']], trRes)}`}
     <div class="f">よかった点</div>${apGrid('good', A.good)}<div class="f" style="margin-top:8px">気になった点</div>${apGrid('concern', A.concern)}
+    <div id="apRsIn" style="${['declined', 'rejected'].includes(trRes) ? '' : 'display:none'}"><label class="f" style="margin-top:8px">理由<span style="color:var(--warn)">（必須）</span></label><textarea id="apRs" maxlength="500" style="min-height:70px">${esc(A.trial_reason || '')}</textarea></div>
     <button class="btn" id="apTrOk" style="margin-top:12px">保存</button></div>` : '';
   // 入店：契約書は対面
   const jn = A.joined ? `<div class="card"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">契約書</b>${A.docs_hold ? '<span class="muted" style="flex:none">未開始</span><button class="btn" id="apDoc" style="width:auto;padding:8px 16px">開始</button>' : '<span class="muted">開始済み</span>'}</div></div>` : '';
@@ -75,7 +77,7 @@ async function apPage(id, store, back){
   const memo = `<div class="card"><label class="f">メモ<textarea id="apMemo" maxlength="500">${esc(A.memo || '')}</textarea></label></div>`;
   show(`<div class="ttl">${esc(A.name || A.line_name || '（名前なし）')}</div>${top}${iv}${tr}${vc}${jn}${dc}${memo}`);
   const M = $('main');
-  M.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if(s.dataset.seg === 'iv' && $('apTrialIn')) $('apTrialIn').style.display = b.dataset.v === 'trial' ? '' : 'none'; }));
+  M.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if(s.dataset.seg === 'iv' && $('apTrialIn')) $('apTrialIn').style.display = b.dataset.v === 'trial' ? '' : 'none'; if(s.dataset.seg === 'tr' && $('apRsIn')) $('apRsIn').style.display = ['declined', 'rejected'].includes(b.dataset.v) ? '' : 'none'; }));
   const segV = k => { const b = M.querySelector(`[data-seg="${k}"] button.on`); return b ? b.dataset.v : ''; };
   const save = async p => { const q = await sb.rpc('ap_save', { p_token: TOKEN, p_store: store || null, p_id: id, p }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   $('apHall').onchange = () => save({ hall_staff_id: $('apHall').value });
@@ -95,8 +97,9 @@ async function apPage(id, store, back){
   if($('apTrOk')) $('apTrOk').onclick = async e => { const v = A.joined ? 'joined' : segV('tr'); if(!v){ await uiAlert('体験結果を選んでください'); return; }
     if(v === 'joined' && !A.joined && !await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します', '入店')) return;
     const pick = k => [...M.querySelectorAll(`[data-${k}]`)].filter(x => x.checked).map(x => x.dataset[k]);
+    const rs = ['declined', 'rejected'].includes(v) ? $('apRs').value.trim() : null; if(rs === ''){ await uiAlert('理由を入力してください'); return; }
     e.target.disabled = true;
-    const q = await sb.rpc('ap_trial_result', { p_token: TOKEN, p_store: store || null, p_id: id, p_result: v, p_good: pick('good'), p_concern: pick('concern'), p_memo: $('apMemo').value });
+    const q = await sb.rpc('ap_trial_result', { p_token: TOKEN, p_store: store || null, p_id: id, p_result: v, p_good: pick('good'), p_concern: pick('concern'), p_memo: $('apMemo').value, p_reason: rs });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
   $('apSh').onclick = () => sheetStaff(id, store, again); /* v1.21：お店が書き込む */
   if($('apQr')) $('apQr').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('ap_qr', { p_token: TOKEN, p_store: store || null, p_id: id }); e.target.disabled = false; if(q.error){ await uiAlert(q.error.message); return; } /* v1.19・SQL 348：15分の間の友だち追加をこの人につなぐ */
