@@ -29,7 +29,7 @@ function apShoot(store, id, kind, done){ document.querySelectorAll('input[data-a
   i.click(); }
 // 写真を大きく表示（削除もここ）
 async function apPhotoBig(store, id, src, done){ /* v1.39：閉じるは右上の × */
-  const w = xBox(`<img src="${src}" style="width:100%;border-radius:8px;display:block"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button></div>`);
+  const w = xBox(`<img src="${src}" style="width:100%;border-radius:8px;display:block;margin-top:16px"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button></div>`);
   w.querySelector('[data-k=del]').onclick = async () => { if(!await uiConfirm('この写真を削除しますか？', '削除')) return; const r = await sb.rpc('ap_photo_del', { p_token: TOKEN, p_store: store || null, p_photo: id }); w.remove(); if(r.error){ await uiAlert(r.error.message); return; } done(); }; }
 
 async function apPage(id, store, back){
