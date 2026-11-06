@@ -14,7 +14,7 @@ const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_te
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 const $ = id => document.getElementById(id);
 const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-/* v12.71・SQL 380：お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
+/* v12.72・SQL 380：お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
 const kanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), kanaKey=v=>kanaFix(v).replace(/ /g,''), kanaHit=(c,q)=>{ const k=kanaKey(q); return !!k&&kanaKey(c.kana).includes(k); }, kanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
 const yen = n => (n ?? 0).toLocaleString('ja-JP') + '円';
 // v11.45：来店の時刻は5分切り上げ（09:17→09:20）。セットの始まり（set_start）も切り上げた時刻で記録し、セットの終わり・延長もそこから数える。来店の記録（opened_at）と退店（closed_at）は実際の時刻（オーナー 2026-10-15）

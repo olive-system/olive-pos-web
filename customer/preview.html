@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.66 -->
+<title>OLIVE 顧客</title><!-- customer v1.67 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -145,7 +145,7 @@ function kSet(v){ KL=(v&&String(v).trim())||'係'; KT.forEach(([o,k,v])=>{ o[k]=
 const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-/* v1.66・SQL 380：フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
+/* v1.67・SQL 380：フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
 const kanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), kanaKey=v=>kanaFix(v).replace(/ /g,''), kanaHit=(c,q)=>{ const k=kanaKey(q); return !!k&&kanaKey(c.kana).includes(k); };
 const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円'; /* v1.16：金額は POS と同じ「78,000円」 */
 /* v1.32・SQL 076：管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
@@ -279,7 +279,7 @@ function renderList(){ const q=$('q').value.trim();
   $('rows').innerHTML=show.map(c=>`<button class="row" data-id="${c.id}"><div class="nm">${esc(c.name)}${c.company?` <small class="muted" style="font-weight:400">${esc(c.company)}</small>`:''}${c.focus?' <span class="badge">強化</span>':''}${c.is_industry?' <span class="badge k">同業</span>':''}${c.req?` <span class="badge warnb">申請 ${c.req}件</span>`:''}</div><div class="sub" style="${mode==='old'?'color:var(--warn)':''}">${[c.last?md(c.last):'来店なし',c.kakari_staff_id?esc(sname(c.kakari_staff_id)):'',esc(bnLine(c.bottle_names,c.bottles)),mode==='focus'&&fInfo&&fInfo.contacts?(fInfo.contacts[c.id]?`連絡先 ${fInfo.contacts[c.id]}名`:'<span style="color:var(--warn)">連絡先なし</span>'):''].filter(Boolean).join('・')}</div></button>`).join('')+(list.length>show.length?`<div class="muted" style="font-size:13px;padding:8px 0">ほか ${list.length-show.length}名（検索で絞り込んでください）</div>`:'')||'<div class="muted" style="padding:20px 0">該当なし</div>';
   $('rows').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(b.dataset.id)); }
 
-/* v1.66・SQL 380：お名前の下にフリガナ（任意）。検索の文字がかなだけの時はフリガナの枠に入れる */
+/* v1.67・SQL 380：お名前の下にフリガナ（任意）。検索の文字がかなだけの時はフリガナの枠に入れる */
 const kanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
 function newForm(q){ const kq=q&&!kanaBad(kanaFix(q)); return sheet(`<h3>新しいお客様</h3><label class="f">お名前<input id="nfName" value="${esc(kq?'':q)}"></label><label class="f">フリガナ<input id="nfKana" value="${esc(kq?kanaFix(q):'')}" placeholder="例）あおやぎ しろう or アオヤギ シロウ"></label><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>登録</button></div>`,(s,done)=>{ const n=s.querySelector('#nfName'), k=s.querySelector('#nfKana'); setTimeout(()=>(kq?n:(q?k:n)).focus(),50); k.onblur=()=>{ k.value=kanaFix(k.value); };
   s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>{ const nm=n.value.trim(), kn=kanaFix(k.value); if(!nm){ toast('お名前を入力してください'); return; } if(kanaBad(kn)){ toast('フリガナはカタカナで入力してください'); return; } done({nm,kn}); }; }); }
@@ -421,7 +421,7 @@ function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draf
     s.querySelector('[data-ok]').onclick=async e=>{ const patch={}, before={}, dr={}; let fNew=null; const li0=custs.find(x=>x.id===c.id), fChg=()=>fNew!=null&&fNew!==!!(li0&&li0.focus); s.querySelectorAll('[data-k]').forEach(i=>{ dr[i.dataset.k]=i.type==='checkbox'?i.checked:(i.value||null); });
       s.querySelectorAll('[data-k]').forEach(i=>{ const k=i.dataset.k; let v=i.type==='checkbox'?i.checked:(k==='memo'?i.value.replace(/\s+$/,''):i.value.trim()); if(v==='') v=null; if(k==='focus'){ fNew=v; return; } if(k==='is_industry'||k==='receipt_none'){ if(v!==!!c[k]){ patch[k]=v; before[k]=!!c[k]; } return; } if(v!==(c[k]||null)){ patch[k]=v; before[k]=c[k]??null; } });
       if('name' in patch&&!patch.name){ toast('お名前は必須です'); return; }
-      if('kana' in patch){ patch.kana=kanaFix(patch.kana)||null; if(kanaBad(patch.kana)){ toast('フリガナはカタカナで入力してください'); return; } if(patch.kana===(c.kana||null)){ delete patch.kana; delete before.kana; } } /* v1.66・SQL 380 */
+      if('kana' in patch){ patch.kana=kanaFix(patch.kana)||null; if(kanaBad(patch.kana)){ toast('フリガナはカタカナで入力してください'); return; } if(patch.kana===(c.kana||null)){ delete patch.kana; delete before.kana; } } /* v1.67・SQL 380 */
       if(patch.birthday){ const m=patch.birthday.replace(/[０-９／]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).match(/^(\d{1,2})[\/月.\-](\d{1,2})日?$/); const dim=[31,29,31,30,31,30,31,31,30,31,30,31]; if(!m||+m[1]<1||+m[1]>12||+m[2]<1||+m[2]>dim[+m[1]-1]){ toast('お誕生日は 11/24 のように入力してください'); return; } patch.birthday=`${+m[1]}/${+m[2]}`; if(patch.birthday===(c.birthday||null)){ delete patch.birthday; delete before.birthday; } }
       const ind='is_industry' in patch?patch.is_industry:!!c.is_industry; const co='company' in patch?patch.company:c.company; if(ind&&!co){ toast('同業の時は店名を会社名に入力してください'); return; }
       if(!Object.keys(patch).length&&!fChg()){ done(false); toast('変更はありません'); return; }
