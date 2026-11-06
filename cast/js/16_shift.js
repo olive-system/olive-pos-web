@@ -51,7 +51,7 @@ function shiftPaint(ng){
 async function shiftDay(iso){
   const F = (SHIFT.fixed || []).find(f => iso >= f.month && iso.slice(0,7) === String(f.month).slice(0,7)); if(!F) return;
   const t = (F.days||[]).find(x => x.day === iso), k = (F.marks||[]).filter(x => x.day === iso), d = new Date(iso+'T00:00:00+09:00');
-  await uiAlert(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`);
+  await uiView(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`);
 }
 
 // v0.70・SQL 257：黒服とママ（staff.shift_all）はキャスト全員のシフト（オーナー 2026-10-26 見本 全員のシフト_マイページ_見本「この形で作る」）。
@@ -107,7 +107,7 @@ async function shiftAll(store){
   $('main').querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { if(b.dataset.sa >= A.today && !(A.months || []).some(M => (M.off || []).includes(b.dataset.sa))){ shiftDayEdit(b.dataset.sa, A.store); return; } const iso = b.dataset.sa, d = new Date(iso+'T00:00:00+09:00'), L = all('shifts').filter(x => x.day === iso), off = hallOff(iso), R = resvOf(iso);
     /* v1.31・SQL 368：過去の日の小窓にも黒ドレスのしるし（オーナー 2026-11-05「付ける」）。文字はエスケープして HTML で出す */
     const rvDhX = x => { if(!x.douhan) return ''; const L = x.dh_names || x.dh || []; return rvDh(x) ? '同伴 ' + L.map(n => esc(n) + (n === x.black ? DRESS : '')).join('・') : x.black ? '同伴 ' + esc(x.black) + DRESS : '同伴'; };
-    uiAlertH(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人\n${groups(L).map(([t, n, h]) => `${esc(t)}　${h}`).join('\n')}`
+    uiViewH(`${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　出勤 ${L.length}人\n${groups(L).map(([t, n, h]) => `${esc(t)}　${h}`).join('\n')}`
       + (off.length ? `\n\n黒服の休み　${off.map(esc).join('・')}` : '')
       + (R.length ? `\n\n${esc(rvHead(R))}\n${R.map(x => `${esc(x.time)}　${esc(x.name)} 様 ${Number(x.guests)||0}名（${[rvDhX(x), esc(x.vip || ''), esc(who(x))].filter(Boolean).join('・')}）`).join('\n')}` : '')
       + (ivOf(iso).length ? `\n\n面接 ${ivOf(iso).length}件\n${ivOf(iso).map(x => `${esc(x.time)}　${esc(x.name)}`).join('\n')}` : '')); });

@@ -3,6 +3,10 @@ function dlg(msg, ok, cancel, html){ /* v1.31：html は呼ぶ側でエスケー
   d.innerHTML = `<div class="box"><p>${html ? msg : esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn" data-k="ok">${esc(ok)}</button></div></div>`;
   document.body.appendChild(d); d.querySelector('[data-k=ok]').onclick = () => { d.remove(); res(true); }; const n = d.querySelector('[data-k=no]'); if(n) n.onclick = () => { d.remove(); res(false); }; }); }
 const uiAlert = m => dlg(m, 'OK', false), uiAlertH = m => dlg(m, 'OK', false, true), uiConfirm = (m, ok = 'OK') => dlg(m, ok, true);
+// v1.39：見るだけの小窓は OK ではなく右上の × で閉じる（オーナー 2026-11-06「閉じるんだったら×でいいよね」）。inner は呼ぶ側でエスケープ済み
+function xBox(inner, done){ const d = document.createElement('div'); d.className = 'dlg'; d.innerHTML = `<div class="box xv"><button class="xb dx" data-k="x" aria-label="閉じる">×</button>${inner}</div>`;
+  document.body.appendChild(d); d.querySelector('[data-k=x]').onclick = () => { d.remove(); if(done) done(); }; return d; }
+const uiView = m => new Promise(res => xBox(`<p>${esc(m)}</p>`, res)), uiViewH = m => new Promise(res => xBox(`<p>${m}</p>`, res));
 function show(html){ $('main').innerHTML = html; window.scrollTo(0,0); }
 function fail(msg){ show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(msg)}</p><p class="muted sm">公式 LINE のメニューから再度開いてください</p></div>`); }
 
