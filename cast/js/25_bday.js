@@ -12,26 +12,26 @@ function bdPop(title, body){ const d = document.createElement('div'); d.classNam
 const bdFld = 'width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
 // SQL 379：未登録のお客様（両店とも 5,000人ほど）は押した時だけ読む。[id, 名前] の並び
 async function bdLoad(force){ if(BDC.nobd && !force) return true; const r = await sb.rpc('cast_bday_nobd', { p_token: TOKEN }); if(r.error){ await uiAlert(r.error.message); return false; }
-  BDC.nobd = (r.data.nobd || []).map(([id, name]) => ({ id, name })); BDC.pend = r.data.pend || []; return true; }
+  BDC.nobd = (r.data.nobd || []).map(([id, name, kana]) => ({ id, name, kana })); /* v1.41・SQL 386：フリガナ */ BDC.pend = r.data.pend || []; return true; }
 async function bdayFind(){ if(!await bdLoad()) return;
-  const d = bdPop('お誕生日検索', `<input id="bdQ" type="search" placeholder="名前で検索" style="${bdFld}"><div id="bdR" style="margin-top:6px"></div>`);
-  const A = BDC.rows.map(x => ({ ...x, k: bdKey(x.name) })).concat((BDC.nobd || []).map(x => ({ name: x.name, k: bdKey(x.name) })));
-  const q = d.querySelector('#bdQ'); q.oninput = () => { const k = bdKey(q.value), L = k ? A.filter(x => x.k.includes(k)).slice(0, 50) : [];
+  const d = bdPop('お誕生日検索', `<input id="bdQ" type="search" placeholder="名前・フリガナで検索" style="${bdFld}"><div id="bdR" style="margin-top:6px"></div>`);
+  const A = BDC.rows.map(x => ({ ...x, k: bdKey(x.name), kn: kanaKey(x.kana) })).concat((BDC.nobd || []).map(x => ({ name: x.name, k: bdKey(x.name), kn: kanaKey(x.kana) })));
+  const q = d.querySelector('#bdQ'); q.oninput = () => { const k = bdKey(q.value), L = k ? A.filter(x => x.k.includes(k) || (!!kanaKey(k) && x.kn.includes(kanaKey(k)))).slice(0, 50) : [];
     d.querySelector('#bdR').innerHTML = L.map(x => `<div style="display:flex;align-items:center;gap:8px;padding:10px 2px;border-top:1px solid var(--line)"><span style="flex:1">${esc(x.name)} 様</span>${x.birthday
       ? `<b style="min-width:3.2em;text-align:right">${esc(x.birthday)}</b><small class="muted" style="min-width:4.6em">${x.kakari ? esc(KL) + ' ' + esc(x.kakari) : ''}</small>` : '<small class="muted" style="min-width:8em">未登録</small>'}</div>`).join('')
       || (k ? '<div class="muted sm" style="padding:8px 2px">該当なし</div>' : ''); };
   setTimeout(() => q.focus(), 50);
 }
 async function bdayReq(){ if(!await bdLoad()) return;
-  const P = BDC.pend || [], pid = new Set(P.map(x => x.customer_id)), A = (BDC.nobd || []).filter(x => !pid.has(x.id)).map(x => ({ ...x, k: bdKey(x.name) }));
+  const P = BDC.pend || [], pid = new Set(P.map(x => x.customer_id)), A = (BDC.nobd || []).filter(x => !pid.has(x.id)).map(x => ({ ...x, k: bdKey(x.name), kn: kanaKey(x.kana) }));
   const opt = (n, a, u) => `<option value="">${u}</option>` + Array.from({ length: n }, (_, i) => `<option value="${i + 1}">${i + 1}${a}</option>`).join('');
   const sel = 'height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:var(--card);color:var(--ink);width:96px';
-  const d = bdPop('お誕生日登録申請', `<input id="bdQ" type="search" placeholder="名前で検索" style="${bdFld}"><div id="bdR" style="max-height:240px;overflow-y:auto;margin-top:2px"></div>
+  const d = bdPop('お誕生日登録申請', `<input id="bdQ" type="search" placeholder="名前・フリガナで検索" style="${bdFld}"><div id="bdR" style="max-height:240px;overflow-y:auto;margin-top:2px"></div>
     <div style="display:flex;gap:8px;margin-top:10px"><select id="bdM" style="${sel}">${opt(12, '月', '月')}</select><select id="bdD" style="${sel}">${opt(31, '日', '日')}</select></div>
     <button class="btn" id="bdGo" style="margin-top:10px">申請</button>
     ${P.length ? `<div class="gh" style="margin-top:14px">申請中</div>${P.map(x => `<div class="row"><span>${esc(x.name)} 様</span><small class="muted">${esc(x.birthday)}</small></div>`).join('')}` : ''}`);
   let pick = null; const q = d.querySelector('#bdQ'); setTimeout(() => q.focus(), 50);
-  const paint = () => { const k = bdKey(q.value), L = k ? A.filter(x => x.k.includes(k)).slice(0, 100) : [];
+  const paint = () => { const k = bdKey(q.value), L = k ? A.filter(x => x.k.includes(k) || (!!kanaKey(k) && x.kn.includes(kanaKey(k)))).slice(0, 100) : [];
     d.querySelector('#bdR').innerHTML = L.map(x => `<label style="display:flex;align-items:center;gap:8px;border:1px solid ${pick === x.id ? 'var(--ink)' : 'var(--line)'};border-radius:8px;padding:9px 10px;margin-top:6px">
       <input type="radio" name="bdC" value="${x.id}" ${pick === x.id ? 'checked' : ''} style="width:20px;height:20px;flex:none;margin:0;accent-color:var(--pri)"><span style="flex:1">${esc(x.name)} 様</span></label>`).join('')
       || (k ? '<div class="muted sm" style="padding:8px 2px">該当なし</div>' : '');
