@@ -5,7 +5,9 @@
 const AP_PT = ['給料', '人間関係（キャスト）', '人間関係（黒服）', '雰囲気', '客層', '時間', 'その他'];
 const AP_FS = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)';
 // 体験の人のしるし：名前を丸で囲む。外側の線（outline）で描くので、文字の大きさ・行の高さ・幅はほかの名前と同じ（オーナー 2026-11-04「体験の子だけスペース食ってない？」）
-const apRing = (name, id) => `<span${id ? ` data-ap="${id}"` : ''} style="white-space:nowrap;border-radius:999px;outline:1.5px solid var(--pri);outline-offset:2px${id ? ';cursor:pointer' : ''}">${esc(name)}</span>`;
+// v1.43：応募者が無い体験の子（シフトの［追加］→ 体験で登録）も押せる形にして、押したら案内（2026-11-06 オーナー「押しても何も起きない」）
+const apRing = (name, id) => `<span data-ap="${id || ''}" style="white-space:nowrap;border-radius:999px;outline:1.5px solid var(--pri);outline-offset:2px;cursor:pointer">${esc(name)}</span>`;
+const apOpen = (id, store, back) => id ? apPage(id, store, back) : uiAlert('応募者ページはありません\n入店は POS の編集で、区分を体験からキャストに変更してください');
 const apLegend = () => `<span style="margin-left:12px;font-weight:400;white-space:nowrap"><span style="display:inline-block;width:1.8em;height:1.1em;border:1.5px solid var(--pri);border-radius:999px;vertical-align:-0.2em;box-sizing:border-box"></span> 体験</span>`;
 const apDt = iso => { if(!iso) return '未定'; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 const apIsoDay = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : '';
