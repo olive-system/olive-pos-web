@@ -132,7 +132,7 @@ async function hallCloseTask(x, ph){
       ${sv('', R.length ? `入力した${KL}には、次の朝のまとめで届きます` : '')}`;
     getData = () => ({ rows: R.map((r, i) => ({ id: r.id, kakari: $('main').querySelector(`[data-ck="${i}"]`).value })) });
   } else if(k === 'trial_judge'){   // v1.23・SQL 355：閉店作業「体験のジャッジ」（体験の子が来た日だけ。出勤した黒服が全員押すまで完了にできない）
-    body = `${(D.items || []).map(judgeCard).join('') || '<div class="card muted">本日の体験はありません</div>'}${sv()}`;
+    body = `${(D.items || []).map(it => judgeCard(it, true)).join('') || '<div class="card muted">本日の体験はありません</div>'}${sv()}`;
     getData = () => ({});
   } else if(k === 'shiire'){   // v1.25・SQL 364：開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー 2026-11-05・見本 作業場/棚卸し_案2.png）
     const P = D.products || [], cats = [...new Set(P.map(p => p.cat))], ab = id => (P.find(p => p.id === id) || {}).ab;
@@ -175,6 +175,7 @@ async function hallCloseTask(x, ph){
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
     const z = await sb.rpc('hall_bday_req', { p_token: TOKEN, p_task: x.id, p_req: q.id, p_status: st }); if(z.error){ await uiAlert(z.error.message); } again(); }));
   if(k === 'trial_judge') judgeWire($('main'), async (id, v) => { const z = await sb.rpc('tj_vote_staff', { p_token: TOKEN, p_ap: id, p_vote: v }); if(z.error){ await uiAlert(z.error.message); } again(); });
+  if(k === 'trial_judge') $('main').querySelectorAll('[data-jtr]').forEach(b => b.onclick = () => apPage(b.dataset.jtr, null, again)); /* v1.41・SQL 388：その人のページの「体験」で体験結果 */
   if(k === 'kimono') $('main').querySelectorAll('[data-km]').forEach(b => b.onclick = async () => { const c = D[+b.dataset.km]; b.disabled = true;
     const z = await sb.rpc('hall_close_kimono', { p_token: TOKEN, p_task: x.id, p_staff: c.id, p_on: !c.kimono }); if(z.error){ await uiAlert(z.error.message); } again(); });
   if(s) s.onclick = async () => { s.disabled = true;
