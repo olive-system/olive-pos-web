@@ -102,7 +102,7 @@ async function shiftAll(store){
   if($('shQgo')) $('shQgo').onclick = async () => { const v = await shSearch(); if(v){ SHQ = v; shiftAll(A.store); } };
   if($('shQx')) $('shQx').onclick = () => { SHQ = ''; shiftAll(A.store); };
   if($('mtGo')) $('mtGo').onclick = () => mtHall(() => shiftAll(store)); /* v1.17 */
-  $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = e => { e.stopPropagation(); apPage(b.dataset.ap, store, () => shiftAll(store)); }); /* v1.18 */
+  $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = e => { e.stopPropagation(); apOpen(b.dataset.ap, store, () => shiftAll(store)); }); /* v1.18・v1.43 */
   $('main').querySelectorAll('[data-shst]').forEach(b => b.onclick = () => { if(b.dataset.shst !== A.store) shiftAll(b.dataset.shst); });
   $('main').querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { if(b.dataset.sa >= A.today && !(A.months || []).some(M => (M.off || []).includes(b.dataset.sa))){ shiftDayEdit(b.dataset.sa, A.store); return; } const iso = b.dataset.sa, d = new Date(iso+'T00:00:00+09:00'), L = all('shifts').filter(x => x.day === iso), off = hallOff(iso), R = resvOf(iso);
     /* v1.31・SQL 368：過去の日の小窓にも黒ドレスのしるし（オーナー 2026-11-05「付ける」）。文字はエスケープして HTML で出す */
@@ -134,7 +134,7 @@ async function shiftDayEdit(iso, store){
     ${R.length ? `<div class="card"><div class="gh">予約 ${R.length}件</div>${R.map((x, i) => D.edit && x.douhan ? `<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0">${rvRow(x, '', i)}</div><button class="btn g" data-dcx="${i}" style="width:auto;padding:6px 12px;color:var(--warn)">取消</button></div>` : rvRow(x, '', i)).join('')}</div>` : ''}
     ${HTd.length ? `<div class="card"><div class="gh">黒服の体験</div><div>${HTd.map(x => apRing(x.name, x.ap)).join('・')}</div></div>` : ''}
     ${IVd.length ? `<div class="card"><div class="gh">面接 ${IVd.length}件</div>${IVd.map((x, i) => `<div data-ap="${x.id}" style="display:grid;grid-template-columns:3.2em minmax(0,1fr);gap:6px;padding:4px 0;cursor:pointer;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(x.time)}</b><span>${esc(x.name)}</span></div>`).join('')}</div>` : ''}`);
-  $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => apPage(b.dataset.ap, store, again)); /* v1.18 */ /* v0.79：しるしは右の列・同伴の子。v0.89・SQL 285：シフトを直せる人（黒服・ママ）は同伴を取消 */
+  $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => apOpen(b.dataset.ap, store, again)); /* v1.18・v1.43 */ /* v0.79：しるしは右の列・同伴の子。v0.89・SQL 285：シフトを直せる人（黒服・ママ）は同伴を取消 */
   $('main').querySelectorAll('[data-dcx]').forEach(b => b.onclick = async () => { const x = R[+b.dataset.dcx]; if(!await uiConfirm(`${x.name} 様の同伴を取り消しますか？`, '取消')) return; b.disabled = true;
     const q = await sb.rpc('cast_douhan_cancel', { p_token: TOKEN, p_store: store || null, p_id: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
     const n = Number(q.data?.notified || 0), all = q.data?.targets, ng = all == null ? !n : n < all; /* v1.05・点検 2026-11-02 A2・SQL 316：届いた数と送り先の数をくらべる */
