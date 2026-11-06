@@ -85,8 +85,8 @@ function contactPick(T){
   const paint = () => {
     show(`<div class="ttl">${dl} 連絡先交換の提出</div>
       ${L.length ? `<div class="card"><div class="gh">本日来店（敬称略）　${L.length}名（伝票順）</div>
-        <input id="cpQ" type="search" placeholder="名前で検索" style="${fld};margin:6px 0 8px">
-        ${L.map(c => { const on = S.sel[c.id] !== undefined; return `<div data-cpr="${esc(c.name.replace(/[\s　]+/g, ''))}"><label style="display:flex;align-items:center;gap:8px;border:1px solid ${on ? 'var(--ink)' : 'var(--line)'};border-radius:8px;padding:10px;margin-bottom:6px;${c.sent ? 'opacity:.5' : ''}">
+        <input id="cpQ" type="search" placeholder="名前・フリガナで検索" style="${fld};margin:6px 0 8px">
+        ${L.map(c => { const on = S.sel[c.id] !== undefined; return `<div data-cpr="${esc(c.name.replace(/[\s　]+/g, ''))}" data-cpk="${esc(kanaKey(c.kana))}"><label style="display:flex;align-items:center;gap:8px;border:1px solid ${on ? 'var(--ink)' : 'var(--line)'};border-radius:8px;padding:10px;margin-bottom:6px;${c.sent ? 'opacity:.5' : ''}">
           <input type="checkbox" data-cpc="${c.id}" ${on ? 'checked' : ''} ${c.sent ? 'disabled' : ''} style="width:20px;height:20px;flex:none"><span style="flex:1">${esc(c.name)}</span><span class="muted sm" style="width:6.5em;flex:none">${kk(c)}</span></label>
           ${on ? `<input data-cpm="${c.id}" maxlength="300" placeholder="メモ（任意）" value="${esc(S.sel[c.id])}" style="${fld};height:40px;margin:-2px 0 8px 28px;width:calc(100% - 28px)">` : ''}</div>`; }).join('')}</div>` : ''}
       <div class="card"><div class="gh">その他</div>${S.rows.map((r, i) => `<div style="${i ? 'border-top:1px solid var(--line);margin-top:10px;padding-top:4px' : ''}">${S.rows.length > 1 ? `<div style="text-align:right"><button data-cpd="${i}" class="btn g" style="width:auto;padding:4px 10px;font-size:13px">外す</button></div>` : ''}
@@ -97,7 +97,7 @@ function contactPick(T){
       <button class="btn" id="cxGo" style="margin-top:8px">${cnt()}人を提出</button>${NK ? '' : `<p class="muted sm" style="margin:10px 2px">提出をすると${KL}に共有されます</p>`}
       <button class="btn g" id="cxNone">今日は交換なし</button>`);
     const m = $('main'), go = () => { $('cxGo').textContent = `${cnt()}人を提出`; };
-    if($('cpQ')) $('cpQ').oninput = e => { const q = e.target.value.replace(/[\s　]+/g, ''); m.querySelectorAll('[data-cpr]').forEach(x => { x.style.display = !q || x.dataset.cpr.includes(q) ? '' : 'none'; }); };
+    if($('cpQ')) $('cpQ').oninput = e => { const q = e.target.value.replace(/[\s　]+/g, ''), k = kanaKey(q); m.querySelectorAll('[data-cpr]').forEach(x => { x.style.display = !q || x.dataset.cpr.includes(q) || (k && x.dataset.cpk.includes(k)) ? '' : 'none'; }); };
     m.querySelectorAll('[data-cpc]').forEach(e => e.onchange = () => { if(e.checked) S.sel[e.dataset.cpc] = ''; else delete S.sel[e.dataset.cpc]; save(); const q = $('cpQ') ? $('cpQ').value : ''; paint(); if(q && $('cpQ')){ $('cpQ').value = q; $('cpQ').oninput({ target: $('cpQ') }); } });
     m.querySelectorAll('[data-cpm]').forEach(e => e.oninput = () => { S.sel[e.dataset.cpm] = e.value; save(); });
     m.querySelectorAll('[data-cpn]').forEach(e => e.oninput = () => { S.rows[+e.dataset.cpn].n = e.value; save(); go(); });

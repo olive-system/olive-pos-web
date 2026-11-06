@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.65 -->
+<title>OLIVE 顧客</title><!-- customer v1.66 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -115,7 +115,7 @@ html.ro [data-kn]{pointer-events:none;border-color:transparent}
 <div id="vList" class="hide">
   <div class="top"><span class="ttl" id="storeName">顧客</span><button class="ghost sm" id="menuBtn">メニュー</button></div>
   <div class="wrap">
-    <input id="q" type="search" placeholder="お名前・会社名・領収書名・キープ名で検索" autocomplete="off">
+    <input id="q" type="search" placeholder="お名前・フリガナ・会社名・領収書名・キープ名で検索" autocomplete="off">
     <div class="tools">
       <select id="months" aria-label="期間"></select>
       <button class="ok sm" id="newBtn" style="margin-left:auto">＋新規</button>
@@ -144,6 +144,8 @@ function kSet(v){ KL=(v&&String(v).trim())||'係'; KT.forEach(([o,k,v])=>{ o[k]=
 const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* v1.66・SQL 380：フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
+const kanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), kanaKey=v=>kanaFix(v).replace(/ /g,''), kanaHit=(c,q)=>{ const k=kanaKey(q); return !!k&&kanaKey(c.kana).includes(k); };
 const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円'; /* v1.16：金額は POS と同じ「78,000円」 */
 /* v1.32・SQL 076：管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
 /* v1.48・SQL 218：黒服マイページの中（#hall）も、パスワードを聞かずにマイページから入場券をもらう。管理サイトの中（EA）とちがい、編集は今までどおりメニューの編集パスワードで（オーナー 2026-10-23） */
@@ -268,7 +270,7 @@ function renderList(){ const q=$('q').value.trim();
   document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
   const ms=$('months'); const opts=[...new Set([1,2,3,6,12,monthsSel])].sort((a,b)=>a-b); ms.innerHTML=`<option value="" ${mode==='all'?'selected':''}>全員</option><option value="focus" ${mode==='focus'?'selected':''}>強化リスト</option>`+opts.map(n=>`<option value="${n}" ${mode==='old'&&n===monthsSel?'selected':''}>${n%12?n+"か月":n/12+"年"}以上ご来店なし</option>`).join(''); ms.onchange=()=>{ if(!ms.value){ mode='all'; renderList(); return; } if(ms.value==='focus'){ mode='focus'; renderList(); loadFocus(); return; } /* v1.60：強化リスト（並びは最後のご来店が古い順） */ monthsSel=Number(ms.value); mode='old'; renderList(); };
   const cut=cutoff(monthsSel);
-  let list=custs.filter(c=>!q||[c.name,c.company,c.receipt_name,...(c.keep_names||[])].some(v=>v&&String(v).includes(q)));
+  let list=custs.filter(c=>!q||[c.name,c.company,c.receipt_name,...(c.keep_names||[])].some(v=>v&&String(v).includes(q))||kanaHit(c,q));
   if(mode==='old') list=list.filter(c=>base(c)&&base(c)<=cut).sort((a,b)=>base(a).localeCompare(base(b)));
   if(mode==='focus') list=list.filter(c=>c.focus).sort((a,b)=>(a.last||'').localeCompare(b.last||''));
   $('count').textContent=`${list.length}名`+(mode==='old'?`（${md(cut)} 以前）`:mode==='focus'&&fInfo?`（上限${fInfo.cap}名）`:'');
@@ -276,9 +278,13 @@ function renderList(){ const q=$('q').value.trim();
   $('rows').innerHTML=show.map(c=>`<button class="row" data-id="${c.id}"><div class="nm">${esc(c.name)}${c.company?` <small class="muted" style="font-weight:400">${esc(c.company)}</small>`:''}${c.focus?' <span class="badge">強化</span>':''}${c.is_industry?' <span class="badge k">同業</span>':''}${c.req?` <span class="badge warnb">申請 ${c.req}件</span>`:''}</div><div class="sub" style="${mode==='old'?'color:var(--warn)':''}">${[c.last?md(c.last):'来店なし',c.kakari_staff_id?esc(sname(c.kakari_staff_id)):'',esc(bnLine(c.bottle_names,c.bottles)),mode==='focus'&&fInfo&&fInfo.contacts?(fInfo.contacts[c.id]?`連絡先 ${fInfo.contacts[c.id]}名`:'<span style="color:var(--warn)">連絡先なし</span>'):''].filter(Boolean).join('・')}</div></button>`).join('')+(list.length>show.length?`<div class="muted" style="font-size:13px;padding:8px 0">ほか ${list.length-show.length}名（検索で絞り込んでください）</div>`:'')||'<div class="muted" style="padding:20px 0">該当なし</div>';
   $('rows').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(b.dataset.id)); }
 
-$('newBtn').onclick=async()=>{ const name=await uiPrompt('新しいお客様のお名前',$('q').value.trim(),{ok:'登録'}); if(name==null) return; const nm=name.trim(); if(!nm){ toast('お名前を入力してください'); return; }
+/* v1.66・SQL 380：お名前の下にフリガナ（任意）。検索の文字がかなだけの時はフリガナの枠に入れる */
+const kanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
+function newForm(q){ const kq=q&&!kanaBad(kanaFix(q)); return sheet(`<h3>新しいお客様</h3><label class="f">お名前<input id="nfName" value="${esc(kq?'':q)}"></label><label class="f">フリガナ<input id="nfKana" value="${esc(kq?kanaFix(q):'')}" placeholder="例）アオヤギ シロウ"></label><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>登録</button></div>`,(s,done)=>{ const n=s.querySelector('#nfName'), k=s.querySelector('#nfKana'); setTimeout(()=>(kq?n:(q?k:n)).focus(),50); k.onblur=()=>{ k.value=kanaFix(k.value); };
+  s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>{ const nm=n.value.trim(), kn=kanaFix(k.value); if(!nm){ toast('お名前を入力してください'); return; } if(kanaBad(kn)){ toast('フリガナはカタカナで入力してください'); return; } done({nm,kn}); }; }); }
+$('newBtn').onclick=async()=>{ const v=await newForm($('q').value.trim()); if(!v) return; const nm=v.nm;
   const same=custs.filter(c=>c.name===nm); if(same.length&&!await uiConfirm(`「${nm}」様はすでに登録されています${same[0].company?`（${same[0].company}）`:''}。\n別の方として新規登録しますか？`,'新規登録')) return;
-  try{ const id=await rpc('cs_customer_add',{p_token:token,p_name:nm}); toast('登録しました'); $('q').value=''; await loadList(); openDetail(id); }catch(e){ await fail(e); } };
+  try{ const id=await rpc('cs_customer_add',{p_token:token,p_name:nm,p_kana:v.kn||null}); toast('登録しました'); $('q').value=''; await loadList(); openDetail(id); }catch(e){ await fail(e); } };
 
 // ---------- 詳細 ----------
 /* v1.25：並び順を POS とそろえる（名前・卓名は日本語順、数字は数の順） */
@@ -301,6 +307,7 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
   $('detail').innerHTML=`
   <div class="card" style="position:relative"><button class="edit sm" id="editInfo" style="position:absolute;top:10px;right:10px">編集</button>
     <dl class="kv info">
+      <dt>フリガナ</dt><dd>${esc(c.kana||'—')}</dd>
       <dt>お誕生日</dt><dd>${esc(c.birthday||'—')}</dd>
       <dt>会社名</dt><dd>${esc(c.company||'—')}${c.is_industry?' <span class="badge k">同業</span>':''}</dd>
       <dt>領収書名</dt><dd style="white-space:pre-line">${c.receipt_none?'不要':esc(c.receipt_name||'—')}</dd>
@@ -361,9 +368,9 @@ function mvForm(b,c){ const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.
   return sheet(`<h3>${esc(b.name)}（${b.remaining??0}/10）をボトル移動にしますか？</h3><label class="f">移動先<input id="mvTo" maxlength="60" placeholder="例）ファースト"></label><label class="f">${KL}<select id="mvSt"><option value="">なし</option>${casts.map(s=>`<option value="${s.id}" ${s.id===k0?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
   <div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>ボトル移動</button></div>`,(s,done)=>{ s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>done({to:s.querySelector('#mvTo').value.trim(),staff:s.querySelector('#mvSt').value}); }); }
 // v1.55・SQL 306：共同のお客様を選ぶ（名前・会社名で探す）。今の共同は「共同解除」で外す
-function shForm(b,c){ return sheet(`<h3>${esc(b.name)}　共同ボトル</h3><label class="f">共同のお客様<input id="shQ" placeholder="お名前・会社名で検索" autocomplete="off"></label><div id="shL" style="border:1px solid var(--line);border-radius:10px;max-height:240px;overflow:auto"></div>
+function shForm(b,c){ return sheet(`<h3>${esc(b.name)}　共同ボトル</h3><label class="f">共同のお客様<input id="shQ" placeholder="お名前・フリガナ・会社名で検索" autocomplete="off"></label><div id="shL" style="border:1px solid var(--line);border-radius:10px;max-height:240px;overflow:auto"></div>
   <div class="btns">${b.share?'<button class="ghost" data-off style="margin-right:auto">共同解除</button>':''}<button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ let pick=b.share_id&&b.share_id!==c.id?b.share_id:'';
-    const draw=()=>{ const q=s.querySelector('#shQ').value.trim(); const hit=custs.filter(x=>x.id!==c.id&&(!q||(x.name||'').includes(q)||(x.company||'').includes(q))).slice(0,30); s.querySelector('#shL').innerHTML=hit.map((x,i)=>`<div data-pk="${x.id}" style="padding:8px 10px;cursor:pointer;${i?'border-top:1px solid var(--line);':''}${x.id===pick?'background:var(--soft);font-weight:700':''}">${esc(x.name)} 様${x.company?`　<span class="muted">${esc(x.company)}</span>`:''}</div>`).join('')||'<div class="muted" style="padding:8px 10px">見つかりません</div>'; s.querySelectorAll('[data-pk]').forEach(d=>d.onclick=()=>{ pick=d.dataset.pk; draw(); }); };
+    const draw=()=>{ const q=s.querySelector('#shQ').value.trim(); const hit=custs.filter(x=>x.id!==c.id&&(!q||(x.name||'').includes(q)||(x.company||'').includes(q)||kanaHit(x,q))).slice(0,30); s.querySelector('#shL').innerHTML=hit.map((x,i)=>`<div data-pk="${x.id}" style="padding:8px 10px;cursor:pointer;${i?'border-top:1px solid var(--line);':''}${x.id===pick?'background:var(--soft);font-weight:700':''}">${esc(x.name)} 様${x.company?`　<span class="muted">${esc(x.company)}</span>`:''}</div>`).join('')||'<div class="muted" style="padding:8px 10px">見つかりません</div>'; s.querySelectorAll('[data-pk]').forEach(d=>d.onclick=()=>{ pick=d.dataset.pk; draw(); }); };
     s.querySelector('#shQ').oninput=draw; draw(); s.querySelector('[data-x]').onclick=()=>done(null); const off=s.querySelector('[data-off]'); if(off) off.onclick=()=>done('');
     s.querySelector('[data-ok]').onclick=()=>{ if(!pick){ toast('共同のお客様を選んでください'); return; } done(pick); }; }); }
 async function bottleAct(b,action,msg,value,withEdit){ try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:action,p_value:value==null?null:String(value),p_edit_token:withEdit?editTok:null}); toast(msg); }catch(e){ await fail(e); } await reloadDetail(); }
@@ -402,22 +409,23 @@ const rnFirst=v=>String(v||'').split('\n')[0].trim();
 function rnBox(el){ let a=String(el.dataset.v||'').split('\n'); const vals=()=>[...el.querySelectorAll('input')].map(i=>i.value);
   const draw=()=>{ el.innerHTML=a.map((x,i)=>`<input value="${esc(x)}" style="margin:0">${i===a.length-1?'<button type="button" class="ghost" data-rnadd style="padding:0 14px">追加</button>':'<span></span>'}`).join(''); el.querySelector('[data-rnadd]').onclick=()=>{ a=vals(); a.push(''); draw(); el.querySelector('input:last-of-type').focus(); }; };
   Object.defineProperty(el,'value',{get:()=>vals().map(x=>x.trim()).filter(Boolean).join('\n'),set:v=>{ a=String(v||'').split('\n'); draw(); }}); draw(); }
-const EF=[['name','お名前'],['birthday','お誕生日'],['company','会社名'],['receipt_name','領収書名'],['kakari_staff_id',''+KL+''],['company_address','会社住所'],['tobacco','タバコ'],['haisha','配車']]; /* v1.54・SQL 304：タバコ・配車（オーナー 2026-11-01。メモの【タバコ】【配車】から移した。2行になることがあるので入力は2行の枠） */
+const EF=[['name','お名前'],['kana','フリガナ'],['birthday','お誕生日'],['company','会社名'],['receipt_name','領収書名'],['kakari_staff_id',''+KL+''],['company_address','会社住所'],['tobacco','タバコ'],['haisha','配車']]; /* v1.54・SQL 304：タバコ・配車（オーナー 2026-11-01。メモの【タバコ】【配車】から移した。2行になることがあるので入力は2行の枠） */
 function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draft)?draft[k]:c[k]; const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const curK=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?staffBy(c.kakari_staff_id):null;
   const fields=memoOnly?'':EF.map(([k,l])=>k==='kakari_staff_id'?`<label class="f">${l}<select data-k="${k}"><option value="">なし</option>${curK?`<option value="${curK.id}" selected>${esc(curK.name)}（退店）</option>`:''}${casts.map(s=>`<option value="${s.id}" ${dv(k)===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`
     :k==='tobacco'||k==='haisha'?`<label class="f">${l}<textarea data-k="${k}" rows="2" maxlength="300">${esc(dv(k)||'')}</textarea></label>`
     :k==='receipt_name'?`<div class="f" style="margin-bottom:10px;font-size:13px;color:var(--muted)"><span style="display:flex;align-items:center;gap:12px">${l}<label style="display:inline-flex;align-items:center;gap:4px;margin:0;font-size:13px;color:var(--ink)"><input type="checkbox" data-k="receipt_none" ${dv('receipt_none')?'checked':''} style="width:auto;margin:0">不要</label></span><div data-k="${k}" data-rn data-v="${esc(dv(k)||'')}" class="${dv('receipt_none')?'hide':''}" style="display:grid;grid-template-columns:1fr auto;gap:4px 6px;margin-top:4px;color:var(--ink)"></div></div>` /* v1.63・SQL 368：領収書名の横の「不要」（オーナー 2026-11-05）。不要の時は枠を非表示 */
-    :`<label class="f">${l}<input data-k="${k}" value="${esc(dv(k)||'')}" ${k==='birthday'?'placeholder="例 11/24" inputmode="numeric"':''}></label>`).join('')+`<label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="is_industry" ${dv('is_industry')?'checked':''} style="width:auto;margin:0">同業（会社名に店名を入れる）</label><label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="focus" ${(draft&&('focus' in draft)?draft.focus:!!(custs.find(x=>x.id===c.id)||{}).focus)?'checked':''} style="width:auto;margin:0">強化</label>`; /* v1.60・SQL 324：強化リスト（店ごと・上限は出勤人数×3） */
+    :`<label class="f">${l}<input data-k="${k}" value="${esc(dv(k)||'')}" ${k==='birthday'?'placeholder="例 11/24" inputmode="numeric"':k==='kana'?'placeholder="例）アオヤギ シロウ"':''}></label>`).join('')+`<label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="is_industry" ${dv('is_industry')?'checked':''} style="width:auto;margin:0">同業（会社名に店名を入れる）</label><label class="f" style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:15px"><input type="checkbox" data-k="focus" ${(draft&&('focus' in draft)?draft.focus:!!(custs.find(x=>x.id===c.id)||{}).focus)?'checked':''} style="width:auto;margin:0">強化</label>`; /* v1.60・SQL 324：強化リスト（店ごと・上限は出勤人数×3） */
   return sheet(`<h3>${esc(c.name)} 様　${memoOnly?'メモを編集':'お客様の情報を編集'}</h3>${fields}${memoOnly?`<label class="f">メモ<textarea data-k="memo" rows="12">${esc(dv('memo')||'')}</textarea></label>`:''}<div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ s.querySelectorAll('[data-rn]').forEach(rnBox); const rnNo=s.querySelector('[data-k=receipt_none]'); if(rnNo) rnNo.onchange=()=>s.querySelector('[data-rn]').classList.toggle('hide',rnNo.checked);
     s.querySelector('[data-x]').onclick=()=>done(false);
     s.querySelector('[data-ok]').onclick=async e=>{ const patch={}, before={}, dr={}; let fNew=null; const li0=custs.find(x=>x.id===c.id), fChg=()=>fNew!=null&&fNew!==!!(li0&&li0.focus); s.querySelectorAll('[data-k]').forEach(i=>{ dr[i.dataset.k]=i.type==='checkbox'?i.checked:(i.value||null); });
       s.querySelectorAll('[data-k]').forEach(i=>{ const k=i.dataset.k; let v=i.type==='checkbox'?i.checked:(k==='memo'?i.value.replace(/\s+$/,''):i.value.trim()); if(v==='') v=null; if(k==='focus'){ fNew=v; return; } if(k==='is_industry'||k==='receipt_none'){ if(v!==!!c[k]){ patch[k]=v; before[k]=!!c[k]; } return; } if(v!==(c[k]||null)){ patch[k]=v; before[k]=c[k]??null; } });
       if('name' in patch&&!patch.name){ toast('お名前は必須です'); return; }
+      if('kana' in patch){ patch.kana=kanaFix(patch.kana)||null; if(kanaBad(patch.kana)){ toast('フリガナはカタカナで入力してください'); return; } if(patch.kana===(c.kana||null)){ delete patch.kana; delete before.kana; } } /* v1.66・SQL 380 */
       if(patch.birthday){ const m=patch.birthday.replace(/[０-９／]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).match(/^(\d{1,2})[\/月.\-](\d{1,2})日?$/); const dim=[31,29,31,30,31,30,31,31,30,31,30,31]; if(!m||+m[1]<1||+m[1]>12||+m[2]<1||+m[2]>dim[+m[1]-1]){ toast('お誕生日は 11/24 のように入力してください'); return; } patch.birthday=`${+m[1]}/${+m[2]}`; if(patch.birthday===(c.birthday||null)){ delete patch.birthday; delete before.birthday; } }
       const ind='is_industry' in patch?patch.is_industry:!!c.is_industry; const co='company' in patch?patch.company:c.company; if(ind&&!co){ toast('同業の時は店名を会社名に入力してください'); return; }
       if(!Object.keys(patch).length&&!fChg()){ done(false); toast('変更はありません'); return; }
       if(!editing()){ done(false); if(!await needEdit()) return; return editForm(memoOnly,dr); } /* v1.30：パスワードを入れ直しても、書いた内容は残す */
-      e.target.disabled=true; try{ if(fChg()){ await rpc('cs_focus_set',{p_token:token,p_edit_token:editTok,p_id:c.id,p_on:fNew}); if(li0) li0.focus=fNew; delete dr.focus; loadFocus(); renderList(); } if(Object.keys(patch).length) await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:patch,p_before:before}); done(true); toast('保存しました'); await reloadDetail(); const li=custs.find(x=>x.id===c.id); if(li&&cur){ Object.assign(li,{name:cur.customer.name,company:cur.customer.company,receipt_name:cur.customer.receipt_name,kakari_staff_id:cur.customer.kakari_staff_id,is_industry:cur.customer.is_industry}); } }
+      e.target.disabled=true; try{ if(fChg()){ await rpc('cs_focus_set',{p_token:token,p_edit_token:editTok,p_id:c.id,p_on:fNew}); if(li0) li0.focus=fNew; delete dr.focus; loadFocus(); renderList(); } if(Object.keys(patch).length) await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:patch,p_before:before}); done(true); toast('保存しました'); await reloadDetail(); const li=custs.find(x=>x.id===c.id); if(li&&cur){ Object.assign(li,{name:cur.customer.name,kana:cur.customer.kana,company:cur.customer.company,receipt_name:cur.customer.receipt_name,kakari_staff_id:cur.customer.kakari_staff_id,is_industry:cur.customer.is_industry}); } }
       catch(err){ e.target.disabled=false; if(err.code==='CS_CONFLICT'){ done(false); await reloadDetail(); return csClash(memoOnly,c,patch,before,dr); } if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); if(!await needEdit()) return; return editForm(memoOnly,dr); } await fail(err); } }; }); }
 /* v1.30：ほかの人が先に変えていた時。メモは行ごとに自動で合わせて保存する（同じ行を両方が直した時だけ、どちらを残すか聞く）。メモ以外は最新にして、書いた内容と一緒に見せ直す */
 async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; if(!c||c.id!==c0.id){ await uiAlert('ほかの人が先にこのお客様を変更しました'); return; }
