@@ -6,6 +6,8 @@ const beDh=r=>r==='douhan'||r==='douhan1'||r==='douhan2';
 const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
 // v0.93：来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
 const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
+// v2.20：フリガナ（顧客サイトの kanaFix・kanaBad と同じ。ひらがな→カタカナ）
+const beKanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), beKanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
 const beHm5=t=>t?beHm(ceil5(t)):'';
 const beHm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 function beRole(ts){ const x=new Date(new Date(ts||Date.now()).toLocaleString('en-US',{timeZone:'Asia/Tokyo'})), m=x.getHours()*60+x.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; } // POS と同じ決め方
@@ -52,7 +54,7 @@ async function billEdit(id){
   // 変えた所（画面の内容と最初の内容の差）を、送る内容と操作ログの文に
   function diff(){ const ops=[], note=[];
     // v2.19・SQL 383：お客様の新規登録 → 伝票のお客様の追加・外す
-    S.custs.filter(c=>c._new).forEach(c=>{ ops.push({t:'customers',op:'insert',id:c.customer_id,kakari:c._kk||null,set:{name:c.name}}); note.push(`お客様を新規登録 ${c.name}`); });
+    S.custs.filter(c=>c._new).forEach(c=>{ ops.push({t:'customers',op:'insert',id:c.customer_id,kakari:c._kk||null,set:{name:c.name,kana:c.kana||null}}); note.push(`お客様を新規登録 ${c.name}`); });
     { const oc=new Set(O.custs.map(c=>c.customer_id)), sc=new Set(S.custs.map(c=>c.customer_id));
       S.custs.filter(c=>!oc.has(c.customer_id)).forEach(c=>{ ops.push({t:'bill_customers',op:'insert',customer:c.customer_id}); if(!c._new) note.push(`お客様を追加 ${c.name}`); });
       O.custs.filter(c=>!sc.has(c.customer_id)).forEach(c=>{ ops.push({t:'bill_customers',op:'delete',customer:c.customer_id}); note.push(`お客様を外す ${c.name}`); }); }
@@ -92,8 +94,8 @@ async function billEdit(id){
       <div class="muted" style="font-size:13px;margin-top:6px">延長 ${ex}回${S.exts.some(e=>e.is_auto)||Number(st.ext_minutes||0)>0?'（時刻を変更すると、自動延長を付け直します）':''}</div></div>
     <div class="card" style="margin:0"><h2>お客様</h2>${S.custs.map(c=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(c.name)} 様${c._new?' <small class="muted">新規</small>':''}</span><button class="xb" data-bcurm="${c.customer_id}" aria-label="削除">×</button></div>`).join('')||'<div class="muted">未登録</div>'}
       <div class="row" style="margin-top:8px"><button class="ghost" id="beCAdd">＋お客様</button></div></div>
-    <div class="card" style="margin:0"><h2>${KL}・同伴・反応◎</h2>${cs.filter(c=>c.is_kakari||beDh(c.role)).map(c=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(sn(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',BE_ROLE[c.role]||''].filter(Boolean).join('・')}</small></span><button class="xb" data-bcrm="${c.id}">×</button></div>`).join('')||'<div class="muted">なし</div>'}
-      ${S.goods.length?`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${S.goods.map(g=>`<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px">${esc(sn(g.staff_id))}<span style="color:var(--gold)">◎</span> <a data-bgrm="${g.id}" style="cursor:pointer;color:var(--muted)">×</a></span>`).join('')}</div>`:''}
+    <div class="card" style="margin:0"><h2>${KL}・同伴・反応◎</h2>${(()=>{ /* v2.20：反応◎ は1行目（${KL}）の横に並べる（行を分けない。オーナー 2026-11-06「係の横がいいね」） */ const gd=S.goods.map(g=>`<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px">${esc(sn(g.staff_id))}<span style="color:var(--gold)">◎</span> <a data-bgrm="${g.id}" style="cursor:pointer;color:var(--muted)">×</a></span>`).join(''), rw=cs.filter(c=>c.is_kakari||beDh(c.role));
+        return rw.map((c,i)=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span class="row" style="flex-wrap:wrap;gap:6px 10px"><span>${esc(sn(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',BE_ROLE[c.role]||''].filter(Boolean).join('・')}</small></span>${i===0?gd:''}</span><button class="xb" data-bcrm="${c.id}">×</button></div>`).join('')||(gd?`<div class="row" style="flex-wrap:wrap;gap:6px;padding:4px 0">${gd}</div>`:'<div class="muted">なし</div>'); })()}
       <div class="row" style="margin-top:8px;flex-wrap:wrap">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}${sel('d','＋同伴',act.filter(s=>!s.kakari_only&&att.has(s.id)&&!cs.some(c=>c.staff_id===s.id&&beDh(c.role))))}${sel('g','＋反応◎',ST.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&att.has(s.id)&&!S.goods.some(g=>g.staff_id===s.id)))}</div></div>
     <div class="card" style="margin:0"><h2>注文</h2><table class="t">${it.map(i=>{ const hasB=Number(i.back_amount||0)>0||Number(i.back_points||0)>0, auto=hcId&&i.product_id===hcId;
         return `<tr><td>${esc(i.name||pn(i.product_id)?.name||'')}<br><small class="muted">${yen(i.unit_price)}${hasB?`　バック：${esc((i.splits||[]).map(z=>sn(z.staff_id)).join('・')||'なし')}${auto?'（'+KL+'で等分）':''}`:''}</small></td><td style="width:90px"><input type="number" inputmode="numeric" min="1" data-bq="${i.id}" value="${i.qty}" style="text-align:right"></td><td style="white-space:nowrap">${hasB&&!auto?`<button class="ghost sm" data-bbk="${i.id}">バック</button> `:''}<button class="ghost sm" data-bvd="${i.id}">取消</button></td></tr>`; }).join('')||'<tr><td class="muted">注文はありません</td></tr>'}</table>
@@ -156,9 +158,14 @@ async function billEdit(id){
       m.querySelector('#beCL').innerHTML=r.map(c=>`<button class="ghost sm" data-cid="${c.id}">${esc(c.name)}</button>`).join('')||'<span class="muted">該当なし</span>';
       m.querySelectorAll('[data-cid]').forEach(x=>x.onclick=()=>{ const c=CL.find(z=>z.id===x.dataset.cid); S.custs.push({customer_id:c.id,name:c.name}); m.remove(); done(); }); };
     qs.oninput=list; m.querySelector('[data-k=x]').onclick=()=>m.remove();
-    m.querySelector('#beCNew').onclick=async()=>{ const name=qs.value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
-      const same=CL.find(c=>c.name===name)||S.custs.find(c=>c._new&&c.name===name); if(same&&!await uiConfirm(`「${name}」様はすでに登録されています${same.company?`（${same.company}）`:''}。\n別の方として新規登録しますか？`)) return;
-      S.custs.push({customer_id:beUid(),name,_new:true,_kk:tsureKk()}); m.remove(); done(); };
+    // v2.20・SQL 384：［新規登録］は顧客サイトの「新しいお客様」と同じ。名前の小窓を出さず、お名前・フリガナの入力画面をすぐ出す。検索の文字はお名前へ（かなだけならフリガナへ）
+    m.querySelector('#beCNew').onclick=()=>{ const q=qs.value.trim(), kq=!!q&&!beKanaBad(beKanaFix(q)), bx=m.querySelector('.box');
+      bx.innerHTML=`<button class="xb dx" data-k="x" aria-label="閉じる">×</button><h2 style="margin:0">新しいお客様</h2><label>お名前<input id="beNN" value="${esc(kq?'':q)}"></label><label>フリガナ<input id="beNK" value="${esc(kq?beKanaFix(q):'')}" placeholder="例）あおやぎ しろう or アオヤギ シロウ"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">登録</button></div>`;
+      const n=bx.querySelector('#beNN'), k=bx.querySelector('#beNK'); setTimeout(()=>(kq?n:(q?k:n)).focus(),0); k.onblur=()=>{ k.value=beKanaFix(k.value); };
+      bx.querySelector('[data-k=x]').onclick=bx.querySelector('[data-k=no]').onclick=()=>m.remove();
+      bx.querySelector('[data-k=ok]').onclick=async()=>{ const name=n.value.trim(), kana=beKanaFix(k.value); if(!name){ await uiAlert('お名前を入力してください'); return; } if(beKanaBad(kana)){ await uiAlert('フリガナはカタカナで入力してください'); return; }
+        const same=CL.find(c=>c.name===name)||S.custs.find(c=>c._new&&c.name===name); if(same&&!await uiConfirm(`「${name}」様はすでに登録されています${same.company?`（${same.company}）`:''}。\n別の方として新規登録しますか？`,'新規登録')) return;
+        S.custs.push({customer_id:beUid(),name,kana:kana||null,_new:true,_kk:tsureKk()}); m.remove(); done(); }; };
     list(); setTimeout(()=>qs.focus(),0); }
   draw(); }
 
