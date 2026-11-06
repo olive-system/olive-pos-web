@@ -71,6 +71,7 @@
   @media (min-width:600px){.modal{align-items:center}.sheet{border-radius:16px}}
   .sheet h3{margin:0 0 12px;font-size:17px}.sheet .msg{white-space:pre-wrap;margin-bottom:14px;line-height:1.5}
   .sheet .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}.sheet .btns button{min-width:88px}
+  .sheet:has(>.dx){position:relative;padding-right:44px}button.xb.dx{position:absolute;top:10px;right:10px;font-size:24px!important} /* v1.66：見るだけの小窓は右上の × で閉じる（オーナー 2026-11-06） */
   #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:60;display:none;max-width:90vw;text-align:center}
   #toast.on{display:block}
   .loading{padding:30px 0;text-align:center;color:var(--muted)}
@@ -243,7 +244,7 @@ async function needEdit(){ if(editing()) return true;
   const k=await csRenew(); if(k) return true; if(k===false&&csNet) await uiAlert('通信できませんでした。電波の良い所で再度お試しください'); return false; } /* v1.59：編集パスワードを聞く窓は出さない（閲覧用でログインした人には編集のボタン自体を出さない） */
 
 if(EMB) $('menuBtn').style.display='none'; /* v1.42：管理サイトの中ではメニューを出さない（中身が無いため。オーナー 2026-10-14） */
-$('menuBtn').onclick=()=>sheet(`<h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div><div class="btns"><button class="ghost" data-x>閉じる</button></div>`,(s,done)=>{
+$('menuBtn').onclick=()=>sheet(`<button class="xb dx" data-x aria-label="閉じる">×</button><h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div>`,(s,done)=>{
   s.querySelector('[data-x]').onclick=()=>done(); s.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; done();
     if(a==='reload') await loadList(); /* v1.59：「編集パスワードを入力」「編集モードを終了」は外した */
     else if(a==='out'){ if(!await uiConfirm('ログアウトしますか？\n次に開く時はパスワードが必要です。','ログアウト','danger')) return; try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(); } }); });
