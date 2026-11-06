@@ -66,6 +66,7 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
   .modal .box{background:#fff;border-radius:16px;padding:18px;width:min(520px,100%);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
   .modal .bar{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .modal .box:has(>.dx){position:relative;padding-right:44px}.modal .box:has(>.dx)>.bar{margin-right:-26px}button.xb.dx{position:absolute;top:10px;right:10px;font-size:24px!important} /* v2.18：見るだけの小窓は下の「閉じる」ではなく右上の × で閉じる（オーナー 2026-11-06「閉じるんだったら×でいいよね」） */
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}#toast.on{opacity:1}
   /* v0.15 キャスト設定 */
   .cs-w{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px}.cs-w.editing{border-color:var(--blue)}

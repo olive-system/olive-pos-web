@@ -45,9 +45,9 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   if(ed) $('rvAddT').onclick=()=>resvForm(st,S,today,null);
   $('rvM0').onchange=()=>{ rvMonth=$('rvM0').value; PAGES.resv(); };
   $('main').querySelectorAll('[data-rvd]').forEach(c=>c.onclick=()=>{ const day=c.dataset.rvd, L=byDay[day]||[];
-    const box=modal(`<div class="row" style="justify-content:space-between;align-items:baseline;gap:10px"><h2 style="margin:0">${md(day)}</h2><small class="muted">${OFF.has(day)?'休　':''}予約 ${L.filter(x=>!x.douhan).length}・同伴 ${L.filter(x=>x.douhan).length}</small></div>
+    const box=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px"><h2 style="margin:0">${md(day)}</h2><small class="muted">${OFF.has(day)?'休　':''}予約 ${L.filter(x=>!x.douhan).length}・同伴 ${L.filter(x=>x.douhan).length}</small></div>
       ${L.map(row).join('')||'<div class="muted" style="margin-top:6px">この日の予約はありません</div>'}
-      <div class="bar">${ed?'<button class="ghost" data-k="add" style="margin-right:auto">＋ 予約を足す</button>':''}<button class="primary" data-k="ok">閉じる</button></div>`);
+      ${ed?'<div class="bar"><button class="ghost" data-k="add" style="margin-right:auto">＋ 予約を足す</button></div>':''}`);
     const close=()=>box.remove(); box.querySelector('[data-k=ok]').onclick=close; const ad=box.querySelector('[data-k=add]'); if(ad) ad.onclick=()=>{ close(); resvForm(st,S,day,null); };
     wireRows(box,L,day,close); });
 };

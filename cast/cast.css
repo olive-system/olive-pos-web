@@ -31,6 +31,7 @@
   .dlg .box{background:var(--card);border-radius:16px;padding:20px 18px 16px;width:min(360px,100%);text-align:left} /* v0.71：知らせの箱の文は左揃え（オーナー 2026-10-26。スキル olive-left-align） */
   .tdy{background:var(--head)!important;border-color:var(--head)!important;color:#fff!important}.tdy small{color:#fff!important} /* v0.71：カレンダーの今日（案ウ） */.dlg p{margin:0 0 16px;white-space:pre-wrap;line-height:1.6}
   .dlg .bt{display:flex;gap:8px}.dlg .bt .btn{flex:1}
+  .dlg .box.xv{position:relative;padding-top:22px}.dlg .xv>p{margin:0;padding-right:24px}.dlg button.xb.dx{position:absolute;top:8px;right:8px;font-size:22px!important} /* v1.39：見るだけの小窓の右上の × */
   .hide{display:none!important}
   .seg{display:flex;border:1px solid var(--pri);border-radius:10px;overflow:hidden;margin-bottom:12px}.seg button{flex:1;padding:9px;font:inherit;background:var(--card);color:var(--ink);border:0}.seg button.on{background:var(--pri);color:#fff} /* v0.88：欠勤／遅刻の切り替え */
   button.xb{background:none!important;border:none!important;box-shadow:none;border-radius:6px;padding:4px 6px!important;margin:0;width:auto!important;min-width:0;height:auto!important;min-height:0;font:inherit;font-size:18px!important;line-height:1;color:var(--muted)!important;flex:none;cursor:pointer}button.xb.img{position:absolute;top:2px;right:4px;color:var(--card)!important;text-shadow:0 0 4px var(--ink)}button.xb.img.lt{color:var(--muted)!important;text-shadow:none} /* 2026-11-05：行・写真の × は枠なし・うすく小さく（オーナー「×に枠はダサい、スペース食う」） */

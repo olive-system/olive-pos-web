@@ -87,7 +87,7 @@ async function hallCloseTask(x, ph){
     body = `<div class="card">${D.map((q, i) => `<div style="padding:9px 2px;line-height:1.5;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(q.customer || '')} 様</b> <span class="muted sm">${td(q.day)} ${esc(q.author || '')}</span>
       <div style="white-space:pre-wrap">${esc(q.body)}</div><div style="display:flex;gap:8px;margin-top:6px">${tBtn('rqa', i, '追記')}${tBtn('rqr', i, '却下', true)}</div></div>`).join('') || '<div class="muted">申請はありません</div>'}</div>
       ${sv('', D.length ? '全件「追記」か「却下」の後に保存します' : '')}`;
-  } else if(k === 'bday_req'){   // v1.37・SQL 378：開店作業「お誕生日登録申請」（顧客メモの更新申請と同じ形。オーナー 2026-11-06・見本 作業場/お誕生日登録申請_案.png）
+  } else if(k === 'bday_req'){   // v1.40・SQL 378：開店作業「お誕生日登録申請」（顧客メモの更新申請と同じ形。オーナー 2026-11-06・見本 作業場/お誕生日登録申請_案.png）
     body = `<div class="card">${D.map((q, i) => `<div style="padding:9px 2px;line-height:1.5;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(q.customer || '')} 様</b> <span class="muted sm">${td(q.day)} ${esc(q.author || '')}</span>
       <div>お誕生日 ${esc(q.birthday)}</div><div style="display:flex;gap:8px;margin-top:6px">${tBtn('bqa', i, '登録')}${tBtn('bqr', i, '却下', true)}</div></div>`).join('') || '<div class="muted">申請はありません</div>'}</div>
       ${sv('', D.length ? '全件「登録」か「却下」の後に保存します' : '')}`;

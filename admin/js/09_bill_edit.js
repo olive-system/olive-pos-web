@@ -1,11 +1,13 @@
 // ---------- 伝票の修正 v0.31・SQL 071：収支（日次）の伝票一覧から、会計済の伝票をオーナーが直す（いつの日でも）----------
-// 直せるもの：削除／係・同伴・反応◎／注文（数量・取消・追加・バックの人）／支払い（方法・金額）／人数・来店と退店の時刻（自動延長も付け直す）・値引と値増
+// 直せるもの：削除／お客様（追加・新規登録・外す。v2.19・SQL 383）／係・同伴・反応◎／注文（数量・取消・追加・バックの人）／支払い（方法・金額）／人数・来店と退店の時刻（自動延長も付け直す）・値引と値増
 // 画面の中で直してから［保存］でまとめて送る。保存の前に直した後の請求額を確かめる（SQL で計算して元に戻す）。削除以外は操作ログに「何を直したか」を残す
 const BE_M={cash:'現金',card:'カード',invoice:'請求書',oki:'置き'}, BE_ROLE={douhan:'同伴',douhan1:'同伴①',douhan2:'同伴②'};
 const beDh=r=>r==='douhan'||r==='douhan1'||r==='douhan2';
 const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
 // v0.93：来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
 const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
+// v2.20：フリガナ（顧客サイトの kanaFix・kanaBad と同じ。ひらがな→カタカナ）
+const beKanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), beKanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
 const beHm5=t=>t?beHm(ceil5(t)):'';
 const beHm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 function beRole(ts){ const x=new Date(new Date(ts||Date.now()).toLocaleString('en-US',{timeZone:'Asia/Tokyo'})), m=x.getHours()*60+x.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; } // POS と同じ決め方
@@ -20,7 +22,7 @@ async function billView(id,canEdit){ // v0.49・SQL 078：見るだけの人も 
   // POS の会計済の伝票（明細書）と同じ形
   const L=(l,v,c)=>`<div class="bv-ln ${c||''}"><span>${l}</span><span style="white-space:nowrap">${v}</span></div>`, extMin=exts.reduce((t,e)=>t+N(e.minutes),0);
   const its=items.map(i=>{ const bk=(i.splits||[]).filter(z=>N(z.back_amount)||N(z.back_points)).map(z=>sn(z.staff_id)); return L(`${esc(i.name||pn(i.product_id))} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`,yen(N(i.unit_price)*N(i.qty))); }).join('');
-  const box=modal(`<style>.bv-ln{display:flex;justify-content:space-between;gap:12px;padding:6px 2px;font-size:16px}.bv-ln small{color:var(--muted);font-size:13px}.bv-ln.sm,.bv-sm{font-size:14px;color:var(--muted)}.bv hr{border:0;border-top:1px solid var(--line);margin:8px 0}</style>
+  const box=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><style>.bv-ln{display:flex;justify-content:space-between;gap:12px;padding:6px 2px;font-size:16px}.bv-ln small{color:var(--muted);font-size:13px}.bv-ln.sm,.bv-sm{font-size:14px;color:var(--muted)}.bv hr{border:0;border-top:1px solid var(--line);margin:8px 0}</style>
     <div class="bv"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(B.table||'')}</b><span>${md(B.business_date)}　${beHm5(B.opened_at)}〜${B.closed_at?beHm(B.closed_at):''}${B.closed_at?`（${dur(B.opened_at,B.closed_at)}）`:''}　${N(B.guest_count)}名</span>${B.closed_at?'':'<span class="badge" style="margin-left:auto">来店中</span>'}</div>
     <div class="bv-sm" style="margin-top:6px">お客様：${B.customers?esc(String(B.customers).split('・').map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}　　反応<span style="color:var(--gold)">◎</span>：${gd.length?esc(gd.join('・')):'なし'}</div><hr>
     ${N(C.set)?L(`セット${C.set_guests!=null?` <small>× ${C.set_guests}</small>`:''}`,yen(C.set)):''}${N(C.vip_set)?L('VIPルーム料金',yen(C.vip_set)):''}${N(C.extension)?L(`延長 <small>${exts.length}回・計${extMin}分</small>`,yen(C.extension)):''}${N(C.vip_ext)?L('VIPルーム延長',yen(C.vip_ext)):''}${its||'<div class="bv-sm">注文はありません</div>'}
@@ -28,13 +30,13 @@ async function billView(id,canEdit){ // v0.49・SQL 078：見るだけの人も 
     ${C.subtotal!=null?L('小計',yen(C.subtotal),'sm'):''}${C.service!=null?L('サービス料'+(C.service_rate!=null?' '+C.service_rate+'%':''),yen(C.service),'sm'):''}${C.tax!=null?L('消費税',yen(C.tax),'sm'):''}${adjs.map(a=>L((a.kind==='discount'?'値引':'値増')+(a.reason?` <small>${esc(a.reason)}</small>`:''),(a.kind==='discount'?'−':'')+yen(a.amount),'sm')).join('')}
     <div class="bv-ln" style="font-size:24px;font-weight:800;padding-top:10px"><span>請求額</span><span>${yen(C.amount_due)}</span></div><hr>
     <div class="bv-ln"><span>お支払い</span><span style="white-space:normal;text-align:right">${pays.filter(p=>N(p.amount)>0).map(p=>`${BE_M[p.method]||esc(p.method)} ${yen(p.amount)}${p.method==='invoice'?`<small>（${p.invoice_paid_on?mdj(p.invoice_paid_on)+'入金':'未入金'}）</small>`:''}`).join('／')||'入金の記録はありません'}</span></div></div>
-    <div class="bar">${canEdit?'<button class="ghost" data-k="ed">修正</button>':''}<button class="primary" data-k="ok">閉じる</button></div>`);
+    ${canEdit?'<div class="bar"><button class="ghost" data-k="ed">修正</button></div>':''}`);
   box.querySelector('.box').style.width='min(640px,100%)';
   box.querySelector('[data-k=ok]').onclick=()=>box.remove();
   const e=box.querySelector('[data-k=ed]'); if(e) e.onclick=()=>{ box.remove(); billEdit(id); }; }
 async function billEdit(id){
   const r=await sb.rpc('admin_bill_get',{p_bill:id}); if(r.error){ await uiAlert(/admin_bill_get/.test(r.error.message)?'SQL 071 が未実行です：'+r.error.message:r.error.message); return; }
-  const O=r.data, S=JSON.parse(JSON.stringify(O)), st=O.settings||{}, B=S.bill, att=new Set(O.attended||[]), bd=O.bill.business_date;
+  const O=r.data; O.custs=O.custs||[]; const S=JSON.parse(JSON.stringify(O)), st=O.settings||{}, B=S.bill, att=new Set(O.attended||[]), bd=O.bill.business_date;
   const ST=O.staff||[], sn=sid=>ST.find(x=>x.id===sid)?.name||'（不明）', pn=pid=>(O.products||[]).find(p=>p.id===pid);
   const live=it=>!it.is_void, hcId=st.auto_hc_product_id, bcId=st.auto_bc_product_id;
   // バックは等分（端数は最初の人）。POS と同じ
@@ -51,6 +53,11 @@ async function billEdit(id){
   const toTs=t=>{ const day=t<'08:00'?dayAdd(bd,1):bd; return new Date(`${day}T${t}:00+09:00`).toISOString(); };
   // 変えた所（画面の内容と最初の内容の差）を、送る内容と操作ログの文に
   function diff(){ const ops=[], note=[];
+    // v2.19・SQL 383：お客様の新規登録 → 伝票のお客様の追加・外す
+    S.custs.filter(c=>c._new).forEach(c=>{ ops.push({t:'customers',op:'insert',id:c.customer_id,kakari:c._kk||null,set:{name:c.name,kana:c.kana||null}}); note.push(`お客様を新規登録 ${c.name}`); });
+    { const oc=new Set(O.custs.map(c=>c.customer_id)), sc=new Set(S.custs.map(c=>c.customer_id));
+      S.custs.filter(c=>!oc.has(c.customer_id)).forEach(c=>{ ops.push({t:'bill_customers',op:'insert',customer:c.customer_id}); if(!c._new) note.push(`お客様を追加 ${c.name}`); });
+      O.custs.filter(c=>!sc.has(c.customer_id)).forEach(c=>{ ops.push({t:'bill_customers',op:'delete',customer:c.customer_id}); note.push(`お客様を外す ${c.name}`); }); }
     const bc={}; ['guest_count','set_guest_count','opened_at','set_start','closed_at'].forEach(k=>{ const a=B[k], b=O.bill[k], tm=k.endsWith('_at')||k==='set_start';
       if(tm?(a&&b?new Date(a).getTime()!==new Date(b).getTime():(a||null)!==(b||null)):String(a??'')!==String(b??'')) bc[k]=a??null; });
     if(Object.keys(bc).length) ops.push({t:'bills',op:'update',set:bc});
@@ -85,9 +92,11 @@ async function billEdit(id){
     box.querySelector('.box').innerHTML=`<h2 style="margin:0">伝票の修正　<small class="muted" style="font-weight:400">${md(bd)} 卓${esc(B.table||'')}${B.customers?'　'+esc(B.customers):''}</small></h2>
     <div class="card" style="margin:0"><h2>人数・時刻</h2><div class="row" style="flex-wrap:wrap;gap:10px"><label style="flex:1 1 120px">客数<input type="number" inputmode="numeric" id="beG" min="1" value="${B.guest_count}"></label><label style="flex:1 1 140px">来店<input type="time" id="beIn" value="${beHm5(B.opened_at)}"></label><label style="flex:1 1 140px">退店<input type="time" id="beOut" value="${beHm(B.closed_at)}"></label></div>
       <div class="muted" style="font-size:13px;margin-top:6px">延長 ${ex}回${S.exts.some(e=>e.is_auto)||Number(st.ext_minutes||0)>0?'（時刻を変更すると、自動延長を付け直します）':''}</div></div>
-    <div class="card" style="margin:0"><h2>${KL}・同伴・反応◎</h2>${cs.filter(c=>c.is_kakari||beDh(c.role)).map(c=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(sn(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',BE_ROLE[c.role]||''].filter(Boolean).join('・')}</small></span><button class="xb" data-bcrm="${c.id}">×</button></div>`).join('')||'<div class="muted">なし</div>'}
-      <div class="row" style="margin:8px 0;flex-wrap:wrap">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}${sel('d','＋同伴',act.filter(s=>!s.kakari_only&&att.has(s.id)&&!cs.some(c=>c.staff_id===s.id&&beDh(c.role))))}</div>
-      <div class="row" style="flex-wrap:wrap;gap:6px">${S.goods.map(g=>`<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px">${esc(sn(g.staff_id))}<span style="color:var(--gold)">◎</span> <a data-bgrm="${g.id}" style="cursor:pointer;color:var(--muted)">×</a></span>`).join('')}${sel('g','＋反応◎',ST.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&att.has(s.id)&&!S.goods.some(g=>g.staff_id===s.id)))}</div></div>
+    <div class="card" style="margin:0"><h2>お客様</h2>${S.custs.map(c=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(c.name)} 様${c._new?' <small class="muted">新規</small>':''}</span><button class="xb" data-bcurm="${c.customer_id}" aria-label="削除">×</button></div>`).join('')||'<div class="muted">未登録</div>'}
+      <div class="row" style="margin-top:8px"><button class="ghost" id="beCAdd">＋お客様</button></div></div>
+    <div class="card" style="margin:0"><h2>${KL}・同伴・反応◎</h2>${(()=>{ /* v2.20：反応◎ は1行目（${KL}）の横に並べる（行を分けない。オーナー 2026-11-06「係の横がいいね」） */ const gd=S.goods.map(g=>`<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px">${esc(sn(g.staff_id))}<span style="color:var(--gold)">◎</span> <a data-bgrm="${g.id}" style="cursor:pointer;color:var(--muted)">×</a></span>`).join(''), rw=cs.filter(c=>c.is_kakari||beDh(c.role));
+        return rw.map((c,i)=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span class="row" style="flex-wrap:wrap;gap:6px 10px"><span>${esc(sn(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',BE_ROLE[c.role]||''].filter(Boolean).join('・')}</small></span>${i===0?gd:''}</span><button class="xb" data-bcrm="${c.id}">×</button></div>`).join('')||(gd?`<div class="row" style="flex-wrap:wrap;gap:6px;padding:4px 0">${gd}</div>`:'<div class="muted">なし</div>'); })()}
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}${sel('d','＋同伴',act.filter(s=>!s.kakari_only&&att.has(s.id)&&!cs.some(c=>c.staff_id===s.id&&beDh(c.role))))}${sel('g','＋反応◎',ST.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&att.has(s.id)&&!S.goods.some(g=>g.staff_id===s.id)))}</div></div>
     <div class="card" style="margin:0"><h2>注文</h2><table class="t">${it.map(i=>{ const hasB=Number(i.back_amount||0)>0||Number(i.back_points||0)>0, auto=hcId&&i.product_id===hcId;
         return `<tr><td>${esc(i.name||pn(i.product_id)?.name||'')}<br><small class="muted">${yen(i.unit_price)}${hasB?`　バック：${esc((i.splits||[]).map(z=>sn(z.staff_id)).join('・')||'なし')}${auto?'（'+KL+'で等分）':''}`:''}</small></td><td style="width:90px"><input type="number" inputmode="numeric" min="1" data-bq="${i.id}" value="${i.qty}" style="text-align:right"></td><td style="white-space:nowrap">${hasB&&!auto?`<button class="ghost sm" data-bbk="${i.id}">バック</button> `:''}<button class="ghost sm" data-bvd="${i.id}">取消</button></td></tr>`; }).join('')||'<tr><td class="muted">注文はありません</td></tr>'}</table>
       <div class="row" style="margin-top:8px"><select id="beP" style="flex:1"><option value="">メニューを選ぶ</option>${prods.map(p=>`<option value="${p.id}">${esc(p.name)}　${yen(p.price)}</option>`).join('')}</select><input type="number" inputmode="numeric" id="beQ" value="1" min="1" style="width:80px;text-align:right"><button class="ok" id="bePAdd">追加</button></div></div>
@@ -108,6 +117,8 @@ async function billEdit(id){
     const tm=(k,v)=>{ if(!v) return; const ts=toTs(v); if(k==='opened_at'&&B.set_start){ B.set_start=new Date(new Date(B.set_start).getTime()+(ceil5(ts)-ceil5(B.opened_at))).toISOString(); } B[k]=ts; reExt(); redo(); };
     q('#beIn').onchange=e=>tm('opened_at',e.target.value); q('#beOut').onchange=e=>tm('closed_at',e.target.value);
     qa('[data-bcrm]').forEach(x=>x.onclick=()=>{ const c=S.casts.find(z=>z.id===x.dataset.bcrm); S.casts=S.casts.filter(z=>z!==c); if(c.is_kakari) syncHc(); redo(); });
+    qa('[data-bcurm]').forEach(x=>x.onclick=()=>{ S.custs=S.custs.filter(c=>c.customer_id!==x.dataset.bcurm); redo(); });
+    q('#beCAdd').onclick=()=>custPickBE(redo);
     qa('[data-bgrm]').forEach(x=>x.onclick=()=>{ S.goods=S.goods.filter(z=>z.id!==x.dataset.bgrm); redo(); });
     qa('[data-badd]').forEach(x=>x.onchange=async()=>{ const sid=x.value, k=x.dataset.badd; if(!sid) return; const ex=S.casts.find(c=>c.staff_id===sid);
       if(k==='g') S.goods.push({id:beUid(),staff_id:sid});
@@ -136,5 +147,25 @@ async function billEdit(id){
       const pd=S.pays.reduce((a,p)=>a+Number(p.amount||0),0); if(pd!==Number(last.due)&&!await uiConfirm(`支払いの合計（${yen(pd)}）が請求額（${yen(last.due)}）と合いません。このまま保存しますか？`,'保存')) return;
       const z=await rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:note,p_reason:q('#beR').value.trim(),p_dry:false,p_ver:O.ver||null /* v1.75・SQL 293：開いた時の伝票の版。ほかの画面で変わっていたら断る */}); if(!z.ok) return; close(); toast('修正しました'); (PAGES[page]||PAGES.pl)(); });
     check(); }
+  // v2.19・SQL 383：お客様を選ぶ・新規登録（POS の「＋ お客様」と同じ形。名前で検索・新規登録）。保存まで送らない
+  const CL=O.cust_list||[];
+  // 銀座（係の店）だけ：新規のお客様（お連れ様）の係は、伝票の最初のお客様の係。無い時は伝票の係（1人の時だけ）。POS と同じ（SQL 328）
+  const tsureKk=()=>{ if(KL!=='係') return null; const act=sid=>ST.some(s=>s.id===sid&&s.is_active), c0=S.custs.find(c=>!c._new); const k0=c0&&CL.find(c=>c.id===c0.customer_id)?.kakari; if(k0&&act(k0)) return k0;
+    const ks=[...new Set(S.casts.filter(c=>c.is_kakari).map(c=>c.staff_id))]; return ks.length===1&&act(ks[0])?ks[0]:null; };
+  function custPickBE(done){ const m=modal(`<button class="xb dx" data-k="x" aria-label="閉じる">×</button><h2 style="margin:0">お客様</h2><div style="display:flex;gap:8px"><input id="beCS" placeholder="名前で検索" style="flex:1"><button class="ok" id="beCNew">新規登録</button></div><div id="beCL" style="display:flex;flex-wrap:wrap;gap:6px;max-height:50vh;overflow:auto"></div>`);
+    m.querySelector('.box').style.width='min(520px,100%)'; const on=()=>new Set(S.custs.map(c=>c.customer_id)), qs=m.querySelector('#beCS');
+    const list=()=>{ const v=qs.value.trim(), o=on(), r=CL.filter(c=>!o.has(c.id)&&(!v||c.name.includes(v)||(c.kana||'').includes(v))).slice(0,40);
+      m.querySelector('#beCL').innerHTML=r.map(c=>`<button class="ghost sm" data-cid="${c.id}">${esc(c.name)}</button>`).join('')||'<span class="muted">該当なし</span>';
+      m.querySelectorAll('[data-cid]').forEach(x=>x.onclick=()=>{ const c=CL.find(z=>z.id===x.dataset.cid); S.custs.push({customer_id:c.id,name:c.name}); m.remove(); done(); }); };
+    qs.oninput=list; m.querySelector('[data-k=x]').onclick=()=>m.remove();
+    // v2.20・SQL 384：［新規登録］は顧客サイトの「新しいお客様」と同じ。名前の小窓を出さず、お名前・フリガナの入力画面をすぐ出す。検索の文字はお名前へ（かなだけならフリガナへ）
+    m.querySelector('#beCNew').onclick=()=>{ const q=qs.value.trim(), kq=!!q&&!beKanaBad(beKanaFix(q)), bx=m.querySelector('.box');
+      bx.innerHTML=`<button class="xb dx" data-k="x" aria-label="閉じる">×</button><h2 style="margin:0">新しいお客様</h2><label>お名前<input id="beNN" value="${esc(kq?'':q)}"></label><label>フリガナ<input id="beNK" value="${esc(kq?beKanaFix(q):'')}" placeholder="例）あおやぎ しろう or アオヤギ シロウ"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">登録</button></div>`;
+      const n=bx.querySelector('#beNN'), k=bx.querySelector('#beNK'); setTimeout(()=>(kq?n:(q?k:n)).focus(),0); k.onblur=()=>{ k.value=beKanaFix(k.value); };
+      bx.querySelector('[data-k=x]').onclick=bx.querySelector('[data-k=no]').onclick=()=>m.remove();
+      bx.querySelector('[data-k=ok]').onclick=async()=>{ const name=n.value.trim(), kana=beKanaFix(k.value); if(!name){ await uiAlert('お名前を入力してください'); return; } if(beKanaBad(kana)){ await uiAlert('フリガナはカタカナで入力してください'); return; }
+        const same=CL.find(c=>c.name===name)||S.custs.find(c=>c._new&&c.name===name); if(same&&!await uiConfirm(`「${name}」様はすでに登録されています${same.company?`（${same.company}）`:''}。\n別の方として新規登録しますか？`,'新規登録')) return;
+        S.custs.push({customer_id:beUid(),name,kana:kana||null,_new:true,_kk:tsureKk()}); m.remove(); done(); }; };
+    list(); setTimeout(()=>qs.focus(),0); }
   draw(); }
 

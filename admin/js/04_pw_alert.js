@@ -19,6 +19,6 @@ const CS_KIND={view:'顧客サイト（閲覧用）',edit:'顧客サイト（編
 function showNewPasswords(d){ return new Promise(res=>{
   const rows=[...(d.devices||[]).map(x=>`<tr><td>${esc(x.label||'端末')}<br><small class="muted">${esc(x.email||'')}</small></td><td class="pwbox">${esc(x.pw)}</td></tr>`),
               ...(d.cs||[]).map(x=>`<tr><td>${esc(CS_KIND[x.kind]||x.kind)}</td><td class="pwbox">${esc(x.pw)}</td></tr>`)].join('');
-  const m=modal(`<h2 style="margin:0">新しいパスワード</h2><div class="muted" style="font-size:14px">このパスワードは、あとからでも「パスワード」の画面で見られます</div><table class="t">${rows||'<tr><td class="muted">更新するものがありませんでした</td></tr>'}</table><div class="bar"><button class="primary" data-k="ok">閉じる</button></div>`);
+  const m=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">新しいパスワード</h2><div class="muted" style="font-size:14px">このパスワードは、あとからでも「パスワード」の画面で見られます</div><table class="t">${rows||'<tr><td class="muted">更新するものがありませんでした</td></tr>'}</table>`);
   m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(); }; }); }
 

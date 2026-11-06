@@ -28,9 +28,8 @@ function apShoot(store, id, kind, done){ document.querySelectorAll('input[data-a
     const r = await sb.rpc('ap_photo_add', { p_token: TOKEN, p_store: store || null, p_id: id, p_kind: kind, p_data: d }); if(r.error){ await uiAlert(r.error.message); return; } done(); }catch(e){ await uiAlert('写真を送信できませんでした'); } };
   i.click(); }
 // 写真を大きく表示（削除もここ）
-async function apPhotoBig(store, id, src, done){ const w = document.createElement('div'); w.className = 'dlg';
-  w.innerHTML = `<div class="box"><img src="${src}" style="width:100%;border-radius:8px;display:block"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button><button class="btn g" data-k="no">閉じる</button></div></div>`;
-  document.body.appendChild(w); w.querySelector('[data-k=no]').onclick = () => w.remove();
+async function apPhotoBig(store, id, src, done){ /* v1.39：閉じるは右上の × */
+  const w = xBox(`<img src="${src}" style="width:100%;border-radius:8px;display:block;margin-top:16px"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button></div>`);
   w.querySelector('[data-k=del]').onclick = async () => { if(!await uiConfirm('この写真を削除しますか？', '削除')) return; const r = await sb.rpc('ap_photo_del', { p_token: TOKEN, p_store: store || null, p_photo: id }); w.remove(); if(r.error){ await uiAlert(r.error.message); return; } done(); }; }
 
 async function apPage(id, store, back){
@@ -101,9 +100,7 @@ async function apPage(id, store, back){
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
   $('apSh').onclick = () => sheetStaff(id, store, again); /* v1.21：お店が書き込む */
   if($('apQr')) $('apQr').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('ap_qr', { p_token: TOKEN, p_store: store || null, p_id: id }); e.target.disabled = false; if(q.error){ await uiAlert(q.error.message); return; } /* v1.19・SQL 348：15分の間の友だち追加をこの人につなぐ */
-    const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); const w = document.createElement('div'); w.className = 'dlg';
-    w.innerHTML = `<div class="box"><p style="font-weight:700;margin:0 0 10px">${esc(STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div><button class="btn g" data-k="no" style="margin-top:12px">閉じる</button></div>`;
-    document.body.appendChild(w); w.querySelector('[data-k=no]').onclick = () => { w.remove(); again(); }; };
+    const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); xBox(`<p style="font-weight:700;margin:0 0 10px">${esc(STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div>`, again); }; /* v1.39：閉じるは右上の × */
   if($('apDoc')) $('apDoc').onclick = async e => { if(!await uiConfirm('契約書を開始しますか？\n本人のマイページに「書類」が表示されます', '開始')) return; e.target.disabled = true;
     const q = await sb.rpc('ap_docs_open', { p_token: TOKEN, p_store: store || null, p_id: id }); if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
 }
