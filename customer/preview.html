@@ -135,7 +135,7 @@ html.ro [data-kn]{pointer-events:none;border-color:transparent}
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
 <div id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
+<script src="../lib/supabase-js@2.116.0.js"></script>
 <script>
 // v1.33・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 let KL='係'; const kl=s=>KL==='係'?s:String(s??'').replace(/係/g,KL); const KT=[];
