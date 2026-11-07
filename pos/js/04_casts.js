@@ -316,9 +316,13 @@ async function leaveDlg(s){
   const box=document.createElement('div'); box.id='uiDlgLeave'; box.style.cssText='text-align:left;font-size:16px;line-height:1.6;margin:4px 0 8px';
   box.innerHTML=lb('自動停止')+`<div>タイムカード・シフト・鍵・お知らせ・伝票での選択${pend?'':'・LINEマイページ'}</div>`+(pend?lb('LINEマイページ')+'<div>報酬明細のみ（受取確認まで）</div>'+lb('受取待ち')+`<div>${esc(leaveMon(ms))}</div>`:'')
     +lb('手作業')+LEAVE_TODO.map(t=>`<label style="display:flex;align-items:center;gap:8px;margin:6px 0"><input type="checkbox" style="width:20px;height:20px">${esc(t)}</label>`).join('');
-  $('uiDlgMsg').after(box); const ok=$('uiDlgOk'); ok.textContent='退店'; let y=false;
-  try{ y=await uiConfirm(`${s.display_name}　退店`); } finally{ ok.textContent='OK'; box.remove(); } if(!y) return;
-  const r=await sb.rpc('pos_staff_leave',{p_staff:s.id}); if(r.error){ await uiAlert(r.error.message); return; }
+  /* v12.77・SQL 395（オーナー 2026-11-07「残り香チェックってシステムで何とかカバーできないのかな」→ 退店で済ませる）：手作業3つ全部にチェックするまで［退店］は押せない。
+     押したら「退店処理した人」（黒服）を選び、操作ログの by に残す。毎月の TODO「退店した人の、残り香チェック」は外した */
+  $('uiDlgMsg').after(box); const ok=$('uiDlgOk'), cks=[...box.querySelectorAll('input[type=checkbox]')], sync=()=>{ ok.disabled=!cks.every(c=>c.checked); };
+  cks.forEach(c=>c.onchange=sync); ok.textContent='退店'; let y=false;
+  try{ const p=uiConfirm(`${s.display_name}　退店`); sync(); y=await p; } finally{ ok.textContent='OK'; ok.disabled=false; box.remove(); } if(!y) return;
+  const by=await askBy('退店処理した人'); if(by===null) return;
+  const r=await sb.rpc('pos_staff_leave',{p_staff:s.id,p_by:by||null}); if(r.error){ await uiAlert(/p_by/.test(r.error.message)?'SQL 395 が未実行です':r.error.message); return; }
   toast(r.data?.pending?`${s.display_name}：受取待ち（${leaveMon(r.data.months)}）`:`${s.display_name}：退店しました`); if(cSel?.id===s.id){ cSel=null; if(typeof castFormHide==='function') castFormHide(); }
   await loadStaffAll(); renderCasts();
 }
