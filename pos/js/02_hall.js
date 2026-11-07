@@ -8,8 +8,10 @@ const hallPut=(id,v)=>{ hallGen[id]=(hallGen[id]||0)+1; hallTot[id]=v; };
 async function hallTotals(){ const ids=new Set(openBills.map(b=>b.id)); for(const k of Object.keys(hallTot)) if(!ids.has(k)) delete hallTot[k];
   await Promise.all(openBills.filter(b=>!(b.id in hallTot)).map(async b=>{ const g=hallGen[b.id], e=hallEpoch; const r=await sb.rpc('calc_bill',{p_bill:b.id}); if(!r.error&&hallGen[b.id]===g&&hallEpoch===e) hallTot[b.id]=r.data; })); }
 /* full＝5分ごと・最初・画面に戻った時（金額も置きも全部読み直す）。{side:false}＝置き・お預かり品は読まない */
-async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false);
+let hallSeq=0;
+async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false), seq=++hallSeq;
   const { data, error } = await sb.from('bills').select(HALL_SEL).eq('status','open');
+  if(seq!==hallSeq){ if(full) hallFullAt=0; return; } /* v12.78：1分ごと・知らせ・画面に戻った時の読み直しが重なった時は、後から頼んだ方だけ使う（古い返事が後に着くと、新しい卓が出なかった） */
   if (error) { toast(error.message); return; }
   if(full){ hallFullAt=Date.now(); hallDropAll(); checkPwAlert(); attDrop(); } else if(cur) hallDrop(cur.id); /* この端末で触った伝票は計算し直す */
   openBills = data||[]; await autoExtend(); if(side){ await loadOki(); await loadHand(); }
