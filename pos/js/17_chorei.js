@@ -193,23 +193,41 @@ const CL_RCPT='領収書精算', CL_RMAIL='領収書メールの送信';
 let clJsPdf=null;
 function clLoadPdf(){ if(window.jspdf) return Promise.resolve(); if(!clJsPdf) clJsPdf=new Promise((ok,ng)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'; s.onload=ok; s.onerror=()=>{ clJsPdf=null; ng(new Error('PDF の部品を読み込めません')); }; document.head.appendChild(s); }); return clJsPdf; }
 // 書類のスキャンのように：長い辺 1600px・白黒・紙の地を白く
+/* v12.76（オーナー 2026-11-07「周りの余計な部分もある。トリミングされてない」）：写真の中の白い紙（いちばん大きい明るいかたまり）の四隅を見つけて切り取り、まっすぐに直してから白黒にする。紙が見つからない時（白い机の上など）は写真のまま */
+function clCorners(x,w,h){ const k=240/Math.max(w,h), sw=Math.max(8,Math.round(w*k)), sh=Math.max(8,Math.round(h*k)); const c=document.createElement('canvas'); c.width=sw; c.height=sh; const y=c.getContext('2d'); y.drawImage(x.canvas,0,0,sw,sh);
+  const d=y.getImageData(0,0,sw,sh).data, N=sw*sh, L=new Uint8Array(N), hist=new Array(256).fill(0); for(let i=0;i<N;i++){ const l=Math.round(0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2]); L[i]=l; hist[l]++; }
+  let sum=0; for(let t=0;t<256;t++) sum+=t*hist[t]; let sB=0,wB=0,best=0,th=128; for(let t=0;t<256;t++){ wB+=hist[t]; if(!wB) continue; const wF=N-wB; if(!wF) break; sB+=t*hist[t]; const mB=sB/wB, mF=(sum-sB)/wF, v=wB*wF*(mB-mF)*(mB-mF); if(v>best){ best=v; th=t; } }
+  const lab=new Int32Array(N).fill(-1), q=new Int32Array(N); let big=-1, bigN=0;
+  for(let i=0;i<N;i++){ if(L[i]<=th||lab[i]>=0) continue; let hd=0,tl=0; q[tl++]=i; lab[i]=i; while(hd<tl){ const j=q[hd++], jx=j%sw; for(const n of [j-sw,j+sw,jx>0?j-1:-1,jx<sw-1?j+1:-1]){ if(n<0||n>=N||lab[n]>=0||L[n]<=th) continue; lab[n]=i; q[tl++]=n; } } if(tl>bigN){ bigN=tl; big=i; } }
+  if(big<0||bigN<N*0.12||bigN>N*0.97) return null;
+  let tl=null,tr=null,br=null,bl=null; for(let i=0;i<N;i++){ if(lab[i]!==big) continue; const px=i%sw, py=(i-px)/sw; if(!tl||px+py<tl[0]+tl[1]) tl=[px,py]; if(!br||px+py>br[0]+br[1]) br=[px,py]; if(!tr||px-py>tr[0]-tr[1]) tr=[px,py]; if(!bl||px-py<bl[0]-bl[1]) bl=[px,py]; }
+  return [tl,tr,br,bl].map(([px,py])=>[(px+0.5)/k,(py+0.5)/k]); }
 async function clScan(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>ng(new Error('写真を読み込めません')); i.src=URL.createObjectURL(file); });
   const k=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight)), w=Math.round(img.naturalWidth*k), h=Math.round(img.naturalHeight*k);
   const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); x.drawImage(img,0,0,w,h); URL.revokeObjectURL(img.src);
-  const px=x.getImageData(0,0,w,h), a=px.data; for(let i=0;i<a.length;i+=4){ const l=0.299*a[i]+0.587*a[i+1]+0.114*a[i+2]; const v=Math.max(0,Math.min(255,(l-110)*1.9+128)); a[i]=a[i+1]=a[i+2]=v; } x.putImageData(px,0,0);
-  return {w,h,url:c.toDataURL('image/jpeg',0.72)}; }
+  const sd=x.getImageData(0,0,w,h).data, L=new Float32Array(w*h); for(let i=0;i<w*h;i++) L[i]=0.299*sd[i*4]+0.587*sd[i*4+1]+0.114*sd[i*4+2];
+  const P=clCorners(x,w,h), dist=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1]);
+  let W=w, Hh=h, map=(u,v)=>[u*(w-1),v*(h-1)];
+  if(P){ const [p0,p1,p2,p3]=P; W=Math.round(Math.max(dist(p0,p1),dist(p3,p2))); Hh=Math.round(Math.max(dist(p0,p3),dist(p1,p2))); const s=Math.min(1,1600/Math.max(W,Hh)); W=Math.max(1,Math.round(W*s)); Hh=Math.max(1,Math.round(Hh*s));
+    const dx1=p1[0]-p2[0], dx2=p3[0]-p2[0], dx3=p0[0]-p1[0]+p2[0]-p3[0], dy1=p1[1]-p2[1], dy2=p3[1]-p2[1], dy3=p0[1]-p1[1]+p2[1]-p3[1], den=dx1*dy2-dx2*dy1;
+    const g=den?(dx3*dy2-dx2*dy3)/den:0, hh=den?(dx1*dy3-dx3*dy1)/den:0, a=p1[0]-p0[0]+g*p1[0], b=p3[0]-p0[0]+hh*p3[0], e=p1[1]-p0[1]+g*p1[1], f=p3[1]-p0[1]+hh*p3[1];
+    map=(u,v)=>{ const z=g*u+hh*v+1; return [(a*u+b*v+p0[0])/z,(e*u+f*v+p0[1])/z]; }; }
+  const o=document.createElement('canvas'); o.width=W; o.height=Hh; const ox=o.getContext('2d'), od=ox.createImageData(W,Hh), a2=od.data;
+  for(let j=0;j<Hh;j++) for(let i=0;i<W;i++){ const [sx,sy]=map(W>1?i/(W-1):0,Hh>1?j/(Hh-1):0); const x0=Math.max(0,Math.min(w-2,Math.floor(sx))), y0=Math.max(0,Math.min(h-2,Math.floor(sy))), fx=Math.max(0,Math.min(1,sx-x0)), fy=Math.max(0,Math.min(1,sy-y0)), n=y0*w+x0;
+    const l=(L[n]*(1-fx)+L[n+1]*fx)*(1-fy)+(L[n+w]*(1-fx)+L[n+w+1]*fx)*fy, v=Math.max(0,Math.min(255,(l-110)*1.9+128)), q=(j*W+i)*4; a2[q]=a2[q+1]=a2[q+2]=v; a2[q+3]=255; }
+  ox.putImageData(od,0,0); return {w:W,h:Hh,url:o.toDataURL('image/jpeg',0.72)}; }
 async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.h/sc.w*10)/10; const pdf=new window.jspdf.jsPDF({unit:'mm',format:[W,H],orientation:H>=W?'p':'l'}); pdf.addImage(sc.url,'JPEG',0,0,W,H); return pdf.output('blob'); }
 async function clReadAmount(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:url.split(',')[1]}}); const n=Number(r.data?.amount); return r.error||!Number.isFinite(n)||n<=0?null:Math.round(n); }catch(_){ return null; } }
 async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); return; }
   const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=55; /* 入力した黒服の小窓（uiDlg・60）が上に出るように */
-  m.innerHTML=`<div class="box" style="width:min(460px,94vw)"><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(CL_RCPT)}</div><div style="background:var(--soft);border-radius:8px;padding:10px;text-align:center"><img data-im style="max-width:100%;max-height:52vh;background:#fff"></div>
+  m.innerHTML=`<div class="box" style="width:min(460px,94vw)"><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(CL_RCPT)}</div><iframe data-im style="width:100%;height:52vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px"><span>金額</span><input data-a type="number" inputmode="numeric" placeholder="読み取り中…" style="width:150px;text-align:right"></div>
     <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g">再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok>OK</button></div></div>`;
-  document.body.appendChild(m); const A=m.querySelector('[data-a]'), show=s=>{ sc=s; m.querySelector('[data-im]').src=s.url; A.value=''; A.placeholder='読み取り中…'; const me=s; clReadAmount(s.url).then(n=>{ if(sc!==me||!document.body.contains(m)) return; A.placeholder='金額'; if(n!=null&&!A.value) A.value=n; else if(n==null){ toast('金額を読み取れませんでした。入力してください'); A.focus(); } }); };
-  show(sc); m.querySelector('[data-c]').onclick=()=>m.remove();
+  document.body.appendChild(m); const A=m.querySelector('[data-a]'), show=s=>{ sc=s; /* v12.76（オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF） */ const fr=m.querySelector('[data-im]'); s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(sc===s&&document.body.contains(m)){ if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.src=fr.dataset.u; } }).catch(e=>{ if(sc===s) uiAlert('PDF を作成できません：'+(e.message||'')); }); A.value=''; A.placeholder='読み取り中…'; const me=s; clReadAmount(s.url).then(n=>{ if(sc!==me||!document.body.contains(m)) return; A.placeholder='金額'; if(n!=null&&!A.value) A.value=n; else if(n==null){ toast('金額を読み取れませんでした。入力してください'); A.focus(); } }); };
+  show(sc); m.querySelector('[data-c]').onclick=()=>{ const u=m.querySelector('[data-im]').dataset.u; if(u) URL.revokeObjectURL(u); m.remove(); };
   const ri=m.querySelector('label input'); ri.onchange=async()=>{ const f=ri.files&&ri.files[0]; ri.value=''; if(!f) return; try{ show(await clScan(f)); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
   const ok=m.querySelector('[data-ok]'); ok.onclick=guard(ok,async()=>{ const amount=clNum(A.value); if(!amount){ toast('金額を入力してください'); A.focus(); return; } if(await askBy()===null) return;
-    let blob; try{ blob=await clScanPdf(sc); }catch(e){ await uiAlert('PDF を作成できません：'+(e.message||'')); return; }
+    let blob; try{ blob=await (sc.pdf||clScanPdf(sc)); }catch(e){ await uiAlert('PDF を作成できません：'+(e.message||'')); return; }
     const id=crypto.randomUUID(), path=`${store.id}/${id}.pdf`; const up=await sb.storage.from('receipts').upload(path,blob,{contentType:'application/pdf',upsert:false}); if(up.error){ await uiAlert('領収書を保存できません：'+up.error.message); return; }
     const r=await sb.from('cash_movements').insert({id,store_id:store.id,business_date:d,kind:'out',amount,memo:CL_RCPT,receipt_path:path}); if(r.error){ await sb.storage.from('receipts').remove([path]); await uiAlert('登録できません：'+r.error.message); return; }
     await logOp('レジ出金の登録',{date:d,amount,memo:CL_RCPT,receipt:true},null,true); m.remove(); renderClosing(); }); }
