@@ -77,7 +77,7 @@
   .cs-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px}.cs-tabs button{background:none;border-radius:0;border-bottom:3px solid transparent;color:var(--muted);height:42px}.cs-tabs button.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
   table.rgden input,#rgDepIn,#rgOpenIn{height:38px;font-size:15px}
   .ck{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink);min-height:var(--h)}.ck input{width:auto;height:auto;margin:0}
-  table.pc th,table.pc td{vertical-align:middle;text-align:left}.pc-c{display:flex;align-items:center;gap:8px;font-size:15px}.pc-c img{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:pointer;background:var(--soft)}
+  table.pc th,table.pc td{vertical-align:middle;text-align:left}.pc-c{display:flex;align-items:center;gap:8px;font-size:15px}.pc-t{font-size:18px;font-variant-numeric:tabular-nums}.pc-s{font-size:10px;line-height:1.3;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}.pc-c img{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:pointer;background:var(--soft)}
   .pc-l{background:none;border:none;padding:4px 2px;color:var(--muted);font-size:13px;text-decoration:underline;cursor:pointer} /* v1.43 打刻一覧の小さい「追加」「修正」 */
   .tccode{font-size:44px;font-weight:700;letter-spacing:.2em;text-align:center;font-variant-numeric:tabular-nums;padding:8px 0}
   table.vip input{width:110px;text-align:right}

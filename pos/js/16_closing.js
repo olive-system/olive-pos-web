@@ -92,8 +92,8 @@ async function clAfterPick(sid,d,B,AF,again){ const cur=(AF.rows||[]).find(r=>r.
     const b=bid&&B.find(z=>z.id===bid); await logOp('アフターの伝票',{name:staffAll.find(z=>z.id===sid)?.display_name||'',bill:b?`${tables.find(t=>t.id===b.table_id)?.name||''} ${clBillName(b)}`:'なし'}); again(); }); }
 // v12.52・SQL 338：② の「退」で 退勤／アフター を切り替え（アフターの打刻をし忘れた子を、アフターの欄に出す）。時刻を変えない時は罰金なし
 async function clPunchOut(id,t,after){ const s=staffAll.find(x=>x.id===id); const wi=await sb.rpc('pos_waive_info',{p_staff:id,p_type:'clock_out'}); const kind=t&&t.after?'after':'clock_out';
-  const w={...(wi.data||{}),label:s?.display_name||'',kind,at:t&&t.out?new Date(t.out).getTime():null}; const v=await uiTime('clock_out',w); if(!v) return;
-  const r=await sb.rpc('pos_punch_out',{p_staff:id,p_kind:v.kind||kind,p_at:v.at}); if(r.error){ await uiConfirm(r.error.message); return; } attDrop();
+  const w={...(wi.data||{}),label:s?.display_name||'',kind,at:t&&t.out?new Date(t.out).getTime():null}; const v=await uiTime('clock_out',w); if(!v) return; const by=await askBy(); if(by===null) return; /* v12.74・SQL 389：修正した黒服を残す */
+  const r=await sb.rpc('pos_punch_out',{p_staff:id,p_kind:v.kind||kind,p_at:v.at}); if(r.error){ await uiConfirm(r.error.message); return; } if(by) await sb.rpc('punch_fix_by',{p_staff:id,p_type:'clock_out',p_by:by}); attDrop();
   if(v.w){ const q=await sb.rpc('pos_waive_request',{p_staff:id,p_type:'clock_out',p_applicant:v.w.applicant,p_reason:v.w.reason}); if(q.error) await uiConfirm('打刻は記録しました。免除申請は送信できませんでした：'+q.error.message); else toast('免除申請を送信しました'); } else toast((v.kind||kind)==='after'?'アフターを記録しました':'退勤を記録しました'); after(); }
 // v12.72・SQL 387：閉店作業「① お客様登録」（一番上）。伝票ごとにお客様を追加し、確認者を選んで完了 → 出勤したキャストへ連絡先交換の LINE（オーナー 2026-11-06「閉店作業の一番最初に伝票のお客様の登録。完了次第、女の子に LINE」）
 // 1組1行（卓・来店時刻・人数・お名前・未登録 n名・＋お客様）。お名前を押すとメモ。× は会計の後にここで追加したお客様だけ（会計の時のお客様は伝票で修正）。未登録が残っていても確かめの箱で止めて完了できる
