@@ -1,6 +1,6 @@
 // ---------- customer modal ----------
 let custPick=null, custBill=null; /* v12.72：閉店作業「① お客様登録」から追加する時の伝票（新規のお連れ様の係に使う） */
-$('custAddBtn').onclick=()=>{ $('custCancel').textContent='伝票へ戻る'; custPick=null; custBill=null; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); };
+$('custAddBtn').onclick=()=>{ $('custCancel').textContent='伝票へ戻る'; custPick=null; custBill=null; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); cuFresh().then(()=>{ if($('custModal').classList.contains('on')) renderCust($('custSearch').value.trim()); }); };
 $('custCancel').onclick=()=>{ $('custModal').classList.remove('on'); if(custBill){ custPick=null; custBill=null; } };
 /* v12.28・SQL 276：お客様を追加の並びも最近出てきた順（来店・予約・情報の更新。顧客の画面と同じ。オーナー 2026-10-29）。顧客の画面をまだ開いていない時は、最近出てきた時刻だけ読む */
 function custActLoad(){ if(custActLoad.on||Object.keys(cuInfo.act||{}).length) return; custActLoad.on=true; sb.rpc('pos_cust_act').then(r=>{ custActLoad.on=false; if(r.error||!r.data||typeof r.data!=='object') return; cuInfo.act=r.data; if($('custModal').classList.contains('on')) renderCust($('custSearch').value.trim()); }); }
