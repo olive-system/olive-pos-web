@@ -43,6 +43,7 @@ function hallGo(k){
   if(k === 'chorei') hallChorei(); else if(k === 'todo') hallTodo(); else if(k === 'cs') hallCs();
   else if(k === 'work'){ opSwitch = true; hallTasks(h >= 22 || h < 8 ? 'close' : 'open'); }
   else if(k === 'memo') memoList(); /* v1.22・SQL 352：退店の LINE（要変更）から */
+  else if(k === 'ap'){ const a = jgParam('a'); if(a) apPage(a, null, hallHome); } /* v1.44・SQL 392：【ヒアリングシート】の LINE から、その人のページ */
   else if(k === 'daily'){ const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.click(); }
 }
 /* v0.94：黒服のトップの数（開店・閉店作業の完了・TODO・書類・ミーティング）は60秒まで覚えておく（ほとんどの画面の「戻る」がトップで、そのたびに5つ読んでいた）。

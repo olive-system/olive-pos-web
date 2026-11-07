@@ -76,6 +76,7 @@ async function sheetStaff(id, store, back){
 
 async function sheetForm(idt){
   const g = await sb.rpc('applicant_sheet_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
+  if(g.data.locked){ show('<div class="ttl">ヒアリングシート</div><div class="card">送信済みです</div>'); return; } /* v1.44・SQL 392：お店が［編集］で保存したら本人は修正不可（オーナー 2026-11-07） */
   show(`<div class="ttl">ヒアリングシート</div>${g.data.sent_at ? '<div class="card sm">送信済みです。変更する時は、もう一度送信してください</div>' : ''}${sheetBody(g.data.hearing || {}, false)}<button class="btn" id="shOk">送信</button><div style="height:20px"></div>`);
   const get = sheetWire($('main'));
   $('shOk').onclick = async e => { const o = get(false); if(!Object.keys(o).length){ await uiAlert('入力してから送信してください'); return; }
