@@ -201,7 +201,7 @@ async function clScan(file){ const img=await new Promise((ok,ng)=>{ const i=new 
 async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.h/sc.w*10)/10; const pdf=new window.jspdf.jsPDF({unit:'mm',format:[W,H],orientation:H>=W?'p':'l'}); pdf.addImage(sc.url,'JPEG',0,0,W,H); return pdf.output('blob'); }
 async function clReadAmount(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:url.split(',')[1]}}); const n=Number(r.data?.amount); return r.error||!Number.isFinite(n)||n<=0?null:Math.round(n); }catch(_){ return null; } }
 async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); return; }
-  const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
+  const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=55; /* 入力した黒服の小窓（uiDlg・60）が上に出るように */
   m.innerHTML=`<div class="box" style="width:min(460px,94vw)"><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(CL_RCPT)}</div><div style="background:var(--soft);border-radius:8px;padding:10px;text-align:center"><img data-im style="max-width:100%;max-height:52vh;background:#fff"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px"><span>金額</span><input data-a type="number" inputmode="numeric" placeholder="読み取り中…" style="width:150px;text-align:right"></div>
     <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g">再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok>OK</button></div></div>`;
