@@ -201,8 +201,19 @@ function clCorners(x,w,h){ const k=240/Math.max(w,h), sw=Math.max(8,Math.round(w
   const lab=new Int32Array(N).fill(-1), q=new Int32Array(N); let big=-1, bigN=0;
   for(let i=0;i<N;i++){ if(L[i]<=th||lab[i]>=0) continue; let hd=0,tl=0; q[tl++]=i; lab[i]=i; while(hd<tl){ const j=q[hd++], jx=j%sw; for(const n of [j-sw,j+sw,jx>0?j-1:-1,jx<sw-1?j+1:-1]){ if(n<0||n>=N||lab[n]>=0||L[n]<=th) continue; lab[n]=i; q[tl++]=n; } } if(tl>bigN){ bigN=tl; big=i; } }
   if(big<0||bigN<N*0.12||bigN>N*0.97) return null;
-  let tl=null,tr=null,br=null,bl=null; for(let i=0;i<N;i++){ if(lab[i]!==big) continue; const px=i%sw, py=(i-px)/sw; if(!tl||px+py<tl[0]+tl[1]) tl=[px,py]; if(!br||px+py>br[0]+br[1]) br=[px,py]; if(!tr||px-py>tr[0]-tr[1]) tr=[px,py]; if(!bl||px-py<bl[0]-bl[1]) bl=[px,py]; }
-  return [tl,tr,br,bl].map(([px,py])=>[(px+0.5)/k,(py+0.5)/k]); }
+  let Q=clSides(lab,big,sw,sh,bigN); if(!Q){ let tl=null,tr=null,br=null,bl=null; for(let i=0;i<N;i++){ if(lab[i]!==big) continue; const px=i%sw, py=(i-px)/sw; if(!tl||px+py<tl[0]+tl[1]) tl=[px,py]; if(!br||px+py>br[0]+br[1]) br=[px,py]; if(!tr||px-py>tr[0]-tr[1]) tr=[px,py]; if(!bl||px-py<bl[0]-bl[1]) bl=[px,py]; } Q=[tl,tr,br,bl]; }
+  return Q.map(([px,py])=>[(px+0.5)/k,(py+0.5)/k]); }
+// 紙の4辺に線を引き、となりの線の交わる所を角にする。指で角が隠れても、見えている辺から隠れた角を補える（一番端の点を角にすると、隠れた所で四角がゆがむ）。辺が見つからない・形がおかしい時は null（一番端の点で切る）
+function clSides(lab,big,sw,sh,n){ const P=[]; for(let i=0;i<lab.length;i++){ if(lab[i]!==big) continue; const x=i%sw, y=(i-x)/sw; if(!x||!y||x===sw-1||y===sh-1||lab[i-1]!==big||lab[i+1]!==big||lab[i-sw]!==big||lab[i+sw]!==big) P.push([x,y]); }
+  P.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]), hull=L=>{ const H=[]; for(const p of L){ while(H.length>1&&cr(H[H.length-2],H[H.length-1],p)<=0) H.pop(); H.push(p); } H.pop(); return H; }, C=hull(P).concat(hull(P.slice().reverse())); if(C.length<4) return null;
+  let best=Infinity, t=0; for(let i=0;i<C.length;i++){ const a=C[i], b=C[(i+1)%C.length], u=Math.atan2(b[1]-a[1],b[0]-a[0]), c=Math.cos(u), s=Math.sin(u); let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9; for(const p of C){ const X=p[0]*c+p[1]*s, Y=p[1]*c-p[0]*s; if(X<x0)x0=X; if(X>x1)x1=X; if(Y<y0)y0=Y; if(Y>y1)y1=Y; } if((x1-x0)*(y1-y0)<best){ best=(x1-x0)*(y1-y0); t=u; } }
+  while(t>Math.PI/4) t-=Math.PI/2; while(t<=-Math.PI/4) t+=Math.PI/2; const c=Math.cos(t), s=Math.sin(t), R=p=>[p[0]*c+p[1]*s,p[1]*c-p[0]*s]; let cu=0,cv=0; C.forEach(p=>{ const [u,v]=R(p); cu+=u/C.length; cv+=v/C.length; });
+  const S={}, tn=Math.tan(Math.PI/9); for(let i=0;i<C.length;i++){ const a=C[i], b=C[(i+1)%C.length], [au,av]=R(a), [bu,bv]=R(b), du=bu-au, dv=bv-av, len=Math.hypot(du,dv); let k=null, f=1;
+    if(Math.abs(dv)<=tn*Math.abs(du)){ k=(av+bv)/2<cv?'t':'b'; f=du<0?-1:1; } else if(Math.abs(du)<=tn*Math.abs(dv)){ k=(au+bu)/2<cu?'l':'r'; f=dv<0?-1:1; } if(!k) continue;
+    const z=S[k]||(S[k]={w:0,x:0,y:0,dx:0,dy:0}); z.w+=len; z.x+=len*(a[0]+b[0])/2; z.y+=len*(a[1]+b[1])/2; z.dx+=f*(b[0]-a[0]); z.dy+=f*(b[1]-a[1]); }
+  if(!S.t||!S.b||!S.l||!S.r) return null; const X=(A,B)=>{ const ax=A.x/A.w, ay=A.y/A.w, bx=B.x/B.w, by=B.y/B.w, d=A.dx*B.dy-A.dy*B.dx; if(Math.abs(d)<1e-9) return null; const m=((bx-ax)*B.dy-(by-ay)*B.dx)/d; return [ax+m*A.dx, ay+m*A.dy]; };
+  const Q=[X(S.t,S.l),X(S.t,S.r),X(S.b,S.r),X(S.b,S.l)]; if(Q.some(p=>!p||p[0]<-sw*0.1||p[0]>sw*1.1||p[1]<-sh*0.1||p[1]>sh*1.1)) return null;
+  const A=Math.abs(Q.reduce((z,p,i)=>{ const q=Q[(i+1)%4]; return z+p[0]*q[1]-q[0]*p[1]; },0))/2; return A>=n*0.9&&A<=n*1.6?Q:null; }
 async function clScan(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>ng(new Error('写真を読み込めません')); i.src=URL.createObjectURL(file); });
   const k=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight)), w=Math.round(img.naturalWidth*k), h=Math.round(img.naturalHeight*k);
   const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); x.drawImage(img,0,0,w,h); URL.revokeObjectURL(img.src);
