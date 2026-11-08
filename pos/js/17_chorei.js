@@ -118,10 +118,10 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   box.innerHTML=`<div id="clWarn"></div><div id="clAhead"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b style="font-size:18px">閉店作業</b><input type="date" id="clDateIn" value="${d}"><span class="badge ${saved||clIdle?'k':'warnb'}">${saved?'精算済':clIdle?'（変動なし自動繰越）':'未精算'}</span></div>
   <div id="clRe"></div>
   ${H('① お客様登録')}<div id="clReg"><div class="muted">読み込み中…</div></div>
-  ${H('② 入出金の登録（経費の現金払い・立替など）')}
+  ${H('② 入出金の登録（経費の現金払い・立替など）')}<div id="clMvTop"></div>
   ${saved?'<div class="muted" style="margin-bottom:6px">精算済のため変更できません</div>':`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><input type="hidden" id="clKind" value="out"><div class="clseg"><button type="button" data-clk="out" class="on">出金</button><button type="button" data-clk="in">入金</button></div><select id="clMemoSel" style="width:200px"></select><input id="clMemo" placeholder="内容を入力" style="flex:1;min-width:160px;display:none"><input id="clAmt" type="number" inputmode="numeric" placeholder="金額" style="width:130px;text-align:right"><button class="ok sm" id="clAdd">追加</button><label class="cllb" id="clShot" style="display:none">撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label></div>`}
-  <div class="clmv">${moves.map(m=>`<div class="r"><span class="badge ${m.kind==='out'?'gray':''}">${m.kind==='out'?'出金':'入金'}</span><span class="t">${esc(m.memo||'')}</span><span>${m.receipt_path?`<button class="xb" data-mvpdf="${m.id}" aria-label="領収書">${FX('filetext')}</button>`:''}</span><span class="a">${yen(m.amount)}</span><span>${saved?'':`<button class="xb" data-mvdel="${m.id}" aria-label="削除">×</button>`}</span></div>`).join('')}
-  <div class="r"><span class="badge gray">出金</span><span class="t" style="grid-column:span 2">日払（立替）　<small class="muted">${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('・')):'なし'}</small></span><span class="a">${yen(advSum)}</span><span></span></div></div>
+  <div class="clmv">${moves.map(m=>`<div class="r"><span class="badge ${m.kind==='out'?'gray':''}">${m.kind==='out'?'出金':'入金'}</span><span class="t">${esc(m.memo||'')}</span><span>${m.receipt_path?`<button class="xb" data-mvpdf="${m.id}" aria-label="領収書">${FX('filetext')}</button>`:''}</span><span class="p">${esc(m.payer||'')}</span><span class="a">${yen(m.amount)}</span><span>${saved?'':`<button class="xb" data-mvdel="${m.id}" aria-label="削除">×</button>`}</span></div>`).join('')}
+  <div class="r"><span class="badge gray">出金</span><span class="t" style="grid-column:span 3">日払（立替）　<small class="muted">${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('・')):'なし'}</small></span><span class="a">${yen(advSum)}</span><span></span></div></div><div id="clMvDone"></div>
   ${H('③ 領収書メール')}<div id="clRcpt"></div>
   ${mp?H('④ 出退勤確認')+'<div id="clPunch"></div>'+clMpHtml(mpL,H):clOldMid}
   ${H(mp?'⑥ レジ金合わせ':'⑩ レジ金合わせ')}
@@ -161,6 +161,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   box.querySelectorAll('[data-mvpdf]').forEach(x=>x.onclick=()=>clRcptView(moves.find(z=>z.id===x.dataset.mvpdf)));
   clRegRender(d); // v12.72・SQL 387
   clRcptRender(d,moves);
+  clMvRender(d,moves,saved);
   clChkRender(d); // v10.61
   clKmRender(d); // v11.59
   clTodoRender(d); // v11.71・SQL 145
@@ -217,20 +218,65 @@ async function clScan(file){ const img=await new Promise((ok,ng)=>{ const i=new 
     const l=(L[n]*(1-fx)+L[n+1]*fx)*(1-fy)+(L[n+w]*(1-fx)+L[n+w+1]*fx)*fy, v=Math.max(0,Math.min(255,(l-110)*1.9+128)), q=(j*W+i)*4; a2[q]=a2[q+1]=a2[q+2]=v; a2[q+3]=255; }
   ox.putImageData(od,0,0); return {w:W,h:Hh,url:o.toDataURL('image/jpeg',0.72)}; }
 async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.h/sc.w*10)/10; const pdf=new window.jspdf.jsPDF({unit:'mm',format:[W,H],orientation:H>=W?'p':'l'}); pdf.addImage(sc.url,'JPEG',0,0,W,H); return pdf.output('blob'); }
-async function clReadAmount(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:url.split(',')[1]}}); const n=Number(r.data?.amount); return r.error||!Number.isFinite(n)||n<=0?null:Math.round(n); }catch(_){ return null; } }
+// v12.82・SQL 400：精算の手引きの項目を確かめる（オーナー 2026-11-08「宛名・日付・軽減税率・但し書き・発行店名・電話番号・登録番号・飲食の参加者・自分の名前・鮮明さ」）
+// ・receipt-read が全部の項目を読み、合っているかはここで決める。不備が1つでもあると OK を押せない
+// ・不備の項目はその場で入力して修正できる（入力できたら通す）。登録番号が無い時は［確認］→ 理由のコメントで通す。不鮮明の時は再撮影だけ（入力欄は出さない）
+// ・立替者名（右下の手書きの名前）は cash_movements.payer に入れ、② の一覧に出す。確かめた中身は receipt_check
+// ・登録番号を国税庁の公表サイトで照らすのは、アプリケーション ID が届いてから（今は T と13桁の形だけ）
+const CL_RK=[['to','宛名'],['date','日付'],['reduced','軽減税率'],['purpose','但し書き'],['issuer','発行店名'],['tel','電話番号'],['inv','登録番号'],['guests','参加者名'],['payer','立替者名'],['clear','鮮明度']];
+const clInvOk=v=>/^T\d{13}$/.test(v);
+async function clRead(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:url.split(',')[1]}}); if(r.error) return null; const n=Number(r.data?.amount); return {amount:Number.isFinite(n)&&n>0?Math.round(n):null,read:r.data?.read||null}; }catch(_){ return null; } }
+// 読み取った中身 → 項目ごとの {v:表示, ng:不備}。読めなかった時（r が null）は鮮明度だけ「未確認」で通し、ほかは入力
+function clCheck(r){ const s=x=>String(x??'').trim(), X={};
+  const to=s(r?.addressee); X.to={v:to,ok:/OLIVE/i.test(to.normalize('NFKC').replace(/\s/g,''))};
+  const dt=s(r?.date); X.date={v:dt.replace(/-/g,'/'),ok:!!dt};
+  const rd=s(r?.reduced); X.reduced={v:rd==='記載あり'?'※ 8%対象':rd==='対象なし'?'対象なし':'',ok:rd==='記載あり'||rd==='対象なし'};
+  const pp=s(r?.purpose), pc=r?.purpose_clear!==false; X.purpose={v:pp&&!pc?pp+'（用途不明）':pp,ok:!!pp&&pc};
+  X.issuer={v:s(r?.issuer),ok:!!s(r?.issuer)}; X.tel={v:s(r?.tel),ok:!!s(r?.tel)};
+  const iv=s(r?.invoice_no); X.inv={v:iv,ok:clInvOk(iv)};
+  X.guests=r&&!r.eating?{v:'飲食以外',ok:true}:{v:s(r?.guests),ok:!!s(r?.guests)};
+  X.payer={v:s(r?.payer),ok:!!s(r?.payer)};
+  X.clear=r?{v:r.clear?'良好':'不鮮明',ok:!!r.clear}:{v:'未確認',ok:true};
+  for(const k in X){ X[k].ng=!X[k].ok; delete X[k].ok; } return X; }
+const clMark=ng=>ng?'<span class="ngt">不備</span>':'<span class="okm">✓</span>';
 async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); return; }
   const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=55; /* 入力した黒服の小窓（uiDlg・60）が上に出るように */
-  m.innerHTML=`<div class="box" style="width:min(460px,94vw)"><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(CL_RCPT)}</div><div data-im style="height:52vh;border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px"><span>金額</span><input data-a type="number" inputmode="numeric" placeholder="読み取り中…" style="width:150px;text-align:right"></div>
-    <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g">再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok>OK</button></div></div>`;
-  document.body.appendChild(m); const A=m.querySelector('[data-a]'), show=s=>{ sc=s; /* v12.76（オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(sc!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(sc===s) uiAlert('PDF を作成できません：'+(e.message||'')); }); A.value=''; A.placeholder='読み取り中…'; const me=s; clReadAmount(s.url).then(n=>{ if(sc!==me||!document.body.contains(m)) return; A.placeholder='金額'; if(n!=null&&!A.value) A.value=n; else if(n==null){ toast('金額を読み取れませんでした。入力してください'); A.focus(); } }); };
-  show(sc); m.querySelector('[data-c]').onclick=()=>{ const u=m.querySelector('[data-im]').dataset.u; if(u) URL.revokeObjectURL(u); m.remove(); };
-  const ri=m.querySelector('label input'); ri.onchange=async()=>{ const f=ri.files&&ri.files[0]; ri.value=''; if(!f) return; try{ show(await clScan(f)); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
-  const ok=m.querySelector('[data-ok]'); ok.onclick=guard(ok,async()=>{ const amount=clNum(A.value); if(!amount){ toast('金額を入力してください'); A.focus(); return; } if(await askBy()===null) return;
+  m.innerHTML=`<div class="box clrc" style="width:min(860px,96vw)"><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(CL_RCPT)}</div>
+    <div style="display:flex;gap:16px;align-items:flex-start"><div data-im style="flex:none;width:min(360px,42vw);height:min(540px,60vh);border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden"></div>
+    <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--line)"><span>金額</span><input data-a type="number" inputmode="numeric" placeholder="読み取り中…" style="width:150px;text-align:right"></div><div data-ck></div></div></div>
+    <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g" data-re>再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok disabled>OK</button></div></div>`;
+  document.body.appendChild(m); const A=m.querySelector('[data-a]'), CK=m.querySelector('[data-ck]'), OK=m.querySelector('[data-ok]'), RE=m.querySelector('[data-re]'); let X=null;
+  const can=()=>{ OK.disabled=!(X&&CL_RK.every(([k])=>!X[k].ng)&&clNum(A.value)>0); RE.className='cllb '+(X&&CL_RK.some(([k])=>X[k].ng)?'p':'g'); }; /* 不備がある時は再撮影を主ボタンの色に */
+  const draw=()=>{ if(!X){ CK.innerHTML=CL_RK.map(([,n])=>`<div class="r"><span class="k">${n}</span><span class="v muted">読み取り中…</span><span class="s"></span></div>`).join(''); can(); return; }
+    const blur=X.clear.ng;
+    CK.innerHTML=CL_RK.map(([k,n])=>{ const x=X[k], inp=!blur&&k!=='clear'&&(x.ng||x.typed);
+      const v=k==='inv'&&x.note?`<span>記載なし</span><small class="muted">${esc(x.note)}</small>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>確認</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
+      return `<div class="r"><span class="k">${n}</span><span class="v">${v}</span><span class="s">${clMark(x.ng)}</span></div>`; }).join('');
+    CK.querySelectorAll('[data-in]').forEach(i=>i.oninput=()=>{ const k=i.dataset.in, x=X[k]; x.v=k==='inv'?i.value.trim().toUpperCase():i.value.trim(); x.typed=true; x.ng=k==='inv'?!clInvOk(x.v):!x.v; i.classList.toggle('ng',x.ng); i.closest('.r').querySelector('.s').innerHTML=clMark(x.ng); const cf=i.parentNode.querySelector('[data-cf]'); if(cf) cf.style.display=x.ng?'':'none'; can(); });
+    const cf=CK.querySelector('[data-cf]'); if(cf) cf.onclick=async()=>{ const w=await uiPrompt('登録番号の記載がない理由を入力してください',''); if(w===null) return; if(!w.trim()){ toast('理由を入力してください'); return; } Object.assign(X.inv,{v:'',note:w.trim(),ng:false,typed:false}); draw(); };
+    can(); };
+  const show=s=>{ sc=s; /* v12.76（オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(sc!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(sc===s) uiAlert('PDF を作成できません：'+(e.message||'')); });
+    A.value=''; A.placeholder='読み取り中…'; X=null; draw(); const me=s; clRead(s.url).then(q=>{ if(sc!==me||!document.body.contains(m)) return; A.placeholder='金額'; X=clCheck(q?.read); if(q?.amount!=null&&!A.value) A.value=q.amount; draw(); if(!q?.read) toast('領収書を読み取れませんでした。項目を入力してください'); }); };
+  A.oninput=can; show(sc); m.querySelector('[data-c]').onclick=()=>{ const u=m.querySelector('[data-im]').dataset.u; if(u) URL.revokeObjectURL(u); m.remove(); };
+  const ri=RE.querySelector('input'); ri.onchange=async()=>{ const f=ri.files&&ri.files[0]; ri.value=''; if(!f) return; try{ show(await clScan(f)); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
+  OK.onclick=guard(OK,async()=>{ const amount=clNum(A.value); if(!amount){ toast('金額を入力してください'); A.focus(); return; } if(!X||CL_RK.some(([k])=>X[k].ng)) return; if(await askBy()===null) return;
     let blob; try{ blob=await (sc.pdf||clScanPdf(sc)); }catch(e){ await uiAlert('PDF を作成できません：'+(e.message||'')); return; }
+    const chk={}; for(const [k] of CL_RK) chk[k]={v:X[k].v,...(X[k].typed?{typed:true}:{}),...(X[k].note?{note:X[k].note}:{})};
     const id=crypto.randomUUID(), path=`${store.id}/${id}.pdf`; const up=await sb.storage.from('receipts').upload(path,blob,{contentType:'application/pdf',upsert:false}); if(up.error){ await uiAlert('領収書を保存できません：'+up.error.message); return; }
-    const r=await sb.from('cash_movements').insert({id,store_id:store.id,business_date:d,kind:'out',amount,memo:CL_RCPT,receipt_path:path}); if(r.error){ await sb.storage.from('receipts').remove([path]); await uiAlert('登録できません：'+r.error.message); return; }
-    await logOp('レジ出金の登録',{date:d,amount,memo:CL_RCPT,receipt:true},null,true); m.remove(); renderClosing(); }); }
+    const r=await sb.from('cash_movements').insert({id,store_id:store.id,business_date:d,kind:'out',amount,memo:CL_RCPT,receipt_path:path,payer:X.payer.v||null,receipt_check:chk}); if(r.error){ await sb.storage.from('receipts').remove([path]); await uiAlert('登録できません：'+r.error.message); return; }
+    await logOp('レジ出金の登録',{date:d,amount,memo:CL_RCPT,receipt:true,payer:X.payer.v||null},null,true); m.remove(); renderClosing(); }); }
+// v12.82：② 入出金の登録の完了（オーナー 2026-11-08「お客様登録は内海 01:08 完了と書いてある。こんな感じで、誰が完了させたのかを書こう」）
+// ① と同じ形：確認者を選んで［完了］→ 見出しの下に「内海 01:08 完了」。記録は pos_audit_log の「入出金の登録の完了」（detail：business_date・by）。完了の後に登録が増えたら［完了］に戻る
+const CL_MVD='入出金の登録の完了';
+async function clMvRender(d,moves,saved){ const top=$('clMvTop'), el=$('clMvDone'); if(!top||!el) return;
+  const lg=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',store.id).eq('action',CL_MVD).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clMvDone')||clDate!==d) return; if(lg.error){ el.innerHTML=RDERR; return; }
+  const last=(lg.data||[])[0], done=last&&!(moves||[]).some(m=>m.created_at>last.created_at);
+  top.innerHTML=done?`<div style="font-size:16px;font-variant-numeric:tabular-nums;margin-bottom:6px">${esc(last.detail?.by||'')}　<small class="muted">${hm(last.created_at)}</small>　完了</div>`:'';
+  if(done||saved){ el.innerHTML=''; return; }
+  const who=staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
+  el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><select id="clMvWho" style="width:auto;min-width:0"><option value="">確認者</option>${who.map(s=>`<option value="${esc(s.display_name)}">${esc(s.display_name)}</option>`).join('')}</select><button class="primary sm" id="clMvOk" disabled>完了</button></div>`;
+  $('clMvWho').onchange=()=>{ $('clMvOk').disabled=!$('clMvWho').value; };
+  $('clMvOk').onclick=guard($('clMvOk'),async()=>{ const by=$('clMvWho').value; if(!by) return; await logOp(CL_MVD,{business_date:d,by},null,true); toast('完了しました'); clMvRender(d,moves,saved); }); }
 // 一覧の書類のしるし：PDF を大きく表示
 async function clRcptView(mv){ if(!mv?.receipt_path) return; const s=await sb.storage.from('receipts').createSignedUrl(mv.receipt_path,600); if(s.error||!s.data?.signedUrl){ await uiAlert('表示できません：'+(s.error?.message||'')); return; }
   const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60; m.innerHTML=`<div class="box" style="width:min(620px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(mv.memo||'')}　${yen(mv.amount)}</div><iframe src="${esc(s.data.signedUrl)}" style="width:100%;height:70vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe></div>`;
