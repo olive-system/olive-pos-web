@@ -69,14 +69,14 @@ async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class
 }
 // v12.06・SQL 209：マイページの閉店作業（完了・作業中）。黒服マイページで開始・保存する
 // v12.37：右の状態は「名前 時刻 完了」「名前 作業中」の順にして、完了・作業中の位置をそろえる（オーナー 2026-10-30「完了の位置がずれている。気持ち悪い」）
-function clMpHtml(L,H){ const hm=t=>{ const x=new Date(t); return `${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; }, n=L.filter(x=>x.status==='done').length;
-  return `${H(`⑤ マイページの閉店作業　<small class="muted" style="font-weight:400">完了 ${n}／${L.length}</small>`)}<div id="clMp" class="list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));column-gap:18px">${L.map(x=>`<div class="item"><span class="n">${esc(x.name)}</span>${x.status==='done'?`<b style="color:var(--ok);white-space:nowrap">${x.kind==='todo'?'':`${esc(x.by||'')} ${x.at?hm(x.at):''} `}完了</b>`:x.kind==='todo'?`<b style="color:var(--warn)">未完了 ${x.todo_open}</b>`:x.wip_by?`<b style="background:var(--gold-soft);border-radius:6px;padding:2px 7px;white-space:nowrap">${esc(x.wip_by)} 作業中</b>`:'<b style="color:var(--warn)">未完了</b>'}</div>`).join('')||'<div class="muted">項目がありません</div>'}</div>
+function clMpHtml(L,H){ const hm=t=>{ const x=new Date(t); return `${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; }, nil=x=>x.kind==='todo'&&!x.todo_open&&!x.todo_all, n=L.filter(x=>x.status==='done'&&!nil(x)).length;
+  return `${H(`⑤ マイページの閉店作業　<small class="muted" style="font-weight:400">完了 ${n}／${L.filter(x=>!nil(x)).length}</small>`)}<div id="clMp" class="list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));column-gap:18px">${L.map(x=>`<div class="item"><span class="n">${esc(x.name)}</span>${nil(x)?'<span class="muted">なし</span>':x.status==='done'?`<b style="color:var(--ok);white-space:nowrap">${x.kind==='todo'?'':`${esc(x.by||'')} ${x.at?hm(x.at):''} `}完了</b>`:x.kind==='todo'?`<b style="color:var(--warn)">未完了 ${x.todo_open}</b>`:x.wip_by?`<b style="background:var(--gold-soft);border-radius:6px;padding:2px 7px;white-space:nowrap">${esc(x.wip_by)} 作業中</b>`:'<b style="color:var(--warn)">未完了</b>'}</div>`).join('')||'<div class="muted">項目がありません</div>'}</div>
   <div class="muted" style="font-size:13px;margin-top:6px">黒服マイページの「閉店作業」で開始・保存します。全部完了で精算できます</div>`; }
 // v12.13・SQL 234：連休明けの休日分の知らせ（連休前の日の閉店作業の一番上。黒服マイページと同じ）
 const aheadHtml = A=>{ if(!A || !A.items || !A.items.length) return ''; const W = ['日','月','火','水','木','金','土'], md = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()}（${W[x.getDay()]}）`; }, ms = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()} ${W[x.getDay()]}`; }, D = A.days || [];
   return `<div style="background:var(--warn-soft);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.6"><b style="color:var(--warn)">連休明け ${md(A.next_day)} は休日分の TODO が ${A.items.length}件あります</b><div class="muted" style="font-size:13px">${md(D[0])}〜${md(D[D.length-1])}の${D.length}日間が休みです。期限 17:00</div><div style="margin-top:4px;font-size:13px">${A.items.map((x,i) => `${i+1}. ${esc(x.name)}（${ms(x.day)}）`).join('<br>')}</div></div>`; };
 async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=today; } if(!clMonth) clMonth=clDate.slice(0,7); const d=clDate; const box=$('setList'); box.innerHTML='<div class="muted">読み込み中…</div>'; const [from,to]=clRange(d);
-  const [mv,adv,pay,cls,prev,bc,rq,od,lat,ctk]=await Promise.all([
+  const [mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl]=await Promise.all([
     sbAll(()=>sb.from('cash_movements').select('*').eq('store_id',store.id).eq('business_date',d).order('created_at').order('id')), /* v12.30：1000行で切れないように分けて読む・店はデータベースで絞る */
     sbAll(()=>sb.from('daily_advances').select('staff_id,amount').eq('store_id',store.id).eq('business_date',d).order('id')),
     sbAll(()=>sb.from('payments').select('amount,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',from).lt('paid_at',to).order('id')),
@@ -86,9 +86,9 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
     sb.from('customer_note_requests').select('*').eq('store_id',store.id).eq('status','pending').order('created_at'),
     sb.from('bill_items').select('product_id,name,qty,category_id,bills!inner(business_date,status,store_id)').eq('bills.business_date',d).eq('bills.store_id',store.id).neq('bills.status','void').eq('is_void',false),
     sb.from('register_closings').select('business_date').eq('store_id',store.id).gt('business_date',d).limit(1),
-    sb.rpc('pos_close_tasks',{p_day:d}) ]);
+    sb.rpc('pos_close_tasks',{p_day:d}), sb.rpc('pos_todos',{p_day:d}) ]);
   /* v12.06・SQL 209：閉店作業をマイページでする店は、②〜⑦・⑨をマイページへ（v12.22 から ② 出退勤確認・③ マイページの閉店作業・④ レジ金合わせ）。ここは完了・作業中の一覧（全部完了でないと精算できない。オーナー 2026-10-23） */
-  const mp=!ctk.error&&ctk.data?.on, mpL=mp?(ctk.data.items||[]):[];
+  const mp=!ctk.error&&ctk.data?.on, mpL=mp?(ctk.data.items||[]):[]; mpL.forEach(x=>{ if(x.kind==='todo') x.todo_all=tdl.error?1:(tdl.data||[]).length; }); /* TODO が1件も無い日（休みの日など）は「完了」ではなく「なし」と出す（終わらせた人がいないのに完了に見えるため） */
   if(setCur!=='closing') return;
   if(mv.error||cls.error){ box.innerHTML=`<div class="muted">SQL 018 が未適用の可能性があります：${esc((mv.error||cls.error).message)}</div>`; return; }
   { const e=[adv,pay,prev,lat,ctk].find(x=>x.error); if(e){ box.innerHTML=`<div class="muted">閉店作業を読み込めません。再度開いてください：${esc(e.error.message)}</div>`; return; } } /* 通しチェック3：日払い・現金売上が読めないと0円のまま精算できた */
