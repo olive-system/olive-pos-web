@@ -10,8 +10,6 @@ const hm = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo',
 const tBtn = (k, i, t, g) => `<button class="btn${g ? ' g' : ''}" data-${k}="${i}" style="display:inline-block;width:auto;flex:none;padding:7px 14px;font-size:14px">${t}</button>`;
 const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);border-radius:6px;padding:2px 7px;font-size:13px;white-space:nowrap">${esc(n || '')} 作業中</b>`; // v1.00：「名前 時刻 完了」「名前 作業中」の順（POS と同じ。完了・作業中の位置をそろえる。オーナー 2026-10-30）
 const ckAll = x => (x.checks || []).every((c, j) => (opChecks[x.id] || []).includes(j));
-function hallOpen(){ return hallTasks('open'); }
-function hallClose(){ return hallTasks('close'); }
 // v0.69・SQL 234：連休明けの休日分の知らせ（連休前の日の閉店作業の一番上）
 const aheadHtml = A => { if(!A || !A.items || !A.items.length) return ''; const W = ['日','月','火','水','木','金','土'], md = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()}（${W[x.getDay()]}）`; }, ms = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()} ${W[x.getDay()]}`; }, D = A.days || [];
   return `<div style="background:var(--warn-soft);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.6"><b style="color:var(--warn)">連休明け ${md(A.next_day)} は休日分の TODO が ${A.items.length}件あります</b><div class="muted" style="font-size:13px">${md(D[0])}〜${md(D[D.length-1])}の${D.length}日間が休みです。期限 17:00</div><div style="margin-top:4px;font-size:13px">${A.items.map((x,i) => `${i+1}. ${esc(x.name)}（${ms(x.day)}）`).join('<br>')}</div></div>`; };

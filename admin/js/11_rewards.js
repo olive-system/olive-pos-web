@@ -149,13 +149,6 @@ function fineGroup(rows){ const g=new Map();
     if(r.target==='hourly') x.h=c; else if(r.target==='daily') x.d=c;
     else if(r.calc==='hourly_pct') x.h=x.h||c; else if(r.calc==='daily_pct'||FINE_TIME(r.calc)) x.d=x.d||c; else { x.h=x.h||c; x.d=x.d||c; } }
   return [...g.values()]; }
-function fineSide(k,c,ed){ const dis=ed?'':'disabled', os=k==='h'?FINE_H:FINE_D, cl=c?.calc||'';
-  return `<td><select data-f="${k}c" ${dis}>${os.map(([v,n])=>`<option value="${v}" ${cl===v?'selected':''}>${n}</option>`).join('')}</select></td>
-    <td><input data-f="${k}v" inputmode="numeric" value="${c?.value??''}" ${dis}><span class="u" data-f="${k}u"></span></td><td><label class="pu"><input type="checkbox" data-f="${k}p" ${c?.per_unit?'checked':''} ${dis}>個数</label></td>`; }
-function fineRowHtml(r,ed){ return `<tr data-fr><td><input data-f="name" value="${esc(r.name||'')}" ${ed?'':'disabled'}></td>${fineSide('h',r.h,ed)}<td class="sep"></td>${fineSide('d',r.d,ed)}${ed?'<td class="x"><button class="xb" data-fdel aria-label="行を削除">×</button></td>':''}</tr>`; }
-function fineRowWire(tr,ed){ for(const k of ['h','d']){ const q=f=>tr.querySelector(`[data-f=${k}${f}]`), cl=q('c'), v=q('v'), pu=q('p'), u=q('u');
-    const upd=()=>{ const c=cl.value; u.textContent=c==='yen'?'円':(c===''||c==='input')?'':'%'; v.disabled=!ed||c===''||c==='input'; if(c===''||c==='input') v.value=''; v.placeholder=FINE_TIME(c)?'加算（%）':''; pu.disabled=!ed||c!=='yen'; if(c!=='yen') pu.checked=false; }; cl.onchange=upd; upd(); }
-  const d=tr.querySelector('[data-fdel]'); if(d) d.onclick=()=>tr.remove(); }
 // v1.18：罰金の種類は「一覧は文、押して小窓で変える」（オーナー 2026-10-17。見本ア）。時給・日給の2列と「個数」のチェックをやめた。円の罰金は POS でいつも回数を入れられる（per_unit を全部 true）
 let FINES=[], FINES0=[]; /* v1.75：FINES0＝読んだ時の fine_types の行（保存の時に送る。報酬の種類と同じ） */
 const fineTxt=c=>!c?'なし':c.calc==='yen'?`${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='hourly_pct'?(c.value%100===0?`時給×${c.value/100}時間`:`時給の${c.value}%`):c.calc==='daily_pct'?`日給 ${c.value}%`:c.calc==='input'?'その都度':c.calc==='daily_late'?`遅刻時間分${c.value?`＋日給 ${c.value}%`:''}`:c.calc==='daily_early'?`早上がり時間分${c.value?`＋日給 ${c.value}%`:''}`:'—';
@@ -191,18 +184,6 @@ function fineEdit(st,i){ const g=i==null?{name:'',h:{calc:'yen',value:null},d:nu
     if(!h&&!d){ await uiAlert('時給の人か日給の人のどちらかを選んでください'); return; }
     const L=FINES.slice(); const x={name,h,d}; if(i==null) L.push(x); else L[i]=x; if(!await save(L)) return; md.remove(); toast('保存しました'); PAGES.set_pay(); }); }
 function fineListWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-fi]').forEach(e=>e.onclick=()=>fineEdit(st,Number(e.dataset.fi))); const a=document.querySelector('[data-fines] [data-fadd]'); if(a) a.onclick=()=>fineEdit(st,null); }
-function fineRead(card){ const out=[]; let i=0, n=0; const names=new Set();
-  for(const tr of card.querySelectorAll('tr[data-fr]')){ i++; const g=k=>tr.querySelector(`[data-f=${k}]`); const name=g('name').value.trim();
-    const side=k=>{ const calc=g(k+'c').value; if(!calc) return {}; const vs=g(k+'v').value; let value=null, lb=k==='h'?'時給':'日給';
-      if(FINE_TIME(calc)){ value=slNum(vs); if(value!=null&&(!Number.isInteger(value)||value<=0)) return {err:`${i}行目（${name}・${lb}）：加算（%）は1以上の整数にするか、空けてください`}; }
-      else if(calc!=='input'){ value=slNum(vs); if(value==null||!Number.isInteger(value)||value<=0) return {err:`${i}行目（${name}・${lb}）：${calc==='yen'?'金額':'％'}を1以上の整数で入力してください`}; }
-      return {c:{calc,value,per_unit:calc==='yen'&&g(k+'p').checked}}; };
-    const h=side('h'), d=side('d'); if(!name&&!h.c&&!d.c) continue; if(!name) return {err:`${i}行目：名前を入力してください`};
-    if(h.err) return {err:h.err}; if(d.err) return {err:d.err}; if(!h.c&&!d.c) return {err:`${i}行目（${name}）：時給か日給のどちらかの決め方を選んでください`};
-    if(names.has(name)) return {err:`同じ名前の行が2つあります：${name}`}; names.add(name); n++;
-    const same=h.c&&d.c&&h.c.calc===d.c.calc&&(h.c.calc==='yen'||h.c.calc==='input')&&h.c.value===d.c.value&&h.c.per_unit===d.c.per_unit;
-    if(same) out.push({name,target:'all',...h.c}); else { if(h.c) out.push({name,target:'hourly',...h.c}); if(d.c) out.push({name,target:'daily',...d.c}); } }
-  return {rows:out,n}; }
 
 // v0.14・SQL 055：アフターの延長（attendance_rules。タイムカードの打刻の時に round_punch が使う）。閉店の○分前を過ぎたアフターは、閉店まで働いたことにする。閉店時間は店舗設定で決める
 const closeTxt=c=>{ const m=String(c||'01:00').match(/^(\d{1,2}):(\d{2})/); return m?`${+m[1]<12?'翌':''}${+m[1]}:${m[2]}`:String(c); };

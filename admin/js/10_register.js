@@ -1,12 +1,6 @@
 // ---------- レジ精算（v0.07：月次・日次を1つの画面で切り替える）----------
 // POS の閉店作業と同じ計算。管理サイトでは見るだけ（精算の保存は POS で行う）
 const DENOMS=[[10000,'1万円札'],[5000,'5千円札'],[2000,'2千円札'],[1000,'千円札'],[500,'500円玉'],[100,'100円玉'],[50,'50円玉'],[10,'10円玉'],[5,'5円玉'],[1,'1円玉']];
-const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円';
-const sgnYen=n=>(n>0?'+':'')+yen(n);
-function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
-const bdStart=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
-const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
-const WJ=['日','月','火','水','木','金','土'];
 let regDate=null, regMonth=null, regTab='day';
 // v2.16：切り替えに「入出金履歴」（16_history.js の hist_cash。権限は表示設定の「入出金履歴」）。見られるものだけ出す
 const regHead=(k='register')=>{ const on=k==='hist_cash'?'hist':regTab, tabs=[...(visible('register')?[['month','月次'],['day','日次']]:[]),...(visible('hist_cash')?[['hist','入出金履歴']]:[])];
