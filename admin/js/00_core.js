@@ -46,4 +46,6 @@ async function shrinkJpeg(file){ const img=await new Promise((ok,ng)=>{ const i=
   c.getContext('2d').drawImage(img,0,0,c.width,c.height); return await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.85)); }
 // 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（2026-11-08 コード整理）
 const hmJst=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+async function sbAll(mk){ let all=[]; for(let from=0;;from+=1000){ const r=await mk().range(from,from+999); if(r.error) return {data:all.length?all:null,error:r.error}; all=all.concat(r.data||[]); if((r.data||[]).length<1000) return {data:all,error:null}; } }
+const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };

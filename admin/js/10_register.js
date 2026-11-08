@@ -11,7 +11,6 @@ function regTabs(){ $('main').querySelectorAll('[data-rt]').forEach(b=>b.onclick
 PAGES.register=()=>regTab==='month'?regMonthPage():regDayPage();
 // 期間（from〈含まない〉〜to〈含まない〉）の日ごとの 現金売上・入金・出金（日払い含む）
 // v0.65：1000行で切れないように分けて読む（精算の間が空いた時に「未精算分」が少なく出た）
-async function sbAll(mk){ let all=[]; for(let from=0;;from+=1000){ const r=await mk().range(from,from+999); if(r.error) return {data:all.length?all:null,error:r.error}; all=all.concat(r.data||[]); if((r.data||[]).length<1000) return {data:all,error:null}; } }
 async function regMoves(fromEx,toEx){
   const [mv,adv,pay]=await Promise.all([
     sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx).order('id')),
@@ -22,7 +21,6 @@ async function regMoves(fromEx,toEx){
   (mv.data||[]).forEach(x=>add(x.business_date,x.kind==='in'?'cin':'cout',x.amount)); (adv.data||[]).filter(x=>x.amount>0).forEach(x=>add(x.business_date,'cout',x.amount));
   (pay.data||[]).filter(p=>p.bills&&p.bills.status!=='void'&&p.amount).forEach(p=>add(businessDate(new Date(p.paid_at)),'sales',p.amount));
   return {sum}; }
-const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 
 // v0.16・SQL 057：POS の閉店作業と同じように、入出金の登録・削除とレジ金合わせ（精算の保存）ができる。POS と同じ表・同じ操作ログに入る
 let regCounts={}, regDeposit=0, regOpening=0;
