@@ -49,9 +49,13 @@ function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g
   g.font=MI(18); g.fillText(`${d.rate}%対象 ${yen(d.amount)}　　内消費税 (${yen(d.tax)})`,64,362); g.fillText(`現金 ${yen(d.cash)}　　カード ${yen(d.card)}`,64,392);
   g.font=MI(22,400); g.fillText(`但　${d.guests||'　　'}名様ご飲食代として`,64,446,676); /* v12.62：ご利用日は印刷しない（オーナー 2026-11-05） */ g.font=MI(18); g.fillText('上記正に領収いたしました',64,486); const sx=64+g.measureText('上記正に領収いたしました').width+18;
   if(d.stamp){ g.setLineDash([4,4]); g.strokeRect(656,340,84,64); g.setLineDash([]); g.font=MI(14); g.textAlign='center'; g.fillText('収入印紙',698,378); } /* v12.62：収入印紙の枠は印紙が要る時だけ */
-  hl(790,70,790,H-70); const cx=(790+W-26)/2; if(d.logo){ const r=Math.min(250/d.logo.width,90/d.logo.height); g.drawImage(d.logo,cx-d.logo.width*r/2,120,d.logo.width*r,d.logo.height*r); }
-  const oy=d.logo?0:-64; /* ロゴが無い時は店名・住所を上に寄せて真ん中に */ g.font=MI(22,600); sp(d.store||'',cx,286+oy,6,'center'); hl(cx-24,308+oy,cx+24,308+oy);
-  g.font=MI(15); g.textAlign='center'; let y=346+oy; for(const t of [d.address,d.tel?('TEL '+d.tel):'',d.regno?('登録番号 '+d.regno):'']){ if(t){ g.fillText(t,cx,y,380); y+=28; } }
+  hl(790,70,790,H-70); const cx=(790+W-26)/2, info=[d.address,d.tel?('TEL '+d.tel):'',d.regno?('登録番号 '+d.regno):''].filter(Boolean);
+  if(d.logo){ /* ロゴがある時は、店名はロゴに見えないふつうの字にし、ロゴから登録番号までを縦の線（70〜H-70）の真ん中に置く（オーナー 2026-11-08） */
+    const r=Math.min(250/d.logo.width,90/d.logo.height), lw=d.logo.width*r, lh=d.logo.height*r, gap=70, top=Math.round(H/2-(lh+gap+17+36+28*Math.max(info.length-1,0)+4)/2);
+    g.drawImage(d.logo,cx-lw/2,top,lw,lh); const yn=top+lh+gap+17; g.font=MI(19,600); g.textAlign='center'; g.fillText(d.store||'',cx,yn,380);
+    g.font=MI(15); info.forEach((t,i)=>g.fillText(t,cx,yn+36+28*i,380)); }
+  else { g.font=MI(22,600); sp(d.store||'',cx,222,6,'center'); hl(cx-24,244,cx+24,244);
+    g.font=MI(15); g.textAlign='center'; info.forEach((t,i)=>g.fillText(t,cx,282+28*i,380)); }
   const R=30,cy=480,scx=sx+R; if(d.sig){ g.save(); g.beginPath(); g.arc(scx,cy,R-3,0,Math.PI*2); g.clip(); g.drawImage(d.sig,scx-R+4,cy-R+4,(R-4)*2,(R-4)*2); g.restore(); } g.lineWidth=1; g.beginPath(); g.arc(scx,cy,R,0,Math.PI*2); g.stroke(); }
 function receiptPrint(cv){ const W=576,H=1240; const r=document.createElement('canvas'); r.width=W; r.height=H; const g=r.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.translate(W,0); g.rotate(Math.PI/2); g.drawImage(cv,0,0);
   imagePrint(r); }
