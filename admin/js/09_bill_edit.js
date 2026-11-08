@@ -8,8 +8,7 @@ const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-1
 const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
 // v2.20：フリガナ（顧客サイトの kanaFix・kanaBad と同じ。ひらがな→カタカナ）
 const beKanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), beKanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
-const beHm5=t=>t?beHm(ceil5(t)):'';
-const beHm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+const beHm5=t=>t?hmJst(ceil5(t)):'';
 function beRole(ts){ const x=new Date(new Date(ts||Date.now()).toLocaleString('en-US',{timeZone:'Asia/Tokyo'})), m=x.getHours()*60+x.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; } // POS と同じ決め方
 // v0.38：伝票の No を押すと、その伝票の中身を全部見る（見るだけ。オーナーは「直す」へ）
 async function billView(id,canEdit){ // v0.49・SQL 078：見るだけの人も admin_bill_view で見られる（前は admin_bill_get＝オーナーだけ）
@@ -23,7 +22,7 @@ async function billView(id,canEdit){ // v0.49・SQL 078：見るだけの人も 
   const L=(l,v,c)=>`<div class="bv-ln ${c||''}"><span>${l}</span><span style="white-space:nowrap">${v}</span></div>`, extMin=exts.reduce((t,e)=>t+N(e.minutes),0);
   const its=items.map(i=>{ const bk=(i.splits||[]).filter(z=>N(z.back_amount)||N(z.back_points)).map(z=>sn(z.staff_id)); return L(`${esc(i.name||pn(i.product_id))} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`,yen(N(i.unit_price)*N(i.qty))); }).join('');
   const box=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><style>.bv-ln{display:flex;justify-content:space-between;gap:12px;padding:6px 2px;font-size:16px}.bv-ln small{color:var(--muted);font-size:13px}.bv-ln.sm,.bv-sm{font-size:14px;color:var(--muted)}.bv hr{border:0;border-top:1px solid var(--line);margin:8px 0}</style>
-    <div class="bv"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(B.table||'')}</b><span>${md(B.business_date)}　${beHm5(B.opened_at)}〜${B.closed_at?beHm(B.closed_at):''}${B.closed_at?`（${dur(B.opened_at,B.closed_at)}）`:''}　${N(B.guest_count)}名</span>${B.closed_at?'':'<span class="badge" style="margin-left:auto">来店中</span>'}</div>
+    <div class="bv"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(B.table||'')}</b><span>${md(B.business_date)}　${beHm5(B.opened_at)}〜${B.closed_at?hmJst(B.closed_at):''}${B.closed_at?`（${dur(B.opened_at,B.closed_at)}）`:''}　${N(B.guest_count)}名</span>${B.closed_at?'':'<span class="badge" style="margin-left:auto">来店中</span>'}</div>
     <div class="bv-sm" style="margin-top:6px">お客様：${B.customers?esc(String(B.customers).split('・').map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}　　反応<span style="color:var(--gold)">◎</span>：${gd.length?esc(gd.join('・')):'なし'}</div><hr>
     ${N(C.set)?L(`セット${C.set_guests!=null?` <small>× ${C.set_guests}</small>`:''}`,yen(C.set)):''}${N(C.vip_set)?L('VIPルーム料金',yen(C.vip_set)):''}${N(C.extension)?L(`延長 <small>${exts.length}回・計${extMin}分</small>`,yen(C.extension)):''}${N(C.vip_ext)?L('VIPルーム延長',yen(C.vip_ext)):''}${its||'<div class="bv-sm">注文はありません</div>'}
     ${voids.length?`<div class="bv-sm" style="margin-top:4px">取消：${voids.map(i=>esc(i.name||pn(i.product_id))+' × '+i.qty).join('、')}</div>`:''}<hr>
@@ -61,7 +60,7 @@ async function billEdit(id){
     const bc={}; ['guest_count','set_guest_count','opened_at','set_start','closed_at'].forEach(k=>{ const a=B[k], b=O.bill[k], tm=k.endsWith('_at')||k==='set_start';
       if(tm?(a&&b?new Date(a).getTime()!==new Date(b).getTime():(a||null)!==(b||null)):String(a??'')!==String(b??'')) bc[k]=a??null; });
     if(Object.keys(bc).length) ops.push({t:'bills',op:'update',set:bc});
-    if('guest_count' in bc) note.push(`客数 ${O.bill.guest_count}→${B.guest_count}名`); if('opened_at' in bc) note.push(`来店 ${beHm(O.bill.opened_at)}→${beHm(B.opened_at)}`); if('closed_at' in bc) note.push(`退店 ${beHm(O.bill.closed_at)}→${beHm(B.closed_at)}`);
+    if('guest_count' in bc) note.push(`客数 ${O.bill.guest_count}→${B.guest_count}名`); if('opened_at' in bc) note.push(`来店 ${hmJst(O.bill.opened_at)}→${hmJst(B.opened_at)}`); if('closed_at' in bc) note.push(`退店 ${hmJst(O.bill.closed_at)}→${hmJst(B.closed_at)}`);
     const rows=(t,o,s,cols,lab,extra)=>{ const om=new Map(o.map(x=>[x.id,x])), sm=new Set(s.map(x=>x.id));
       s.forEach(x=>{ const y=om.get(x.id), set={}; cols.forEach(c=>{ if(!y||String(x[c]??'')!==String(y[c]??'')) set[c]=x[c]??null; }); if(!y){ ops.push({t,op:'insert',...(extra?extra(x):{}),set}); note.push(lab(x,null)); } else if(Object.keys(set).length){ ops.push({t,op:'update',id:x.id,set}); note.push(lab(x,y)); } });
       o.forEach(y=>{ if(!sm.has(y.id)){ ops.push({t,op:'delete',id:y.id}); note.push(lab(null,y)); } }); };
@@ -90,7 +89,7 @@ async function billEdit(id){
   function draw(){ const it=S.items.filter(live), ex=S.exts.length, prods=(O.products||[]).filter(p=>p.is_visible!==false||S.items.some(i=>i.product_id===p.id));
     const act=ST.filter(s=>s.is_active&&(s.kind==='cast'||s.kakari_only)), cs=S.casts;
     box.querySelector('.box').innerHTML=`<h2 style="margin:0">伝票の修正　<small class="muted" style="font-weight:400">${md(bd)} 卓${esc(B.table||'')}${B.customers?'　'+esc(B.customers):''}</small></h2>
-    <div class="card" style="margin:0"><h2>人数・時刻</h2><div class="row" style="flex-wrap:wrap;gap:10px"><label style="flex:1 1 120px">客数<input type="number" inputmode="numeric" id="beG" min="1" value="${B.guest_count}"></label><label style="flex:1 1 140px">来店<input type="time" id="beIn" value="${beHm5(B.opened_at)}"></label><label style="flex:1 1 140px">退店<input type="time" id="beOut" value="${beHm(B.closed_at)}"></label></div>
+    <div class="card" style="margin:0"><h2>人数・時刻</h2><div class="row" style="flex-wrap:wrap;gap:10px"><label style="flex:1 1 120px">客数<input type="number" inputmode="numeric" id="beG" min="1" value="${B.guest_count}"></label><label style="flex:1 1 140px">来店<input type="time" id="beIn" value="${beHm5(B.opened_at)}"></label><label style="flex:1 1 140px">退店<input type="time" id="beOut" value="${hmJst(B.closed_at)}"></label></div>
       <div class="muted" style="font-size:13px;margin-top:6px">延長 ${ex}回${S.exts.some(e=>e.is_auto)||Number(st.ext_minutes||0)>0?'（時刻を変更すると、自動延長を付け直します）':''}</div></div>
     <div class="card" style="margin:0"><h2>お客様</h2>${S.custs.map(c=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(c.name)} 様${c._new?' <small class="muted">新規</small>':''}</span><button class="xb" data-bcurm="${c.customer_id}" aria-label="削除">×</button></div>`).join('')||'<div class="muted">未登録</div>'}
       <div class="row" style="margin-top:8px"><button class="ghost" id="beCAdd">＋お客様</button></div></div>
