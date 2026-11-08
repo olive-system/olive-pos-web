@@ -13,7 +13,7 @@ async function chWeather(C){ if(C.lat==null||C.lon==null) return '<div class="mu
       ${rain?`<div style="background:var(--warn-soft);color:var(--warn);font-weight:700;border-radius:8px;padding:8px 10px;margin-top:8px">傘の準備（${rain.h}時から${/雪/.test(WX(rain.c))?'雪':'雨'}）</div>`:''}`;
   }catch(e){ return '<div class="muted">天気を読み込めません</div>'; } }
 /* v12.55・SQL 344：売上予測（目標・現在・予測。昨日まで。「今月」の行はこの表の「現在」に入れた。2026-11-04 オーナー・見本 作業場/売上予測_案7.png） */
-function chFc(F){ const md=x=>{ const t=new Date(x+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}`; }, no='<span class="muted">—</span>', g=n=>n==null?no:`${n}組`, y=n=>n==null?no:yen(n);
+function chFc(F){ const md=mdS, no='<span class="muted">—</span>', g=n=>n==null?no:`${n}組`, y=n=>n==null?no:yen(n);
   const th='color:var(--muted);font-weight:700;font-size:13px;text-align:right;padding:4px 0 4px 8px;border-top:1px solid var(--line)', td='padding:4px 0 4px 8px;border-top:1px solid var(--line);font-weight:700;text-align:right;white-space:nowrap', tl='padding:4px 0;border-top:1px solid var(--line);font-weight:700', big=';font-size:17px';
   const kv=(a,b)=>`<span class="muted">${a}</span><b style="text-align:right">${b}</b>`;
   return `<div style="font-size:13px;color:var(--muted);font-weight:700;margin:10px 0 2px">${F.month}月（${md(F.from)}〜${md(F.to)}）　営業日数 ${F.done} / ${F.days}日</div>
@@ -25,7 +25,7 @@ async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class
   if(!staffAll?.length) await loadStaffAll(); const [cr,ar,sr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today')]);
   if(setCur!=='chorei') return;
   if(cr.error){ box.innerHTML=`<div class="err">${/pos_chorei/.test(cr.error.message)?'SQL 129 が未実行です：':'読み込めません：'}${esc(cr.error.message)}</div>`; return; }
-  const C=cr.data, G=C.guests||[], d=new Date(C.date+'T00:00:00+09:00'), WD='日月火水木金土', md=x=>{ const t=new Date(x+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}（${WD[t.getDay()]}）`; };
+  const C=cr.data, G=C.guests||[], d=new Date(C.date+'T00:00:00+09:00'), WD='日月火水木金土', md=x=>`${mdS(x)}（${wdS(x)}）`;
   const card=(t,inner,extra='')=>`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--card)"><div style="font-size:15px;color:var(--muted);font-weight:700;margin-bottom:8px">${t}${extra}</div>${inner}</div>`;
   const row=(a,b,st='')=>`<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--line);${st}">${a}${b}</div>`;
   const tag='<span style="display:inline-block;background:var(--pri);color:#fff;border-radius:4px;padding:1px 6px;font-size:14px;font-weight:700;line-height:1.4;vertical-align:2px">同伴</span> ';

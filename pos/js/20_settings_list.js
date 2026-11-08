@@ -15,12 +15,10 @@ async function renderSettings(key, keepSel){ if(key!==setCur){ setSel=null; setE
   if (def.closing) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; await renderClosing(); return; }
   if (def.bills) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; $('setList').innerHTML='<div class="muted">読み込み中…</div>';
     const today=businessDate(); const BSEL='id,status,table_id,guest_count,opened_at,closed_at,business_date,bill_customers(customer_id),bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)';
-    const q1 = await sb.from('bills').select(BSEL).eq('business_date',today).order('opened_at',{ascending:false}); const error=q1.error;
+    const tb=await todayBills(BSEL,today,false); const error=tb.error;
     if(error){ $('setList').innerHTML=`<div class="muted">${esc(error.message)}</div>`; return; }
-    const pr=await sb.from('payments').select('bill_id').eq('revenue_date',today).gt('amount',0).not('received_at','is',null); const have=new Set((q1.data||[]).map(b=>b.id)); const ids=[...new Set((pr.data||[]).map(p=>p.bill_id))].filter(i=>!have.has(i));
-    const q2=ids.length?await sb.from('bills').select(BSEL).in('id',ids):{data:[]};
     // 置き：未入金の間はどの日の一覧にも載せない。全額の入金を受けた日の伝票として載せる
-    const data=[...(q1.data||[]),...(q2.data||[])].filter(b=>{ if(b.status!=='closed') return b.business_date===today; if((b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)) return false; return billDay(b)===today; });
+    const data=tb.all.filter(b=>{ if(b.status!=='closed') return b.business_date===today; if((b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)) return false; return billDay(b)===today; });
     const tot={}; await Promise.all((data||[]).map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); tot[b.id]=r.data?.amount_due??null; }));
     const SJ={open:'<span class="badge">来店中</span>',closed:'<span class="badge k">会計済</span>',void:'<span class="badge gray">削除</span>'};
     const grl=data.length?await sb.from('good_reactions').select('bill_id,staff_id').in('bill_id',data.map(b=>b.id)):{data:[]}; const grm={}; (grl.data||[]).forEach(g=>(grm[g.bill_id]=grm[g.bill_id]||[]).push(g.staff_id)); if(!staffAll.length) await loadStaffAll();
