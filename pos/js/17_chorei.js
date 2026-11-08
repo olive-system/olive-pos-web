@@ -223,10 +223,11 @@ async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.
 // ・不備の項目はその場で入力して修正できる（入力できたら通す）。登録番号が無い時は［確認］→ 理由のコメントで通す。不鮮明の時は再撮影だけ（入力欄は出さない）
 // ・立替者名（右下の手書きの名前）は cash_movements.payer に入れ、② の一覧に出す。確かめた中身は receipt_check
 // ・登録番号を国税庁の公表サイトで照らすのは、アプリケーション ID が届いてから（今は T と13桁の形だけ）
-// v12.86：レシート（宛名の欄が無いもの）は宛名を見ない。立替者名は紙に書かないので、黒服から選ぶ（読めた手書きの名前が黒服の名前と同じなら最初から選ぶ。オーナー 2026-11-08「レシートには宛名は入っていません」「プルダウンで選択できるようにしたい」→ 黒服だけ）
+// v12.86：レシート（宛名の欄が無いもの）は宛名を見ない（オーナー 2026-11-08「レシートには宛名は入っていません」）
+// v12.90：立替者名は紙に書かないので、写真の写りに関係なく、その日に出勤した黒服のプルダウンから選ぶ（オーナー 2026-11-08「建て替え者はレシートに記入しない」「出勤している黒服で」）
 const CL_RK=[['to','宛名'],['date','日付'],['reduced','軽減税率'],['purpose','但し書き'],['issuer','発行店名'],['tel','電話番号'],['inv','登録番号'],['guests','参加者名'],['payer','立替者名'],['clear','鮮明度']];
 const clInvOk=v=>/^T\d{13}$/.test(v);
-const clPayers=()=>staffAll.filter(s=>s.is_active&&s.kind==='hall');
+async function clPayers(d){ if(!staffAll.length) await loadStaffAll(); const r=await sb.from('attendance_events').select('staff_id').eq('store_id',store.id).eq('business_date',d).in('event_type',['clock_in','douhan']); if(r.error) return null; const on=new Set((r.data||[]).map(e=>e.staff_id)); return staffAll.filter(s=>s.kind==='hall'&&on.has(s.id)); }
 // AI に送る写真は小さくする（送る量と AI が読む量が減り、待ち時間が短くなる。オーナー 2026-11-08「イ」）。保存する PDF は元の大きさのまま。細長いレシートの字がつぶれないよう、長辺ではなく面積（60万画素）で縮める
 async function clSmall(url){ const i=new Image(); await new Promise((ok,ng)=>{ i.onload=ok; i.onerror=ng; i.src=url; }); const k=Math.min(1,Math.sqrt(600000/(i.naturalWidth*i.naturalHeight))); if(k>=1) return url; const c=document.createElement('canvas'); c.width=Math.round(i.naturalWidth*k); c.height=Math.round(i.naturalHeight*k); c.getContext('2d').drawImage(i,0,0,c.width,c.height); return c.toDataURL('image/jpeg',0.8); }
 async function clRead(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:(await clSmall(url)).split(',')[1]}}); if(r.error) return null; const n=Number(r.data?.amount); return {amount:Number.isFinite(n)&&n>0?Math.round(n):null,read:r.data?.read||null}; }catch(_){ return null; } }
@@ -239,7 +240,7 @@ function clCheck(r){ const s=x=>String(x??'').trim(), X={};
   X.issuer={v:s(r?.issuer),ok:!!s(r?.issuer)}; X.tel={v:s(r?.tel),ok:!!s(r?.tel)};
   const iv=s(r?.invoice_no); X.inv={v:iv,ok:clInvOk(iv)};
   X.guests=r&&!r.eating?{v:'飲食以外',ok:true}:{v:s(r?.guests),ok:!!s(r?.guests)};
-  const nz=x=>s(x).normalize('NFKC').replace(/\s/g,''), py=nz(r?.payer), pm=py&&clPayers().find(p=>nz(p.display_name)===py); X.payer={v:pm?pm.display_name:'',ok:!!pm};
+  X.payer={v:'',ok:false};
   X.clear=r?{v:r.clear?'良好':'不鮮明',ok:!!r.clear}:{v:'未確認',ok:true};
   for(const k in X){ X[k].ng=!X[k].ok; delete X[k].ok; } return X; }
 const clMark=ng=>ng?'<span class="ngt">不備</span>':'<span class="okm">✓</span>';
@@ -249,12 +250,13 @@ async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e)
     <div style="display:flex;gap:16px;align-items:flex-start"><div data-im style="flex:none;width:min(360px,42vw);height:min(540px,60vh);border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden"></div>
     <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--line)"><span>金額</span><input data-a type="number" inputmode="numeric" placeholder="読み取り中…" style="width:150px;text-align:right"></div><div data-ck></div></div></div>
     <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g" data-re>再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok disabled>OK</button></div></div>`;
-  document.body.appendChild(m); const A=m.querySelector('[data-a]'), CK=m.querySelector('[data-ck]'), OK=m.querySelector('[data-ok]'), RE=m.querySelector('[data-re]'); let X=null;
+  document.body.appendChild(m); const A=m.querySelector('[data-a]'), CK=m.querySelector('[data-ck]'), OK=m.querySelector('[data-ok]'), RE=m.querySelector('[data-re]'); let X=null, PY=[];
+  clPayers(d).then(L=>{ if(!L){ uiAlert(RDERR_T); return; } PY=L; if(X) draw(); });
   const can=()=>{ OK.disabled=!(X&&CL_RK.every(([k])=>!X[k].ng)&&clNum(A.value)>0); RE.className='cllb '+(X&&CL_RK.some(([k])=>X[k].ng)?'p':'g'); }; /* 不備がある時は再撮影を主ボタンの色に */
   const draw=()=>{ if(!X){ CK.innerHTML=CL_RK.map(([,n])=>`<div class="r"><span class="k">${n}</span><span class="v muted">読み取り中…</span><span class="s"></span></div>`).join(''); can(); return; }
     const blur=X.clear.ng;
     CK.innerHTML=CL_RK.map(([k,n])=>{ const x=X[k], inp=!blur&&k!=='clear'&&(x.ng||x.typed);
-      const v=k==='payer'&&!blur?`<select data-py${x.ng?' class="ng"':''}><option value="">選択</option>${clPayers().map(p=>`<option${p.display_name===x.v?' selected':''}>${esc(p.display_name)}</option>`).join('')}</select>`:k==='inv'&&x.note?`<span>記載なし</span><small class="muted">${esc(x.note)}</small>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>確認</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
+      const v=k==='payer'?`<select data-py${x.ng?' class="ng"':''}><option value="">選択</option>${PY.map(p=>`<option${p.display_name===x.v?' selected':''}>${esc(p.display_name)}</option>`).join('')}</select>`:k==='inv'&&x.note?`<span>記載なし</span><small class="muted">${esc(x.note)}</small>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>確認</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
       return `<div class="r"><span class="k">${n}</span><span class="v">${v}</span><span class="s">${clMark(x.ng)}</span></div>`; }).join('');
     CK.querySelectorAll('[data-in]').forEach(i=>i.oninput=()=>{ const k=i.dataset.in, x=X[k]; x.v=k==='inv'?i.value.trim().toUpperCase():i.value.trim(); x.typed=true; x.ng=k==='inv'?!clInvOk(x.v):!x.v; i.classList.toggle('ng',x.ng); i.closest('.r').querySelector('.s').innerHTML=clMark(x.ng); const cf=i.parentNode.querySelector('[data-cf]'); if(cf) cf.style.display=x.ng?'':'none'; can(); });
     const py=CK.querySelector('[data-py]'); if(py) py.onchange=()=>{ Object.assign(X.payer,{v:py.value,ng:!py.value,typed:true}); py.classList.toggle('ng',X.payer.ng); py.closest('.r').querySelector('.s').innerHTML=clMark(X.payer.ng); can(); };
