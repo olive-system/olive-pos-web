@@ -7,14 +7,14 @@ async function hallTodo(){
   const D = r.data, L = D.items || [], d = new Date(D.day+'T00:00:00+09:00');
   const st = x => x.status === 'done' ? `<b style="color:var(--ok)">完了　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>${x.late?' <b style="color:var(--warn)">17:00 超過</b>':''}` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : `<b style="color:var(--warn)">未完了${x.late?'　17:00 超過':''}</b>`;
   /* v0.69・SQL 234：休日分（休みの日の TODO を次の営業日に。オーナー 2026-10-25「営業日初日に全部やる」「長い連休は17時まで」）。言葉は用語集：休日分・本日分・期限 閉店・期限 17:00 */
-  const md = s => { const x = new Date(s+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()} ${WD[x.getDay()]}`; };
+  const md = s => `${mdDay(s)} ${WD[jd(s).getDay()]}`;
   const tag = t => `<small class="muted" style="border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap">${t}</small>`;
   const card = (x,i) => `<button class="card" data-td="${i}" style="display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(x.name)}</b>${x.carry ? tag(md(x.day)) : TODO_SLOT[x.slot] ? tag(TODO_SLOT[x.slot]) : ''}</div>
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:14px"><span class="muted">${[x.need_photo?'写真':'', x.need_note?'書く':''].filter(Boolean).join('・')}</span>${st(x)}</div></button>`;
   const C = L.map((x,i) => [x,i]).filter(([x]) => x.carry), T = L.map((x,i) => [x,i]).filter(([x]) => !x.carry), cd = D.carry_days || [], late17 = D.deadline === '17:00';
   const sec = (t, right, warn) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 2px 6px;font-weight:700;${warn?'color:var(--warn)':''}"><span>${t}</span>${right||''}</div>`;
-  show(`<div class="ttl">TODO　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>
+  show(`<div class="ttl">TODO　${mdWD(d)}</div>
     ${C.length ? sec(`休日分（${cd.length>2 ? `${md(cd[0])}〜${md(cd[cd.length-1])}` : cd.map(md).join('・')}）`, `<span style="${late17?'background:var(--warn-soft);color:var(--warn);':'color:var(--muted);font-weight:400;'}border-radius:6px;padding:2px 8px;font-size:13px;white-space:nowrap">期限 ${esc(D.deadline||'閉店')}</span>`, late17) + C.map(([x,i]) => card(x,i)).join('') + sec('本日分') : ''}
     ${T.map(([x,i]) => card(x,i)).join('') || '<div class="card muted">本日分の TODO はありません</div>'}`);
   $('main').querySelectorAll('[data-td]').forEach(b => b.onclick = () => hallTodoOne(L[+b.dataset.td]));
@@ -92,7 +92,6 @@ function hallSlipHtml(P){
     <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
 }
 const hm2 = t => t ? new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false }) : '';
-const mdj = d => { const t = new Date(d+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}（${WD[t.getDay()]}）`; };
 async function hallCasts(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('hall_casts', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
@@ -100,7 +99,7 @@ async function hallCasts(){
   // 10人まで並ぶので、1人2行（1行目：名前・当日欠勤／2行目：成績・未提出）
   show(`<div class="ttl">担当キャスト ${C.length}人</div>${C.length ? `<div class="card" style="padding:4px 12px">${C.map((c, i) => { const st = c.stats || {};
     const att = c.absent ? `<b class="err">当日欠勤</b>` : '';   // 出退勤の時刻は閉店作業で確かめる（オーナー 2026-10-17）
-    const todo = [c.sales_left ? 'アプローチ' : '', c.docs ? esc(c.docs) : '', c.dress ? `ドレス ${mdj(c.dress).replace(/（.）/,'')}まで` : ''].filter(Boolean);
+    const todo = [c.sales_left ? 'アプローチ' : '', c.docs ? esc(c.docs) : '', c.dress ? `ドレス ${mdDay(c.dress)}まで` : ''].filter(Boolean);
     return `<div style="padding:8px 0;${i?'border-top:1px solid var(--line)':''}"><div class="row" style="padding:0"><b>${esc(c.name)}</b><span class="sm">${att}</span></div>
       <div class="sm muted" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>${esc(KL)}小計 ${Math.round(N(st.sales)/10000).toLocaleString('ja-JP')}万・同伴${N(st.douhan)}・反応◎${N(st.reactions)}</span>${todo.length?`<span class="err">未提出：${todo.join('・')}</span>`:''}</div>
       ${c.absent?`<div class="sm err">${hm2(c.absent.at)}・${esc(c.absent.reason||'')}</div>`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
@@ -110,9 +109,9 @@ let hcOpen = new Set();
 const WXT=c=>c==null?['—',null]:c<=1?['晴れ','clear-night']:c===2?['晴れ時々くもり','partly-cloudy-night']:c===3?['くもり','overcast-night']:c<=48?['霧','fog-night']:c<=57?['霧雨','drizzle']:c<=67?['雨','rain']:c<=77?['雪','snow']:c<=82?['にわか雨','partly-cloudy-night-rain']:c<=86?['にわか雪','partly-cloudy-night-snow']:['雷雨','thunderstorms-night-rain'];
 const WXN=c=>WXT(c)[0], WXI=(c,px)=>{ const [t,n]=WXT(c); return n?`<img src="https://cdn.jsdelivr.net/npm/@bybas/weather-icons@2.0.0/production/fill/all/${n}.svg" alt="${t}" style="width:${px}px;height:${px}px;display:block;margin:0 auto">`:'—'; };
 /* v1.16・SQL 344：売上予測（目標・現在・予測。昨日まで。POS の朝礼と同じ。2026-11-04 オーナー・見本 作業場/売上予測_案7.png） */
-function hcFc(F){ const md = x => { const t = new Date(x+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}`; }, no = '<span class="muted">—</span>', g = n => n==null ? no : `${n}組`, y = n => n==null ? no : yen(n);
+function hcFc(F){ const no = '<span class="muted">—</span>', g = n => n==null ? no : `${n}組`, y = n => n==null ? no : yen(n);
   const th = 'color:var(--muted);font-weight:700;font-size:12px;text-align:right;padding:4px 0 4px 6px;border-top:1px solid var(--line)', td = 'padding:4px 0 4px 6px;border-top:1px solid var(--line);font-weight:700;text-align:right;white-space:nowrap', tl = 'padding:4px 0;border-top:1px solid var(--line);font-weight:700';
-  return `<div class="gh" style="margin-top:8px">${F.month}月（${md(F.from)}〜${md(F.to)}）　営業日数 ${F.done} / ${F.days}日</div>
+  return `<div class="gh" style="margin-top:8px">${F.month}月（${mdDay(F.from)}〜${mdDay(F.to)}）　営業日数 ${F.done} / ${F.days}日</div>
     <table style="border-collapse:collapse;width:100%;font-size:14px"><tr><th style="${th}"></th><th style="${th}">目標</th><th style="${th}">現在</th><th style="${th}">予測</th></tr>
     <tr><td style="${tl}">売上</td><td style="${td}">${y(F.target)}</td><td style="${td}">${yen(F.sales)}</td><td style="${td}">${y(F.fc_sales)}</td></tr>
     <tr><td style="${tl}">組数</td><td style="${td}">${g(F.tgt_groups)}</td><td style="${td}">${F.groups}組</td><td style="${td}">${g(F.fc_groups)}</td></tr></table>
@@ -135,17 +134,17 @@ function hcPaint(){
     const bd = cu.birthday ? `${esc(cu.birthday)}${cu.bday_in===0?'（本日）':cu.bday_in!=null&&cu.bday_in<=7?`（あと${cu.bday_in}日）`:''}` : '—';
     return h + `<div style="padding:0 0 10px"><div class="row"><span class="muted">誕生日</span><span>${bd}</span></div><div class="row"><span class="muted">反応◎</span><span>${esc(cu.good||'—')}</span></div>
       <div class="row"><span class="muted">ボトル</span><span style="text-align:right">${(cu.bottles||[]).map(b=>`${esc(b.name)}（${b.remaining}/10${b.share?'・共同 '+esc(b.share)+' 様':''}）`).join('、')||'—'}</span></div>
-      <div class="row"><span class="muted">前回の来店</span><span>${cu.last?`${mdj(cu.last.date)} ${cu.last.guests}名`:'—'}</span></div>
+      <div class="row"><span class="muted">前回の来店</span><span>${cu.last?`${mdW(cu.last.date)} ${cu.last.guests}名`:'—'}</span></div>
       <div class="row"><span class="muted">タバコ</span><span style="text-align:right;white-space:pre-line">${esc(cu.tobacco||'—')}</span></div><div class="row"><span class="muted">配車</span><span style="text-align:right;white-space:pre-line">${esc(cu.haisha||'—')}</span></div>
       <div style="background:var(--gold-soft);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;line-height:1.7">${esc(cu.memo||'メモなし')}</div>
       ${g.ok_at?`<button class="btn g" data-hu="${g.id}" style="margin-top:8px">確認の取消</button>`:`<button class="btn" data-hk="${g.id}" style="margin-top:8px">確認</button>`}</div>`; };
   const SH = {}; (C.shifts||[]).forEach(x => { (SH[x.time] = SH[x.time] || []).push(esc(x.name) + (x.black?DRESS:'') + (x.douhan?'（同伴）':'')); }); /* v1.30・SQL 368：黒ドレスのしるし */
   const y = new Date(C.date+'T00:00:00+09:00'); y.setDate(y.getDate()-1);
-  show(`<div id="hcBox"><div class="ttl">朝礼　${mdj(C.date)}${C.event?' <small class="muted">イベント日</small>':''}</div>
+  show(`<div id="hcBox"><div class="ttl">朝礼　${mdW(C.date)}${C.event?' <small class="muted">イベント日</small>':''}</div>
     <div class="card"><div class="gh">本日来店予定のお客様 ${G.length}組${left?`　<span class="err">未確認 ${left}組</span>`:''}</div>${G.map(guest).join('')||'<div class="muted sm">なし</div>'}${G.length?'<div class="muted sm" style="margin-top:6px">未確認をタップで顧客メモを確認してください。</div>':''}</div>
     <div class="card"><div class="gh">天気</div><div id="hcWx" class="${hcWx ? hcWx.c : 'muted sm'}">${hcWx ? hcWx.h : '読み込み中…'}</div></div>
     <div class="card"><div class="gh">本日の出勤 ${(C.shifts||[]).length}人</div>${Object.keys(SH).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${SH[t].join('・')}</span></div>`).join('')||'<div class="muted sm">シフトなし</div>'}</div>
-    <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdj(y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0'))}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
+    <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdWD(y)}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
     <div class="card"><div class="gh">お誕生日（前後1週間）</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; /* v1.24・SQL 361：前後1週間（キャストのトップと同じ） */ return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`);
   $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* v0.94：読み直さない */
   $('main').querySelectorAll('[data-hs]').forEach(x => { x.onclick = e => e.stopPropagation(); x.onchange = async () => { const id = x.dataset.hs, g = G.find(g => String(g.id) === id), was = g?.seat || ''; x.disabled = true;

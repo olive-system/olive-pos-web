@@ -2,7 +2,6 @@
 //   提出期限は最初の報酬の受取。提出済みは POS で黒服がチェック。契約書はここで条ごとに同意・本人情報・署名（今の Google フォームを作り直したもの）。PDF で控え
 let DOCS = null;
 async function docsLoad(){ const r = await sb.rpc('cast_docs_info', { p_token: TOKEN }); DOCS = r.error ? null : r.data; ME.docs = DOCS ? { target: DOCS.target, left: [DOCS.contract, DOCS.id_doc, DOCS.roster].filter(x => !x).length } : null; return !r.error; }
-const mdDay = d => { const x = new Date(String(d).slice(0,10)+'T00:00:00+09:00'); return `${x.getMonth()+1}/${x.getDate()}`; };
 async function docsList(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   if(!await docsLoad()){ fail('書類を表示できません'); return; }

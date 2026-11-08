@@ -1,6 +1,5 @@
 // v0.03・SQL 098：当日欠勤。理由は自由入力。罰金のルールは本人の報酬（時給／日給）の分だけ出し、今の時刻に当たる行を赤くする
-const WD = ['日','月','火','水','木','金','土'];
-const dTxt = d => { const x = new Date(d + 'T00:00:00+09:00'); return `${x.getMonth()+1}月${x.getDate()}日（${WD[x.getDay()]}）`; };
+const dTxt = d => { const x = jd(d); return `${x.getMonth()+1}月${x.getDate()}日（${WD[x.getDay()]}）`; };
 const tTxt = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
 const fineTxt = (f, pt) => !f ? '—' : f.calc === 'hourly_pct' ? `時給の${f.value}%` : f.calc === 'daily_pct' ? `日給の${f.value}%` : f.calc === 'yen' ? yen(f.value) : '—';
 async function absent(){

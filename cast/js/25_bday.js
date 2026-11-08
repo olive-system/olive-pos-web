@@ -59,7 +59,7 @@ function bdayCalShow(){
   B.rows.forEach(x => { const iso = bdayIso(x.birthday, y); if(iso && iso.slice(0, 7) === B.ym) (D[iso] = D[iso] || []).push(x); });
   if(B.sel.slice(0, 7) !== B.ym) B.sel = B.today.slice(0, 7) === B.ym ? B.today : `${B.ym}-01`;
   const selD = new Date(B.sel + 'T00:00:00+09:00'), L = D[B.sel] || [];
-  const head = `${B.sel === B.today ? '本日 ' : ''}${selD.getMonth()+1}/${selD.getDate()}（${WD[selD.getDay()]}） ${L.length}人`;
+  const head = `${B.sel === B.today ? '本日 ' : ''}${mdWD(selD)} ${L.length}人`;
   const rows = L.map(x => `<div class="row"><span>${esc(x.name)} 様</span><small class="muted">${x.kakari ? esc(KL)+' '+esc(x.kakari) : ''}</small></div>`).join('') || '<div class="muted sm">該当なし</div>';
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 2px 5px 3px;font-size:13px;line-height:1.25;min-height:44px';
   const nm = (t, mu) => `<small style="display:block;font-size:9.5px;letter-spacing:-.05em;font-weight:400;white-space:nowrap;overflow:hidden;color:var(--${mu?'muted':'ink'})">${esc(t)}</small>`;
