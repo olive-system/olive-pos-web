@@ -5,14 +5,13 @@ PAGES.o_stock=async()=>{ const st=storeId, head=psHead('o_stock'); /* v2.13：�
   const r=await sb.rpc('admin_ab_get',{p_store:st}); if(page!=='o_stock'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_ab_get/.test(r.error.message)?'SQL 364 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const D=r.data, I=D.items||[], S=D.stock||[], M=D.menu||[], C=D.counts||[], cats=[...new Set(M.map(m=>m.cat))], all=[...I,...S.flatMap(g=>g.items||[])];
-  const md=x=>{ const t=new Date(x+'T00:00:00+09:00'); return `${t.getMonth()+1}/${t.getDate()}（${'日月火水木金土'[t.getDay()]}）`; };
   const hm=x=>new Date(x).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
   const cell=(x,rm=true)=>`<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.name)}</span><input data-abq="${x.id}" inputmode="numeric" maxlength="3" value="${x.theory??''}" style="width:48px;text-align:right"><span class="muted">本</span>${rm?`<button class="xb" data-abx="${x.id}" aria-label="削除">×</button>`:''}</div>`;
   /* v2.12・SQL 367：ワイン・シャンパンも理論在庫を修正できる（品はメニューから。価格だけの品は出ない。まだ数えていない品は空欄） */
   const grid=L=>`<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px">${L.join('')}</div>`;
   const th=['品','前回','仕入れ','販売','理論在庫','実在庫','差'];
   const rec=c=>{ const R=c.rows||[], dv=x=>x.actual-x.theory, X=R.filter(x=>dv(x)!==0);
-    return `<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b>${md(c.day)}</b><span class="muted">${esc(c.by||'')} ${hm(c.at)}${c.prev?`　前回 ${md(c.prev)}`:''}</span></div>
+    return `<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b>${mdW(c.day)}</b><span class="muted">${esc(c.by||'')} ${hm(c.at)}${c.prev?`　前回 ${mdW(c.prev)}`:''}</span></div>
       ${X.length?`<div style="color:var(--warn);font-weight:700;margin:4px 0">差あり ${X.length}品</div><div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px"><tr>${th.map((h,i)=>`<th style="font-weight:400;color:var(--muted);padding:5px 8px;border-bottom:1px solid var(--line);text-align:${i?'right':'left'};white-space:nowrap">${h}</th>`).join('')}</tr>
         ${X.map(x=>`<tr style="color:var(--warn);font-weight:700">${[esc(x.name),x.prev,x.shiire,x.sales,x.theory,x.actual,(dv(x)>0?'+':'−')+Math.abs(dv(x))].map((v,i)=>`<td style="padding:6px 8px;border-bottom:1px solid var(--line);${i?'text-align:right;font-variant-numeric:tabular-nums':''}">${v}</td>`).join('')}</tr>`).join('')}</table></div>`:''}
       <div class="muted" style="font-size:13px;margin-top:4px">差なし ${R.length-X.length}品</div></div>`; };
