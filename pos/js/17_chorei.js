@@ -196,7 +196,7 @@ function clLoadPdf(){ if(window.jspdf) return Promise.resolve(); if(!clJsPdf) cl
 // 書類のスキャンのように：長い辺 1600px・白黒・紙の地を白く
 /* v12.76（オーナー 2026-11-07「周りの余計な部分もある。トリミングされてない」）：写真の中の白い紙（いちばん大きい明るいかたまり）の四隅を見つけて切り取り、まっすぐに直してから白黒にする。紙が見つからない時（白い机の上など）は写真のまま */
 function clCorners(x,w,h){ const k=240/Math.max(w,h), sw=Math.max(8,Math.round(w*k)), sh=Math.max(8,Math.round(h*k)); const c=document.createElement('canvas'); c.width=sw; c.height=sh; const y=c.getContext('2d'); y.drawImage(x.canvas,0,0,sw,sh);
-  const d=y.getImageData(0,0,sw,sh).data, N=sw*sh, L=new Uint8Array(N), hist=new Array(256).fill(0); for(let i=0;i<N;i++){ const l=Math.round(0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2]); L[i]=l; hist[l]++; }
+  const d=y.getImageData(0,0,sw,sh).data, N=sw*sh, L=new Uint8Array(N), hist=new Array(256).fill(0); for(let i=0;i<N;i++){ const r=d[i*4],g=d[i*4+1],b=d[i*4+2], mx=Math.max(r,g,b), l=Math.max(0,Math.min(255,Math.round(mx*(1-4*(mx-Math.min(r,g,b))/Math.max(1,mx))))); L[i]=l; hist[l]++; } /* 明るさだけで分けると、照明が当たった木目の机も紙に入って角がずれる → 色の無さ（明るさに対する色の割合）で分ける。影になった紙も色は無いので残る */
   let sum=0; for(let t=0;t<256;t++) sum+=t*hist[t]; let sB=0,wB=0,best=0,th=128; for(let t=0;t<256;t++){ wB+=hist[t]; if(!wB) continue; const wF=N-wB; if(!wF) break; sB+=t*hist[t]; const mB=sB/wB, mF=(sum-sB)/wF, v=wB*wF*(mB-mF)*(mB-mF); if(v>best){ best=v; th=t; } }
   const lab=new Int32Array(N).fill(-1), q=new Int32Array(N); let big=-1, bigN=0;
   for(let i=0;i<N;i++){ if(L[i]<=th||lab[i]>=0) continue; let hd=0,tl=0; q[tl++]=i; lab[i]=i; while(hd<tl){ const j=q[hd++], jx=j%sw; for(const n of [j-sw,j+sw,jx>0?j-1:-1,jx<sw-1?j+1:-1]){ if(n<0||n>=N||lab[n]>=0||L[n]<=th) continue; lab[n]=i; q[tl++]=n; } } if(tl>bigN){ bigN=tl; big=i; } }
