@@ -20,7 +20,7 @@ function unsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')) return; c
 $('v-settings').addEventListener('input',unsavedMark,true); $('v-settings').addEventListener('change',unsavedMark,true);
 const unsavedNow=()=>!!(unsavedBtn&&unsavedBtn.isConnected&&!unsavedBtn.disabled);
 async function leaveOk(){ if(!unsavedNow()) return true;
-  const ans=await new Promise(res=>{ const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
+  const ans=await new Promise(res=>{ const m=mkModal(60);
     m.innerHTML=`<div class="box" style="width:min(420px,94vw)"><div style="font-size:18px;font-weight:700;margin-bottom:12px">保存していない変更があります</div><div style="display:flex;flex-direction:column;gap:8px"><button class="primary" data-v="save">保存して進む</button><button class="ghost" data-v="go">保存せずに進む</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">戻る</button></div></div>`;
     document.body.appendChild(m); m.querySelectorAll('button').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); });
   if(!ans) return false;

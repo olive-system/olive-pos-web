@@ -29,7 +29,7 @@ function uiPick(msg, opts){ return new Promise(res=>{ $('uiDlgMsg').textContent=
 // v11.14・SQL 063：打刻の写真（タイムカードで撮ったもの）。在籍リストの時刻の横の📷で見る
 const phBtn=p=>p?`<button class="ghost sm" data-ph="${esc(p)}" style="min-height:0;padding:0 6px;font-size:14px;border:0;background:none" aria-label="写真">${FX('camera',20)}</button>`:'';
 async function showSelfie(path){ const r=await sb.storage.from('selfies').createSignedUrl(path,600); if(r.error||!r.data?.signedUrl){ toast('写真を出せません：'+(r.error?.message||'')); return; }
-  const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60; m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><img src="${esc(r.data.signedUrl)}" alt="" style="width:100%;border-radius:10px;display:block"></div>`; document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
+  const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><img src="${esc(r.data.signedUrl)}" alt="" style="width:100%;border-radius:10px;display:block"></div>`; document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
 async function askReason(title){ const r=await uiPrompt(title+'\n理由を入力してください（必須・操作ログに残ります）'); if(r===null) return null; if(!r.trim()){ toast('理由が未入力のため中止しました'); return null; } return r.trim(); }
 function billEnd(b){ const ext=(b.bill_extensions||[]).reduce((a,e)=>a+e.minutes,0)+(b.ext_waived_minutes||0); return new Date(new Date(b.set_start).getTime()+(b.set_minutes+ext)*60000); }
 // v11.18・SQL 067：自動延長はデータベースで伝票を押さえてから足す（POS 2台が同時に足しても二重にならない）
@@ -46,7 +46,7 @@ let okiBills=[];
 let handTags={};
 async function loadHand(){ const { data, error } = await sb.from('bill_tags').select('id,kind,tag_no,memo,bill_id,bills!inner(table_id,status)').is('returned_at',null).eq('bills.status','closed'); if(error){ console.warn('hand',error.message); return; } handTags={}; for(const t of data||[]){ const k=t.bills?.table_id; if(!k) continue; (handTags[k]=handTags[k]||[]).push(t); } }
 function tagLabel(t){ return `${TAGK[t.kind]||''}${t.tag_no?' #'+esc(t.tag_no):''}${t.memo?` <small>${esc(t.memo)}</small>`:''}`; }
-function openHand(t){ const tg=handTags[t.id]||[]; if(!tg.length) return; const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
+function openHand(t){ const tg=handTags[t.id]||[]; if(!tg.length) return; const m=mkModal(60);
   m.innerHTML=`<div class="box" style="width:360px;text-align:center"><button class="xb dx" data-h="no" aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700">${esc(t.name)}　お預かり品</div><div style="margin:14px 0;font-size:22px;font-weight:800;line-height:1.5;text-align:left">${tg.map(x=>FX('label')+' '+tagLabel(x)).join('<br>')}</div><div class="bar" style="justify-content:flex-end"><button class="primary" data-h="ok">お渡ししました</button></div></div>`;
   document.body.appendChild(m); m.querySelector('[data-h=no]').onclick=()=>m.remove();
   const ok=m.querySelector('[data-h=ok]'); ok.onclick=async()=>{ ok.disabled=true; const { error } = await sb.from('bill_tags').update({returned_at:new Date().toISOString()}).in('id',tg.map(x=>x.id)); if(error){ toast(error.message); ok.disabled=false; return; }

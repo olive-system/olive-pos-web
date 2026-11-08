@@ -85,7 +85,7 @@ function clAfterHtml(AF,B,edit){ const R=AF.rows||[]; if(!R.length) return ''; c
   return `<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 6px"><b style="font-size:16px">アフター</b><small class="muted">お客様1名 ${v.toLocaleString()}${u} を人数で分配・伝票の選択なしは 0${u}</small></div>
     <div class="list" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:10px">${R.map(row).join('')}</div>`; }
 async function clAfterPick(sid,d,B,AF,again){ const cur=(AF.rows||[]).find(r=>r.staff_id===sid)?.bill_id||null; const L=B.slice().sort((a,b)=>(a.opened_at||'')<(b.opened_at||'')?-1:1);
-  const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
+  const m=mkModal(60);
   m.innerHTML=`<div class="box" style="width:min(420px,94vw);max-height:86vh;overflow:auto"><b>アフター（${esc(staffAll.find(x=>x.id===sid)?.display_name||'')}）</b><div class="list" style="margin-top:10px">${L.map(b=>`<button type="button" class="item" data-afb="${b.id}" style="display:flex;gap:6px;align-items:center;text-align:left;width:100%;font-size:15px;${b.id===cur?'outline:2px solid var(--pri);':''}">${clBillRow(b)}</button>`).join('')}<button type="button" class="item muted" data-afb="" style="text-align:left;width:100%;font-size:15px;${cur?'':'outline:2px solid var(--pri);'}">なし</button></div><div class="bar" style="justify-content:flex-end"><button class="ghost" data-afno>キャンセル</button></div></div>`;
   document.body.appendChild(m); m.querySelector('[data-afno]').onclick=()=>m.remove();
   m.querySelectorAll('[data-afb]').forEach(x=>x.onclick=async()=>{ m.remove(); const bid=x.dataset.afb||null; if(bid===cur) return; const r=await sb.rpc('pos_after_set',{p_staff:sid,p_date:d,p_bill:bid}); if(r.error){ await uiConfirm(r.error.message); again(); return; }
@@ -122,7 +122,7 @@ async function clRegRender(d){ const el=$('clReg'); if(!el) return; if(!staffAll
   el.querySelectorAll('[data-clrm]').forEach(x=>x.onclick=()=>clRegMemo(x.dataset.clrm)); }
 // ① のメモ：その場で編集（POS の顧客の画面と同じく直接。ほかの端末で先に変わっていたら行ごとに合わせる）
 async function clRegMemo(id){ const q=await sb.from('customers').select('id,name,memo').eq('id',id).maybeSingle(); if(q.error||!q.data){ toast(q.error?.message||'お客様が見つかりません'); return; } const c=q.data;
-  const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60; m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(c.name)} 様　メモ</div><textarea data-m rows="8" style="width:100%">${esc(c.memo||'')}</textarea><div class="bar" style="justify-content:flex-end"><button class="primary" data-s>保存</button></div></div>`;
+  const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(c.name)} 様　メモ</div><textarea data-m rows="8" style="width:100%">${esc(c.memo||'')}</textarea><div class="bar" style="justify-content:flex-end"><button class="primary" data-s>保存</button></div></div>`;
   document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove();
   m.querySelector('[data-s]').onclick=guard(m.querySelector('[data-s]'),async()=>{ let v=m.querySelector('[data-m]').value.replace(/\s+$/,'')||null; if(v===(c.memo||null)){ m.remove(); return; }
     const now=await sb.from('customers').select('memo').eq('id',id).maybeSingle(); if(now.error){ toast(now.error.message); return; } let merged=false;

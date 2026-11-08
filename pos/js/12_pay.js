@@ -64,7 +64,7 @@ async function btRender(){ const box=$('payBillTo'); if(!box) return; const on=p
     <button type="button" class="ghost" id="btNew">＋ 新しい請求先を入れる</button></div>`;
   box.querySelectorAll('[data-bt]').forEach(e=>e.onclick=()=>{ billTo={...rows[+e.dataset.bt],bill:cur.id}; btRender(); });
   $('btNew').onclick=()=>btNew(); }
-function btNew(){ const cs=btCusts(), c0=cs[0], m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
+function btNew(){ const cs=btCusts(), c0=cs[0], m=mkModal(60);
   m.innerHTML=`<div class="box" style="width:min(480px,92vw)"><h2 style="margin:0 0 8px">新しい請求先</h2>
     <label>会社名（部署も書ける）<input data-k="company" maxlength="100" style="width:100%"></label>
     <label>住所（〒から）<textarea data-k="address" rows="3" maxlength="200" style="width:100%;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></label>
@@ -84,7 +84,7 @@ function splitApply(){ const b=cur, un=Math.max(0,b?.totals?.unpaid??0), open=b&
   if(!split||split.bill!==b?.id||!open||un<=0||split.done>=split.n){ split=null; $('paySplitNote').classList.add('hidden'); return; }
   const k=split.n-split.done; $('payAmount').value=k===1?un:Math.min(split.per,un);
   $('paySplitTxt').innerHTML=`割り勘 ${split.n}人：あと <b>${k}人</b>・${yen(un)}`; $('paySplitNote').classList.remove('hidden'); }
-$('paySplit').onclick=()=>{ const un=Math.max(0,cur?.totals?.unpaid??0); if(!un) return; const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
+$('paySplit').onclick=()=>{ const un=Math.max(0,cur?.totals?.unpaid??0); if(!un) return; const m=mkModal(60);
   m.innerHTML=`<div class="box" style="width:min(460px,92vw)"><h2 style="margin:0 0 6px">人数で割る</h2><div class="muted">未収 ${yen(un)}</div>
     <div class="chips" style="margin:12px 0">${[2,3,4,5,6,7,8,9,10].map(n=>`<button class="chip" data-n="${n}">${n}人</button>`).join('')}</div><div id="spOut" style="min-height:1.6em;font-size:18px"></div>
     <div class="bar" style="justify-content:flex-end"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok" disabled>決定</button></div></div>`;
