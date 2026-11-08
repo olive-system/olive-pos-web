@@ -266,7 +266,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   const keep=$('siBox')?.dataset.st===st?$('siBox'):null; // 料金だけ保存した時は、店の情報の入力中の内容を消さない
   $('main').innerHTML=`<h1>POS設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
   const [ps,tb]=await Promise.all([ sb.from('pos_settings').select('*').eq('store_id',st).maybeSingle(), sb.from('tables').select('id,name,vip_set_fee,vip_ext_fee,sort_order').eq('store_id',st).order('sort_order').order('id') ]);
-  const tgt=me?.is_owner?(await sb.rpc('admin_sales_target',{p_store:st})).data:null; /* v2.01・SQL 344：売上目標（朝礼・日報メールの売上予測。オーナーのみ。2026-11-04） */
+  const tgtR=me?.is_owner?await sb.rpc('admin_sales_target',{p_store:st}):null, tgt=tgtR?.data??null, tgtErr=!!tgtR?.error; /* 読めない時に空欄のまま保存すると目標が消えるので、その時は押せなくする */ /* v2.01・SQL 344：売上目標（朝礼・日報メールの売上予測。オーナーのみ。2026-11-04） */
   if(page!=='set_pos'||storeId!==st) return;
   const er=ps.error||tb.error; if(er){ $('main').innerHTML=`<h1>POS設定</h1><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
   const d=ps.data||{}; if(!('auto_hc_amount' in d)){ $('main').innerHTML=`<h1>POS設定</h1><div class="card err">SQL 062 が未実行です</div>`; return; }
@@ -282,7 +282,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     ${num('psRnd','合計の切り上げ単位（円）',d.total_round_unit)}
     ${amt('psHc','HC（人数分・'+KL+'にバック100%）',d.auto_hc_amount)}${amt('psBc','BC（人数分・バックなし）',d.auto_bc_amount)}
   </div>${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
-  ${me?.is_owner?`<div class="card"><h2>売上目標</h2><div class="grid2"><label>売上目標（月・円）<input id="psTgt" inputmode="numeric" value="${esc(tgt==null?'':Number(tgt).toLocaleString('ja-JP'))}"></label></div><div class="fend"><span class="sp"></span><button class="primary sm" id="tgtSave">保存</button></div></div>`:''}
+  ${me?.is_owner?`<div class="card"><h2>売上目標</h2><div class="grid2"><label>売上目標（月・円）<input id="psTgt" inputmode="numeric" value="${esc(tgt==null?'':Number(tgt).toLocaleString('ja-JP'))}"${tgtErr?' disabled':''}></label></div><div class="fend"><span class="sp"></span><button class="primary sm" id="tgtSave"${tgtErr?' disabled':''}>保存</button></div></div>`:''}
   <div class="card"><h2>伝票</h2>
     <label class="ck"><input type="checkbox" id="psDk" ${d.douhan_is_kakari?'checked':''} ${dis}>同伴の人を自動で${KL}にする</label>
     <label class="ck"><input type="checkbox" id="psCk" ${d.cust_auto_kakari!==false?'checked':''} ${dis}>お客様を登録したら、そのお客様の${KL}を自動で入れる</label>
