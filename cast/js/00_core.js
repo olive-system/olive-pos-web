@@ -25,3 +25,15 @@ function draftBind(key, ids){ const k = 'olive_cast_draft_' + key + '_' + STORE;
 async function upPool(n, one, done){ let next = 0, fin = 0, ng = null;
   const w = async () => { while(next < n && !ng){ const i = next++; try{ await one(i); fin++; if(done) done(fin); }catch(e){ ng = ng || e; } } };
   await Promise.all(Array.from({ length: Math.min(3, n) }, w)); if(ng) throw ng; }
+// 指で書く署名の板（報酬の受取のサイン 07_sign・契約書の署名 14_docs）。前は同じものが2つのファイルにあった（2026-11-08 コード整理）
+// clear()：白紙に戻す／drawn()：1回でも書いたか
+function signPad(cv){
+  const W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, Math.max(1, window.devicePixelRatio||1)); cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  const g = cv.getContext('2d'); g.scale(dpr, dpr); let drawn = false, down = false;
+  const clear = () => { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.strokeStyle = '#111'; g.lineWidth = 2.6; g.lineCap = 'round'; g.lineJoin = 'round'; drawn = false; }; clear();
+  const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX-b.left)*W/b.width, (e.clientY-b.top)*H/b.height]; };
+  cv.onpointerdown = e => { e.preventDefault(); down = true; try{ cv.setPointerCapture(e.pointerId); }catch(_){} const [a, b] = pos(e); g.beginPath(); g.moveTo(a, b); g.lineTo(a+0.1, b+0.1); g.stroke(); drawn = true; };
+  cv.onpointermove = e => { if(!down) return; e.preventDefault(); const [a, b] = pos(e); g.lineTo(a, b); g.stroke(); };
+  cv.onpointerup = cv.onpointercancel = () => { down = false; };
+  return { clear, drawn: () => drawn };
+}
