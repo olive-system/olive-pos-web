@@ -23,13 +23,15 @@ async function cashClosed(run,what){ let r=await run(); const m=String(r?.error?
   const c=await sb.rpc('pos_close_cancel',{p_day:m[1],p_why:what||''}); if(c.error) return {error:c.error};
   r=await run(); if(!r.error) await uiAlert('精算を取り消しました\n閉店作業でレジ金合わせを再度行い、「精算を保存」を押してください'); return r; }
 const tblName=()=>tables.find(t=>t.id===cur?.table_id)?.name||'';
+/* 2026-11-08 構造をシンプルに（1回目）：「もう1台で変わった時は、知らせて伝票を開き直す」を1つに（前は同じ1行が12か所） */
+async function stale(e){ if(!isStale(e)) return false; await staleReload(e.message); return true; }
 async function staleReload(msg){ toast(msg); if(!cur) return; const onPay=$('v-pay').classList.contains('on'); await openBill(cur.id); if(onPay&&cur.status==='open'){ renderPay(); show('v-pay'); } }
 async function stillOpen(){ const r=await sb.from('bills').select('status').eq('id',cur.id).single(); if(!r.error&&r.data?.status!=='open'){ await staleReload('もう1台で会計済です'); return false; } return true; }
 let okiBusy=false; async function closeAsOki(){ if(okiBusy||!cur||cur.status!=='open') return; const un=cur.totals?.unpaid??0; if(un<=0){ toast('未収がないため、置きにする金額がありません'); return; }
   const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
   if(!await uiConfirm(`未収 ${yen(un)} を「置き」にして会計を終了しますか？`))return; okiBusy=true;
-  try{ if(!await stillOpen()) return; const r=await sb.from('payments').insert({bill_id:cur.id,method:'oki',amount:un,revenue_date:cur.business_date,received_at:null}).select('id').single(); if(r.error){ if(isStale(r.error)){ await staleReload(r.error.message); return; } toast(r.error.message); return; } await logOp('入金',{method:METHOD.oki,amount:un});
-    const { data:cl, error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id).eq('status','open').select('id'); if(error){ await sb.from('payments').delete().eq('id',r.data.id); if(isStale(error)){ await staleReload(error.message); return; } toast(error.message); return; }
+  try{ if(!await stillOpen()) return; const r=await sb.from('payments').insert({bill_id:cur.id,method:'oki',amount:un,revenue_date:cur.business_date,received_at:null}).select('id').single(); if(r.error){ if(await stale(r.error)) return; toast(r.error.message); return; } await logOp('入金',{method:METHOD.oki,amount:un});
+    const { data:cl, error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id).eq('status','open').select('id'); if(error){ await sb.from('payments').delete().eq('id',r.data.id); if(await stale(error)) return; toast(error.message); return; }
     if(!(cl||[]).length){ await sb.from('payments').delete().eq('id',r.data.id); if(!await stillOpen()) return; if(!await posTermLost()) toast('会計の締めに失敗しました。再度お試しください'); return; } /* 2026-11-08 6台の点検：もう1台が先に締めた時は、置きの入金を残さず開き直す */
     await logOp('会計締め（置き）',{total:cur.totals.amount_due,oki:un,payments:[...(cur.payments||[]).filter(p=>p.amount>0).map(p=>`${METHOD[p.method]}:${p.amount}`),`${METHOD.oki}:${un}`]}); toast('置きで会計を終了しました'); payMethod='cash'; loadHall(); show('v-hall'); } finally { okiBusy=false; } }
 // v11.12：値引は請求額まで（請求額より多くは引けない）
@@ -41,7 +43,7 @@ $('payAdd').onclick=guard($('payAdd'),async()=>{ const v=parseInt($('payAmount')
   const inv=payMethod==='invoice', bt=inv&&billTo&&billTo.bill===cur.id?billTo:null; if(inv&&!bt){ await uiAlert('請求先を選んでください'); return; }
   if(bt&&bt.fromCust&&bt.customer_id){ const r=await sb.from('customer_bill_tos').insert({customer_id:bt.customer_id,company:bt.company,address:bt.address||null,attn:bt.attn||null}).select('id').single(); if(r.error){ await uiAlert(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); return; } bt.id=r.data.id; bt.fromCust=false; btList.sig=''; }
   const { error } = await cashClosed(()=>sb.from('payments').insert({bill_id:cur.id,method:payMethod,amount:v,revenue_date:cur.business_date,received_at:(payMethod==='cash'||payMethod==='card')?new Date().toISOString():null,...(bt?{bill_to_id:bt.id||null,bill_to_company:bt.company,bill_to_address:bt.address||null,bill_to_attn:bt.attn||null}:{})}),`現金の会計（${tblName()} ${yen(v)}）`);
-  if(error){ if(error.cancel) return; if(isStale(error)){ await staleReload(error.message); return; } toast(/bill_to/.test(error.message)?'SQL 171 が未実行です：'+error.message:error.message);return;} if(split&&split.bill===cur.id) split.done++; await logOp(wasOki?'置きの入金':inv?'請求書にする':'入金',{method:METHOD[payMethod],amount:v,...(bt?{bill_to:bt.company+(bt.attn?' '+bt.attn+' 様':'')}:{})}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
+  if(error){ if(error.cancel) return; if(await stale(error)) return; toast(/bill_to/.test(error.message)?'SQL 171 が未実行です：'+error.message:error.message);return;} if(split&&split.bill===cur.id) split.done++; await logOp(wasOki?'置きの入金':inv?'請求書にする':'入金',{method:METHOD[payMethod],amount:v,...(bt?{bill_to:bt.company+(bt.attn?' '+bt.attn+' 様':'')}:{})}); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
 // v11.97・SQL 171：請求先（オーナー 2026-10-19「請求の時に請求先を入力」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」「1回請求先にしたものは後で選べるように」）
 // 「請求書」を押すと、伝票のお客様の請求先（前に使ったもの・顧客サイトで足したもの）が並ぶ。選ぶか新しく入れないと「請求書にする」を押せない。会計には請求先の写しを残す
 let billTo=null, btList={bill:null,sig:'',rows:[]};
@@ -96,7 +98,7 @@ $('payClose').onclick=guard($('payClose'),async()=>{ if(cur.totals.unpaid>0){toa
   const tg=(cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
   if(!await uiConfirm(`請求額 ${yen(cur.totals.amount_due)} で会計を締めます。\n締めた後は変更できません。`))return;
   if(!await stillOpen()) return;
-  const { data:cl, error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id).eq('status','open').select('id'); if(error){ if(isStale(error)){ await staleReload(error.message); return; } toast(error.message); return; }
+  const { data:cl, error } = await sb.from('bills').update({status:'closed',closed_at:new Date().toISOString(),set_end:billEnd(cur).toISOString()}).eq('id',cur.id).eq('status','open').select('id'); if(error){ if(await stale(error)) return; toast(error.message); return; }
   if(!(cl||[]).length){ /* 2026-11-08 6台の点検：同時に押すと「会計締め」が何回も記録され、締めた時刻も上書きされていた → 営業中の時だけ締める。もう1台が先なら開き直す */ if(!await stillOpen()) return; if(!await posTermLost()) toast('会計の締めに失敗しました。再度お試しください'); return; } /* 点検 2026-11-02：0行（端末の登録が外れた・ログインが古い）を「締めました」と出さない */ await logOp('会計締め',{total:cur.totals.amount_due,payments:(cur.payments||[]).filter(p=>p.amount>0).map(p=>`${METHOD[p.method]}:${p.amount}`)}); toast('会計を締めました'); loadHall(); show('v-hall'); });
 
 // v11.11・SQL 060：店名・住所・電話・メール・インボイス番号・領収書メールの宛先は管理サイト「POS設定」の店の情報で変える（POS では変えない。領収書・閉店作業はそれを読む）
