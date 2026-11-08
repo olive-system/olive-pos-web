@@ -223,19 +223,21 @@ async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.
 // ・不備の項目はその場で入力して修正できる（入力できたら通す）。登録番号が無い時は［確認］→ 理由のコメントで通す。不鮮明の時は再撮影だけ（入力欄は出さない）
 // ・立替者名（右下の手書きの名前）は cash_movements.payer に入れ、② の一覧に出す。確かめた中身は receipt_check
 // ・登録番号を国税庁の公表サイトで照らすのは、アプリケーション ID が届いてから（今は T と13桁の形だけ）
+// v12.84：レシート（宛名の欄が無いもの）は宛名を見ない。立替者名は紙に書かないので、黒服から選ぶ（読めた手書きの名前が黒服の名前と同じなら最初から選ぶ。オーナー 2026-11-08「レシートには宛名は入っていません」「プルダウンで選択できるようにしたい」→ 黒服だけ）
 const CL_RK=[['to','宛名'],['date','日付'],['reduced','軽減税率'],['purpose','但し書き'],['issuer','発行店名'],['tel','電話番号'],['inv','登録番号'],['guests','参加者名'],['payer','立替者名'],['clear','鮮明度']];
 const clInvOk=v=>/^T\d{13}$/.test(v);
+const clPayers=()=>staffAll.filter(s=>s.is_active&&s.kind==='hall');
 async function clRead(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:url.split(',')[1]}}); if(r.error) return null; const n=Number(r.data?.amount); return {amount:Number.isFinite(n)&&n>0?Math.round(n):null,read:r.data?.read||null}; }catch(_){ return null; } }
 // 読み取った中身 → 項目ごとの {v:表示, ng:不備}。読めなかった時（r が null）は鮮明度だけ「未確認」で通し、ほかは入力
 function clCheck(r){ const s=x=>String(x??'').trim(), X={};
-  const to=s(r?.addressee); X.to={v:to,ok:/OLIVE/i.test(to.normalize('NFKC').replace(/\s/g,''))};
+  const to=s(r?.addressee); X.to=r?.doc==='レシート'?{v:'レシート',ok:true}:{v:to,ok:/OLIVE/i.test(to.normalize('NFKC').replace(/\s/g,''))};
   const dt=s(r?.date); X.date={v:dt.replace(/-/g,'/'),ok:!!dt};
   const rd=s(r?.reduced); X.reduced={v:rd==='記載あり'?'※ 8%対象':rd==='対象なし'?'対象なし':'',ok:rd==='記載あり'||rd==='対象なし'};
   const pp=s(r?.purpose), pc=r?.purpose_clear!==false; X.purpose={v:pp&&!pc?pp+'（用途不明）':pp,ok:!!pp&&pc};
   X.issuer={v:s(r?.issuer),ok:!!s(r?.issuer)}; X.tel={v:s(r?.tel),ok:!!s(r?.tel)};
   const iv=s(r?.invoice_no); X.inv={v:iv,ok:clInvOk(iv)};
   X.guests=r&&!r.eating?{v:'飲食以外',ok:true}:{v:s(r?.guests),ok:!!s(r?.guests)};
-  X.payer={v:s(r?.payer),ok:!!s(r?.payer)};
+  const nz=x=>s(x).normalize('NFKC').replace(/\s/g,''), py=nz(r?.payer), pm=py&&clPayers().find(p=>nz(p.display_name)===py); X.payer={v:pm?pm.display_name:'',ok:!!pm};
   X.clear=r?{v:r.clear?'良好':'不鮮明',ok:!!r.clear}:{v:'未確認',ok:true};
   for(const k in X){ X[k].ng=!X[k].ok; delete X[k].ok; } return X; }
 const clMark=ng=>ng?'<span class="ngt">不備</span>':'<span class="okm">✓</span>';
@@ -250,9 +252,10 @@ async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e)
   const draw=()=>{ if(!X){ CK.innerHTML=CL_RK.map(([,n])=>`<div class="r"><span class="k">${n}</span><span class="v muted">読み取り中…</span><span class="s"></span></div>`).join(''); can(); return; }
     const blur=X.clear.ng;
     CK.innerHTML=CL_RK.map(([k,n])=>{ const x=X[k], inp=!blur&&k!=='clear'&&(x.ng||x.typed);
-      const v=k==='inv'&&x.note?`<span>記載なし</span><small class="muted">${esc(x.note)}</small>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>確認</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
+      const v=k==='payer'&&!blur?`<select data-py${x.ng?' class="ng"':''}><option value="">選択</option>${clPayers().map(p=>`<option${p.display_name===x.v?' selected':''}>${esc(p.display_name)}</option>`).join('')}</select>`:k==='inv'&&x.note?`<span>記載なし</span><small class="muted">${esc(x.note)}</small>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>確認</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
       return `<div class="r"><span class="k">${n}</span><span class="v">${v}</span><span class="s">${clMark(x.ng)}</span></div>`; }).join('');
     CK.querySelectorAll('[data-in]').forEach(i=>i.oninput=()=>{ const k=i.dataset.in, x=X[k]; x.v=k==='inv'?i.value.trim().toUpperCase():i.value.trim(); x.typed=true; x.ng=k==='inv'?!clInvOk(x.v):!x.v; i.classList.toggle('ng',x.ng); i.closest('.r').querySelector('.s').innerHTML=clMark(x.ng); const cf=i.parentNode.querySelector('[data-cf]'); if(cf) cf.style.display=x.ng?'':'none'; can(); });
+    const py=CK.querySelector('[data-py]'); if(py) py.onchange=()=>{ Object.assign(X.payer,{v:py.value,ng:!py.value,typed:true}); py.classList.toggle('ng',X.payer.ng); py.closest('.r').querySelector('.s').innerHTML=clMark(X.payer.ng); can(); };
     const cf=CK.querySelector('[data-cf]'); if(cf) cf.onclick=async()=>{ const w=await uiPrompt('登録番号の記載がない理由を入力してください',''); if(w===null) return; if(!w.trim()){ toast('理由を入力してください'); return; } Object.assign(X.inv,{v:'',note:w.trim(),ng:false,typed:false}); draw(); };
     can(); };
   const show=s=>{ sc=s; /* v12.76（オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(sc!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(sc===s) uiAlert('PDF を作成できません：'+(e.message||'')); });
