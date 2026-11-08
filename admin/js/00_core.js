@@ -39,6 +39,7 @@ function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); 
 const bdStart=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
 const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
 const WJ=['日','月','火','水','木','金','土'];
+const wdJ=x=>WJ[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wdJ(x)}）`;
 // 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。2026-11-08 コード整理）
 async function shrinkJpeg(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ng; i.src=URL.createObjectURL(file); });
   const k=Math.min(1,1600/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);

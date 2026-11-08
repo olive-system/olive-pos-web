@@ -89,12 +89,12 @@ PAGES.o_shiftreq=async()=>{ const st=storeId, head=`<h1>出勤希望 <small clas
 };
 // v1.23・SQL 138：日報メール（オーナー 2026-10-17。店ごとに1通・毎朝7時・店の Gmail から）。宛先はオーナーだけが変える
 // v1.29・SQL 145：黒服の TODO（オーナー 2026-10-18。TimeTree の「todoリスト写メ報告」の代わり）。上＝その日の TODO（済・できない・未・写真）、下＝項目（押すと小窓で変える）
-const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',none:'なし'}, TODO_WD=['日','月','火','水','木','金','土'];
+const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',none:'なし'};
 // v1.31・SQL 148：いつ に「隔週」「毎月 第◯ ◯曜日」「毎年」（オーナー 2026-10-18。TimeTree の TODO を入れるため）
 // v1.88・SQL 332：月末は店の月の最終営業日（休みの日は数えない）
 // v2.07・SQL 354：イベント最終日（シフト設定のイベント日が続く時は最後の日。休みの日は飛ばす。オーナー 2026-11-04 銀座のイベントのノルマ）
 const TODO_KIND=[['daily','毎日'],['weekly','毎週'],['biweekly','隔週'],['monthly','毎月（日にち）'],['nth','毎月（第◯ ◯曜日）'],['month_end','月末（最終営業日）'],['event_last','イベント最終日'],['yearly','毎年'],['once','その日だけ']];
-const todoMd=d=>String(d||'').slice(5).split('-').map(Number).join('/'), todoWds=x=>(x.rule_dows||[]).map(d=>TODO_WD[d]).join('・');
+const todoMd=d=>String(d||'').slice(5).split('-').map(Number).join('/'), todoWds=x=>(x.rule_dows||[]).map(d=>WJ[d]).join('・');
 const todoWhen=x=>x.rule_kind==='daily'?'毎日':x.rule_kind==='weekly'?`毎週 ${todoWds(x)}`:x.rule_kind==='biweekly'?`隔週 ${todoWds(x)}`:x.rule_kind==='monthly'?`毎月 ${(x.rule_days||[]).join('・')}日`:x.rule_kind==='nth'?`毎月 第${(x.rule_nth||[]).join('・')} ${todoWds(x)}`:x.rule_kind==='month_end'?'月末':x.rule_kind==='event_last'?'イベント最終日':x.rule_kind==='yearly'?`毎年 ${todoMd(x.rule_date)}`:`${todoMd(x.rule_date)} だけ`;
 // v1.34・SQL 153：TODO は設定の中の1つだけ（オーナー 2026-10-18「わざわざタブ一つつくる必要ある？」）。上＝その日の TODO（済・できない・未・写真）、下＝月のカレンダー（TimeTree のように）。「項目」で足す・変える
 let todoDay=null, todoMon=null, todoView='cal';
@@ -119,7 +119,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
   const stOf=(x,d)=>x.status==='done'?'done':x.status==='skip'?'skip':d>today?'fut':'open';
   const CHS={done:'background:var(--gold-soft)',skip:'background:var(--soft);color:var(--muted)',open:'background:var(--warn-soft);color:var(--warn);font-weight:700',fut:'background:#fff;border:1px solid var(--line)'};
   const D=M[todoDay]||[], hm=hmJst;
-  const wdN=d=>TODO_WD[new Date(d+'T00:00:00+09:00').getDay()], cnt=k=>D.filter(x=>stOf(x,todoDay)===k).length;
+  const wdN=wdJ, cnt=k=>D.filter(x=>stOf(x,todoDay)===k).length;
   const badge=k=>`<span style="font-size:12px;border-radius:999px;padding:1px 8px;white-space:nowrap;${CHS[k]}">${({done:'完了',skip:'できない',open:'未完了',fut:'これから'})[k]}</span>`;
   const dayCard=`<div class="card"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px"><b style="font-size:20px">${Number(todoDay.slice(5,7))}/${Number(todoDay.slice(8))}（${wdN(todoDay)}）${todoDay===today?'　本日':''}</b><span class="muted" style="font-size:13px">TODO ${D.length}件${D.length?`　完了 ${cnt('done')}・できない ${cnt('skip')}・未完了 ${cnt('open')}`:''}</span></div>
     ${(()=>{ const row=(x,i)=>{ const k=stOf(x,todoDay); return `<div style="border-top:1px solid var(--line);padding:9px 0"><div style="display:flex;gap:8px;align-items:center">${badge(k)}<b style="flex:1;font-weight:500;${ed&&byId[x.id]?'cursor:pointer':''}" ${ed&&byId[x.id]?`data-tde="${x.id}"`:''}>${esc(x.name)}</b><span class="muted" style="font-size:12px;white-space:nowrap">${esc(TODO_SLOT[x.slot]&&x.slot!=='none'?TODO_SLOT[x.slot]:'')}${x.by?'　'+esc(x.by):''}${x.at?' '+hm(x.at):''}</span>${ed&&byId[x.id]?`<button class="ghost sm" data-tde="${x.id}" style="padding:0 8px">変更</button>`:''}</div>
@@ -142,7 +142,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
       ${L.slice(0,4).map(x=>`<div ${ed&&byId[x.id]?`data-tdc="${x.id}"`:''} style="font-size:12px;line-height:1.35;border-radius:4px;padding:1px 4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${CHS[stOf(x,k)]}">${esc(x.name)}</div>`).join('')}${L.length>4?`<div class="muted" style="font-size:12px">ほか ${L.length-4}</div>`:''}</div>`; }
   const sw=k=>`<span style="display:inline-block;width:14px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:3px;${CHS[k]}"></span>`;
   $('main').innerHTML=head+dayCard+`<div class="card" style="margin-top:14px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><button class="ghost sm" id="tdmP">‹</button><b style="font-size:18px">${yy}年${mm}月</b><button class="ghost sm" id="tdmN">›</button><span style="flex:1"></span><span class="muted" style="font-size:12px">${sw('done')}完了　${sw('open')}未完了　${sw('skip')}できない　${sw('fut')}これから</span></div>
-    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${TODO_WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px;padding:3px">${w}</div>`).join('')}${cells}</div></div>`;
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${WJ.map(w=>`<div class="muted" style="text-align:center;font-size:12px;padding:3px">${w}</div>`).join('')}${cells}</div></div>`;
   wire();
   const mv=n=>{ const d=new Date(yy,mm-1+n,1); todoMon=ymd(d).slice(0,7); PAGES.set_todo(); }; $('tdmP').onclick=()=>mv(-1); $('tdmN').onclick=()=>mv(1);
   $('main').querySelectorAll('[data-tdd]').forEach(c=>{ if(c.dataset.tdd) c.onclick=()=>{ todoDay=c.dataset.tdd; PAGES.set_todo(); window.scrollTo(0,0); }; });
@@ -153,7 +153,7 @@ function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekl
   const md=modal(`<h2 style="margin:0">${isNew?'TODO の追加':esc(x.name)}</h2><label>名前<input id="tdN" value="${esc(x.name)}"></label>
     <label>いつ<select id="tdK">${TODO_KIND.map(([v,n])=>`<option value="${v}" ${x.rule_kind===v?'selected':''}>${n}</option>`).join('')}</select></label>
     <div id="tdKn" style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(n=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-nth="${n}" ${(x.rule_nth||[]).includes(n)?'checked':''} style="width:auto">第${n}</label>`).join('')}</div>
-    <div id="tdKw" style="display:flex;gap:6px;flex-wrap:wrap">${TODO_WD.map((w,i)=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-dw="${i}" ${(x.rule_dows||[]).includes(i)?'checked':''} style="width:auto">${w}</label>`).join('')}</div>
+    <div id="tdKw" style="display:flex;gap:6px;flex-wrap:wrap">${WJ.map((w,i)=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-dw="${i}" ${(x.rule_dows||[]).includes(i)?'checked':''} style="width:auto">${w}</label>`).join('')}</div>
     <label id="tdKm">日（「1,15」のように）<input id="tdDays" value="${esc((x.rule_days||[]).join(','))}" inputmode="numeric"></label>
     <label id="tdKo"><span id="tdKoL">日付</span><input type="date" id="tdDt" value="${esc(x.rule_date||'')}"></label>
     <label>時間<select id="tdS">${Object.entries(TODO_SLOT).map(([v,n])=>`<option value="${v}" ${x.slot===v?'selected':''}>${n}</option>`).join('')}</select></label>
