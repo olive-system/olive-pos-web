@@ -227,7 +227,9 @@ async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.
 const CL_RK=[['to','宛名'],['date','日付'],['reduced','軽減税率'],['purpose','但し書き'],['issuer','発行店名'],['tel','電話番号'],['inv','登録番号'],['guests','参加者名'],['payer','立替者名'],['clear','鮮明度']];
 const clInvOk=v=>/^T\d{13}$/.test(v);
 const clPayers=()=>staffAll.filter(s=>s.is_active&&s.kind==='hall');
-async function clRead(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:url.split(',')[1]}}); if(r.error) return null; const n=Number(r.data?.amount); return {amount:Number.isFinite(n)&&n>0?Math.round(n):null,read:r.data?.read||null}; }catch(_){ return null; } }
+// AI に送る写真は小さくする（送る量と AI が読む量が減り、待ち時間が短くなる。オーナー 2026-11-08「イ」）。保存する PDF は元の大きさのまま。細長いレシートの字がつぶれないよう、長辺ではなく面積（60万画素）で縮める
+async function clSmall(url){ const i=new Image(); await new Promise((ok,ng)=>{ i.onload=ok; i.onerror=ng; i.src=url; }); const k=Math.min(1,Math.sqrt(600000/(i.naturalWidth*i.naturalHeight))); if(k>=1) return url; const c=document.createElement('canvas'); c.width=Math.round(i.naturalWidth*k); c.height=Math.round(i.naturalHeight*k); c.getContext('2d').drawImage(i,0,0,c.width,c.height); return c.toDataURL('image/jpeg',0.8); }
+async function clRead(url){ try{ const r=await sb.functions.invoke('receipt-read',{body:{image:(await clSmall(url)).split(',')[1]}}); if(r.error) return null; const n=Number(r.data?.amount); return {amount:Number.isFinite(n)&&n>0?Math.round(n):null,read:r.data?.read||null}; }catch(_){ return null; } }
 // 読み取った中身 → 項目ごとの {v:表示, ng:不備}。読めなかった時（r が null）は鮮明度だけ「未確認」で通し、ほかは入力
 function clCheck(r){ const s=x=>String(x??'').trim(), X={};
   const to=s(r?.addressee); X.to=r?.doc==='レシート'?{v:'レシート',ok:true}:{v:to,ok:/OLIVE/i.test(to.normalize('NFKC').replace(/\s/g,''))};
