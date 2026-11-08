@@ -67,10 +67,10 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   const sched=SL.length?`<div class="card"><b>送信予定</b>${SL.map(x=>`<div style="display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;margin-top:6px;flex-wrap:wrap">
       <span style="width:9.5em;white-space:nowrap">${ntWhen(x.send_at)}</span><span style="width:6em;white-space:nowrap">${NT_TO[x.target]||''}</span><span style="width:2.5em;white-space:nowrap">${esc(stLbl(x.stores))}</span>
       <b style="flex:1;min-width:8em">${esc(x.title)}${(x.attach||[]).length?` <small class="muted" style="font-weight:400">${ntCount(x.attach)}</small>`:''}${x.target==='pick'?`<br><small class="muted" style="font-weight:400">${x.names.map(esc).join('・')}</small>`:''}</b>${ed?`<button class="ghost sm" data-se="${x.id}">編集</button><button class="ghost sm" data-sc="${x.id}">取消</button>`:''}</div>`).join('')}</div>`:'';
-  const list=L.map(x=>`<div class="card"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b>${esc(x.title)}</b> <small class="muted">${day(x.at)} 掲載${x.pick?'・個別':''}${x.updated_at?'（修正済み）':''}${x.pushed?`・LINE 通知 ${x.pushed}人`:''}</small></div>
+  const list=L.map(x=>`<div class="card"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b>${esc(x.title)}</b> <small class="muted">${day(x.at)} 掲載${x.pick?'・個別':''}${x.updated_at?'（修正済）':''}${x.pushed?`・LINE 通知 ${x.pushed}人`:''}</small></div>
       ${ed?`<button class="ghost sm" data-ne="${x.id}">編集</button><button class="xb" data-nd="${x.id}" aria-label="削除">×</button>`:''}</div>
     ${x.body?`<div style="white-space:pre-wrap;margin-top:6px;font-size:14px;line-height:1.6">${esc(x.body)}</div>`:''}${ntAttachView(x.attach)}
-    <div class="muted" style="font-size:13px;margin-top:8px">確認済み ${x.read}人／未確認 ${x.unread.length}人${x.unread.length?`<br>未確認：${x.unread.map(esc).join('・')}`:''}</div></div>`).join('')||'<div class="card muted">お知らせはありません</div>';
+    <div class="muted" style="font-size:13px;margin-top:8px">確認済 ${x.read}人／未確認 ${x.unread.length}人${x.unread.length?`<br>未確認：${x.unread.map(esc).join('・')}`:''}</div></div>`).join('')||'<div class="card muted">お知らせはありません</div>';
   $('main').innerHTML=head+form+sched+list;
   if(!ed) return;
   if($('ntX')) $('ntX').onclick=()=>{ ntEdit=null; ntSched=null; PAGES.notice(); };
@@ -177,7 +177,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   cal+='</div>';
   const sub=C.filter(c=>c.submitted).length;
   $('main').innerHTML=head+today+`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="shM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
-      <small class="muted">提出 ${sub}／${C.length}人・${M.fixed?'確定済み':'確定前'}</small><span style="flex:1"></span>
+      <small class="muted">提出 ${sub}／${C.length}人・${M.fixed?'確定済':'確定前'}</small><span style="flex:1"></span>
       ${visible('set_shift')?'<button class="ghost sm" id="shSet">設定</button>':''}<button class="ghost sm" id="shNg">休希望</button>${ed?`${M.fixed?'':'<button class="ghost sm" id="shDr">自動作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>`:''}</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:8px">
       <span style="background:var(--gold-soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--ink)">イベント日</span>
@@ -197,7 +197,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
     const w=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">${mo}月の休み希望</h2><div class="muted" style="font-size:13px">提出 ${sub}／${C.length}人（締切 ${Number(pm.slice(5,7))}/10）</div><div style="max-height:60vh;overflow:auto">${L.map(row).join('')||'<div class="muted">キャストがいません</div>'}</div>`);
     w.querySelector('[data-k=ok]').onclick=()=>w.remove(); };
   if($('shDr')) $('shDr').onclick=guard($('shDr'),async()=>{ if(!await uiConfirm(`${mo}月のシフトを自動作成しますか？\n希望出勤日数・出勤できない日・目安人数から作成します。今の${mo}月のシフトは作り直しになります`)) return; const q=await rpc('admin_shift_draft',{p_store:st,p_month:m}); if(!q.ok) return; toast(`自動作成しました（${q.data}件）`); PAGES.shift(); });
-  $('shFx').onclick=guard($('shFx'),async()=>{ const fx=!M.fixed; if(!await uiConfirm(fx?`${mo}月のシフトを確定しますか？\nマイページに表示します`:`${mo}月のシフトの確定を取消しますか？\nマイページに表示しなくなります`)) return; const q=await rpc('admin_shift_fix',{p_store:st,p_month:m,p_fix:fx}); if(!q.ok) return; toast(fx?'確定しました':'確定を取消しました'); PAGES.shift(); }); };
+  $('shFx').onclick=guard($('shFx'),async()=>{ const fx=!M.fixed; if(!await uiConfirm(fx?`${mo}月のシフトを確定しますか？\nマイページに表示します`:`${mo}月のシフトの確定を取り消しますか？\nマイページに表示しなくなります`)) return; const q=await rpc('admin_shift_fix',{p_store:st,p_month:m,p_fix:fx}); if(!q.ok) return; toast(fx?'確定しました':'確定を取り消しました'); PAGES.shift(); }); };
 // 日の詳細（出勤の名前と時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）
 function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:00+09:00');
   const L=(M.shifts||[]).filter(s=>s.day===day), on=new Set(L.map(s=>s.staff_id)), ng=new Set((M.ng||[]).filter(n=>n.day===day).map(n=>n.staff_id)), R=M.resv?.[day]||[];
@@ -258,12 +258,12 @@ PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm
   if(!ed) return;
   const md=k=>`${Number(k.slice(5,7))}/${Number(k.slice(8))}`;
   $('main').querySelectorAll('[data-md]').forEach(b=>b.onclick=()=>{ ssMode=b.dataset.md; PAGES.set_shift(); });
-  $('main').querySelectorAll('[data-dw]').forEach(b=>b.onclick=guard(b,async()=>{ const i=Number(b.dataset.dw), on=!DOW.has(i); const q=await rpc('admin_shift_offdow_set',{p_store:st,p_dow:i,p_on:on}); if(!q.ok) return; toast(on?`${SH_WD[i]}曜を定休日にしました`:`${SH_WD[i]}曜の定休日を取消しました`); PAGES.set_shift(); }));
+  $('main').querySelectorAll('[data-dw]').forEach(b=>b.onclick=guard(b,async()=>{ const i=Number(b.dataset.dw), on=!DOW.has(i); const q=await rpc('admin_shift_offdow_set',{p_store:st,p_dow:i,p_on:on}); if(!q.ok) return; toast(on?`${SH_WD[i]}曜を定休日にしました`:`${SH_WD[i]}曜の定休日を取り消しました`); PAGES.set_shift(); }));
   $('main').querySelectorAll('[data-ev]').forEach(b=>b.onclick=guard(b,async()=>{ const k=b.dataset.ev;
     if(ssMode==='off'){ const on=!OFF.has(k); const q=await rpc('admin_shift_off_set',{p_store:st,p_day:k,p_off:on}); if(!q.ok) return; toast(on?`${md(k)} を休にしました`:`${md(k)} を営業にしました`); PAGES.set_shift(); return; }
-    if(ssMode==='mt'){ const on=!MD.has(k); const q=await rpc('admin_meeting_day_set',{p_store:st,p_day:k,p_on:on}); if(!q.ok) return; toast(on?`${md(k)} をミーティング日にしました`:`${md(k)} のミーティング日を取消しました`); PAGES.set_shift(); return; }
+    if(ssMode==='mt'){ const on=!MD.has(k); const q=await rpc('admin_meeting_day_set',{p_store:st,p_day:k,p_on:on}); if(!q.ok) return; toast(on?`${md(k)} をミーティング日にしました`:`${md(k)} のミーティング日を取り消しました`); PAGES.set_shift(); return; }
     if(OFF.has(k)){ await uiAlert(`${md(k)} は休の日です`); return; }
-    const on=!EVs.has(k); const q=await rpc('admin_shift_event_set',{p_store:st,p_day:k,p_on:on}); if(!q.ok) return; toast(on?`${md(k)} をイベント日にしました`:`${md(k)} のイベント日を取消しました`); PAGES.set_shift(); }));
+    const on=!EVs.has(k); const q=await rpc('admin_shift_event_set',{p_store:st,p_day:k,p_on:on}); if(!q.ok) return; toast(on?`${md(k)} をイベント日にしました`:`${md(k)} のイベント日を取り消しました`); PAGES.set_shift(); }));
   if($('mtS')) $('mtS').onclick=guard($('mtS'),async()=>{ const v=id=>$(id).value.trim()||null; const q=await rpc('admin_meeting_save',{p_store:st,p_pre_from:v('mt_pre_f'),p_pre_to:v('mt_pre_t'),p_post_from:v('mt_post_f'),p_post_to:v('mt_post_t'),p_slot:Number($('mt_slot').value)||null}); if(!q.ok) return; toast('保存しました'); PAGES.set_shift(); });
   $('ssS').onclick=guard($('ssS'),async()=>{ const v=[...$('main').querySelectorAll('[data-ss]')].map((x,i)=>DOW.has(i)?(x.value===''?Number(T[String(i)]??0):Number(x.value)):(x.value===''?null:Number(x.value))); if(v.some(x=>x==null||!(x>=0))){ await uiAlert('目安人数を入力してください'); return; }
     const q=await rpc('admin_shift_targets_save',{p_store:st,p_month:m,p_counts:v}); if(!q.ok) return; toast('保存しました'); PAGES.set_shift(); }); };
@@ -291,7 +291,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   <div class="card"><h2>伝票</h2>
     <label class="ck"><input type="checkbox" id="psDk" ${d.douhan_is_kakari?'checked':''} ${dis}>同伴の人を自動で${KL}にする</label>
     <label class="ck"><input type="checkbox" id="psCk" ${d.cust_auto_kakari!==false?'checked':''} ${dis}>お客様を登録したら、そのお客様の${KL}を自動で入れる</label>
-    ${'sales_shot_manager' in d?`<label class="ck"><input type="checkbox" id="psSm" ${d.sales_shot_manager?'checked':''} ${dis}>アプローチのスクショは、お客様の${KL}ではなく、いつも担当の黒服に送る</label>`:''}${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
+    ${'sales_shot_manager' in d?`<label class="ck"><input type="checkbox" id="psSm" ${d.sales_shot_manager?'checked':''} ${dis}>アプローチのスクショは、お客様の${KL}ではなく、いつも担当黒服に送る</label>`:''}${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
   <div class="card"><h2>入金・出金の項目</h2><div class="muted" style="font-size:13px;margin-bottom:8px">POS の現金管理で、入金・出金する時に選ぶ項目です。「その他」はいつも出ます（自由に書けます）</div>
     ${'cash_out_items' in d?`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">${[['in','入金'],['out','出金']].map(([k,l])=>`<div style="flex:1 1 280px;min-width:0"><div style="font-weight:700;margin-bottom:6px">${l}</div><div class="ci-list" data-ci="${k}">${(d['cash_'+k+'_items']||[]).map(x=>`<span class="badge gray ci" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex;gap:6px;align-items:center"><span>${esc(x)}</span>${ed?'<a data-cirm style="cursor:pointer;color:var(--muted)">×</a>':''}</span>`).join('')}</div>
       ${ed?`<div class="row" style="margin-top:4px"><input data-ciin="${k}" maxlength="20" placeholder="${l}の項目（20字まで）" style="flex:1"><button class="ghost" data-ciadd="${k}">追加</button></div>`:''}</div>`).join('')}</div>
@@ -355,7 +355,7 @@ async function cardFold(st,ed){ const box=$('cardBox'); if(!box) return; const r
   const inp=(id,l,v,ph='')=>`<label>${l}<input id="${id}" value="${esc(v??'')}" placeholder="${ph}" ${ed?'':'disabled'}></label>`;
   box.innerHTML=foldCard('card','名刺発注','',`${c.qty}枚 ${Number(c.price).toLocaleString('ja-JP')}円・宛先 ${c.to_email?esc(c.to_email):'未設定'}`,`<div class="muted" style="font-size:13px;margin-bottom:8px">LINEマイページで発注すると、宛先にメールを送信し、名刺代を報酬の個別控除に入れます</div><div class="grid2">
     ${inp('cdTo','宛先メールアドレス',c.to_email,'例：info@example.com')}${inp('cdSub','件名',c.subject)}${inp('cdRe','返信先アドレス',c.reply_to)}${inp('cdQty','枚数',c.qty)}${inp('cdPrice','金額（円）',c.price)}</div>
-    <div class="muted" style="font-size:13px;margin-top:8px">メール送信の設定：${c.mail_ready?'設定済み':'未設定'}</div>${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="cdSave">保存</button></div>':''}`);
+    <div class="muted" style="font-size:13px;margin-top:8px">メール送信の設定：${c.mail_ready?'設定済':'未設定'}</div>${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="cdSave">保存</button></div>':''}`);
   foldWire(box); const sv=$('cdSave'); if(!sv) return;
   sv.onclick=guard(sv,async()=>{ const q=slNum($('cdQty').value), pr=slNum($('cdPrice').value); if(!(q>0)||!(pr>=0)){ await uiAlert('枚数と金額を確認してください'); return; }
     if(!await uiConfirm('名刺発注の設定を保存しますか？')) return; const x=await rpc('admin_save_card_settings',{p_store:st,p_to:$('cdTo').value,p_subject:$('cdSub').value,p_reply:$('cdRe').value,p_qty:q,p_price:pr}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }

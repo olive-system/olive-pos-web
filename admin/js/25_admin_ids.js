@@ -7,15 +7,15 @@ PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class
   const r=await sb.rpc('admin_square_get',{p_store:st}); if(page!=='o_square'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_square_get/.test(r.error.message)?'SQL 131 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const D=r.data;
-  $('main').innerHTML=head+`<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>状態</b>${D.set?`<span class="badge k">接続中</span><span>${D.location_name?'店舗：'+esc(D.location_name):'<span class="badge warnb">店舗が未選択</span>'}</span><small class="muted">${fmtDT(D.updated_at)}</small>`:'<span class="badge warnb">未接続</span>'}</div>
+  $('main').innerHTML=head+`<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>状態</b>${D.set?`<span class="badge k">連携済</span><span>${D.location_name?'店舗：'+esc(D.location_name):'<span class="badge warnb">店舗が未選択</span>'}</span><small class="muted">${fmtDT(D.updated_at)}</small>`:'<span class="badge warnb">未連携</span>'}</div>
       <div id="sqLoc" style="margin-top:10px"></div>
-      <div style="margin-top:14px"><label>アクセストークン（本番）<input id="sqTok" type="password" autocomplete="off" placeholder="${D.set?'入れ直す時だけ入力':'EAAA で始まる文字'}" style="width:100%;max-width:520px"></label></div>
-      <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="sqSave">${D.set?'入れ直す':'つなぐ'}</button>${D.set?'<button class="ghost" id="sqOff">解除</button>':''}</div></div>
+      <div style="margin-top:14px"><label>アクセストークン（本番）<input id="sqTok" type="password" autocomplete="off" placeholder="${D.set?'再登録時のみ入力':'EAAA で始まる文字'}" style="width:100%;max-width:520px"></label></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="sqSave">${D.set?'再登録':'連携'}</button>${D.set?'<button class="ghost" id="sqOff">解除</button>':''}</div></div>
     <div class="card"><b>アクセストークンの作り方</b><ol style="margin:8px 0 0;padding-left:20px;line-height:1.9;font-size:14px">
       <li>Square の開発者サイト（developer.squareup.com）に、店の Square のアカウントでログイン</li>
       <li>「アプリケーション」→「＋」で新しいアプリを作る（名前は OLIVE など）</li>
       <li>上の切り替えを「本番環境」にして、「認証情報」の「本番アクセストークン」をコピー</li>
-      <li>この画面に貼り付けて「つなぐ」</li></ol>
+      <li>この画面に貼り付けて「連携」</li></ol>
       <div class="muted" style="font-size:13px;margin-top:6px">使うのは支払いの読み込みだけです。閉店作業の「レジ金合わせ」で、その営業日（朝8時〜翌朝8時）の Square のカード売上と POS のカードの入金を比べます</div></div>`;
   const locPaint=async()=>{ if(!D.set||D.location_id) return; const q=await rpc('admin_square_locations',{p_store:st}); if(!q.ok) return; const L=q.data||[];
     $('sqLoc').innerHTML=`<div class="muted" style="font-size:13px">Square の店舗を選んでください</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${L.map(x=>`<button class="ghost sm" data-loc="${esc(x.id)}" data-nm="${esc(x.name)}">${esc(x.name)}</button>`).join('')||'<span class="muted">店舗がありません</span>'}</div>`;
@@ -39,7 +39,7 @@ PAGES.o_line=async()=>{ const st=storeId, head=`<h1>LINE メニュー <small cla
     <div class="muted" style="font-size:13px;margin-top:4px">${k==='minna'?'する：LINE 連携していない友だち全員の、お店の公式 LINE のトークの下にメニューが出ます。連携している黒服・キャストには今までのメニューが出ます':`する：LINE 連携している${x.nm}の、お店の公式 LINE のトークの下にメニューが出ます。押すとマイページのその画面が開きます。${k==='hall'?'キャスト':'黒服'}と、連携していない人には出ません`}</div>
     ${x.sql?`<div class="err" style="margin-top:8px">SQL ${x.no||'221'} が未実行です</div>`:D.ready?'':'<div class="err" style="margin-top:8px">この店の LINE の設定（マイページの入口・メッセージを送る設定）がありません</div>'}
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:12px"><img src="../cast/${x.img}" alt="${x.nm}のリッチメニュー" style="width:300px;max-width:100%;border:1px solid var(--line);border-radius:8px">
-      <div style="font-size:14px;line-height:1.9">${k==='minna'?'':`連携している${x.nm}：${Number(x.linked||0)}人<br>`}${x.note}${x.made?`<div style="margin-top:8px"><button class="ghost sm" data-rmre="${k}">メニューを作り直す</button></div>`:''}</div></div></div>`; };
+      <div style="font-size:14px;line-height:1.9">${k==='minna'?'':`連携している${x.nm}：${Number(x.linked||0)}人<br>`}${x.note}${x.made?`<div style="margin-top:8px"><button class="ghost sm" data-rmre="${k}">メニュー再作成</button></div>`:''}</div></div></div>`; };
   $('main').innerHTML=head+card('hall')+card('cast')+card('minna');
   const make=async k=>{ const q=await sb.functions.invoke('line-richmenu',{body:{store:st,kind:k}}); let e=q.error?(q.data&&q.data.error)||q.error.message:(q.data&&q.data.error);
     if(e&&q.error&&q.error.context&&q.error.context.json){ try{ e=(await q.error.context.json()).error||e; }catch(x){} }
@@ -61,10 +61,10 @@ PAGES.o_waive=async()=>{ const st=storeId, head=`<h1>罰金免除申請 <small c
   const D=r.data, P=[{id:'owner',name:'オーナー'},...(D.people||[])];
   const box=(sc,nm,note)=>`<div class="card"><b>承認者（${nm}）</b><div class="muted" style="font-size:13px;margin-top:4px">${note}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px">${P.map(p=>`<label class="ck" style="white-space:nowrap"><input type="checkbox" data-wsc="${sc}" value="${p.id}" ${(D[sc]||[]).includes(p.id)?'checked':''}>${esc(p.name)}${p.kind==='cast'?' <small class="muted">キャスト</small>':''}</label>`).join('')}</div></div>`;
-  $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>オーナーのLINE連携</b><span>${D.owner_linked?'<span class="badge">連携済み</span>':'<span class="badge gray">未連携</span>'} <button class="ghost sm" id="wvLink">${D.owner_linked?'再連携':'LINE連携'}</button></span></div>
+  $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>オーナーのLINE連携</b><span>${D.owner_linked?'<span class="badge">連携済</span>':'<span class="badge gray">未連携</span>'} <button class="ghost sm" id="wvLink">${D.owner_linked?'再連携':'LINE連携'}</button></span></div>
     <div class="muted" style="font-size:13px;margin-top:4px">この店の公式 LINE を友だち追加したスマホで QR を読み、入った文を送信します</div><div id="wvQr"></div></div>
     ${box('cast','キャスト分','POS の打刻修正の罰金免除申請と、キャストの遅刻連絡が届きます')}${box('hall','黒服分','黒服の遅刻連絡が届きます')}
-    <div class="muted" style="font-size:13px">選べるのは LINE連携済みの人です。だれか1人が押せば決まります</div>`;
+    <div class="muted" style="font-size:13px">選べるのは LINE連携済の人です。だれか1人が押せば決まります</div>`;
   $('main').querySelectorAll('[data-wsc]').forEach(c=>c.onchange=async()=>{ const sc=c.dataset.wsc, ids=[...$('main').querySelectorAll(`[data-wsc="${sc}"]:checked`)].map(x=>x.value);
     const q=await rpc('admin_waive_set',{p_store:st,p_scope:sc,p_ids:ids}); if(q.ok) toast('保存しました'); else PAGES.o_waive(); });
   $('wvLink').onclick=guard($('wvLink'),async()=>{ const q=await rpc('admin_owner_link_code',{p_store:st}); if(!q.ok) return;
@@ -79,11 +79,11 @@ PAGES.o_shiftreq=async()=>{ const st=storeId, head=`<h1>出勤希望 <small clas
   const r=await sb.rpc('admin_waive_get',{p_store:st}); if(page!=='o_shiftreq'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data; if(!D.shift){ $('main').innerHTML=head+'<div class="card err">SQL 321 が未実行です</div>'; return; }
-  $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>オーナーのLINE連携</b>${D.owner_linked?'<span class="badge">連携済み</span>':'<span class="badge gray">未連携</span>'}</div>
+  $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>オーナーのLINE連携</b>${D.owner_linked?'<span class="badge">連携済</span>':'<span class="badge gray">未連携</span>'}</div>
     <div class="muted" style="font-size:13px;margin-top:4px">オーナーにはいつも届きます。${D.owner_linked?'':'LINE連携は「罰金免除申請」の画面で行います'}</div></div>
     <div class="card"><b>承認者</b><div class="muted" style="font-size:13px;margin-top:4px">LINEマイページの予約の出勤希望が届きます</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px">${(D.people||[]).map(p=>`<label class="ck" style="white-space:nowrap"><input type="checkbox" data-ssc value="${p.id}" ${(D.shift||[]).includes(p.id)?'checked':''}>${esc(p.name)}${p.kind==='cast'?' <small class="muted">キャスト</small>':''}</label>`).join('')||'<span class="muted">LINE連携済みの人がいません</span>'}</div></div>
-    <div class="muted" style="font-size:13px">選べるのは LINE連携済みの人です。だれか1人が押せば決まります</div>`;
+    <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px">${(D.people||[]).map(p=>`<label class="ck" style="white-space:nowrap"><input type="checkbox" data-ssc value="${p.id}" ${(D.shift||[]).includes(p.id)?'checked':''}>${esc(p.name)}${p.kind==='cast'?' <small class="muted">キャスト</small>':''}</label>`).join('')||'<span class="muted">LINE連携済の人がいません</span>'}</div></div>
+    <div class="muted" style="font-size:13px">選べるのは LINE連携済の人です。だれか1人が押せば決まります</div>`;
   $('main').querySelectorAll('[data-ssc]').forEach(c=>c.onchange=async()=>{ const ids=[...$('main').querySelectorAll('[data-ssc]:checked')].map(x=>x.value);
     const q=await rpc('admin_waive_set',{p_store:st,p_scope:'shift',p_ids:ids}); if(q.ok) toast('保存しました'); else PAGES.o_shiftreq(); });
 };
@@ -193,7 +193,7 @@ PAGES.o_contract=async()=>{ const head='<h1>契約書</h1>';
   const tw=(a,k)=>a.to==='all'||a.to===k;
   const ta=(id,v,rows)=>`<textarea id="${id}" rows="${rows}" style="width:100%;font:inherit;font-size:15px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(v||'')}</textarea>`;
   const day=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCFullYear()}/${d.getUTCMonth()+1}/${d.getUTCDate()}`; };
-  $('main').innerHTML=head+`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">LINEマイページで同意する契約書です。保存すると新しい版になり、これから同意する人に表示します（同意済みの人の版は変更されません）。今の版：${day(V.at)}</div>
+  $('main').innerHTML=head+`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">LINEマイページで同意する契約書です。保存すると新しい版になり、これから同意する人に表示します（同意済の人の版は変更されません）。今の版：${day(V.at)}</div>
       <label>タイトル<input id="ctT" value="${esc(D.title)}"></label><label style="display:block;margin-top:8px">前文${ta('ctP',D.preamble,3)}</label>
       ${D.articles.map((a,i)=>`<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px"><div style="display:flex;gap:8px;align-items:center"><input data-at="${i}" value="${esc(a.title)}" style="flex:1"><span class="seg"><button data-to="${i}" data-k="cast" class="${tw(a,'cast')?'on':''}">キャスト</button><button data-to="${i}" data-k="hall" class="${tw(a,'hall')?'on':''}">黒服</button></span><button class="xb" data-ad="${i}" aria-label="削除">×</button></div><div style="margin-top:6px">${ta('ctB'+i,a.body,4)}</div></div>`).join('')}
       <div class="muted" style="font-size:13px;margin-top:10px">キャスト・黒服：押した方の LINEマイページに出す条文です（両方押すと全員）</div>
@@ -227,12 +227,12 @@ PAGES.o_ids=async()=>{
   <div class="card"><h2>IDの作成</h2>
     <div class="grid2">
       <label>ID（半角の小文字・数字 3〜20文字）<input id="nId" autocapitalize="off" spellcheck="false"></label>
-      <label>黒服と結びつける<select id="nStaff"><option value="">結びつけない</option>${halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select></label>
+      <label>黒服と連携<select id="nStaff"><option value="">連携なし</option>${halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')}</select></label>
       <label id="nNameBox">名前<input id="nName"></label>
       <label>最初のパスワード（8文字以上）<input id="nPw" autocapitalize="off" spellcheck="false"></label>
     </div>
     <div class="row" style="margin-top:10px"><button class="ghost" id="nGen">パスワードを自動作成</button><button class="primary" id="nSave">作成</button></div>
-    <div class="muted hint" style="font-size:14px;margin-top:8px">黒服と結びつけると、POSでその黒服を削除した時に、このIDも自動で使えなくなります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">店舗は上で選んでいる「${esc(curStore()?.name||'')}」になります</div></div>
+    <div class="muted hint" style="font-size:14px;margin-top:8px">黒服と連携すると、POSでその黒服を削除した時に、このIDも自動で使えなくなります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">店舗は上で選んでいる「${esc(curStore()?.name||'')}」になります</div></div>
   </div>`;
   $('nGen').onclick=()=>{ $('nPw').value=genPw(10); };
   /* v0.89：黒服を選んだら、名前はその黒服の名前（名前の枠は「結びつけない」の時だけ。オーナー 2026-10-14） */
@@ -248,7 +248,7 @@ PAGES.o_ids=async()=>{
 async function editAccount(a,halls){ if(!a) return;
   const m=modal(`<h2 style="margin:0">IDの変更：${esc(a.login_id)}</h2>
     <label>名前<input data-k="name" value="${esc(a.name)}"></label>
-    <label>黒服と結びつける<select data-k="staff"><option value="">結びつけない</option>${halls.map(h=>`<option value="${h.id}" ${h.id===a.staff_id?'selected':''}>${esc(h.name)}</option>`).join('')}${a.staff_id&&!halls.some(h=>h.id===a.staff_id)?`<option value="${a.staff_id}" selected>${esc(a.staff_name||'（削除済の黒服）')}</option>`:''}</select></label>
+    <label>黒服と連携<select data-k="staff"><option value="">連携なし</option>${halls.map(h=>`<option value="${h.id}" ${h.id===a.staff_id?'selected':''}>${esc(h.name)}</option>`).join('')}${a.staff_id&&!halls.some(h=>h.id===a.staff_id)?`<option value="${a.staff_id}" selected>${esc(a.staff_name||'（削除済の黒服）')}</option>`:''}</select></label>
     <label>状態<select data-k="active"><option value="1" ${a.is_active?'selected':''}>使える</option><option value="0" ${a.is_active?'':'selected'}>停止（ログイン不可）</option></select></label>
     <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
   const q=k=>m.querySelector(`[data-k=${k}]`);

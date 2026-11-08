@@ -21,13 +21,13 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   const dhN=x=>(x.dh_names&&x.dh_names.length?x.dh_names:[x.by_name||'']);
   const row=(x,i)=>`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;font-size:14px"><b style="min-width:3em">${esc(x.time||'未定')}</b>${x.douhan?'<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>':''}${x.vip?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">${esc(x.vip)}</b>`:''}
     <span style="flex:1 1 200px">${esc(x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${x.douhan?'同伴 '+dhN(x).map(n=>esc(n)+(n===x.black?FX('dress',15):'')).join('・') /* v2.14・SQL 368：黒ドレスのしるし */+(dhN(x).includes(x.by_name)?'':'・誘客 '+esc(x.by_name||'')):'誘客 '+esc(x.by_name||'')}${x.kakari_name&&!rvNoKK()?'・'+KL+' '+esc(x.kakari_name):''}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
-    ${ed?`<button class="ghost sm" data-rve="${i}">直す</button><button class="ghost sm" data-rvx="${i}">取消</button>`:''}</div>`;
+    ${ed?`<button class="ghost sm" data-rve="${i}">修正</button><button class="ghost sm" data-rvx="${i}">取消</button>`:''}</div>`;
   const wireRows=(box,L,day,close)=>{ if(!ed) return;
     box.querySelectorAll('[data-rve]').forEach(b=>b.onclick=()=>{ close&&close(); resvForm(st,S,day,L[+b.dataset.rve]); });
     box.querySelectorAll('[data-rvx]').forEach(b=>b.onclick=guard(b,async()=>{ const x=L[+b.dataset.rvx]; if(!await uiConfirm(`${x.name} 様の${x.douhan?'同伴':'予約'}を取り消しますか？`,'取消','danger')) return;
       const z=await rpc('admin_resv_cancel',{p_store:st,p_id:x.id}); if(!z.ok) return; close&&close(); toast('取り消しました'); PAGES.resv(); })); };
   // 本日
-  const todayCard=`<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><div><b>本日 ${md(today)}</b>　<small class="muted">予約 ${RT.filter(x=>!x.douhan).length}・同伴 ${RT.filter(x=>x.douhan).length}</small></div>${ed?'<button class="ghost sm" id="rvAddT">＋ 予約を足す</button>':''}</div>
+  const todayCard=`<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><div><b>本日 ${md(today)}</b>　<small class="muted">予約 ${RT.filter(x=>!x.douhan).length}・同伴 ${RT.filter(x=>x.douhan).length}</small></div>${ed?'<button class="ghost sm" id="rvAddT">＋ 予約を追加</button>':''}</div>
     <div id="rvToday">${RT.map(row).join('')||'<div class="muted" style="margin-top:6px">本日の予約はありません</div>'}</div></div>`;
   // 月
   let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
@@ -47,15 +47,15 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   $('main').querySelectorAll('[data-rvd]').forEach(c=>c.onclick=()=>{ const day=c.dataset.rvd, L=byDay[day]||[];
     const box=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px"><h2 style="margin:0">${md(day)}</h2><small class="muted">${OFF.has(day)?'休　':''}予約 ${L.filter(x=>!x.douhan).length}・同伴 ${L.filter(x=>x.douhan).length}</small></div>
       ${L.map(row).join('')||'<div class="muted" style="margin-top:6px">この日の予約はありません</div>'}
-      ${ed?'<div class="bar"><button class="ghost" data-k="add" style="margin-right:auto">＋ 予約を足す</button></div>':''}`);
+      ${ed?'<div class="bar"><button class="ghost" data-k="add" style="margin-right:auto">＋ 予約を追加</button></div>':''}`);
     const close=()=>box.remove(); box.querySelector('[data-k=ok]').onclick=close; const ad=box.querySelector('[data-k=add]'); if(ad) ad.onclick=()=>{ close(); resvForm(st,S,day,null); };
     wireRows(box,L,day,close); });
 };
 function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option value="">—</option>':'')+S.map(s=>`<option value="${s.id}" ${s.id===id?'selected':''}>${esc(s.name)}${s.kind==='hall'?'（黒服）':''}</option>`).join('');
-  const m=modal(`<h2 style="margin:0">${x.id?'予約を直す':'予約を足す'}</h2>
+  const m=modal(`<h2 style="margin:0">${x.id?'予約修正':'予約追加'}</h2>
     <div class="grid2" style="margin-top:8px"><label>日付<input type="date" id="rvD" value="${esc(x.day||day)}"></label><label>時刻（空なら未定・同伴は 20:30）<input id="rvT" inputmode="numeric" placeholder="21:00" value="${esc(x.time||'')}"></label>
     <label>お客様<input id="rvN" maxlength="40" value="${esc(x.name||'')}"></label><label>人数<input id="rvG" inputmode="numeric" value="${esc(x.guests||1)}"></label>
-    <label>誘客（同伴の人）<select id="rvB">${opt(x.by||S.find(s=>s.name==='店')?.id,false)}</select></label>${rvNoKK()?'':`<label>${KL}<select id="rvK">${opt(x.kakari,true)}</select></label>`}</div>
+    <label>誘客<select id="rvB">${opt(x.by||S.find(s=>s.name==='店')?.id,false)}</select></label>${rvNoKK()?'':`<label>${KL}<select id="rvK">${opt(x.kakari,true)}</select></label>`}</div>
     <div class="row" style="gap:16px;align-items:center;flex-wrap:wrap"><label class="ck"><input type="checkbox" id="rvDh" ${x.douhan?'checked':''}>同伴</label>${rvRooms.length?`<label style="flex:1;min-width:160px">VIPルーム<select id="rvV"><option value="">なし</option>${rvRooms.map(v=>`<option value="${v.id}" ${v.id===x.vip_id?'selected':''}>${esc(v.name)}</option>`).join('')}</select></label>`:''}</div>
     <div id="rvDhW" class="${x.douhan?'':'hide'}"><div class="muted" style="font-size:13px">同伴（人数まで）</div><div style="display:flex;flex-wrap:wrap;gap:4px 14px">${S.filter(s=>s.kind==='cast').map(s=>`<label class="ck"><input type="checkbox" data-dhc="${s.id}" ${(x.dh||[]).includes(s.id)?'checked':''}>${esc(s.name)}</label>`).join('')}</div></div>
     <label>メモ<input id="rvMm" maxlength="200" value="${esc(x.memo||'')}"></label>

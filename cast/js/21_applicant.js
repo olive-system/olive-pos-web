@@ -44,7 +44,7 @@ async function apPage(id, store, back){
   const kindTxt = A.kind === 'hall' ? '黒服' : 'キャスト';
   const top = `<div class="card"><div style="display:flex;gap:12px;align-items:flex-start">
       ${bust.length ? thumb(bust[0], 84, 112) : `<button type="button" data-shoot="bust" style="flex:none;width:84px;height:112px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font:inherit;font-size:12px;padding:0;white-space:nowrap;cursor:pointer">バストアップ</button>`}
-      <div style="flex:1;min-width:0"><label class="f">担当${apSel([['', '未定'], ...(A.halls || []).map(h => [h.id, h.name])], A.hall_staff_id || '', 'id="apHall"')}</label>
+      <div style="flex:1;min-width:0"><label class="f">担当黒服${apSel([['', '未定'], ...(A.halls || []).map(h => [h.id, h.name])], A.hall_staff_id || '', 'id="apHall"')}</label>
       ${A.trial_name || A.joined ? kv('区分', kindTxt) : `<div style="margin-top:6px">${apSel([['cast', 'キャスト'], ['hall', '黒服']], A.kind, 'id="apKind"')}</div>`}
       ${A.phone ? kv('電話', `<span style="white-space:nowrap">${esc(A.phone)}</span>`) : ''}</div></div>
       ${A.line ? '' : `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">LINE</b><span class="muted" style="flex:none">未追加</span><button class="btn" id="apQr" style="width:auto;padding:8px 16px">QR表示</button></div>`}</div>`;
@@ -72,7 +72,7 @@ async function apPage(id, store, back){
     <div id="apRsIn" style="${['declined', 'rejected'].includes(trRes) ? '' : 'display:none'}"><label class="f" style="margin-top:8px">理由<span style="color:var(--warn)">（必須）</span></label><textarea id="apRs" maxlength="500" style="min-height:70px">${esc(A.trial_reason || '')}</textarea></div>
     <button class="btn" id="apTrOk" style="margin-top:12px">保存</button></div>` : '';
   // 入店：契約書は対面
-  const jn = A.joined ? `<div class="card"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">契約書</b>${A.docs_hold ? '<span class="muted" style="flex:none">未開始</span><button class="btn" id="apDoc" style="width:auto;padding:8px 16px">開始</button>' : '<span class="muted">開始済み</span>'}</div></div>` : '';
+  const jn = A.joined ? `<div class="card"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">契約書</b>${A.docs_hold ? '<span class="muted" style="flex:none">未開始</span><button class="btn" id="apDoc" style="width:auto;padding:8px 16px">開始</button>' : '<span class="muted">開始済</span>'}</div></div>` : '';
   // 辞退：次回連絡日
   const dc = A.status === 'declined' ? `<div class="card"><label class="f">次回連絡日<input id="apNx" type="date" value="${A.next_contact || ''}" style="${AP_FS}"></label></div>` : '';
   const vc = A.voice ? `<div class="card"><div class="gh">ご感想（${esc(apDt(A.voice_at))}）</div><div class="sm" style="line-height:1.7">よかった点：${esc((A.voice.good || []).join('・') || 'なし')}<br>気になった点：${esc((A.voice.concern || []).join('・') || 'なし')}${A.voice.text ? `<br>ひとこと：${esc(A.voice.text)}` : ''}</div></div>` : ''; /* v1.19・SQL 348：本人が LINE で送ったご感想 */
@@ -133,7 +133,7 @@ async function apLiff(go){
   if(go === 'sheet'){ await sheetForm(idt); return; } /* v1.21・SQL 350（22_sheet.js） */
   const g = await sb.rpc('applicant_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
   if(!g.data.ok){ fail('表示できません'); return; }
-  if(g.data.sent){ show('<div class="card">ご感想は送信済みです。<br>ありがとうございました🙇‍♀️</div>'); return; }
+  if(g.data.sent){ show('<div class="card">ご感想は送信済です。<br>ありがとうございました🙇‍♀️</div>'); return; }
   show(`<div class="ttl">ご感想</div><div class="card"><div class="f">よかった点</div>${apGrid('good', [])}<div class="f" style="margin-top:12px">気になった点</div>${apGrid('concern', [])}
     <label class="f" style="margin-top:10px">ひとこと（任意）<textarea id="vcT" maxlength="500"></textarea></label><button class="btn" id="vcOk" style="margin-top:14px">送信</button></div>`);
   $('vcOk').onclick = async e => { const M = $('main'), pick = k => [...M.querySelectorAll(`[data-${k}]`)].filter(x => x.checked).map(x => x.dataset[k]); e.target.disabled = true;

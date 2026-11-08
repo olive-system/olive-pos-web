@@ -134,7 +134,7 @@ function rwEdit(st,i){ const x=i==null?{name:'',kind:RWPS?'point':'yen',value:nu
   const q=id=>md.querySelector('#'+id); q('rwU').textContent=q('rwK').value==='point'?'P':'円'; /* v1.80・SQL 317（点検 C6）：ポイントスライドが無い店では種類「ポイント」を出さない（POS に出ないため） */ q('rwK').onchange=()=>{ q('rwU').textContent=q('rwK').value==='point'?'P':'円'; };
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   const save=async L=>{ const r=await rpc('admin_reward_types_save',{p_store:st,p_rows:L,p_base:RWT0}); return r.ok; };
-  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を報酬の一覧から消しますか？\n今までに付けたものは消えません`,'削除','danger')) return; if(!await save(RWT.filter((_,k)=>k!==i))) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
+  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を報酬の一覧から削除しますか？\n登録済の報酬は削除されません`,'削除','danger')) return; if(!await save(RWT.filter((_,k)=>k!==i))) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('rwN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
     if(RWT.some((y,k)=>k!==i&&y.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }
     const v=q('rwV').value.trim()===''?null:slNum(q('rwV').value); if(v==null){ await uiAlert('1回の数を入力してください'); return; } if(!(v>0)){ await uiAlert('1回の数は1以上にしてください'); return; } /* v1.80・SQL 317（点検 C6）：1回は必須（空だと POS に出なかった） */
@@ -176,7 +176,7 @@ function fineEdit(st,i){ const g=i==null?{name:'',h:{calc:'yen',value:null},d:nu
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   const save=async list=>{ const rows=[]; for(const x of list){ const same=fineSame(x.h,x.d); if(x.h&&x.d&&same&&(x.h.calc==='yen'||x.h.calc==='input')) rows.push({name:x.name,target:'all',...x.h,per_unit:x.h.calc==='yen'}); else { if(x.h) rows.push({name:x.name,target:'hourly',...x.h,per_unit:x.h.calc==='yen'}); if(x.d) rows.push({name:x.name,target:'daily',...x.d,per_unit:x.d.calc==='yen'}); } }
     const r=await rpc('admin_save_fine_types',{p_store:st,p_rows:rows,p_base:FINES0}); if(!r.ok) return false; return true; };
-  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${g.name}」を罰金の一覧から消しますか？\n今までに付けた罰金は消えません`,'削除','danger')) return; const L=FINES.filter((_,k)=>k!==i); if(!await save(L)) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
+  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${g.name}」を罰金の一覧から削除しますか？\n登録済の罰金は削除されません`,'削除','danger')) return; const L=FINES.filter((_,k)=>k!==i); if(!await save(L)) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('fnN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
     if(FINES.some((x,k)=>k!==i&&x.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }
     const hv=md.querySelector('input[name=fnH]:checked')?.value||'none'; let h=null;

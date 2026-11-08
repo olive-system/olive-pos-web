@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.67 -->
+<title>OLIVE 顧客</title><!-- customer v1.68 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
   :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
@@ -188,7 +188,8 @@ async function rpc(fn,args){
 // ---------- ダイアログ（ブラウザ標準は使わない） ----------
 function sheet(html,onOpen){ return new Promise(res=>{ const m=$('modal'), s=$('sheet'); s.innerHTML=html; m.classList.add('on'); const done=v=>{ m.classList.remove('on'); s.innerHTML=''; res(v); }; onOpen(s,done); }); }
 function uiConfirm(msg,ok='OK',cls='primary'){ return sheet(`<div class="msg">${esc(msg)}</div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="${cls}" data-ok>${esc(ok)}</button></div>`,(s,done)=>{ s.querySelector('[data-x]').onclick=()=>done(false); s.querySelector('[data-ok]').onclick=()=>done(true); }); }
-function uiAlert(msg){ return sheet(`<div class="msg">${esc(msg)}</div><div class="btns"><button class="primary" data-ok>OK</button></div>`,(s,done)=>{ s.querySelector('[data-ok]').onclick=()=>done(true); }); }
+const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
+function uiAlert(msg){ msg=jaNet(msg); return sheet(`<div class="msg">${esc(msg)}</div><div class="btns"><button class="primary" data-ok>OK</button></div>`,(s,done)=>{ s.querySelector('[data-ok]').onclick=()=>done(true); }); }
 function uiPrompt(title,val='',opt={}){ return sheet(`<h3>${esc(title)}</h3><input id="pIn" ${opt.pw?'type="password" autocomplete="off"':''} value="${esc(val)}" placeholder="${esc(opt.ph||'')}"><div class="err" id="pErr"></div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>${esc(opt.ok||'OK')}</button></div>`,(s,done)=>{ const i=s.querySelector('#pIn'); setTimeout(()=>i.focus(),50); const go=()=>done(i.value); s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=go; i.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } }; }); }
 let toastT=0; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }
 async function fail(e){ if(e&&e.code==='CS_AUTH'){ showLogin(e.message); return; } await uiAlert(e&&e.message||String(e)); }
@@ -228,7 +229,7 @@ async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot
 function editing(){ return !!editTok&&editExp>Date.now(); }
 function endEdit(silent){ editTok=null; editExp=0; SS.set('olive_cs_edit',null); SS.set('olive_cs_edit_exp',null); paintEdit(); if(!silent&&cur) renderDetail(); }
 let editTimer=0;
-/* v1.57・SQL 312：編集用のパスワードでログインした人は、読み直し・30分後も編集の券を出し直す。v1.59・SQL 318：返事を分ける ok＝編集用でログイン／no＝閲覧用でログイン／pw＝編集用パスワードが変更された／net＝通信の失敗／auth＝ログアウト済み */
+/* v1.57・SQL 312：編集用のパスワードでログインした人は、読み直し・30分後も編集の券を出し直す。v1.59・SQL 318：返事を分ける ok＝編集用でログイン／no＝閲覧用でログイン／pw＝編集用パスワードが変更された／net＝通信の失敗／auth＝ログアウト済 */
 async function editRenew(){ if(EMB||!token) return 'no'; try{ const r=await rpc('cs_edit_renew',{p_token:token}); if(r&&r.edit_token){ editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); return 'ok'; } return r&&r.error==='CS_EDITPW'?'pw':'no'; }catch(e){ return e&&e.code==='CS_AUTH'?'auth':'net'; } }
 /* 結果を画面に当てる。編集できる時 true、閲覧だけの時 false、ログアウトした時 null */
 async function csRenew(){ const k=await editRenew(); csNet=k==='net';
@@ -393,7 +394,7 @@ async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* v1.54：説明�
     <button class="ghost sm" data-bte="${i}" style="flex:none">修正</button><button class="xb" data-btd="${i}" aria-label="削除">×</button></div>`).join('')
     :'<span class="muted">なし</span>';
   box().querySelectorAll('[data-bte]').forEach(b=>b.onclick=async()=>{ if(await needEdit()) btcForm(c,rows[+b.dataset.bte]); });
-  box().querySelectorAll('[data-btd]').forEach(b=>b.onclick=async()=>{ const x=rows[+b.dataset.btd]; if(!await needEdit()) return; if(!await uiConfirm(`請求先「${x.company}」を削除しますか？\n会計済みの伝票の請求先は変わりません`,'削除','danger')) return;
+  box().querySelectorAll('[data-btd]').forEach(b=>b.onclick=async()=>{ const x=rows[+b.dataset.btd]; if(!await needEdit()) return; if(!await uiConfirm(`請求先「${x.company}」を削除しますか？\n会計済の伝票の請求先は変わりません`,'削除','danger')) return;
     try{ await rpc('cs_bill_to_delete',{p_token:token,p_edit_token:editTok,p_customer:c.id,p_id:x.id}); toast('削除しました'); btcLoad(c); }catch(e){ await fail(e); } }); }
 function btcForm(c,x){ return sheet(`<h3>${esc(c.name)} 様　${x?'請求先を修正':'請求先を追加'}</h3>
   <label class="f">会社名（部署も書ける）<input id="bfCo" maxlength="100" value="${esc(x?.company||'')}"></label>

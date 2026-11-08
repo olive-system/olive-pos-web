@@ -26,7 +26,8 @@ const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
 const METHOD = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
 /* v11.96：?slot= で同じブラウザに2店を開いても、端末に残す設定が混ざらないように */ const SLOT=((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'')?'-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,''):'');
 let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], customers=[], openBills=[], cur=null, payMethod='cash', billFrom='hall';
-function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1800); }
+const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
+function toast(m){ const t=$('toast'); t.textContent=jaNet(m); t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1800); }
 function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remove('on')); $(v).classList.add('on'); if(v==='v-hall'&&rtMastWait) setTimeout(rtMasters,0); }
 function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; const bd=businessDate(d); $('hdDate').textContent=`${+bd.slice(5,7)}月${+bd.slice(8,10)}日`; /* v11.95：0時〜朝8時は前の日の営業日を出す（ゲネプロ #59） */ },1000);
@@ -36,10 +37,10 @@ $('loginForm').addEventListener('submit', async e => { e.preventDefault(); $('lo
   const btn=e.target.querySelector('button[type=submit],button'); if(btn) btn.disabled=true;
   const slow=setTimeout(()=>{ if(!$('loginErr').textContent) $('loginErr').textContent='返事がありません。ほかのタブで開いている POS を閉じて、このページを開き直してください'; },15000);
   try { const { error } = await sb.auth.signInWithPassword({ email:$('email').value.trim(), password:$('pw').value });
-    if (error) { $('loginErr').textContent=/Invalid login credentials/.test(error.message)?'メールアドレスかパスワードが違います（自動で入った文字は消して、打ち直してください）':'ログインできません：'+error.message; return; }
-    const { data:{ session } } = await sb.auth.getSession(); if(!session){ $('loginErr').textContent='ログインの記録が残りませんでした。プライベートブラウズを切ってから、もう一度'; return; }
+    if (error) { $('loginErr').textContent=/Invalid login credentials/.test(error.message)?'メールアドレスかパスワードが違います（自動で入った文字は消して、打ち直してください）':'ログインできません：'+jaNet(error.message); return; }
+    const { data:{ session } } = await sb.auth.getSession(); if(!session){ $('loginErr').textContent='ログインの記録が残りませんでした。プライベートブラウズを切ってから、再度お試しください'; return; }
     await start(); }
-  catch(ex){ $('loginErr').textContent='ログインできません：'+(ex&&ex.message||ex)+'（ほかのタブで開いている POS を閉じてから、もう一度）'; }
+  catch(ex){ $('loginErr').textContent='ログインできません：'+jaNet(ex&&ex.message||ex)+'（ほかのタブで開いている POS を閉じてから、再度お試しください）'; }
   finally{ clearTimeout(slow); if(btn) btn.disabled=false; } });
 const PT_KEY='olive_pos_terminal'+SLOT; const ptGet=()=>{ try{ return localStorage.getItem(PT_KEY); }catch(e){ return null; } };
 /* v12.11・SQL 233：合鍵は2つの引き出し（localStorage と IndexedDB）にしまう。片方が空なら、もう片方から戻す。合わない時も捨てない（オーナー 2026-10-24「また同じように再登録しないといけないの？」） */

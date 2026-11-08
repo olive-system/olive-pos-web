@@ -11,7 +11,7 @@ PAGES.o_key=async()=>{ const st=storeId, head=`<h1>セサミ連携 <small class=
   const D=r.data, L=D.locks||[];
   if(!L.length){ $('main').innerHTML=head+'<div class="card muted">鍵なし</div>'; return; }
   const who=k=>L.filter(l=>l[k]).map(l=>l.name).join('・');
-  const set=(ok)=>ok?'<span class="badge">設定済み</span>':'<span class="badge gray">未設定</span>';
+  const set=(ok)=>ok?'<span class="badge">設定済</span>':'<span class="badge gray">未設定</span>';
   const dt=s=>{ const d=new Date(s); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`; };
   const hasV=L.some(l=>l.vendor);
   $('main').innerHTML=head+`<div class="card"><b>セサミの設定</b><table class="t" style="margin-top:8px">
