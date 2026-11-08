@@ -39,7 +39,7 @@ async function regDayPage(){
     sb.from('staff').select('id,display_name').eq('store_id',st),
     sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',d).limit(1) ]);
   if(page!=='register'||regTab!=='day'||regDate!==d||storeId!==st) return;
-  const er=mv.error||adv.error||pay.error||cls.error||prev.error; if(er){ $('main').innerHTML=regHead()+`<div class="card err">${esc(er.message)}</div>`; regTabs(); return; }
+  const er=mv.error||adv.error||pay.error||cls.error||prev.error||lat.error; /* lat が読めないと「後の日の精算がある」が無いことになり、保存のボタンが出てしまう */ if(er){ $('main').innerHTML=regHead()+`<div class="card err">${esc(er.message)}</div>`; regTabs(); return; }
   const nm=id=>(stf.data||[]).find(x=>x.id===id)?.display_name||'';
   const moves=mv.data||[]; const inSum=moves.filter(m=>m.kind==='in').reduce((a,m)=>a+m.amount,0), outSum=moves.filter(m=>m.kind==='out').reduce((a,m)=>a+m.amount,0);
   const advRows=(adv.data||[]).filter(a=>a.amount>0); const advSum=advRows.reduce((a,x)=>a+x.amount,0);

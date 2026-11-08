@@ -31,7 +31,7 @@ async function memoList(store){
 }
 
 // 外のページはスマホのブラウザで開く（日報のフォームと同じ）
-function memoOpenUrl(u){ try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }
+function memoOpenUrl(u){ /* javascript: などを開くと、マイページの中でほかの人の書いた命令が動くので、http・https 以外の種類は開かない */ if(/^\s*[a-z][a-z0-9+.-]*:/i.test(u||'') && !/^\s*https?:/i.test(u)) return; try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }
 
 async function memoView(id){
   setBack(() => memoList()); show('<div class="card c muted">読み込み中…</div>');

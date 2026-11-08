@@ -18,7 +18,6 @@ function csTerms(s,rows,m){ const t=rows.filter(r=>r.staff_id===s.id&&r.month<=m
   const pay=x=>{ const pt=x.pay_type||(s.is_seppan?'seppan':s.pay_type==='daily'?'daily':'hourly'); /* v0.36・SQL 075：報酬に折半 */ return {...x,pay_type:pt,daily_wage:pt==='daily'?(x.pay_type?x.daily_wage:s.daily_wage)??null:null}; };
   if(t) return pay({...t,exempt_fines:t.exempt_fines||[]});
   return pay({month:null,only_month:false,guaranteed_wage:s.guaranteed_wage??null,guarantee_until:s.guarantee_until??null,douhan_quota:s.douhan_quota??null,back_pct:null,back_mode:'add',withhold:null,ctax_pct:null,welfare_mode:'std',welfare_amount:null,exempt_fines:[],slide_ids:null,pay_type:null,daily_wage:null,seppan_pct:null}); }
-const csNum=v=>v==null||v===''?null:Number(v);
 const csDate=d=>{ if(!d) return '—'; if(d===CS_FOREVER) return '無期限'; const [y,m,dd]=d.split('-').map(Number); return `${y}/${m}/${dd}`; };
 
 PAGES.set_cast=async()=>{
@@ -37,7 +36,7 @@ async function csCastPart(box,st,ed,m){
     sb.from('fine_types').select('name').eq('store_id',st).order('sort_order'), sbAll(()=>sb.from('cast_notes').select('staff_id').eq('store_id',st).eq('is_void',false).order('id')), /* v0.67：1000行で切れないように分けて読む */
     sb.from('slide_tables').select('*').eq('store_id',st).order('sort_order')]);
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
-  const er=sf.error||tm.error||nt.error;
+  const er=sf.error||tm.error||nt.error||(stb.error&&!/exist|schema cache/.test(stb.error.message)?stb.error:null); /* スライド表が読めないまま保存すると、選んであったスライド表が消える（SQL 058 の前の「表が無い」だけは空で通す） */
   if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">キャスト</h2><div class="card err">${esc(/cast_terms|cast_notes|day_pay_ok/.test(er.message)&&/exist|schema cache/.test(er.message)?'SQL 056 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
   const all=sf.data||[], halls=all.filter(x=>x.kind==='hall'), casts=all.filter(x=>x.kind==='cast'&&!x.is_trial&&!x.kakari_only);
   const nc={}; (nt.data||[]).forEach(x=>nc[x.staff_id]=(nc[x.staff_id]||0)+1);

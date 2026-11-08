@@ -360,7 +360,7 @@ async function punch(staff){
     else { await showToast(`${esc(staff.display_name)}　${TYPE_LABEL[type]}`, photoPath ? '記録しました' : '記録しました（写真なし）', 1500);
       if (type === 'clock_in') await checkDouhanLate(staff); }
   } catch (e) {
-    showToast('エラー', e.message || String(e), 2500);
+    showToast('エラー', esc(e.message || String(e)), 2500);
   } finally {
     busy = false;
     document.getElementById('grid').classList.remove('busy');
