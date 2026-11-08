@@ -6,9 +6,8 @@ async function contactList(openForm){
   if(r.error){ fail(r.error.message); return; }
   const rows = r.data.rows || [];
   if(openForm){ contactForm(r.data.today); return; }
-  const md = d => `${Number(String(d).slice(5,7))}/${Number(String(d).slice(8,10))}（${WD[new Date(d+'T00:00:00+09:00').getDay()]}）`;
   const tn = Number(r.data.today_n || 0), st = tn ? `<div class="sm" style="color:var(--ok);margin-bottom:8px">今日の提出 ${tn}人</div>` : r.data.today_none ? '<div class="sm" style="color:var(--ok);margin-bottom:8px">今日は交換なしで提出済</div>' : '';
-  show(`<div class="ttl">連絡先交換</div>${st}<button class="btn" id="cxNew" style="margin-bottom:12px">提出</button><div class="card"><div class="gh">今月 ${rows.length}人</div>${rows.map(x => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div>${md(x.date)}${esc(x.name)} 様</div>
+  show(`<div class="ttl">連絡先交換</div>${st}<button class="btn" id="cxNew" style="margin-bottom:12px">提出</button><div class="card"><div class="gh">今月 ${rows.length}人</div>${rows.map(x => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div>${mdW(x.date)}${esc(x.name)} 様</div>
     ${RV_NOKK() ? (x.memo ? `<div class="muted sm">${esc(x.memo)}</div>` : '') : `<div class="muted sm">${KL} ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div>`}</div>`).join('') /* v1.05・点検 2026-11-02 D2：広島は担当を出さない */||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
   $('cxNew').onclick = () => contactForm(r.data.today);
 }
@@ -21,7 +20,7 @@ async function contactForm(today){
   if(st.error){ fail(st.error.message); return; }
   const fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
   const me = (st.data||[]).find(s => s.name === ME.name);
-  const d = new Date(today+'T00:00:00+09:00'), dl = `${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
+  const d = new Date(today+'T00:00:00+09:00'), dl = `${mdWD(d)}`;
   const KEY = 'olive_cast_contact_rows';
   const NK = RV_NOKK(); /* v1.05・点検 2026-11-02 D2：広島は担当（係）が無い（オーナー「広島は担当は無い。係じゃないんだから」）。担当の欄を出さず、「なし」で提出する（cast_contact_submit は「なし」を受け付ける） */
   if(!cxRows){ try{ const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if(v && v.day === today && Array.isArray(v.rows) && v.rows.length) cxRows = v.rows; }catch(e){} }
@@ -73,7 +72,7 @@ let cpState = null;
 function contactPick(T){
   setBack(() => contactList());
   const fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
-  const d = new Date(T.day + 'T00:00:00+09:00'), dl = `${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
+  const d = new Date(T.day + 'T00:00:00+09:00'), dl = `${mdWD(d)}`;
   const L = T.customers || [], NK = RV_NOKK(), KEY = 'olive_cast_contact_pick';
   if(!cpState){ try{ const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if(v && v.day === T.day && v.sel && Array.isArray(v.rows)) cpState = v; }catch(e){} }
   if(!cpState) cpState = { day: T.day, sel: {}, rows: [{ n:'', m:'' }] };

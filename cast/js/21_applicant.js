@@ -112,7 +112,7 @@ async function apPage(id, store, back){
 
 // シフトの［追加］→「面接」（スカウトの紹介でいきなり面接の時。オーナー 2026-11-04）
 function apIvAddDlg(w, iso, store, back, done){ const d = new Date(iso + 'T00:00:00+09:00'), lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`, fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)';
-  w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">面接　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</p>
+  w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">面接　${mdWD(d)}</p>
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><div>${lb('名前')}<input id="ivN" maxlength="30" style="${fs}"></div><div>${lb('時刻')}<select id="ivT" style="${fs}">${AP_IV_T.map(t => `<option ${t === '19:00' ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
     ${lb('区分')}<select id="ivK" style="${fs}"><option value="cast">キャスト</option><option value="hall">黒服</option></select>
     <div class="bt" style="margin-top:14px"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;

@@ -17,7 +17,7 @@ function blPaint(){
   const L = (k, v, c='') => `<div class="row ${c}" style="font-size:14px"><span>${k}</span><span>${v}</span></div>`;
   const bill = b => { const c = b.calc || {}, op = billOpen.has(b.id), d = new Date(b.date+'T00:00:00+09:00');
     let h = `<div class="card" data-bl="${b.id}" style="cursor:pointer"><div class="row"><b>${esc(b.customers||'お客様')} 様</b><b>${yen(c.amount_due)}</b></div>
-      <div class="muted sm">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）　${esc(b.table||'')}${b.table?'・':''}${N(b.guests)}名　${tm(b.open)}〜${tm(b.close)}</div>`;
+      <div class="muted sm">${mdWD(d)}　${esc(b.table||'')}${b.table?'・':''}${N(b.guests)}名　${tm(b.open)}〜${tm(b.close)}</div>`;
     if(op){ const items = (b.items||[]).map(i => L(`${esc(i.name)}${N(i.qty)>1?` ×${N(i.qty)}`:''}`, (N(i.qty)*N(i.price)).toLocaleString('ja-JP'))).join('');
       h += `<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:6px">${N(c.set)+N(c.vip_set)?L(`セット${c.set_guests?` ${N(c.set_guests)}名`:''}`, (N(c.set)+N(c.vip_set)).toLocaleString('ja-JP')):''}${N(c.extension)+N(c.vip_ext)?L('延長', (N(c.extension)+N(c.vip_ext)).toLocaleString('ja-JP')):''}${items}
         ${N(c.adjustment)?L(N(c.adjustment)<0?'値引':'値増', N(c.adjustment).toLocaleString('ja-JP')):''}${N(c.service)?L(`サービス料${c.service_rate?`（${N(c.service_rate)}%）`:''}`, N(c.service).toLocaleString('ja-JP')):''}${N(c.tax)?L('消費税', N(c.tax).toLocaleString('ja-JP')):''}

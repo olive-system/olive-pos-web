@@ -1,6 +1,6 @@
 // v0.14・SQL 113：予約／同伴申請と予約一覧（自分が取った予約＋自分が係の予約）。お客様はフルネーム1つの欄・係はキャストから選ぶ・変更と取消は取った本人がその場で（承認なし。2026-10-15 オーナー）
 //   申請・変更・取消をすると、お店（公式 LINE のトーク）と係のキャストに LINE が届く。POS に出す所は後で
-const resvLine = r => `${Number(String(r.date).slice(5,7))}/${Number(String(r.date).slice(8,10))}（${WD[new Date(r.date+'T00:00:00+09:00').getDay()]}）${r.time}　${r.name} 様 ${r.guests}名`;
+const resvLine = r => `${mdW(r.date)}${r.time}　${r.name} 様 ${r.guests}名`;
 // LINE の文（SQL 114 の resv_text と同じ形。2026-10-15 オーナーの見本：【同伴】／日時　人数／お客様 様　係／誘客／メモ）。2026-10-23：待ち合わせは外した（オーナー「待ち合わせの時刻いらない」）
 // v0.79・SQL 265：同伴の子（申請した子だけでない時）と VIPルームの行（オーナー 2026-10-27「VIPルームの希望を伝える何か」「同伴が2名3名の時はお客様の数までキャストを選ぶ」）
 const rvDh = (x, by) => { const L = x.dh_names || x.dh || []; return x.douhan && (L.length > 1 || (L.length === 1 && L[0] !== (by ?? x.by))) ? '同伴 ' + L.join('・') : ''; };
