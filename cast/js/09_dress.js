@@ -14,7 +14,7 @@ async function dressReport(){
   /* v1.05・点検 2026-11-02 C2：罰金を免除されている子（D.exempt）には、決まりの箱（罰金の言葉・金額）を出さない */
   const rule = D.exempt ? '' : `<div class="warnbox"><b class="t">新調日の決まり</b>${D.threshold?`ドレスの金額が 前月の決定${unit}${D.pay_type === 'daily' ? ` ÷ ${dh}時間` : ''} × 3時間（<b>${yen(D.threshold)}</b>）以上なら罰金なし。`:`前月の決定${unit}がないため、金額の判定はありません。`}足りない時・期限までに提出がない時は 罰金（${esc(fineTxt2)}）</div>`;
   const RES = { ok:'罰金なし', short:'罰金あり', missing:'提出なし（罰金あり）', nojudge:'判定なし', kimono:'罰金なし（着物）' }; // v0.32・SQL 130：着物で免除
-  if(rp && rp.status !== 'pending_photo'){ show(`<div class="card"><div class="row"><span>新調日</span><b>${due}</b></div></div><div class="card c"><div class="big">${rp.status==='kimono'?'着物で免除':'提出済み'}</div>${rp.amount?`<div class="row" style="text-align:left"><span>金額</span><b>${yen(rp.amount)}</b></div>`:''}${D.exempt?'':`<div class="row" style="text-align:left"><span>判定</span><b class="${rp.status==='ok'?'':'err'}">${RES[rp.status]||''}</b></div>`}</div>${rule}`); return; } /* v1.05・点検 2026-11-02 C2：免除の子は判定（罰金あり／なし）を出さない */
+  if(rp && rp.status !== 'pending_photo'){ show(`<div class="card"><div class="row"><span>新調日</span><b>${due}</b></div></div><div class="card c"><div class="big">${rp.status==='kimono'?'着物で免除':'提出済'}</div>${rp.amount?`<div class="row" style="text-align:left"><span>金額</span><b>${yen(rp.amount)}</b></div>`:''}${D.exempt?'':`<div class="row" style="text-align:left"><span>判定</span><b class="${rp.status==='ok'?'':'err'}">${RES[rp.status]||''}</b></div>`}</div>${rule}`); return; } /* v1.05・点検 2026-11-02 C2：免除の子は判定（罰金あり／なし）を出さない */
   const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);text-align:right';
   show(`<div class="card"><div class="row"><span>新調日（提出の期限）</span><b>${due}</b></div><div class="muted sm">この日までに新しいドレスを買って、金額と写真2枚（ドレス・レシート）を提出します</div></div>
     <div class="card"><label class="f" for="drA">ドレスの金額（円）</label><input id="drA" inputmode="numeric" placeholder="例：58000" style="${fld}">
@@ -23,7 +23,7 @@ async function dressReport(){
     ${rule}<button class="btn" id="drGo">提出</button>`);
   /* v0.58・SQL 210：写真は2枚（ドレス・レシート。オーナー 2026-10-23「1枚に収めるのが難しい」） */
   [['drD','ドレス'],['drP','レシート']].forEach(([id,n]) => $(id).onchange = () => { const f = $(id).files[0], v = $(id+'v');
-    if(f){ v.style.backgroundImage = `url(${URL.createObjectURL(f)})`; v.style.borderStyle = 'solid'; v.textContent = ''; $(id+'n').textContent = `${n}　選択済み`; } });
+    if(f){ v.style.backgroundImage = `url(${URL.createObjectURL(f)})`; v.style.borderStyle = 'solid'; v.textContent = ''; $(id+'n').textContent = `${n}　選択済`; } });
   $('drGo').onclick = async () => {
     const a = Number(String($('drA').value).replace(/[^0-9]/g, '')), file = $('drP').files[0], dfile = $('drD').files[0];
     if(!(a > 0)){ await uiAlert('ドレスの金額を入力してください'); return; }

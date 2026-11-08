@@ -7,7 +7,7 @@ async function contactList(openForm){
   const rows = r.data.rows || [];
   if(openForm){ contactForm(r.data.today); return; }
   const md = d => `${Number(String(d).slice(5,7))}/${Number(String(d).slice(8,10))}（${WD[new Date(d+'T00:00:00+09:00').getDay()]}）`;
-  const tn = Number(r.data.today_n || 0), st = tn ? `<div class="sm" style="color:var(--ok);margin-bottom:8px">今日の提出 ${tn}人</div>` : r.data.today_none ? '<div class="sm" style="color:var(--ok);margin-bottom:8px">今日は交換なしで提出済み</div>' : '';
+  const tn = Number(r.data.today_n || 0), st = tn ? `<div class="sm" style="color:var(--ok);margin-bottom:8px">今日の提出 ${tn}人</div>` : r.data.today_none ? '<div class="sm" style="color:var(--ok);margin-bottom:8px">今日は交換なしで提出済</div>' : '';
   show(`<div class="ttl">連絡先交換</div>${st}<button class="btn" id="cxNew" style="margin-bottom:12px">提出</button><div class="card"><div class="gh">今月 ${rows.length}人</div>${rows.map(x => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div>${md(x.date)}${esc(x.name)} 様</div>
     ${RV_NOKK() ? (x.memo ? `<div class="muted sm">${esc(x.memo)}</div>` : '') : `<div class="muted sm">${KL} ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div>`}</div>`).join('') /* v1.05・点検 2026-11-02 D2：広島は担当を出さない */||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
   $('cxNew').onclick = () => contactForm(r.data.today);
@@ -80,7 +80,7 @@ function contactPick(T){
   const S = cpState; if(!S.rows.length) S.rows.push({ n:'', m:'' }); Object.keys(S.sel).forEach(id => { if(!L.some(c => c.id === id && !c.sent)) delete S.sel[id]; });
   const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} };
   const clear = () => { cpState = null; try{ localStorage.removeItem(KEY); }catch(e){} };
-  const kk = c => NK ? '' : c.sent ? '提出済み' : c.kakari ? `${KL} ${esc(c.kakari)}` : `${KL}確認中`;
+  const kk = c => NK ? '' : c.sent ? '提出済' : c.kakari ? `${KL} ${esc(c.kakari)}` : `${KL}確認中`;
   const cnt = () => Object.keys(S.sel).length + S.rows.filter(r => r.n.trim()).length;
   const paint = () => {
     show(`<div class="ttl">${dl} 連絡先交換の提出</div>

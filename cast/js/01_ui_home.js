@@ -1,5 +1,6 @@
 // v0.11：確認・お知らせは画面の中の窓で出す（ブラウザの窓にはサイトのアドレスが出るため。オーナー 2026-10-15）
-function dlg(msg, ok, cancel, html){ /* v1.31：html は呼ぶ側でエスケープ済み（黒ドレスのしるしを出す小窓） */ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
+const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
+function dlg(msg, ok, cancel, html){ if(!html) msg = jaNet(msg); /* v1.31：html は呼ぶ側でエスケープ済み（黒ドレスのしるしを出す小窓） */ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
   d.innerHTML = `<div class="box"><p>${html ? msg : esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn" data-k="ok">${esc(ok)}</button></div></div>`;
   document.body.appendChild(d); d.querySelector('[data-k=ok]').onclick = () => { d.remove(); res(true); }; const n = d.querySelector('[data-k=no]'); if(n) n.onclick = () => { d.remove(); res(false); }; }); }
 const uiAlert = m => dlg(m, 'OK', false), uiAlertH = m => dlg(m, 'OK', false, true), uiConfirm = (m, ok = 'OK') => dlg(m, ok, true);
@@ -8,7 +9,7 @@ function xBox(inner, done){ const d = document.createElement('div'); d.className
   document.body.appendChild(d); d.querySelector('[data-k=x]').onclick = () => { d.remove(); if(done) done(); }; return d; }
 const uiView = m => new Promise(res => xBox(`<p>${esc(m)}</p>`, res)), uiViewH = m => new Promise(res => xBox(`<p>${m}</p>`, res));
 function show(html){ $('main').innerHTML = html; window.scrollTo(0,0); }
-function fail(msg){ show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(msg)}</p><p class="muted sm">公式 LINE のメニューから再度開いてください</p></div>`); }
+function fail(msg){ msg = jaNet(msg); show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(msg)}</p><p class="muted sm">公式 LINE のメニューから再度開いてください</p></div>`); }
 
 async function start(){
   if(!LIFF[STORE]){ fail('店舗を特定できません（公式 LINE のメニューから開いてください）'); return; }

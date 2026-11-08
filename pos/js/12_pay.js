@@ -16,9 +16,9 @@ function renderPay(){ const b=cur,T=b.totals; $('pTable').textContent=tables.fin
 const isStale=e=>/もう1台/.test(e?.message||'');
 // v12.07・SQL 220：精算済みの日に現金の会計を入れようとした時は止める。「精算の取消」で精算を取り消してから入れ、閉店作業でレジ金合わせを再度（オーナー 2026-10-23「精算できないのは困るから、こんな時はもう一度レジ合わせをさせたい」）
 // run は Supabase の書き込み（{error} を返す）。やめた時は {error:{cancel:true}}
-async function cashClosed(run,what){ let r=await run(); const m=String(r?.error?.message||'').match(/精算済みの日は現金の会計を登録できません（(\d{4}-\d{2}-\d{2})）/); if(!m) return r;
+async function cashClosed(run,what){ let r=await run(); const m=String(r?.error?.message||'').match(/精算済み?の日は現金の会計を登録できません（(\d{4}-\d{2}-\d{2})）/); if(!m) return r;
   const dl=m[1]===businessDate()?'本日':`${+m[1].slice(5,7)}/${+m[1].slice(8,10)}`; const ok=$('uiDlgOk'); ok.textContent='精算の取消'; let yes=false;
-  try{ yes=await uiConfirm(`${dl}は精算済みです\n現金の会計を登録するには、精算を取り消して、レジ金合わせを再度行います\nカードなど現金以外の会計は、このまま登録できます`); } finally{ ok.textContent='OK'; }
+  try{ yes=await uiConfirm(`${dl}は精算済です\n現金の会計を登録するには、精算を取り消して、レジ金合わせを再度行います\nカードなど現金以外の会計は、このまま登録できます`); } finally{ ok.textContent='OK'; }
   if(!yes) return {error:{message:'',cancel:true}};
   const c=await sb.rpc('pos_close_cancel',{p_day:m[1],p_why:what||''}); if(c.error) return {error:c.error};
   r=await run(); if(!r.error) await uiAlert('精算を取り消しました\n閉店作業でレジ金合わせを再度行い、「精算を保存」を押してください'); return r; }
@@ -72,7 +72,7 @@ function btNew(){ const cs=btCusts(), c0=cs[0], m=document.createElement('div');
     <div class="bar" style="justify-content:flex-end"><button class="ghost" data-k="no">戻る</button><button class="primary" data-k="ok">この請求先にする</button></div></div>`;
   document.body.appendChild(m); const q=k=>m.querySelector(`[data-k=${k}]`); q('company').focus();
   q('no').onclick=()=>m.remove();
-  q('ok').onclick=guard(q('ok'),async()=>{ const company=q('company').value.trim(), address=q('address').value.trim(), attn=q('attn').value.trim(); if(!company){ await uiAlert('会社名を入れてください'); return; }
+  q('ok').onclick=guard(q('ok'),async()=>{ const company=q('company').value.trim(), address=q('address').value.trim(), attn=q('attn').value.trim(); if(!company){ await uiAlert('会社名を入力してください'); return; }
     const cid=cs.length>1?q('cust').value:(cs.length&&q('keep').checked?c0.id:''); let id=null;
     if(cid){ const r=await sb.from('customer_bill_tos').insert({customer_id:cid,company,address:address||null,attn:attn||null}).select('*').single(); if(r.error){ await uiAlert(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); return; } id=r.data.id; btList.rows.unshift(r.data); await logOp('請求先を足す',{customer:customers.find(c=>c.id===cid)?.name,company}); }
     billTo={id,customer_id:cid||null,company,address,attn,bill:cur.id}; m.remove(); btRender(); }); }
@@ -85,7 +85,7 @@ function splitApply(){ const b=cur, un=Math.max(0,b?.totals?.unpaid??0), open=b&
 $('paySplit').onclick=()=>{ const un=Math.max(0,cur?.totals?.unpaid??0); if(!un) return; const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=60;
   m.innerHTML=`<div class="box" style="width:min(460px,92vw)"><h2 style="margin:0 0 6px">人数で割る</h2><div class="muted">未収 ${yen(un)}</div>
     <div class="chips" style="margin:12px 0">${[2,3,4,5,6,7,8,9,10].map(n=>`<button class="chip" data-n="${n}">${n}人</button>`).join('')}</div><div id="spOut" style="min-height:1.6em;font-size:18px"></div>
-    <div class="bar" style="justify-content:flex-end"><button class="ghost" data-k="no">やめる</button><button class="primary" data-k="ok" disabled>この金額にする</button></div></div>`;
+    <div class="bar" style="justify-content:flex-end"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok" disabled>決定</button></div></div>`;
   document.body.appendChild(m); let n=0; const per=x=>Math.floor(un/x);
   m.querySelectorAll('[data-n]').forEach(c=>c.onclick=()=>{ n=+c.dataset.n; m.querySelectorAll('[data-n]').forEach(z=>z.classList.toggle('on',z===c)); const p=per(n), last=un-p*(n-1); m.querySelector('#spOut').innerHTML=`${n}人：1人 <b>${yen(p)}</b>${last!==p?`（最後の人 ${yen(last)}）`:''}`; m.querySelector('[data-k=ok]').disabled=false; });
   m.querySelector('[data-k=no]').onclick=()=>m.remove();

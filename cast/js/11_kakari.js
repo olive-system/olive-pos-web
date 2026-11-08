@@ -9,7 +9,7 @@ async function resvThanksById(id){
   if(r.error){ fail(r.error.message); return; }
   RESV = r.data || []; const x = RESV.find(v => v.id === id);
   if(!x){ await uiAlert('この予約は取消されたか、来店日を過ぎています'); resvList(); return; }
-  if(x.thanked){ await uiAlert('ありがとうは送信済みです'); resvList(); return; }
+  if(x.thanked){ await uiAlert('ありがとうは送信済です'); resvList(); return; }
   resvThanks(x);
 }
 function resvThanks(x){
@@ -32,13 +32,13 @@ function resvThanks(x){
 const RV_LINE_NG = '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>';
 async function resvListNg(lineOk){ await resvList(); if(!lineOk) $('main').insertAdjacentHTML('afterbegin', RV_LINE_NG); }
 async function resvCancel(x, b){
-  if(!await uiConfirm(`${resvLine(x)}\nこの予約を取消しますか？`, '取消')) return;
+  if(!await uiConfirm(`${resvLine(x)}\nこの予約を取り消しますか？`, '取消')) return;
   if(b) b.disabled = true; /* v0.94：送っている間は押せない（2回押し） */
   const q = await sb.rpc('cast_resv_cancel', { p_token: TOKEN, p_id: x.id });
   if(q.error){ if(b) b.disabled = false; await uiAlert(q.error.message); return; }
   let lineOk = true;
   try{ await liff.sendMessages([{ type:'text', text: resvMsg('予約取消', x, x.kakari_name || '', ME.name) }]); }catch(e){ lineOk = false; }
-  await uiAlert('予約を取消しました');
+  await uiAlert('予約を取り消しました');
   resvListNg(lineOk);
 }
 async function resvForm(ed){
@@ -59,7 +59,7 @@ async function resvForm(ed){
       <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end"><label class="f hide" id="rvVW" style="flex:1;min-width:0;margin:0">VIPルーム<select id="rvV" style="${fld}"><option value="">なし</option></select></label>
         <div style="flex:none"><div class="f">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 14px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 14px">あり</button></div></div></div>
       <div id="rvBW" class="hide" style="display:flex;gap:8px;margin-top:8px;align-items:flex-start"><label class="f" style="width:110px;flex:none;margin:0">黒ドレス<select id="rvB" style="${fld};padding:0 6px"></select></label>
-        <div style="flex:1;min-width:0"><div class="f">同伴キャスト</div><div id="rvDhC"></div></div></div>
+        <div style="flex:1;min-width:0"><div class="f">同伴</div><div id="rvDhC"></div></div></div>
       <div id="rvSW" class="hide"><div style="display:flex;gap:14px;margin-top:8px;align-items:flex-end"><div><div class="f">出勤希望</div><div style="display:flex;gap:8px"><button class="btn g" id="rvSr0" style="width:auto;padding:8px 18px">なし</button><button class="btn g" id="rvSr1" style="width:auto;padding:8px 18px">あり</button></div></div>
         <label class="f hide" id="rvSTW" style="flex:1;min-width:0;margin:0">出勤時刻<select id="rvST" style="${fld}"></select></label></div></div>
       <div id="rvVB" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:6px"></div>

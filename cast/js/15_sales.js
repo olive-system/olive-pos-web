@@ -46,9 +46,9 @@ function salesPick(){
 function salesShot(){
   setBack(home);
   const R = SALES.report;
-  show(`<div class="ttl">アプローチ</div><div class="card"><div class="c" style="padding:6px;color:var(--ok);font-weight:700">連絡済リスト共有済み ${R.count}名</div></div>
+  show(`<div class="ttl">アプローチ</div><div class="card"><div class="c" style="padding:6px;color:var(--ok);font-weight:700">連絡済リスト共有済 ${R.count}名</div></div>
     <div class="card"><div class="gh">スクショ</div><div style="font-weight:700;font-size:17px">${esc(R.pick)}</div>${R.sent?'':'<div class="sm" style="color:var(--warn);margin-top:4px">19:50 までに送ってください</div>'}
-    ${R.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済み${R.to?`（${esc(R.to)}）`:''}</div>`:`<label class="btn g" style="display:block;text-align:center;margin-top:10px"><span id="slPt">スクショを選ぶ</span><input type="file" id="slP" accept="image/*" style="display:none"></label><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?esc(KL):'担当黒服'}${R.to?`（${esc(R.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
+    ${R.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済${R.to?`（${esc(R.to)}）`:''}</div>`:`<label class="btn g" style="display:block;text-align:center;margin-top:10px"><span id="slPt">スクショを選ぶ</span><input type="file" id="slP" accept="image/*" style="display:none"></label><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?esc(KL):'担当黒服'}${R.to?`（${esc(R.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
     ${R.sent?'':'<button class="btn" id="slShot">送信</button>'}`);
   if(R.sent) return;
   $('slP').onchange = () => { $('slPt').textContent = $('slP').files[0] ? 'スクショを選びました（選び直す）' : 'スクショを選ぶ'; };

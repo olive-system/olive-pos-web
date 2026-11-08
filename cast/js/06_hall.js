@@ -27,7 +27,7 @@ let tdAB = null, tdAbVals = {};
 const tdAbOk = v => /^\d{1,3}$/.test(String(v ?? '').trim());
 /* v1.28・SQL 367：AB棚の下にワイン・シャンパンも品ごと（オーナー 2026-11-05「ア 品ごと」・見本 作業場/棚卸し_ワイン・シャンパン_案.png） */
 const tdAbGroups = () => (tdAB && tdAB.groups) || (tdAB ? [{ title: 'AB棚', products: tdAB.products || [] }] : []);
-const tdAbCnt = P => { const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length; return `入力済み ${n}品・未入力 ${P.length - n}品`; };
+const tdAbCnt = P => { const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length; return `入力済 ${n}品・未入力 ${P.length - n}品`; };
 function tdAbHtml(x, done){
   if(!tdAB || tdAB.item !== x.id || !(tdAB.products || []).length) return '';
   const G = tdAbGroups().filter(g => (g.products || []).length), C = tdAB.counts || {}, row = (p, i, r) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(p.name)}</div>${r}<span class="muted sm" style="width:1.5em">本</span></div>`;
@@ -42,7 +42,7 @@ function hallTodoOne(x, keep){
   const grid = L => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${L}</div>`;
   show(`<div class="ttl">${esc(x.name)}</div><div class="card">${TODO_SLOT[x.slot]?`<div class="muted" style="font-size:13px;margin-bottom:6px">${TODO_SLOT[x.slot]}</div>`:''}<div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps||'手順なし')}</div></div>
     ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${ph.length?` <small class="muted">（写真 ${ph.length}枚）</small>`:''}${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${ph.length?grid(ph.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')):''}</div>${tdAbHtml(x, true)}
-    <button class="btn g" id="tdRedo">やり直す</button><div class="muted sm" style="text-align:center;margin-top:4px">その日の精算を保存するまで直せます</div>` : `
+    <button class="btn g" id="tdRedo">やり直す</button><div class="muted sm" style="text-align:center;margin-top:4px">その日の精算を保存するまで修正できます</div>` : `
     ${x.status === 'skip' ? `<div class="card"><b class="muted">できない　${esc(x.by||'')}</b><div style="margin-top:4px">${esc(x.reason||'')}</div></div>` : ''}
     ${tdAbHtml(x)}
     ${x.need_note ? `<label class="f" style="display:block;margin-top:8px">${esc(x.note_hint||'内容')}<textarea id="tdN" maxlength="2000" style="${fld};min-height:120px">${esc(keep&&keep.note!=null?keep.note:(x.note||''))}</textarea></label>` : ''}
@@ -129,7 +129,7 @@ function hcPaint(){
   const C = hcD, G = C.guests || [], left = G.filter(g => g.customer && !g.ok_at).length;
   const tag = '<span style="display:inline-block;background:var(--pri);color:#fff;border-radius:4px;padding:0 5px;font-size:12px;font-weight:700">同伴</span> ';
   const guest = g => { const cu = g.customer, op = hcOpen.has(g.id) && cu;
-    const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済み ${hm2(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
+    const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済 ${hm2(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
     let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${g.time}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${g.douhan?'同伴 '+(g.dh&&g.dh.length?g.dh:[g.by]).map(n=>esc(n)+(n===g.black?DRESS:'')).join('・'):STORE==='hiroshima'?'誘客 '+esc(g.by||'—'):`${esc(KL)} ${esc(g.kakari||'—')}${g.by&&g.by!==g.kakari?'・誘客 '+esc(g.by):''}`}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div></div>`; /* v0.91：広島は担当を出さない（2026-10-29 オーナー）。v0.98・SQL 298：卓（POS の朝礼と同じ。選ぶとすぐ保存） */
     if(!op) return h;
     const bd = cu.birthday ? `${esc(cu.birthday)}${cu.bday_in===0?'（本日）':cu.bday_in!=null&&cu.bday_in<=7?`（あと${cu.bday_in}日）`:''}` : '—';

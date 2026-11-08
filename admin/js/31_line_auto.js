@@ -20,12 +20,12 @@ PAGES.o_line_auto=async()=>{ const st=storeId, head=`<h1>LINE自動送信 <small
     if(k==='dress'&&!dr.enabled) return `<tr><td>${n}</td><td class="muted">—</td><td colspan="3" class="muted">新調日「しない」（報酬・罰金項目で変更）</td></tr>`;
     return `<tr data-la="${k}"><td>${n}</td><td>${due[k]}</td><td>期限の ${laDays('data-lv="days"',x.days_before)}</td><td>${laTime('data-lv="at"',x.at_time)}</td><td>${laOn('data-lv="on"',x.enabled)}</td></tr>`; };
   const h=R.hall||{enabled:true,at_time:'19:00'};
-  const rank=!K?'':`<div class="card"><b>ランキング</b><div class="muted" style="font-size:13px;margin-top:4px">キャスト全員へ、先週の順位・毎月1日は先月の順位（LINE連携済みのみ）</div>
+  const rank=!K?'':`<div class="card"><b>ランキング</b><div class="muted" style="font-size:13px;margin-top:4px">キャスト全員へ、先週の順位・毎月1日は先月の順位（LINE連携済のみ）</div>
     <table class="t" style="margin-top:8px;table-layout:fixed">${LA_HEAD}<tr data-rk><td>ランキング</td><td class="muted">—</td>
       <td>${K.dow!=null?`毎週 ${laSel('data-rv="dow"',LA_WD.map((w,i)=>[i,w]),K.dow)}`:'毎週月曜・毎月1日'}</td><td>${K.at_time?laTime('data-rv="at"',K.at_time):'12:00'}</td><td>${laOn('data-rv="on"',K.enabled)}</td></tr></table></div>`;
-  $('main').innerHTML=head+`<div class="card"><b>リマインド（キャスト）</b><div class="muted" style="font-size:13px;margin-top:4px">未提出の子へ、提出画面のリンク付きの LINE（LINE連携済みのみ）</div>
+  $('main').innerHTML=head+`<div class="card"><b>リマインド（キャスト）</b><div class="muted" style="font-size:13px;margin-top:4px">未提出の子へ、提出画面のリンク付きの LINE（LINE連携済のみ）</div>
       <table class="t" style="margin-top:8px;table-layout:fixed">${LA_HEAD}${LA_ROWS.map(([k,n])=>row(k,n)).join('')}</table></div>
-    <div class="card"><b>リマインド（黒服）</b><div class="muted" style="font-size:13px;margin-top:4px">担当キャストの未提出の一覧（LINE連携済みのみ）</div>
+    <div class="card"><b>リマインド（黒服）</b><div class="muted" style="font-size:13px;margin-top:4px">担当キャストの未提出の一覧（LINE連携済のみ）</div>
       <table class="t" style="margin-top:8px;table-layout:fixed">${LA_HEAD}<tr data-la="hall"><td>未提出の一覧</td><td>各期限</td><td>期限の当日</td><td>${laTime('data-lv="at"',h.at_time)}</td><td>${laOn('data-lv="on"',h.enabled)}</td></tr></table></div>
     ${rank}<div class="muted" style="font-size:13px">変更するとすぐ保存</div>`;
   $('main').querySelectorAll('[data-la]').forEach(tr=>tr.querySelectorAll('select').forEach(sel=>sel.onchange=async()=>{ const k=tr.dataset.la, v=n=>tr.querySelector(`[data-lv=${n}]`)?.value;
@@ -46,7 +46,7 @@ PAGES.o_line_auto=async()=>{ const st=storeId, head=`<h1>LINE自動送信 <small
   const ae=document.createElement('div'); ae.className='card';
   ae.innerHTML=`<b>応募者</b><div class="muted" style="font-size:13px;margin-top:4px">応募の人へ（再アプローチはオーナーと担当へ）</div>
     <table class="t" style="margin-top:8px;table-layout:fixed">${LA_HEAD.replace('<th>期限</th><th>送信日</th>','<th>対象</th><th>文</th>')}${AR.map(([k,n,tg,t])=>{ const x=A[k]||{};
-      return `<tr data-ap="${k}"><td>${n}</td><td>${tg}</td><td><button class="ghost sm" data-ape>編集</button>${x.custom?' <span class="muted" style="font-size:12px">変更済み</span>':''}</td><td>${t?laTime('data-apv="at"',x.at_time):'<span class="muted">すぐ</span>'}</td><td>${laOn('data-apv="on"',x.enabled)}</td></tr>`; }).join('')}</table>
+      return `<tr data-ap="${k}"><td>${n}</td><td>${tg}</td><td><button class="ghost sm" data-ape>編集</button>${x.custom?' <span class="muted" style="font-size:12px">変更済</span>':''}</td><td>${t?laTime('data-apv="at"',x.at_time):'<span class="muted">すぐ</span>'}</td><td>${laOn('data-apv="on"',x.enabled)}</td></tr>`; }).join('')}</table>
     <div id="apEd"></div>`;
   $('main').appendChild(ae);
   const apSave=async(k,body)=>{ const tr=ae.querySelector(`[data-ap="${k}"]`), v=n=>tr.querySelector(`[data-apv=${n}]`)?.value;

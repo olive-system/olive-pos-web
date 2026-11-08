@@ -7,7 +7,7 @@ async function docsList(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   if(!await docsLoad()){ fail('書類を表示できません'); return; }
   if(DOCS.hold){ show('<div class="card">表示できる書類はありません</div>'); return; } /* v1.18・SQL 347：入店して担当の黒服と対面で［開始］するまで、契約書を見せない（オーナー 2026-11-04） */
-  const D = DOCS, st = ok => `<span class="sm" style="color:${ok?'var(--ok)':'var(--warn)'}">${ok?'提出済み':'未提出'}</span>`, left = ME.docs.left;
+  const D = DOCS, st = ok => `<span class="sm" style="color:${ok?'var(--ok)':'var(--warn)'}">${ok?'提出済':'未提出'}</span>`, left = ME.docs.left;
   const ag = D.agreed ? new Date(D.agreed.at) : null;
   show(`<div class="ttl">書類</div><div class="card">${left?`<div class="sm" style="color:var(--warn);font-weight:700;padding-bottom:8px">提出期限 ${D.due?mdDay(D.due)+'（最初の報酬の受取）':'最初の報酬の受取'}</div>`:''}
     <div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><b>契約書</b>${st(D.contract)}</div>

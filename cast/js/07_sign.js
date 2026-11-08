@@ -15,7 +15,7 @@ async function payslip(){
   const md = d => `${Number(String(d).slice(5,7))}/${Number(String(d).slice(8,10))}`;
   const adv = (P.advances||[]).map(a => `<div class="row"><span>${md(a.date)}（${WD[new Date(a.date+'T00:00:00+09:00').getDay()]}）</span><b>${yen(a.amount)}</b></div>`).join('');
   const fl = (P.fines||[]).map(f => `<div class="row"><span>${md(f.date)} ${esc(f.reason||'')}</span><b>${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</b></div>`).join('');
-  const rc = P.receipt ? `<div class="card c"><div class="big">受取確認済み</div><p>${mo}月分　${new Date(P.receipt.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</p></div>`
+  const rc = P.receipt ? `<div class="card c"><div class="big">受取確認済</div><p>${mo}月分　${new Date(P.receipt.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</p></div>`
     : P.can_sign ? `<div class="card"><div class="gh">受取確認（報酬を受け取ったらサイン）</div><canvas class="sign" id="sg"></canvas><div class="row" style="margin-top:8px;gap:8px"><button class="btn g" id="sgClr" style="width:auto;padding:10px 16px">再入力</button><button class="btn" id="sgOk" style="flex:1">受取確認</button></div></div>`
     : `<div class="card muted sm">受取確認は15日からです</div>`;
   show(`<div class="mon"><span></span><b>${y}年${mo}月分</b><span></span></div><div id="slip">${slipHtml(P)}</div>

@@ -125,9 +125,9 @@
 <div class="login hidden" id="reg">
   <form id="regForm">
     <h1>この端末を登録</h1>
-    <div style="font-size:15px;color:var(--muted);line-height:1.6">管理サイトの「パスワード」画面で発行した登録コード（6けた）を入力してください</div>
+    <div style="font-size:15px;color:var(--muted);line-height:1.6">管理サイトの「パスワード」画面で発行した登録コード（6桁）を入力してください</div>
     <input id="regCode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="登録コード">
-    <button type="submit">登録する</button>
+    <button type="submit">登録</button>
     <div class="err" id="regErr"></div>
   </form>
 </div>
@@ -156,7 +156,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div class="ask" id="ask"><div class="box"><div class="nm" id="askNm"></div><div id="askMsg"></div><div class="w">退勤でよいですか？</div><div class="bt"><button class="no" id="askNo">やめる</button><button class="yes" id="askYes">退勤する</button></div></div></div>
+<div class="ask" id="ask"><div class="box"><div class="nm" id="askNm"></div><div id="askMsg"></div><div class="w">退勤でよいですか？</div><div class="bt"><button class="no" id="askNo">キャンセル</button><button class="yes" id="askYes">退勤</button></div></div></div>
 <div class="fx" id="fx"><div class="msg" id="fxMsg"></div></div>
 <canvas id="canvas" class="hidden"></canvas>
 
@@ -201,9 +201,9 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
       email: document.getElementById('email').value.trim(),
       password: document.getElementById('pw').value
     });
-    if (error) { err.textContent = /Invalid login credentials/.test(error.message) ? 'メールアドレスかパスワードが違います（自動で入った文字は消して、打ち直してください）' : 'ログインできません：' + error.message; return; }
+    if (error) { err.textContent = /Invalid login credentials/.test(error.message) ? 'メールアドレスかパスワードが違います（自動で入った文字は消して、打ち直してください）' : 'ログインできません：' + jaNet(error.message); return; }
     await start(true);
-  } catch (ex) { err.textContent = 'ログインできません：' + (ex && ex.message || ex) + '（ほかのタブで開いているタイムカードを閉じてから、もう一度）'; }
+  } catch (ex) { err.textContent = 'ログインできません：' + jaNet(ex && ex.message || ex) + '（ほかのタブで開いているタイムカードを閉じてから、再度お試しください）'; }
   finally { clearTimeout(slow); btn.disabled = false; btn.textContent = 'ログイン'; }
 });
 
@@ -220,7 +220,7 @@ document.getElementById('regForm').addEventListener('submit', async e => {
   e.preventDefault();
   const err = document.getElementById('regErr'); err.textContent = '';
   const code = document.getElementById('regCode').value.trim();
-  if (!/^\d{6}$/.test(code)) { err.textContent = '登録コードは6けたの数字です'; return; }
+  if (!/^\d{6}$/.test(code)) { err.textContent = '登録コードは6桁の数字です'; return; }
   const { data, error } = await sb.rpc('tc_register', { p_code: code });
   if (error) { err.textContent = error.message; return; }
   tcSet(data.token); document.getElementById('reg').classList.add('hidden'); start();
@@ -228,7 +228,7 @@ document.getElementById('regForm').addEventListener('submit', async e => {
 
 async function start(fromLogin){
   const { data:{ session } } = await sb.auth.getSession();
-  if (!session) { if (fromLogin) document.getElementById('loginErr').textContent = 'ログインの記録が残りませんでした。プライベートブラウズを切ってから、もう一度'; return; }
+  if (!session) { if (fromLogin) document.getElementById('loginErr').textContent = 'ログインの記録が残りませんでした。プライベートブラウズを切ってから、再度お試しください'; return; }
   document.getElementById('login').classList.add('hidden');
   { const ld = await tcLoad(), tk = ld[0], note = ld[1]; if (tk) keyDb('readwrite', s => s.put(tk, TC_KEY));
     let r = await sb.rpc('tc_check', { p_token: tk, p_note: note }); if (r.error && /p_note|function/i.test(r.error.message)) r = await sb.rpc('tc_check', { p_token: tk }); /* SQL 233 の前 */
@@ -271,7 +271,7 @@ async function loadStaff(){
   if (error || !Array.isArray(data)) ({ data, error } = await sb.from('staff')
     .select('id,display_name,kind,is_trial,kakari_only,no_timecard,created_at').eq('is_active', true).order('sort_order'));
   const grid = document.getElementById('grid'); grid.innerHTML = '';
-  if (error) { grid.textContent = 'スタッフ取得エラー：' + error.message; return; }
+  if (error) { grid.textContent = 'スタッフ取得エラー：' + jaNet(error.message); return; }
   // 体験キャストは1日限り：登録した営業日（朝8時区切り）の翌営業日からは表示しない
   const bdOf = d => { const x = new Date(d.getTime() - 8*3600*1000); return x.getFullYear()*10000 + (x.getMonth()+1)*100 + x.getDate(); };
   const todayBd = bdOf(new Date());
@@ -396,7 +396,9 @@ function tcAsk(name, min){
     el.classList.add('show'); });
 }
 
-function showToast(main, sub, ms){
+/* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
+function jaNet(m){ return /Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m)) ? '通信できませんでした。再度お試しください' : m; }
+function showToast(main, sub, ms){ sub = jaNet(sub);
   const t = document.getElementById('toast');
   t.innerHTML = `${main}<small>${sub}</small>`;
   t.classList.add('show');
@@ -427,7 +429,7 @@ function fxLate(limit){
   const fx = document.getElementById('fx');
   fx.className = 'fx show late';
   fx.querySelectorAll(':scope > :not(.msg)').forEach(n => n.remove());
-  document.getElementById('fxMsg').innerHTML = `<div class="big">お客様の着席から${limit}分以上たっています</div><div class="sub">次回は早めの準備をお願いします</div><button id="lateOk">確認しました</button>`;
+  document.getElementById('fxMsg').innerHTML = `<div class="big">お客様の着席から${limit}分以上たっています</div><div class="sub">次回は早めの準備をお願いします</div><button id="lateOk">確認</button>`;
   return new Promise(r => { let done=false; const end=()=>{ if(done) return; done=true; fx.className='fx'; r(); }; document.getElementById('lateOk').onclick=end; setTimeout(end, 20000); });
 }
 

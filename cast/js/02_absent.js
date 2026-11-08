@@ -29,7 +29,7 @@ async function absent(){
 }
 function absentDone(date, at, fine, already, lineOk = true, exempt = false){
   setBack(home);
-  show(`${already ? segHtml('absent') : ''}<div class="card c"><div class="big">${already ? '送信済み' : '送信完了'}</div><p>${dTxt(date)}の欠勤連絡を受付しました。</p>
+  show(`${already ? segHtml('absent') : ''}<div class="card c"><div class="big">${already ? '送信済' : '送信完了'}</div><p>${dTxt(date)}の欠勤連絡を受付しました。</p>
     <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div>${exempt ? '' : `<div class="row" style="text-align:left"><span>罰金</span><b>${esc(fine || 'なし')}</b></div>`}
     <div class="muted sm">取消は黒服にご連絡ください</div>${lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>
     <button class="btn g" id="abHome">ホーム</button>`);
@@ -69,7 +69,7 @@ async function lateForm(hall){
 function lateDone(hall, date, at, shift, eta, st, already, lineOk = true, noAppr = false){
   const na = noAppr && st === 'pending'; /* v1.05・点検 2026-11-02 A4：承認者に届いていない時は「承認者が確認中」を出さず、赤い文 */
   setBack(hall ? hallHome : home);
-  show(`${already && !hall ? segHtml('late') : ''}<div class="card c"><div class="big">${already ? '送信済み' : '送信完了'}</div><p>${dTxt(date)}の遅刻連絡を受付しました。</p>
+  show(`${already && !hall ? segHtml('late') : ''}<div class="card c"><div class="big">${already ? '送信済' : '送信完了'}</div><p>${dTxt(date)}の遅刻連絡を受付しました。</p>
     <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div><div class="row" style="text-align:left"><span>出勤予定</span><b>${esc(eta)}</b></div>
     ${na ? '' : `<div class="row" style="text-align:left"><span>罰金</span><b>${st === 'approved' ? 'なし（免除）' : st === 'rejected' ? '遅刻（通常）' : '承認者が確認中'}</b></div>`}
     ${na ? '<p class="err sm">承認者に LINE が届いていません。黒服に LINE でもご連絡ください</p>' : lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>

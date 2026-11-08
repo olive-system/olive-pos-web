@@ -13,10 +13,11 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'oliv
 const EMAIL_DOMAIN='@admin.olive.local';
 const $=id=>document.getElementById(id);
 const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('on'),2000); }
+const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
+function toast(m){ const t=$('toast'); t.textContent=jaNet(m); t.classList.add('on'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('on'),2000); }
 function guard(btn,fn){ return async(...a)=>{ if(btn.disabled) return; btn.disabled=true; try{ await fn(...a); } finally{ btn.disabled=false; } }; }
 function modal(html){ const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box">${html}</div>`; document.body.appendChild(m); return m; }
-function uiAlert(msg){ return new Promise(res=>{ const m=modal(`<div style="white-space:pre-wrap">${esc(msg)}</div><div class="bar"><button class="primary" data-k="ok">OK</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(); }; }); }
+function uiAlert(msg){ msg=jaNet(msg); return new Promise(res=>{ const m=modal(`<div style="white-space:pre-wrap">${esc(msg)}</div><div class="bar"><button class="primary" data-k="ok">OK</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(); }; }); }
 function uiConfirm(msg,okLabel='OK',cls='primary'){ return new Promise(res=>{ const m=modal(`<div style="white-space:pre-wrap">${esc(msg)}</div><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="${cls}" data-k="ok">${esc(okLabel)}</button></div>`); m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(false); }; m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(true); }; }); }
 /* v0.86：表を横に流しても、左の列（No・状態・営業日・お客様・係）は動かさない。どの伝票の行かがわかるように */
 function stickCols(tb,n){ if(!tb) return; const hr=tb.querySelector('tr'); if(!hr) return; const L=[]; let x=0; [...hr.children].slice(0,n).forEach(c=>{ L.push(x); x+=c.getBoundingClientRect().width; });
