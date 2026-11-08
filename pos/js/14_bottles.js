@@ -1,7 +1,5 @@
 // ---------- ボトル（全ボトルの一覧・ご来店のないお客様の抽出・期限切れ） ----------
-function ymdJa(d){ const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]}年${+m[2]}月${+m[3]}日`:''; }
 function sDate(d){ if(!d) return ''; const [y,m,dd]=String(d).slice(0,10).split('-'); return (y==String(new Date().getFullYear())?'':y+'/')+Number(m)+'/'+Number(dd); }
-function expLine(b){ return `${b.name}　${b.remaining??0}/10　${(d=>d?d.slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on)} ${b.moved?'ボトル移動':'期限切れ'}${b.moved&&b.moved_to?'　移動先 '+b.moved_to:''}`; } /* v10.84：日付は 2026/9/29 の形 */
 function knLabel(b,cname){ return b.keep_name&&b.keep_name!==cname?`（キープ名：${b.keep_name}）`:''; }
 async function expireBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`)) return false; const d=businessDate(); const { error } = await sb.from('customer_bottles').update({expired_on:d,updated_at:new Date().toISOString()}).eq('id',b.id); if(error){ toast(error.message.includes('column')?'SQL 017 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル期限切れ',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=d; toast('期限切れにしました'); return true; }
 // v10.75：ボトル移動（移動先は記録しない。日付と残量を残してキープから外す。SQL 045）

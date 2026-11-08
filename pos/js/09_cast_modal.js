@@ -23,8 +23,9 @@ $('castAddBtn').onclick=async()=>{
     const { error } = await sb.from('bill_casts').insert({bill_id:cur.id,staff_id:b.dataset.id,role,is_kakari:mk}); if(error){toast(error.message);return;} await logOp(dh?'同伴を追加':'係を追加',{name:snm(b.dataset.id),kakari:mk,kind:dh?ROLE[role]:null});
     if(mk) await syncHcBack();
     $('castModal').classList.remove('on'); openBill(cur.id); };
-  $('castList').querySelectorAll('.chip').forEach(b=>b.onclick=()=>pick(b));
-  $('castListAll').querySelectorAll('.chip').forEach(b=>b.onclick=()=>pick(b));
+  /* 続けて押すと、手元の伝票がまだ古いまま2回とも付ける所まで進むので、1つ終わるまで次を受けない */ let picking=false; const pickOnce=async b=>{ if(picking) return; picking=true; try{ await pick(b); } finally{ picking=false; } };
+  $('castList').querySelectorAll('.chip').forEach(b=>b.onclick=()=>pickOnce(b));
+  $('castListAll').querySelectorAll('.chip').forEach(b=>b.onclick=()=>pickOnce(b));
   $('castModal').classList.add('on'); };
 $('castMoreBtn').onclick=()=>{ const el=$('castListAll'); el.classList.toggle('hidden'); $('castMoreBtn').textContent=el.classList.contains('hidden')?'出勤していないキャストから選ぶ ▾':'出勤していないキャストから選ぶ ▴'; };
 $('castCancel').onclick=()=>$('castModal').classList.remove('on');
