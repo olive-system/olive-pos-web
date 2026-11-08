@@ -17,7 +17,7 @@ const isStale=e=>/もう1台/.test(e?.message||'');
 // v12.07・SQL 220：精算済みの日に現金の会計を入れようとした時は止める。「精算の取消」で精算を取り消してから入れ、閉店作業でレジ金合わせを再度（オーナー 2026-10-23「精算できないのは困るから、こんな時はもう一度レジ合わせをさせたい」）
 // run は Supabase の書き込み（{error} を返す）。やめた時は {error:{cancel:true}}
 async function cashClosed(run,what){ let r=await run(); const m=String(r?.error?.message||'').match(/精算済み?の日は現金の会計を登録できません（(\d{4}-\d{2}-\d{2})）/); if(!m) return r;
-  const dl=m[1]===businessDate()?'本日':`${+m[1].slice(5,7)}/${+m[1].slice(8,10)}`; const ok=$('uiDlgOk'); ok.textContent='精算の取消'; let yes=false;
+  const dl=m[1]===businessDate()?'本日':mdS(m[1]); const ok=$('uiDlgOk'); ok.textContent='精算の取消'; let yes=false;
   try{ yes=await uiConfirm(`${dl}は精算済です\n現金の会計を登録するには、精算を取り消して、レジ金合わせを再度行います\nカードなど現金以外の会計は、このまま登録できます`); } finally{ ok.textContent='OK'; }
   if(!yes) return {error:{message:'',cancel:true}};
   const c=await sb.rpc('pos_close_cancel',{p_day:m[1],p_why:what||''}); if(c.error) return {error:c.error};

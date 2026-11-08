@@ -10,7 +10,8 @@ function bdayLines(b){ return (b.bill_customers||[]).map(x=>customers.find(c=>c.
 // v11.13：反応◎・同伴はその営業日に出勤した（出勤か同伴の打刻がある）キャストだけ
 /* v12.30：出勤の一覧は20秒の間は読み直さない（ホールの描き直しのたびに読んでいた）。打刻した時・在籍リストを開いた時は読み直す */
 let attC={}; const attDrop=()=>{ attC={}; };
-function attendedOn(bd){ const c=attC[bd]; if(c&&Date.now()-c.at<20000) return c.p.then(x=>new Set(x)); const p=sb.from('attendance_events').select('staff_id').eq('business_date',bd).in('event_type',['clock_in','douhan']).then(r=>{ if(r.error&&attC[bd]&&attC[bd].p===p) delete attC[bd]; return new Set((r.data||[]).map(e=>e.staff_id)); }); attC[bd]={at:Date.now(),p}; return p.then(x=>new Set(x)); }
+/* 読めない時に空にすると「＋同伴」「＋反応◎」の選ぶ欄と出勤の人数が黙って0になるので、前に読めた分を使う */ const attOk={};
+function attendedOn(bd){ const c=attC[bd]; if(c&&Date.now()-c.at<20000) return c.p.then(x=>new Set(x)); const p=sb.from('attendance_events').select('staff_id').eq('business_date',bd).in('event_type',['clock_in','douhan']).then(r=>{ if(r.error){ if(attC[bd]&&attC[bd].p===p) delete attC[bd]; return new Set(attOk[bd]||[]); } const s=new Set((r.data||[]).map(e=>e.staff_id)); attOk[bd]=s; return s; }); attC[bd]={at:Date.now(),p}; return p.then(x=>new Set(x)); }
 // v10.53：反応◎（お客様の反応が良かったキャスト。1伝票に同じ人は1回。営業中の伝票だけ付け外しできる。SQL 039）
 async function renderGood(b){ const box=$('bGood'), sel=$('goodAdd'); if(!box||!sel) return; const r=await sb.from('good_reactions').select('id,staff_id').eq('bill_id',b.id); if(cur!==b) return; if(r.error){ box.innerHTML=''; sel.style.display='none'; return; } if(!staffAll.length) await loadStaffAll(); const att=await attendedOn(b.business_date); if(cur!==b) return;
   const gl=r.data||[]; const nm=id=>staffAll.find(x=>x.id===id)?.display_name||''; const open=b.status==='open';

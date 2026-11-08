@@ -62,10 +62,10 @@ async function renderCasts(){ cMode='today'; { const ta=$('cTabAll'); if(ta) ta.
   const rwPick=(id,title,types,extra)=>new Promise(res=>{ const st=staffAll.find(x=>x.id===id); const m=mkModal(60);
     m.innerHTML=`<div class="box" style="width:min(440px,94vw)"><div style="font-size:18px;font-weight:700;margin-bottom:10px">${esc(st?.display_name||'')}　${title}</div>${extra||''}<div style="display:flex;flex-direction:column;gap:8px">${types.map((t,k)=>`<button class="ghost" data-rk="${k}" style="text-align:left">${esc(t.name)}　<small class="muted">${Number(t.value).toLocaleString()}${t.kind==='point'?'P':'円'}／1回</small></button>`).join('')}<button class="ghost" data-rk="x" style="text-align:left">その他（理由を入力）</button></div><div class="bar" style="margin-top:12px"><button class="ghost" data-rk="">戻る</button></div></div>`;
     document.body.appendChild(m); m.querySelectorAll('[data-rk]').forEach(b=>b.onclick=()=>{ const k=b.dataset.rk; m.remove(); res(k===''?null:k==='x'?'x':types[Number(k)]); }); m.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{ m.remove(); res({void:b.dataset.rv}); }); });
-  const numIn2=v=>parseInt(String(v).replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0;
+  
   const alwYen=async id=>{ const T=RW.types.filter(t=>t.kind==='yen'&&!t.auto&&Number(t.value)>0); if(!T.length) return saveAlw(id);
     const t=await rwPick(id,'手当',T); if(!t) return; if(t==='x') return saveAlw(id); const st=staffAll.find(x=>x.id===id);
-    if(await askBy()===null) return; const q0=await uiPrompt(`${st?.display_name||''}　${t.name}\n回数（1回 ${Number(t.value).toLocaleString()}円）`,'1'); if(q0==null) return; const n=numIn2(q0); if(!(n>0)) return;
+    if(await askBy()===null) return; const q0=await uiPrompt(`${st?.display_name||''}　${t.name}\n回数（1回 ${Number(t.value).toLocaleString()}円）`,'1'); if(q0==null) return; const n=numIn(q0); if(!(n>0)) return;
     /* v12.30・SQL 291：今の手当に足す（2台で同時に足しても消えない） */ const r=await sb.rpc('pos_allowance_add',{p_staff:id,p_day:businessDate(),p_amount:n*Number(t.value),p_memo:`${t.name}×${n}`}); if(r.error){ toast('保存エラー：'+r.error.message); return; }
     const a=r.data.allowance, m=r.data.memo||''; await logOp('手当',{name:st?.display_name,amount:a,before:r.data.before,memo:m},null,true); advA[id]=a; advM[id]=m; toast('手当を保存しました'); };
   const alwPoint=async id=>{ const T=RW.types.filter(t=>t.kind==='point'&&!t.auto&&Number(t.value)>0), L=RW.points.filter(x=>x.staff_id===id), st=staffAll.find(x=>x.id===id);
@@ -74,9 +74,9 @@ async function renderCasts(){ cMode='today'; { const ta=$('cTabAll'); if(ta) ta.
     const t=await rwPick(id,'ポイント',T,cur); if(!t) return;
     if(t.void){ if(!await uiConfirm('このポイントを取り消しますか？')) return; const r=await sb.rpc('pos_reward_void',{p_id:t.void}); if(r.error){ toast(r.error.message); return; } toast('取り消しました'); return; }
     let name, val;
-    if(t==='x'){ const m0=await uiDlg(`${st?.display_name||''}　ポイントの理由`,true,'','理由を入力してください'); if(m0==null||!m0.trim()) return; name=m0.trim(); const v0=await uiPrompt(`${st?.display_name||''}　${name}\nポイント（1回）`,''); if(v0==null) return; val=numIn2(v0); if(!(val>0)) return; }
+    if(t==='x'){ const m0=await uiDlg(`${st?.display_name||''}　ポイントの理由`,true,'','理由を入力してください'); if(m0==null||!m0.trim()) return; name=m0.trim(); const v0=await uiPrompt(`${st?.display_name||''}　${name}\nポイント（1回）`,''); if(v0==null) return; val=numIn(v0); if(!(val>0)) return; }
     else { name=t.name; val=Number(t.value); }
-    const q0=await uiPrompt(`${st?.display_name||''}　${name}\n回数（1回 ${val.toLocaleString()}P）`,'1'); if(q0==null) return; const n=numIn2(q0); if(!(n>0)) return;
+    const q0=await uiPrompt(`${st?.display_name||''}　${name}\n回数（1回 ${val.toLocaleString()}P）`,'1'); if(q0==null) return; const n=numIn(q0); if(!(n>0)) return;
     const r=await sb.rpc('pos_reward_add',{p_staff:id,p_day:businessDate(),p_name:name,p_qty:n,p_value:val}); if(r.error){ toast(/pos_reward_add/.test(r.error.message)?'SQL 140 が未実行です：'+r.error.message:r.error.message); return; } toast(`${(n*val).toLocaleString()}P を付けました`); };
   $('cList').querySelectorAll('[data-alw]').forEach(i=>i.onclick=async()=>{ if(clDone) return; await alwYen(i.dataset.alw); renderCasts(); });
   $('cList').querySelectorAll('[data-afk]').forEach(x=>x.onchange=()=>{ afMode[x.dataset.afk]=x.value; renderCasts(); });

@@ -1,6 +1,5 @@
 // ---------- 罰金の入力と一覧・反応◎の一覧（在籍キャストの詳細から開く） ----------
 // v10.66：罰金（staff_fines・SQL 041）。1件ごとに理由と金額を残す。取消は消さずに is_void。操作ログあり
-const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0);
 // v11.03：罰金の種類（fine_types・SQL 052。管理サイト「報酬・罰金項目」で店舗ごとに決める）から選ぶ。円＝そのまま登録（個数を入れる種類は 金額×個数）／日給の％＝その人の日給で計算／時給の％＝「時給×○%」で記録し、月末に確定した時給で計算／その都度入れる・その他＝金額を入れる
 const fineAmt=x=>x.wage_pct?`時給×${x.wage_pct}%`:`${Number(x.amount||0).toLocaleString()}円`;
 const fineSumTxt=(y,p)=>p?`${y?Number(y).toLocaleString()+'円＋':''}時給×${p}%`:`${Number(y||0).toLocaleString()}円`;
