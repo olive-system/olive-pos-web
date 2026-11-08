@@ -23,16 +23,10 @@ async function payslip(){
     <button class="btn g" id="pdf" style="margin-bottom:10px">PDF ダウンロード</button>${rc}`);
   $('pdf').onclick = () => slipPdf(P);
   if(P.receipt || !P.can_sign) return;
-  const cv = $('sg'), W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, Math.max(1, window.devicePixelRatio||1)); cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
-  const g = cv.getContext('2d'); g.scale(dpr, dpr); let drawn = false, down = false;
-  const clear = () => { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.strokeStyle = '#111'; g.lineWidth = 2.6; g.lineCap = 'round'; g.lineJoin = 'round'; drawn = false; }; clear();
-  const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX-b.left)*W/b.width, (e.clientY-b.top)*H/b.height]; };
-  cv.onpointerdown = e => { e.preventDefault(); down = true; try{ cv.setPointerCapture(e.pointerId); }catch(_){} const [a, b] = pos(e); g.beginPath(); g.moveTo(a, b); g.lineTo(a+0.1, b+0.1); g.stroke(); drawn = true; };
-  cv.onpointermove = e => { if(!down) return; e.preventDefault(); const [a, b] = pos(e); g.lineTo(a, b); g.stroke(); };
-  cv.onpointerup = cv.onpointercancel = () => { down = false; };
-  $('sgClr').onclick = clear;
+  const cv = $('sg'), pad = signPad(cv);
+  $('sgClr').onclick = pad.clear;
   $('sgOk').onclick = async () => {
-    if(!drawn){ await uiAlert('サインを入力してください'); return; }
+    if(!pad.drawn()){ await uiAlert('サインを入力してください'); return; }
     if(!await uiConfirm(`${mo}月分の報酬を受け取りましたか？\n受取確認は取消できません`)) return;
     $('sgOk').disabled = true;
     const png = cv.toDataURL('image/png');

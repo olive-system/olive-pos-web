@@ -32,3 +32,17 @@ async function rpc(fn,args){ rtOwn=Date.now(); const r=await sb.rpc(fn,args||{})
 function genPw(n=10){ const c='abcdefghjkmnpqrstuvwxyz23456789'; const a=crypto.getRandomValues(new Uint8Array(n)); return [...a].map(x=>c[x%c.length]).join(''); }
 const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 
+// 管理サイトの共通の部品（金額・営業日・日付）。前は 10_register.js（現金管理）にあり、17 のファイルがそこに頼っていた（2026-11-08 コード整理）
+const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円';
+const sgnYen=n=>(n>0?'+':'')+yen(n);
+function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+const bdStart=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
+const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
+const WJ=['日','月','火','水','木','金','土'];
+// 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。2026-11-08 コード整理）
+async function shrinkJpeg(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ng; i.src=URL.createObjectURL(file); });
+  const k=Math.min(1,1600/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height); return await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.85)); }
+// 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（2026-11-08 コード整理）
+const hmJst=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };

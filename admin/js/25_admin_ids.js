@@ -118,7 +118,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
   if(todoDay.slice(0,7)!==todoMon) todoDay=todoMon===today.slice(0,7)?today:todoMon+'-01';
   const stOf=(x,d)=>x.status==='done'?'done':x.status==='skip'?'skip':d>today?'fut':'open';
   const CHS={done:'background:var(--gold-soft)',skip:'background:var(--soft);color:var(--muted)',open:'background:var(--warn-soft);color:var(--warn);font-weight:700',fut:'background:#fff;border:1px solid var(--line)'};
-  const D=M[todoDay]||[], hm=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+  const D=M[todoDay]||[], hm=hmJst;
   const wdN=d=>TODO_WD[new Date(d+'T00:00:00+09:00').getDay()], cnt=k=>D.filter(x=>stOf(x,todoDay)===k).length;
   const badge=k=>`<span style="font-size:12px;border-radius:999px;padding:1px 8px;white-space:nowrap;${CHS[k]}">${({done:'完了',skip:'できない',open:'未完了',fut:'これから'})[k]}</span>`;
   const dayCard=`<div class="card"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px"><b style="font-size:20px">${Number(todoDay.slice(5,7))}/${Number(todoDay.slice(8))}（${wdN(todoDay)}）${todoDay===today?'　本日':''}</b><span class="muted" style="font-size:13px">TODO ${D.length}件${D.length?`　完了 ${cnt('done')}・できない ${cnt('skip')}・未完了 ${cnt('open')}`:''}</span></div>

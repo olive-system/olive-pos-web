@@ -32,20 +32,14 @@ function contractForm(){
     <div class="f" style="margin-top:14px">署名</div><canvas class="sign" id="dcSg"></canvas><div style="margin-top:6px"><button class="btn g" id="dcClr" style="width:auto;padding:8px 16px">再入力</button></div>
     ${ck('dcOath', esc(V.oath))}</div>
     <button class="btn" id="dcOk">同意</button>`);
-  const cv = $('dcSg'), W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, Math.max(1, window.devicePixelRatio||1)); cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
-  const g = cv.getContext('2d'); g.scale(dpr, dpr); let drawn = false, down = false;
-  const clear = () => { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.strokeStyle = '#111'; g.lineWidth = 2.6; g.lineCap = 'round'; g.lineJoin = 'round'; drawn = false; }; clear();
-  const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX-b.left)*W/b.width, (e.clientY-b.top)*H/b.height]; };
-  cv.onpointerdown = e => { e.preventDefault(); down = true; try{ cv.setPointerCapture(e.pointerId); }catch(_){} const [a, b] = pos(e); g.beginPath(); g.moveTo(a, b); g.lineTo(a+0.1, b+0.1); g.stroke(); drawn = true; };
-  cv.onpointermove = e => { if(!down) return; e.preventDefault(); const [a, b] = pos(e); g.lineTo(a, b); g.stroke(); };
-  cv.onpointerup = cv.onpointercancel = () => { down = false; };
-  $('dcClr').onclick = clear;
+  const cv = $('dcSg'), pad = signPad(cv);
+  $('dcClr').onclick = pad.clear;
   $('dcOk').onclick = async () => {
     const off = [...document.querySelectorAll('.dcCk')].filter(x => !x.checked);
     if(off.length){ await uiAlert('全ての条項と誓約に同意してください'); off[0].scrollIntoView({ block:'center' }); return; }
     const n = $('dcN').value.trim(), ad = $('dcAd').value.trim(), ph = $('dcPh').value.trim(), em = $('dcEm').value.trim();
     if(!n || !ad || !ph || !em){ await uiAlert('本人情報を全て入力してください'); return; }
-    if(!drawn){ await uiAlert('署名を入力してください'); return; }
+    if(!pad.drawn()){ await uiAlert('署名を入力してください'); return; }
     if(!await uiConfirm(`${V.title}\nこの内容で同意しますか？\n同意は取消できません`)) return;
     $('dcOk').disabled = true;
     const q = await sb.rpc('cast_contract_agree', { p_token: TOKEN, p_version: V.id, p_name: n, p_address: ad, p_phone: ph, p_email: em, p_signature: cv.toDataURL('image/png') });

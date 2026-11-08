@@ -19,9 +19,6 @@ async function amFileOpen(id,p){ const w=window.open('','_blank');
   const s=await sb.storage.from('memo-files').createSignedUrl(p,120); if(s.error||!s.data){ w?.close(); await uiAlert('表示できません'); return; }
   if(w) w.location.href=s.data.signedUrl; else location.href=s.data.signedUrl; }
 
-async function amShrink(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ng; i.src=URL.createObjectURL(file); });
-  const k=Math.min(1,1600/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
-  c.getContext('2d').drawImage(img,0,0,c.width,c.height); return await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.85)); }
 
 async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<div class="card muted">読み込み中…</div>`; hiMemoSwOn();
   const [g,l]=await Promise.all([id?sb.rpc('admin_memo_get',{p_id:id}):{data:null},sb.rpc('admin_memo_list',{p_store:st})]);
@@ -49,7 +46,7 @@ async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<di
     const pdf=f.type==='application/pdf'; if(!pdf&&!/^image\//.test(f.type)){ await uiAlert('写真か PDF を選んでください'); return; }
     if(f.size>20*1024*1024){ await uiAlert('20MB までのファイルを選んでください'); return; }
     $('amFs').insertAdjacentHTML('beforeend','<div class="muted">アップロード中…</div>');
-    try{ const blob=pdf?f:await amShrink(f);
+    try{ const blob=pdf?f:await shrinkJpeg(f);
       const p=await sb.rpc('admin_memo_file_new',{p_ext:pdf?'pdf':'jpg'}); if(p.error) throw new Error(p.error.message);
       const up=await sb.storage.from('memo-files').upload(p.data,blob,{contentType:pdf?'application/pdf':'image/jpeg',upsert:false}); if(up.error) throw new Error(up.error.message);
       amFiles.push({p:p.data,n:f.name||(pdf?'ファイル.pdf':'写真.jpg'),t:pdf?'pdf':'img'});

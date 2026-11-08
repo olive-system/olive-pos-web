@@ -11,9 +11,8 @@ const BL_TXT=['customers','kakari','douhan'];
 // v0.51：延長の列は回数。見出しに POS設定の延長単位を出す（例：30分延長（回））。POS設定を読めない時は「延長（回）」
 let blExtL='延長'; /* v0.88：（回）はいらない（オーナー） */ const blLab=(k,l)=>k==='ext'?blExtL:l;
 const BL_SUM=['guests','ext','sub','service','discount','surcharge','due','cash','card','invoice','oki'];
-const blDur=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
 const blSt=x=>x.status==='void'?'削除':x.status==='open'?'来店中':'会計済';
-const blVal=(k,x)=>k==='status'?blSt(x):k==='date'?x.date:k==='in'?beHm5(x.opened_at):k==='out'?(x.closed_at?beHm(x.closed_at):''):k==='dur'?blDur(x.opened_at,x.closed_at):k==='receipt'?(x.receipt?'◯':''):BL_SUM.includes(k)?Number(x[k]||0):(x[k]??'');
+const blVal=(k,x)=>k==='status'?blSt(x):k==='date'?x.date:k==='in'?beHm5(x.opened_at):k==='out'?(x.closed_at?hmJst(x.closed_at):''):k==='dur'?durHM(x.opened_at,x.closed_at):k==='receipt'?(x.receipt?'◯':''):BL_SUM.includes(k)?Number(x[k]||0):(x[k]??'');
 PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate();
   if(!blFrom){ blFrom=today.slice(0,8)+'01'; blTo=today; }
   const f=blFrom, t=blTo;

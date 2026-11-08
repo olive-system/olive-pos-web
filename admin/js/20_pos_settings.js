@@ -14,13 +14,10 @@ const NT_STORE={ginza:'銀座',hiroshima:'広島'}, ntStoreName=s=>NT_STORE[s?.c
 const ntWhen=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${'日月火水木金土'[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 const NT_TO={all:'全員',cast:'キャストのみ',hall:'黒服のみ',pick:'個別'};
 const ntUrl=p=>sb.storage.from('notice-files').getPublicUrl(p).data.publicUrl;
-async function ntShrink(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ng; i.src=URL.createObjectURL(file); });
-  const k=Math.min(1,1600/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
-  c.getContext('2d').drawImage(img,0,0,c.width,c.height); return await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.85)); }
 // 新しく足したものを上げて、[{p,n,t}] を返す（上げたものは up に入れる。失敗した時に消すため）
 async function ntUpload(folder,up){ const out=[];
   for(const f of ntFiles){ if(f.p){ out.push({p:f.p,n:f.n,t:f.t}); continue; }
-    const p=`${folder}/${crypto.randomUUID()}.${f.t==='pdf'?'pdf':'jpg'}`, body=f.t==='pdf'?f.file:await ntShrink(f.file);
+    const p=`${folder}/${crypto.randomUUID()}.${f.t==='pdf'?'pdf':'jpg'}`, body=f.t==='pdf'?f.file:await shrinkJpeg(f.file);
     const r=await sb.storage.from('notice-files').upload(p,body,{contentType:f.t==='pdf'?'application/pdf':'image/jpeg',upsert:false}); if(r.error) throw r.error;
     up.push(p); out.push({p,n:f.n,t:f.t}); }
   return out; }
