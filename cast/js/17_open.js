@@ -20,14 +20,17 @@ const opGrid = (x, key) => (opShots[x.id] || []).length ? `<div style="display:g
 const opDrop = (x, k) => { const f = (opShots[x.id] || [])[k]; if(!f) return; if(opUrls.has(f)){ URL.revokeObjectURL(opUrls.get(f)); opUrls.delete(f); } opShots[x.id].splice(k, 1); if(!opShots[x.id].length) delete opShots[x.id]; };
 async function hallTasks(ph){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
-  const r = await sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
-  const D = r.data, L = D.items || [], d = new Date(D.day + 'T00:00:00+09:00'), nd = L.filter(x => x.status === 'done').length;
+  const [r, tq] = await Promise.all([sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }), ph === 'close' ? sb.rpc('hall_todos', { p_token: TOKEN }) : null]); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
+  const D = r.data, L = D.items || [], d = new Date(D.day + 'T00:00:00+09:00');
+  const nil = x => x.kind === 'todo' && !x.todo_open && tq && !tq.error && !(tq.data.items || []).length; /* TODO が1件も無い日（休みの日など）は「完了」ではなく「なし」と出す（終わらせた人がいないのに完了に見えるため） */
+  const nd = L.filter(x => x.status === 'done' && !nil(x)).length, nAll = L.filter(x => !nil(x)).length;
   const sw = opSwitch ? `<div style="display:flex;gap:8px;margin-bottom:10px">${['open', 'close'].map(k => `<button class="btn${k === ph ? '' : ' g'}" data-opsw="${k}" style="flex:1">${TASK_TTL[k]}</button>`).join('')}</div>` : '';
   const swWire = () => $('main').querySelectorAll('[data-opsw]').forEach(b => b.onclick = () => { if(b.dataset.opsw !== ph) hallTasks(b.dataset.opsw); });
   if(!D.on){ show(`${sw}<div class="ttl">${TASK_TTL[ph]}</div><div class="card muted">閉店作業は POS で行います</div>`); swWire(); return; }
   const row = (x, i) => { const mine = x.wip_id === D.me, other = x.wip_id && !mine, simple = x.kind === 'simple', na = x.limited && !D.limited_ok;
     let right;
-    if(x.status === 'done') right = x.kind === 'todo' ? '<b style="color:var(--ok);font-size:13px">完了</b>'
+    if(nil(x)) right = '<span class="muted sm">なし</span>';
+    else if(x.status === 'done') right = x.kind === 'todo' ? '<b style="color:var(--ok);font-size:13px">完了</b>'
       : `<b style="color:var(--ok);font-size:13px;white-space:nowrap">${esc(x.by || '')} ${x.at ? hm(x.at) : ''} 完了</b>${simple && x.staff_id === D.me ? tBtn('opu', i, '取消', true) : ''}`;
     else if(x.kind === 'todo') right = `<b style="color:var(--warn);font-size:13px">未完了 ${x.todo_open}</b>${tBtn('optd', i, '表示', true)}`;
     else if(na) right = `${x.wip_by ? wipTag(x.wip_by) : ''}<span class="muted sm">対象外</span>`;
@@ -38,7 +41,7 @@ async function hallTasks(ph){
     return `<div style="display:flex;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid var(--line)">
     <div style="flex:1;line-height:1.4">${esc(x.name)}${x.status === 'done' && x.detail && x.detail.comment ? `<div class="sm" style="white-space:pre-wrap;margin-top:2px">コメント：${esc(x.detail.comment)}</div>` : ''}${mine && simple && x.status !== 'done' ? `<div class="muted sm" data-opn="${i}">${opWip(x)}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}<div data-opg="${i}">${opGrid(x, i)}</div>${x.need_comment ? `<textarea data-opk="${i}" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;margin-top:8px;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}` : ''}</div>${right}</div>`; };
   show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div><div id="opAhead"></div>
-    <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${L.length}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
+    <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${nAll}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
   swWire();
   if(ph === 'close') sb.rpc('hall_todo_ahead', { p_token: TOKEN }).then(q => { const el = $('opAhead'); if(el && !q.error) el.innerHTML = aheadHtml(q.data); }); /* v0.69・SQL 234：連休前の日の閉店作業に、連休明けの休日分を知らせる（オーナー 2026-10-25） */
   const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
