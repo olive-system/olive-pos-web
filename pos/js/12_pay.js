@@ -78,7 +78,7 @@ function btNew(){ const cs=btCusts(), c0=cs[0], m=mkModal(60);
     const cid=cs.length>1?q('cust').value:(cs.length&&q('keep').checked?c0.id:''); let id=null;
     if(cid){ const r=await sb.from('customer_bill_tos').insert({customer_id:cid,company,address:address||null,attn:attn||null}).select('*').single(); if(r.error){ await uiAlert(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); return; } id=r.data.id; btList.rows.unshift(r.data); await logOp('請求先を足す',{customer:customers.find(c=>c.id===cid)?.name,company}); }
     billTo={id,customer_id:cid||null,company,address,attn,bill:cur.id}; m.remove(); btRender(); }); }
-// v11.99：割り勘（ゲネプロ #57。オーナー 2026-10-19「足す」）。未収を人数で割った1人分を金額の欄に入れる。割り切れない分は最後の人で合わせる。入金するたびに「あと n人」を出す
+// v11.99：割り勘（ゲネプロ #57。オーナー 2026-10-19「足す」）。未収を人数で割った1人分を金額の欄に入れる。1人分は店の切り上げの単位で切り上げ、最後の人で合わせる。入金するたびに「あと n人」を出す
 let split=null;
 function splitApply(){ const b=cur, un=Math.max(0,b?.totals?.unpaid??0), open=b&&b.status==='open'&&!isOki(b); $('paySplit').style.display=open&&un>0?'':'none';
   if(!split||split.bill!==b?.id||!open||un<=0||split.done>=split.n){ split=null; $('paySplitNote').classList.add('hidden'); return; }
@@ -88,7 +88,7 @@ $('paySplit').onclick=()=>{ const un=Math.max(0,cur?.totals?.unpaid??0); if(!un)
   m.innerHTML=`<div class="box" style="width:min(460px,92vw)"><h2 style="margin:0 0 6px">人数で割る</h2><div class="muted">未収 ${yen(un)}</div>
     <div class="chips" style="margin:12px 0">${[2,3,4,5,6,7,8,9,10].map(n=>`<button class="chip" data-n="${n}">${n}人</button>`).join('')}</div><div id="spOut" style="min-height:1.6em;font-size:18px"></div>
     <div class="bar" style="justify-content:flex-end"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok" disabled>決定</button></div></div>`;
-  document.body.appendChild(m); let n=0; const per=x=>Math.floor(un/x);
+  document.body.appendChild(m); let n=0; const ru=Number(settings?.total_round_unit)||1, per=x=>{ const p=Math.ceil(un/x/ru)*ru; return p*(x-1)<un?p:Math.floor(un/x); };
   m.querySelectorAll('[data-n]').forEach(c=>c.onclick=()=>{ n=+c.dataset.n; m.querySelectorAll('[data-n]').forEach(z=>z.classList.toggle('on',z===c)); const p=per(n), last=un-p*(n-1); m.querySelector('#spOut').innerHTML=`${n}人：1人 <b>${yen(p)}</b>${last!==p?`（最後の人 ${yen(last)}）`:''}`; m.querySelector('[data-k=ok]').disabled=false; });
   m.querySelector('[data-k=no]').onclick=()=>m.remove();
   m.querySelector('[data-k=ok]').onclick=()=>{ if(!n) return; split={bill:cur.id,n,per:per(n),done:0}; m.remove(); splitApply(); }; };
