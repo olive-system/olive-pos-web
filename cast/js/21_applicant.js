@@ -61,7 +61,7 @@ async function apPage(id, store, back){
         <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px"><label class="f">体験日<input id="apTd" type="date" value="${apIsoDay(A.trial_at)}" min="${A.today}" style="${AP_FS}"></label><label class="f">時刻${apSel(AP_T.map(t => [t, t]), apIsoTime(A.trial_at), 'id="apTt"')}</label></div>
         <label class="f" style="margin-top:8px">体験の報酬</label><div style="display:flex;gap:8px"><select id="apTp" style="${AP_FS};width:auto;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([k, n]) => `<option value="${k}" ${k === (A.trial_pay_type || 'daily') ? 'selected' : ''}>${n}</option>`).join('')}</select><input id="apTa" type="number" inputmode="numeric" min="1" placeholder="円" value="${A.trial_pay_amount || ''}" style="${AP_FS};flex:1;min-width:0"></div>
         ${A.name ? '' : `<label class="f" style="margin-top:8px">名前<input id="apNm" maxlength="30" style="${AP_FS}"></label>`}
-        <label class="f" style="margin-top:8px">本名<input id="apRn" maxlength="60" value="${esc(A.real_name || '')}" style="${AP_FS}"></label></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px"><label class="f">本名<input id="apRn" maxlength="60" value="${esc(A.real_name || '')}" style="${AP_FS}"></label><label class="f">希望源氏名<input id="apGn" maxlength="30" placeholder="例）サヤ・ハル" value="${esc(A.trial_name && A.trial_name !== A.name ? A.trial_name : '')}" style="${AP_FS}"></label></div></div>
       ${photos}<button class="btn" id="apIvOk" style="margin-top:14px">保存</button>` : `<div style="padding:4px 0">面接結果　${esc(({ trial: '体験', considering: '体験', joined: '入店', declined: '辞退', rejected: '不採用' })[A.status] || '')}</div>${photos}`}${hs}</div>`;
   // 体験
   /* v1.42・SQL 388：体験結果に不採用。ジャッジが不採用なら最初から選択。辞退・不採用は理由が必須（オーナー 2026-11-06「入店にならなかった場合、その理由を強制的に」） */
@@ -88,13 +88,15 @@ async function apPage(id, store, back){
   if($('apNx')) $('apNx').onchange = () => save({ next_contact: $('apNx').value });
   M.querySelectorAll('[data-shoot]').forEach(b => b.onclick = () => apShoot(store, id, b.dataset.shoot, again));
   M.querySelectorAll('img[data-ph]').forEach(async im => { const src = await apPhotoUrl(store, im.dataset.ph); if(src) im.src = src; im.onclick = () => im.src && apPhotoBig(store, im.dataset.ph, im.src, again); });
+  /* 本名がそのままシフトに出ないように。カタカナにそろえる（ひらがなで入れてもカタカナに） */
+  if($('apGn')) $('apGn').onblur = () => { $('apGn').value = kanaKey($('apGn').value); };
   if($('apIvOk')) $('apIvOk').onclick = async e => { const v = segV('iv'); if(!v){ await uiAlert('面接結果を選んでください'); return; }
     if($('apNm')){ const n = $('apNm').value.trim(); if(!n){ await uiAlert('名前を入力してください'); return; } if(!await save({ name: n })) return; }
     if(v === 'joined' && !await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します', '入店')) return;
     if(v === 'rejected' && !await uiConfirm('不採用にしますか？', '不採用')) return;
     e.target.disabled = true;
     const q = await sb.rpc('ap_interview_result', { p_token: TOKEN, p_store: store || null, p_id: id, p_result: v, p_day: v === 'trial' ? $('apTd').value || null : null, p_time: v === 'trial' ? $('apTt').value : null,
-      p_pay_type: v === 'trial' ? $('apTp').value : null, p_amount: v === 'trial' ? (parseInt($('apTa').value || '0', 10) || 0) : null, p_real: v === 'trial' ? $('apRn').value.trim() : null });
+      p_pay_type: v === 'trial' ? $('apTp').value : null, p_amount: v === 'trial' ? (parseInt($('apTa').value || '0', 10) || 0) : null, p_real: v === 'trial' ? $('apRn').value.trim() : null, p_genji: v === 'trial' ? kanaKey($('apGn').value) || null : null });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
   if($('apTrOk')) $('apTrOk').onclick = async e => { const v = A.joined ? 'joined' : segV('tr'); if(!v){ await uiAlert('体験結果を選んでください'); return; }
     if(v === 'joined' && !A.joined && !await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します', '入店')) return;
