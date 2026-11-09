@@ -17,7 +17,7 @@ async function createBill(t, n, c){ const normal=modes.find(m=>m.code==='normal'
   if (hc&&hcA>0){ const rh=await sb.from('bill_items').insert({bill_id:b.id,product_id:hc.id,name:'HC',category_id:hc.category_id,qty:n||1,unit_price:hcA,cast_subtotal_price:Number(hc.cast_subtotal_price)?hcA:0,back_amount:hcA,back_points:hc.back_points,is_service_target:hc.is_service_target}); if(rh.error) toast('HC を登録できません：'+rh.error.message); }
   const bc=settings.auto_bc_product_id&&products.find(p=>p.id===settings.auto_bc_product_id), bcA=('auto_bc_amount' in settings)?settings.auto_bc_amount:bc?.price;
   if (bc&&bcA>0){ const rb=await sb.from('bill_items').insert({bill_id:b.id,product_id:bc.id,name:'BC',category_id:bc.category_id,qty:n||1,unit_price:bcA,cast_subtotal_price:Number(bc.cast_subtotal_price)?bcA:0,back_amount:0,back_points:0,is_service_target:bc.is_service_target}); if(rb.error) toast('BC を登録できません：'+rb.error.message); }
-  await logOp('伝票立ち上げ',{guest_count:n||1,customer:c?.name||null}); await openBill(b.id); if(addedK){ await syncHcBack(); await openBill(b.id); } }
+  await logOp('伝票立ち上げ',{guest_count:n||1,customer:c?.name||null}); await openBill(b.id); if(addedK){ await syncHcBack(); await openBill(b.id); } if(c) await resvDouhan(c); }
 /* v12.30・SQL 291：客数が変わった時の HC・BC の数と振分は pos_guest_step（データベース）で合わせる */
 
 
