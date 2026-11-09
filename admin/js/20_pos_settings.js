@@ -104,14 +104,35 @@ function payAdvCard(pos,ed){ const d=pos.data||{};
     ${pnNum('pnDh','同伴の準備時間（分・0＝警告なし）',d.douhan_punch_limit_min,ed)}</div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">同伴の準備時間：伝票の立ち上げから出勤の打刻まで<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">これを超えると、タイムカードで本人に警告します</div></div>${pnSaveBtn(ed)}`,'data-paynum'); }
 function payPtCard(pos,ed){ const d=pos.data||{};
-  return foldCard('paypt','ポイント・体験入店','',`セット ${d.set_point??'—'}・延長 ${d.ext_point??'—'}・源泉 ${d.trial_withholding_rate??'—'}%`,`<div class="grid2">
+  return foldCard('paypt','ポイント・体験入店','',`セット ${d.set_point??'—'}・延長 ${d.ext_point??'—'}・源泉 ${d.trial_withholding_rate??'—'}%${RWPS&&Array.isArray(d.set_point_tiers)&&d.set_point_tiers.length?`・1組の人数別 ${d.set_point_tiers.length}段`:''}`,`<div class="grid2">
     ${pnNum('pnSp','セット1名のポイント',d.set_point,ed)}${pnNum('pnEp','延長1回1名のポイント',d.ext_point,ed)}
     ${pnNum('pnTw','体験入店の源泉（%）',d.trial_withholding_rate,ed)}</div>
-    <div class="muted" style="font-size:13px;margin-top:8px;line-height:1.6">ポイントは人数分かけて、${KL}で同じに分けます</div>${pnSaveBtn(ed)}`,'data-paynum'); }
+    <div class="muted" style="font-size:13px;margin-top:8px;line-height:1.6">ポイントは人数分かけて、${KL}で同じに分けます</div>${RWPS?sptBlock(d,ed):''}${pnSaveBtn(ed)}`,'data-paynum'); }
+// v2.33・SQL 421：セットのポイントを1組（伝票1枚）の人数で段にする（団体をたまたま取った子に大きく入りすぎないため）。ポイントスライドの店だけ
+const sptRow=(t,ed)=>`<tr data-spt><td><input inputmode="numeric" data-tu value="${esc(String(t.upto??''))}" ${ed?'':'disabled'}></td><td><input inputmode="decimal" data-tp value="${esc(String(t.p??''))}" ${ed?'':'disabled'}></td><td>${ed?'<button type="button" class="xb" aria-label="削除" data-sptdel>×</button>':''}</td></tr>`;
+function sptBlock(d,ed){ const ts=Array.isArray(d.set_point_tiers)?d.set_point_tiers:[];
+  return `<div id="sptBox" style="margin-top:14px"><div style="font-size:14px;margin-bottom:6px">セットのポイント（1組の人数別）</div>
+    <table class="t vip"><thead><tr><th>人数（名まで）</th><th>ポイント（1名）</th><th></th></tr></thead><tbody id="sptBody">${ts.map(t=>sptRow(t,ed)).join('')}</tbody></table>
+    <div class="muted" id="sptRest" style="font-size:13px;margin-top:6px"></div>
+    ${ed?'<button type="button" class="ghost sm" id="sptAdd" style="margin-top:6px">＋ 段を追加</button>':''}
+    <div class="grid2" style="margin-top:8px"><label>適用開始<input type="date" id="sptFrom" value="${esc(d.set_point_tiers_from||'')}" ${ed?'':'disabled'}></label></div>
+    <div class="muted" style="font-size:13px;margin-top:8px;line-height:1.6">段を入れると、適用開始以降はセット1名のポイントの代わりに使います。${KL}が2人以上の伝票は、同じに分けます</div></div>`; }
+function sptRest(){ const us=[...document.querySelectorAll('#sptBody [data-tu]')].map(i=>slNum(i.value)).filter(x=>Number.isFinite(x)); const el=$('sptRest'); if(el) el.textContent=us.length?`${Math.max(...us)+1}名以降 0P`:''; }
+function sptWire(){ const box=$('sptBox'); if(!box) return; sptRest();
+  box.addEventListener('input',e=>{ if(e.target.matches('[data-tu]')) sptRest(); });
+  box.addEventListener('click',e=>{ const x=e.target.closest('[data-sptdel]'); if(x){ x.closest('tr').remove(); sptRest(); } });
+  const ad=$('sptAdd'); if(ad) ad.onclick=()=>{ $('sptBody').insertAdjacentHTML('beforeend',sptRow({},true)); sptRest(); }; }
+function sptVals(){ return [...document.querySelectorAll('#sptBody [data-spt]')].map(tr=>({upto:slNum(tr.querySelector('[data-tu]').value),p:slNum(tr.querySelector('[data-tp]').value)})); }
 function payNumWire(st){ $('main').querySelectorAll('[data-pnsave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
   const g=id=>slNum($(id).value), v={advance_cap_cast:g('pnCapC'),advance_cap_hall:g('pnCapH'),trial_withholding_rate:g('pnTw'),set_point:g('pnSp'),ext_point:g('pnEp'),douhan_punch_limit_min:g('pnDh')};
   if(Object.values(v).some(x=>x==null||!Number.isFinite(x)||x<0)){ await uiAlert('全部の欄に0以上の数を入力してください'); return; }
   if(v.trial_withholding_rate>100){ await uiAlert('体験入店の源泉は100%までです'); return; }
+  const isPt=sv.closest('[data-fold]').dataset.fold==='paypt', ts=isPt&&$('sptBox')?sptVals():null, tf=ts?$('sptFrom').value:null;
+  if(ts){ if(ts.some(t=>!Number.isInteger(t.upto)||t.upto<1||t.p==null||!Number.isFinite(t.p)||t.p<0)){ await uiAlert('段の人数は1以上の整数、ポイントは0以上の数を入力してください'); return; }
+    ts.sort((x,y)=>x.upto-y.upto); if(ts.some((t,i)=>i&&t.upto===ts[i-1].upto)){ await uiAlert('段の人数が重複しています'); return; }
+    if(ts.length&&!tf){ await uiAlert('適用開始を入力してください'); return; } }
   if(!await uiConfirm(sv.closest('[data-fold]').dataset.fold==='paypt'?'ポイント・体験入店の設定を保存しますか？':'日払（立替）の上限・同伴の準備時間を保存しますか？')) return;
-  const r=await rpc('admin_save_pay_settings',{p_store:st,p_vals:v}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); })); }
+  const r=await rpc('admin_save_pay_settings',{p_store:st,p_vals:v}); if(!r.ok) return;
+  if(ts){ const r2=await rpc('admin_save_set_point_tiers',{p_store:st,p_tiers:ts,p_from:tf||null}); if(!r2.ok) return; }
+  toast('保存しました'); PAGES.set_pay(); })); sptWire(); }
 
