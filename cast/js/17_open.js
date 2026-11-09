@@ -72,6 +72,21 @@ async function hallTasks(ph){
 
 const shRows = {};   // v1.25：仕入れの入力中の行（追加・× で描き直しても残す）
 const drOut = {};   // v1.28：配達・買い出しの入力中の本数
+// v1.52・SQL 417：発注一覧の文（LINE・メールにそのまま貼る。発注が1以上の品だけ。オーナー 2026-11-09「挨拶の言葉も入れて」・見本 作業場/見本の画像/発注一覧のコピーと照合_案.png）
+const drText = (R, T, O) => { const L = T.map(a => [a.name, Math.max(0, a.qty - (+O[a.id] || 0))]).filter(([, n]) => n > 0).map(([m, n]) => `${m}　${n}`);
+  return `お世話になっております。\n${R.store || ''} です。\n${R.day ? mdW(R.day) : ''}の発注をお願いいたします。\n\n${L.join('\n') || 'なし'}\n\nよろしくお願いいたします。`; };
+// v1.52・SQL 417：開店作業の仕入れの上に、前の日までの発注と、入力中の入荷のくらべ（合わない品は赤）
+const shCheck = (D, R) => { const th = 'font-weight:400;color:var(--muted);padding:5px 4px;border-bottom:1px solid var(--line)', td = 'padding:6px 4px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums';
+  const L = (D.orders || []).map(o => { const v = R.filter(r => !r.free && r.pid === o.id).reduce((s, r) => s + (+r.qty || 0), 0); return { name: o.name, o: o.ordered, v, d: v - o.ordered }; }), n = L.filter(a => a.d).length;
+  return `<div style="margin-bottom:4px"><b>発注と入荷</b>　<span class="muted sm">${D.order_day ? mdW(D.order_day) + 'までの発注' : ''}</span></div>${n ? `<div style="color:var(--warn);font-weight:700;font-size:14px;margin-bottom:2px">差あり ${n}品</div>` : ''}
+    <table style="border-collapse:collapse;width:100%;font-size:14px"><tr><th style="text-align:left;${th}">品</th>${['発注', '入荷', '差'].map(h => `<th style="text-align:right;${th}">${h}</th>`).join('')}</tr>
+    ${L.map(a => `<tr style="${a.d ? 'color:var(--warn);font-weight:700' : ''}"><td style="${td};text-align:left">${esc(a.name)}</td><td style="${td}">${a.o}</td><td style="${td}">${a.v}</td><td style="${td}">${a.d ? (a.d > 0 ? '+' : '−') + Math.abs(a.d) : 0}</td></tr>`).join('')}</table>`; };
+// LINE の中のブラウザでは navigator.clipboard が断られることがあるので、選んだ文字のコピーでも試す
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); await uiAlert('コピーしました'); return; }catch(e){}
+  const a = document.createElement('textarea'); a.value = t; a.setAttribute('readonly', ''); a.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(a); a.select(); a.setSelectionRange(0, t.length);
+  let ok = false; try{ ok = document.execCommand('copy'); }catch(e){} a.remove();
+  await uiAlert(ok ? 'コピーしました' : 'コピーできませんでした。文字を長押しして選択してください'); }
 // 閉店作業の決まった画面（ボトル残量・顧客メモの更新申請・係・同伴・反応◎の確認・着物・今日出たお酒・ドリンク・オールアップ確認・その日のメモ）と、開店作業の「連絡先交換の係の確認」「お誕生日登録申請」
 async function hallCloseTask(x, ph){
   setBack(() => hallTasks(ph)); show('<div class="muted" style="padding:20px">読み込み中…</div>');
@@ -109,7 +124,9 @@ async function hallCloseTask(x, ph){
       <input data-dro="${a.id}" inputmode="numeric" maxlength="3" value="${esc(O[a.id] ?? '0')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box"><b data-drn="${a.id}" style="${cnt}">${Math.max(0, a.qty - (+O[a.id] || 0))}</b></div>`;
     body = `<div class="card">${D.map((g, i) => { const t = g.items.filter(a => a.track), o = g.items.filter(a => !a.track);
       return `<div style="padding:9px 2px 2px;${i ? 'border-top:1px solid var(--line)' : ''}">${t.length ? `<b>${esc(g.cat)}</b>${hd}${t.map(tr).join('')}` : ''}${o.length ? `<div style="display:flex;gap:4px 12px;flex-wrap:wrap;padding:${t.length ? '8px 2px 6px;border-top:1px solid var(--line)' : '0 0 6px'}">${t.length ? '' : `<b>${esc(g.cat)}</b>`}${o.map(a => `<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>` : ''}</div>`; }).join('') || '<div class="muted">なし</div>'}
-      <div class="muted sm" style="margin-top:8px">${T.length ? '配達・買い出しで用意した本数を入力します。発注＝販売−配達・買い出し。' : ''}発注に回したら保存します</div></div>${sv()}`;
+      <div class="muted sm" style="margin-top:8px">${T.length ? '配達・買い出しで用意した本数を入力します。発注＝販売−配達・買い出し。' : ''}発注に回したら保存します</div></div>
+      ${T.length ? `<div class="card"><div style="display:flex;align-items:center;margin-bottom:6px"><b style="flex:1">発注一覧</b><button class="btn g" id="drCp" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">コピー</button></div>
+        <div id="drTx" style="white-space:pre-wrap;line-height:1.7;background:var(--soft);border-radius:8px;padding:8px 10px;user-select:text;-webkit-user-select:text">${esc(drText(r.data, T, O))}</div></div>` : ''}${sv()}`;
     getData = () => ({ rows: T.map(a => ({ id: a.id, out: (O[a.id] ?? '0').trim() })) });
   } else if(k === 'allup'){   // v0.61・SQL 217：オールアップ確認（オーナー 2026-10-23「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須。v0.95・SQL 296：基準を 1:05 に（オーナー 2026-10-30「1時ではなく1時5分に。広島も銀座も」）
     const R = D.rows || [], np = D.pending > 0;
@@ -137,16 +154,17 @@ async function hallCloseTask(x, ph){
     getData = () => ({});
   } else if(k === 'shiire'){   // v1.25・SQL 364：開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー 2026-11-05・見本 作業場/棚卸し_案2.png）
     const P = D.products || [], cats = [...new Set(P.map(p => p.cat))], ab = id => (P.find(p => p.id === id) || {}).ab;
-    if(!shRows[x.id]) shRows[x.id] = (D.rows || []).map(r => ({ pid: r.product_id || '', name: r.product_id ? '' : r.name, qty: String(r.qty), free: !r.product_id }));
+    if(!shRows[x.id]) shRows[x.id] = (D.rows || []).length ? D.rows.map(r => ({ pid: r.product_id || '', name: r.product_id ? '' : r.name, qty: String(r.qty), free: !r.product_id }))
+      : (D.orders || []).map(o => ({ pid: o.id, name: '', qty: '', free: false, ord: true }));   // v1.52・SQL 417：前の日までの発注を数は空欄で並べる
     const R = shRows[x.id], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
     const opts = r => `<option value="">選択</option>${cats.map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!r.free && r.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${r.free ? 'selected' : ''}>品名入力</option>`;
-    body = `<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">仕入れ</b><button class="btn g" id="shAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
+    body = `${(D.orders || []).length ? `<div class="card" id="shCk">${shCheck(D, R)}</div>` : ''}<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">仕入れ</b><button class="btn g" id="shAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
       ${R.map((r, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-shp="${i}" style="flex:1;min-width:0;${fs}">${opts(r)}</select>
         <input data-shq="${i}" inputmode="numeric" maxlength="3" value="${esc(r.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="xb" data-shx="${i}" aria-label="削除">×</button></div>
         <input data-shn="${i}" maxlength="60" placeholder="品名" value="${esc(r.name)}" style="display:${r.free ? 'block' : 'none'};width:100%;margin-top:6px;${fs}">
         <span data-sha="${i}" style="display:${!r.free && ab(r.pid) ? 'inline-block' : 'none'};margin-top:4px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)">AB棚</span></div>`).join('') || '<div class="muted" style="padding:9px 2px">入荷なし</div>'}
       <div class="muted sm" style="margin-top:8px">入荷した品を全部入力します。品は POS のメニューから選び、メニューに無い品は品名入力です。AB棚の品は在庫に加算されます</div></div>${sv()}`;
-    getData = () => ({ rows: R.map(r => r.free ? { name: r.name, qty: r.qty } : { product_id: r.pid, qty: r.qty }) });
+    getData = () => ({ rows: R.filter(r => !(r.ord && r.pid && (r.qty === '' || r.qty === '0'))).map(r => r.free ? { name: r.name, qty: r.qty } : { product_id: r.pid, qty: r.qty }) });   // 届かなかった発注の品（空欄・0）は仕入れに入れない
   } else if(k === 'day_memo'){
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;
@@ -160,14 +178,16 @@ async function hallCloseTask(x, ph){
     $('clPg').querySelectorAll('[data-opx]').forEach(b => b.onclick = () => { opDrop(x, +b.dataset.opx.split(':')[1]); clShots(); }); };
   if($('clPh')){ clShots(); $('clPh').onchange = () => { const f = $('clPh').files[0]; $('clPh').value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); clShots(); }; } /* v1.09：カメラで1枚ずつ足す */
   if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
-  if(k === 'drinks') $('main').querySelectorAll('[data-dro]').forEach(b => b.oninput = () => { const O = drOut[x.id], a = D.flatMap(g => g.items).find(i => i.id === b.dataset.dro); O[b.dataset.dro] = b.value;
-    $('main').querySelector(`[data-drn="${b.dataset.dro}"]`).textContent = Math.max(0, a.qty - (+b.value || 0)); });
+  if(k === 'drinks'){ const T = D.flatMap(g => g.items.filter(a => a.track));
+    $('main').querySelectorAll('[data-dro]').forEach(b => b.oninput = () => { const O = drOut[x.id], a = T.find(i => i.id === b.dataset.dro); O[b.dataset.dro] = b.value;
+      $('main').querySelector(`[data-drn="${b.dataset.dro}"]`).textContent = Math.max(0, a.qty - (+b.value || 0)); $('drTx').textContent = drText(r.data, T, drOut[x.id]); });
+    if($('drCp')) $('drCp').onclick = () => copyText(drText(r.data, T, drOut[x.id])); }
   if(k === 'shiire'){ const R = shRows[x.id], ab = id => ((D.products || []).find(p => p.id === id) || {}).ab, q = (a, i) => $('main').querySelector(`[data-${a}="${i}"]`);
     $('shAdd').onclick = () => { R.push({ pid: '', name: '', qty: '', free: false }); again(); };
     $('main').querySelectorAll('[data-shx]').forEach(b => b.onclick = () => { R.splice(+b.dataset.shx, 1); again(); });
     $('main').querySelectorAll('[data-shp]').forEach(b => b.onchange = () => { const i = +b.dataset.shp, r = R[i]; r.free = b.value === 'free'; r.pid = r.free ? '' : b.value;
-      q('shn', i).style.display = r.free ? 'block' : 'none'; q('sha', i).style.display = !r.free && ab(r.pid) ? 'inline-block' : 'none'; });
-    $('main').querySelectorAll('[data-shq]').forEach(b => b.oninput = () => { R[+b.dataset.shq].qty = b.value.trim(); });
+      q('shn', i).style.display = r.free ? 'block' : 'none'; q('sha', i).style.display = !r.free && ab(r.pid) ? 'inline-block' : 'none'; if($('shCk')) $('shCk').innerHTML = shCheck(D, R); });
+    $('main').querySelectorAll('[data-shq]').forEach(b => b.oninput = () => { R[+b.dataset.shq].qty = b.value.trim(); if($('shCk')) $('shCk').innerHTML = shCheck(D, R); });
     $('main').querySelectorAll('[data-shn]').forEach(b => b.oninput = () => { R[+b.dataset.shn].name = b.value; }); }
   if(k === 'memo_req') [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
