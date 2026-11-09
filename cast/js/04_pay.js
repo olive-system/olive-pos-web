@@ -1,5 +1,6 @@
 // v0.04・SQL 099：報酬明細（前月分だけ。管理サイトの報酬支払明細書と同じ中身）・PDF・受取確認（15日から、手書きサイン）
 const N = v => Number(v||0), cm = v => N(v) ? N(v).toLocaleString('ja-JP') : '--';
+// SQL 414：サインした月の後に見つかった直しは、次の月の残り支給額に「前月精算」（prev_adjust）として入る。0 か無い時は出さない
 // 2026-11-01：自動の遅刻の罰金（遅刻（シフト19:50・打刻20:05）など）は、元の名前（遅刻）の1行に合計する（管理サイトの報酬明細と同じ）
 const fineBase = k => String(k).replace(/（(?:シフト|予定)\d[^）]*）$/, ''), fineSum = (x, f) => Object.entries(x.fine_items||{}).reduce((s, [k, v]) => fineBase(k) === f ? s + N(v) : s, 0);
 function slipHtml(P){
@@ -12,5 +13,5 @@ function slipHtml(P){
   return `<div class="card"><div class="ttl">報酬支払明細書</div><div class="muted sm" style="text-align:center;margin-bottom:6px">${y}年${mo}月分　${esc(P.store_name)}　${esc(P.name)}${P.real_name?'/'+esc(P.real_name):''}</div>
       ${L('稼働日数', `${N(x.days)}日`)}${L('稼働時間', HM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給', x.wage?yen(x.wage):'--')}</div>
     <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
-    <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
+    <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${N(x.prev_adjust)?L('前月精算', (N(x.prev_adjust)<0?'−':'')+Math.abs(N(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
 }
