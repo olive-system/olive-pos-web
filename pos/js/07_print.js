@@ -37,7 +37,7 @@ $('prReceipt').onclick=async()=>{ // 領収書（v10.41）：入金のあった�
   openReceipt({max, amount:remain>0?remain:Math.min(lastAmt,max), name:c0?.receipt_none?'':rnFirst(c0?.receipt_name)||c0?.name||'', names:c0?.receipt_none?[]:rnList(c0?.receipt_name), /* v12.61・SQL 368：領収書 不要のお客様は宛名を入れない */ guests:cur.set_guest_count??cur.guest_count, cashAvail:Math.max(0,cashAll-usedCash), why}); };
 // 領収書の絵（横長 1240×576）。印刷は 90度回して 80mm 幅（576ドット）で出す
 // v12.62：デザインを「静かな明朝」に（オーナー 2026-11-05 案ア。見本 作業場/領収書_デザイン_案.png）。二重の細い枠・明朝と Baskerville・金額は二重線・右にロゴとお店。言葉は前と同じ
-// 印刷は白黒（明るさ 150 未満が黒）。明朝の細い字（W3）は 20px 未満だと線が切れるので、小さい字は W6
+// 印刷は白黒（明るさ 150 未満が黒）。明朝の細い字（W3）は 20px 未満だと線が切れるので、小さい字は W6。1px＝1ドットなので、画数の多い字は 18px 以上にする
 function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
   const MI=(px,w)=>`${w||(px<20?600:300)} ${px}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`, BK=(px,it)=>`${it?'italic ':''}400 ${px}px Baskerville,"Baskerville Old Face",Georgia,serif`, yen=n=>`¥${Number(n||0).toLocaleString()}`;
   const sp=(t,x,y,ls,al)=>{ /* 字間をあけて書く（al：left / right / center）。書いた幅を返す */ const cs=[...String(t)], w=cs.reduce((s,c)=>s+g.measureText(c).width,0)+ls*(cs.length-1); let sx=al==='right'?x-w:al==='center'?x-w/2:x; g.textAlign='left'; for(const c of cs){ g.fillText(c,sx,y); sx+=g.measureText(c).width+ls; } return w; };
@@ -45,18 +45,22 @@ function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g
   g.lineWidth=1; g.strokeRect(18,18,W-36,H-36); g.strokeRect(26,26,W-52,H-52);
   g.font=BK(44,1); sp('Receipt',64,98,3); g.font=MI(21); sp(`${d.issue.getFullYear()}年${d.issue.getMonth()+1}月${d.issue.getDate()}日`,740,96,2,'right'); hl(64,118,740,118);
   g.textAlign='left'; g.font=MI(34,600); g.fillText(d.name||'',64,196,600); g.font=MI(24); g.fillText('様',694,196); hl(64,212,740,212);
-  g.font=BK(66); const aw=sp(`${yen(d.amount)}-`,64,300,2); g.font=MI(17); g.textAlign='left'; g.fillText('（消費税込み）',64+aw+14,298); hl(64,318,740,318); hl(64,323,740,323);
-  g.font=MI(18); g.fillText(`${d.rate}%対象 ${yen(d.amount)}　　内消費税 (${yen(d.tax)})`,64,362); g.fillText(`現金 ${yen(d.cash)}　　カード ${yen(d.card)}`,64,392);
-  g.font=MI(22,400); g.fillText(`但　${d.guests||'　　'}名様ご飲食代として`,64,446,676); /* v12.62：ご利用日は印刷しない（オーナー 2026-11-05） */ g.font=MI(18); g.fillText('上記正に領収いたしました',64,486); const sx=64+g.measureText('上記正に領収いたしました').width+18;
+  g.font=BK(66); const aw=sp(`${yen(d.amount)}-`,64,300,2); g.font=MI(18); g.textAlign='left'; g.fillText('（消費税込み）',64+aw+14,298); hl(64,318,740,318); hl(64,323,740,323);
+  g.font=MI(21,600); g.fillText(`${d.rate}%対象 ${yen(d.amount)}　　内消費税 (${yen(d.tax)})`,64,362); g.fillText(`現金 ${yen(d.cash)}　　カード ${yen(d.card)}`,64,393);
+  g.font=MI(22,400); g.fillText(`但　${d.guests||'　　'}名様ご飲食代として`,64,446,676); /* v12.62：ご利用日は印刷しない（オーナー 2026-11-05） */ g.font=MI(21,600); g.fillText('上記正に領収いたしました',64,488); const sx=64+g.measureText('上記正に領収いたしました').width+18;
   if(d.stamp){ g.setLineDash([4,4]); g.strokeRect(656,340,84,64); g.setLineDash([]); g.font=MI(14); g.textAlign='center'; g.fillText('収入印紙',698,378); } /* v12.62：収入印紙の枠は印紙が要る時だけ */
-  hl(790,70,790,H-70); const cx=(790+W-26)/2, info=[d.address,d.tel?('TEL '+d.tel):'',d.regno?('登録番号 '+d.regno):''].filter(Boolean);
+  hl(790,70,790,H-70); const cx=(790+W-26)/2; g.font=MI(19); const info=[...rcAddr(g,d.address,390),d.tel?('TEL '+d.tel):'',d.regno?('登録番号 '+d.regno):''].filter(Boolean); /* 印刷は 1px＝1ドット。15px では画数の多い字がつぶれるので 19px。郵便番号は1行目に分け、入らない住所は横に縮めずに折り返す（オーナー 2026-11-09） */
   if(d.logo){ /* ロゴがある時は、店名はロゴに見えないふつうの字にし、ロゴから登録番号までを縦の線（70〜H-70）の真ん中に置く（オーナー 2026-11-08） */
-    const r=Math.min(250/d.logo.width,90/d.logo.height), lw=d.logo.width*r, lh=d.logo.height*r, gap=70, top=Math.round(H/2-(lh+gap+17+36+28*Math.max(info.length-1,0)+4)/2);
+    const r=Math.min(250/d.logo.width,90/d.logo.height), lw=d.logo.width*r, lh=d.logo.height*r, gap=70, top=Math.round(H/2-(lh+gap+17+38+30*Math.max(info.length-1,0)+5)/2);
     g.drawImage(d.logo,cx-lw/2,top,lw,lh); const yn=top+lh+gap+17; g.font=MI(19,600); g.textAlign='center'; g.fillText(d.store||'',cx,yn,380);
-    g.font=MI(15); info.forEach((t,i)=>g.fillText(t,cx,yn+36+28*i,380)); }
+    g.font=MI(19); info.forEach((t,i)=>g.fillText(t,cx,yn+38+30*i)); }
   else { g.font=MI(22,600); sp(d.store||'',cx,222,6,'center'); hl(cx-24,244,cx+24,244);
-    g.font=MI(15); g.textAlign='center'; info.forEach((t,i)=>g.fillText(t,cx,282+28*i,380)); }
+    g.font=MI(19); g.textAlign='center'; info.forEach((t,i)=>g.fillText(t,cx,282+30*i)); }
   const R=30,cy=480,scx=sx+R; if(d.sig){ g.save(); g.beginPath(); g.arc(scx,cy,R-3,0,Math.PI*2); g.clip(); g.drawImage(d.sig,scx-R+4,cy-R+4,(R-4)*2,(R-4)*2); g.restore(); } g.lineWidth=1; g.beginPath(); g.arc(scx,cy,R,0,Math.PI*2); g.stroke(); }
+// 住所を領収書の行に分ける：郵便番号だけで1行、残りは幅 mw に入るように（空白の所で、無ければ字の途中で）折り返す
+function rcAddr(g,a,mw){ a=String(a||'').trim(); if(!a) return []; const m=a.match(/^(〒?\s*\d{3}-?\d{4})[\s　]*([\s\S]*)$/), out=m?[m[1].replace(/\s+/g,'')]:[]; let r=(m?m[2]:a).replace(/\s+/g,' ').trim();
+  while(r&&g.measureText(r).width>mw){ let k=r.length; while(k>1&&g.measureText(r.slice(0,k)).width>mw) k--; const sp=r.lastIndexOf(' ',k); if(sp>0) k=sp; out.push(r.slice(0,k).trim()); r=r.slice(k).trim(); }
+  if(r) out.push(r); return out; }
 function receiptPrint(cv){ const W=576,H=1240; const r=document.createElement('canvas'); r.width=W; r.height=H; const g=r.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.translate(W,0); g.rotate(Math.PI/2); g.drawImage(cv,0,0);
   imagePrint(r); }
 // 576ドット幅の絵を印刷する（領収書・名札で共通）。白黒は明るさ 150 未満が黒
