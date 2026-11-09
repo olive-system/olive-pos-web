@@ -41,6 +41,8 @@ async function resvCancel(x, b){
   await uiAlert('予約を取り消しました');
   resvListNg(lineOk);
 }
+// v1.53・SQL 423：来店時刻は 20:00〜0:30 の15分ごとから選ぶ（type=time は iPhone で午前・午後が出て、午後10時のつもりが 10:00 で入った。オーナー 2026-11-09「24時表記がいい」「20:00〜0:30」）
+const RV_TIMES = Array.from({ length: 19 }, (_, i) => { const m = (20 * 60 + i * 15) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); });
 async function resvForm(ed){
   setBack(resvList); show('<div class="card c muted">読み込み中…</div>');
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
@@ -50,7 +52,7 @@ async function resvForm(ed){
   const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('');
   let dh = ed ? !!ed.douhan : false, cid = ed ? ed.customer_id || null : null, cTimer = null;
   show(`<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label><div id="rvOff" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div><div id="rvNoS" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div>
-      <label class="f" style="margin-top:8px">来店時刻<input type="time" id="rvT" value="${ed?ed.time:'21:00'}" style="${fld}"></label>
+      <label class="f" style="margin-top:8px">来店時刻<select id="rvT" style="${fld}">${RV_TIMES.map(t => `<option${t === (ed && RV_TIMES.includes(ed.time) ? ed.time : '21:00') ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
       <div style="display:flex;gap:8px;margin-top:8px"><label class="f" style="flex:1;min-width:0;margin:0">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
         <label class="f" style="width:64px;flex:none;margin:0">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label></div>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
@@ -71,7 +73,7 @@ async function resvForm(ed){
   // v1.06・SQL 321：シフトの無い日・同伴なしの時だけ「出勤希望」（オーナー 2026-11-02「出勤承認か出勤却下（予約は受ける）は、私が指定した権限者＋私に来たラインで決定」「本人が出勤要請をしたらね」）
   //   出勤時刻は 19:50 か 20:00〜来店時刻の15分ごと（はじめは来店時刻。オーナー「来店時間にもよるよね」）。申請の後に cast_shift_request で承認者に LINE
   let sr = false; const srOn = () => !$('rvSW').classList.contains('hide') && sr;
-  const srTimes = () => { const v = $('rvT').value || '23:00', L = ['19:50']; for(let m = 20*60; m <= 23*60; m += 15) /* 2026-11-04：23:00 まで */{ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
+  const srTimes = () => { const v0 = $('rvT').value || '23:00', v = v0 < '12:00' ? '23:00' : v0 /* v1.53：0時台の来店は 23:00 まで全部 */, L = ['19:50']; for(let m = 20*60; m <= 23*60; m += 15) /* 2026-11-04：23:00 まで */{ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
   const srPaint = () => { const d = $('rvD')?.value; if(!d) return; const no = !dh && !(DAY.shifts || {})[me?.id] && !offs.has(d) && DAY.date === d;
     $('rvSW').classList.toggle('hide', !no); $('rvNoS').classList.toggle('hide', !no); $('rvNoS').textContent = no ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はシフトがありません。出勤する時は「出勤希望 あり」` : '';
     [['rvSr1', sr], ['rvSr0', !sr]].forEach(([id, on]) => { $(id).style.background = on ? 'var(--ink)' : ''; $(id).style.color = on ? '#fff' : ''; });
