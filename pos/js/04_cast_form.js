@@ -24,7 +24,7 @@ async function monthCreditBills(sel){ const bd=businessDate(), m1=bd.slice(0,7)+
   if(a.error||p.error) return null; const have=new Set((a.data||[]).map(b=>b.id)); const ids=[...new Set((p.data||[]).map(x=>x.bill_id))].filter(i=>!have.has(i)); let more=[];
   for(let i=0;i<ids.length;i+=100){ const q=await sb.from('bills').select(S).eq('store_id',store.id).eq('status','closed').in('id',ids.slice(i,i+100)); if(q.error) return null; more=more.concat(q.data||[]); }
   return [...(a.data||[]),...more].filter(b=>{ if(isOki(b)) return false; const d=billDay(b); return d>=m1&&d<=bd; }); }
-// v12.99・SQL 421：セット＋延長のポイントはデータベースの1か所（bill_set_ext_points。セットは1組の人数別の段）から。前は画面で同じ式を計算していた
+// v13.01・SQL 421：セット＋延長のポイントはデータベースの1か所（bill_set_ext_points。セットは1組の人数別の段）から。前は画面で同じ式を計算していた
 async function monthPoints(only){ const [q,bs]=await Promise.all([ sb.rpc('pos_month_set_points'), monthCreditBills('id,bill_items(is_void,bill_item_splits(staff_id,back_points))') ]); if(q.error||!bs) return null; const m={}; const add=(id,v)=>{ if(only&&!only.has(id)) return; m[id]=Math.round(((m[id]||0)+v)*10)/10; };
   Object.entries(q.data||{}).forEach(([id,v])=>{ v=Number(v||0); if(v) add(id,v); });
   bs.forEach(b=>{ (b.bill_items||[]).filter(x=>!x.is_void).forEach(x=>(x.bill_item_splits||[]).forEach(z=>{ const v=Number(z.back_points||0); if(v) add(z.staff_id,v); })); });
