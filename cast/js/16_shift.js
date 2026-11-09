@@ -147,14 +147,14 @@ async function shiftDayEdit(iso, store){
     /* v0.84・SQL 273：体験の人の登録（オーナー 2026-10-27「1番上に体験と言う項目を作って体験を押したら体験の子の情報を入力する画面」「報酬額は先方には見えないように」） */
     const trial = () => { const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)', lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`; let pt = 'hourly';
       w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">体験　${mdWD(d)}</p>
-        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><div>${lb('源氏名')}<input id="trN" maxlength="30" style="${fs}"></div><div>${lb('本名')}<input id="trR" maxlength="60" style="${fs}"></div></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><div>${lb('源氏名')}<input id="trN" maxlength="30" placeholder="例）サヤ・ハル" style="${fs}"></div><div>${lb('本名')}<input id="trR" maxlength="60" style="${fs}"></div></div>
         ${lb('時刻')}${tin('20:00', 'id="trT"', fs)}
         ${lb('報酬')}<div style="display:flex;gap:8px"><span id="trP" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([v, n]) => `<button type="button" data-trp="${v}" style="border:0;font:inherit;font-size:16px;padding:8px 14px">${n}</button>`).join('')}</span><input id="trA" type="number" inputmode="numeric" min="1" style="${fs};flex:1;min-width:0" placeholder="円"></div>
         <div class="bt" style="margin-top:14px"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
       const seg = () => w.querySelectorAll('[data-trp]').forEach(b => { const on = b.dataset.trp === pt; b.style.background = on ? 'var(--head)' : 'var(--card)'; b.style.color = on ? '#fff' : 'var(--ink)'; });
       w.querySelectorAll('[data-trp]').forEach(b => b.onclick = () => { pt = b.dataset.trp; seg(); }); seg();
-      w.querySelector('[data-k=no]').onclick = pick;
-      w.querySelector('[data-k=ok]').onclick = async e => { const n = w.querySelector('#trN').value.trim(), a = parseInt(w.querySelector('#trA').value || '0', 10) || 0;
+      w.querySelector('[data-k=no]').onclick = pick; w.querySelector('#trN').onblur = e => { e.target.value = kanaKey(e.target.value); };
+      w.querySelector('[data-k=ok]').onclick = async e => { const n = kanaKey(w.querySelector('#trN').value), a = parseInt(w.querySelector('#trA').value || '0', 10) || 0;
         if(!n){ await uiAlert('源氏名を入力してください'); return; } if(a <= 0){ await uiAlert('金額を入力してください'); return; }
         e.target.disabled = true; const q = await sb.rpc('cast_shift_trial_add', { p_token: TOKEN, p_store: store || null, p_day: iso, p_name: n, p_real: w.querySelector('#trR').value.trim(), p_time: w.querySelector('#trT').value, p_pay_type: pt, p_amount: a });
         if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } close(); again(); }; };
