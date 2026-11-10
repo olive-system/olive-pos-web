@@ -13,10 +13,7 @@ const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k);
 const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_terminal'+SLOT); }catch(e){} if(!k) return fetch(u,o); const h=new Headers(o.headers||{}); h.set('x-olive-term',k); return fetch(u,{...o,headers:h}); };
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 const $ = id => document.getElementById(id);
-const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 /* v12.72・SQL 380：お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
-const kanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), kanaKey=v=>kanaFix(v).replace(/ /g,''), kanaHit=(c,q)=>{ const k=kanaKey(q); return !!k&&kanaKey(c.kana).includes(k); }, kanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
-const yen = n => (n ?? 0).toLocaleString('ja-JP') + '円';
 // v11.45：来店の時刻は5分切り上げ（09:17→09:20）。セットの始まり（set_start）も切り上げた時刻で記録し、セットの終わり・延長もそこから数える。来店の記録（opened_at）と退店（closed_at）は実際の時刻（オーナー 2026-10-15）
 const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
 const hm5=t=>hm(ceil5(t));
@@ -26,7 +23,6 @@ const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
 const METHOD = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
 /* v11.96：?slot= で同じブラウザに2店を開いても、端末に残す設定が混ざらないように */ const SLOT=((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'')?'-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,''):'');
 let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], customers=[], openBills=[], cur=null, payMethod='cash', billFrom='hall';
-const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
 /* 2026-11-08 構造をシンプルに（2回目）：小窓の箱（class modal on・重なりの順番）を作る3つの手順を1つに（前は同じ3つが18か所） */
 function mkModal(z){ const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=z; return m; }
 /* 2026-11-08 オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */

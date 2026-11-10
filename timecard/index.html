@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <script src="../lib/olive/err.js"></script><!-- 画面のエラーを送る（一番初めに読む） -->
+<script src="../lib/olive/core.js"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>OLIVE タイムカード</title>
@@ -173,7 +174,6 @@ const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_key
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n, t, fn) => await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように（札はタブごと） */, storage:dualStore, storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 // 名前などを画面に入れる時は、タグとして動かないように必ずこれを通す
-const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 const TYPE_LABEL = { douhan:'同伴', after:'アフター', clock_in:'出勤', clock_out:'退勤' };
 let currentType = null;   // 未選択が初期状態
@@ -398,7 +398,6 @@ function tcAsk(name, min){
 }
 
 /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
-function jaNet(m){ return /Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m)) ? '通信できませんでした。再度お試しください' : m; }
 function showToast(main, sub, ms){ sub = jaNet(sub);
   const t = document.getElementById('toast');
   t.innerHTML = `${main}<small>${sub}</small>`;

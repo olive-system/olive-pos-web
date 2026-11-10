@@ -5,10 +5,7 @@ function kSet(v){ KL=(v&&String(v).trim())||'係'; KT.forEach(([o,k,v])=>{ o[k]=
 'use strict';
 const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* v1.67・SQL 380：フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
-const kanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), kanaKey=v=>kanaFix(v).replace(/ /g,''), kanaHit=(c,q)=>{ const k=kanaKey(q); return !!k&&kanaKey(c.kana).includes(k); };
-const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円'; /* v1.16：金額は POS と同じ「78,000円」 */
 /* v1.32・SQL 076：管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
 /* v1.48・SQL 218：黒服マイページの中（#hall）も、パスワードを聞かずにマイページから入場券をもらう。管理サイトの中（EA）とちがい、編集は今までどおりメニューの編集パスワードで（オーナー 2026-10-23） */
 const EMB=window.parent!==window&&(location.hash==='#admin'||location.hash==='#hall'), EA=EMB&&location.hash==='#admin', MEM={}; /* v1.49・SQL 227：黒服マイページの中（#hall）も管理サイトの中と同じく、編集の入場券があれば編集パスワードを聞かない（限定項目が可の黒服。オーナー 2026-10-24）。下の EA は編集・メニューの扱いで EMB にした */
@@ -49,7 +46,6 @@ async function rpc(fn,args){
 // ---------- ダイアログ（ブラウザ標準は使わない） ----------
 function sheet(html,onOpen){ return new Promise(res=>{ const m=$('modal'), s=$('sheet'); s.innerHTML=html; m.classList.add('on'); const done=v=>{ m.classList.remove('on'); s.innerHTML=''; res(v); }; onOpen(s,done); }); }
 function uiConfirm(msg,ok='OK',cls='primary'){ return sheet(`<div class="msg">${esc(msg)}</div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="${cls}" data-ok>${esc(ok)}</button></div>`,(s,done)=>{ s.querySelector('[data-x]').onclick=()=>done(false); s.querySelector('[data-ok]').onclick=()=>done(true); }); }
-const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
 function uiAlert(msg){ msg=jaNet(msg); return sheet(`<div class="msg">${esc(msg)}</div><div class="btns"><button class="primary" data-ok>OK</button></div>`,(s,done)=>{ s.querySelector('[data-ok]').onclick=()=>done(true); }); }
 function uiPrompt(title,val='',opt={}){ return sheet(`<h3>${esc(title)}</h3><input id="pIn" ${opt.pw?'type="password" autocomplete="off"':''} value="${esc(val)}" placeholder="${esc(opt.ph||'')}"><div class="err" id="pErr"></div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>${esc(opt.ok||'OK')}</button></div>`,(s,done)=>{ const i=s.querySelector('#pIn'); setTimeout(()=>i.focus(),50); const go=()=>done(i.value); s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=go; i.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } }; }); }
 let toastT=0; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }

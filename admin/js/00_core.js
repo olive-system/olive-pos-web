@@ -12,8 +12,6 @@ const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k);
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'olive-admin-auth',storage:dualStore}});
 const EMAIL_DOMAIN='@admin.olive.local';
 const $=id=>document.getElementById(id);
-const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
 function toast(m){ const t=$('toast'); t.textContent=jaNet(m); t.classList.add('on'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('on'),2000); }
 function guard(btn,fn){ return async(...a)=>{ if(btn.disabled) return; btn.disabled=true; try{ await fn(...a); } finally{ btn.disabled=false; } }; }
 function modal(html){ const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box">${html}</div>`; document.body.appendChild(m); return m; }
@@ -33,7 +31,6 @@ function genPw(n=10){ const c='abcdefghjkmnpqrstuvwxyz23456789'; const a=crypto.
 const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 
 // 管理サイトの共通の部品（金額・営業日・日付）。前は 10_register.js（現金管理）にあり、17 のファイルがそこに頼っていた（2026-11-08 コード整理）
-const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円';
 const sgnYen=n=>(n>0?'+':'')+yen(n);
 function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 const bdStart=d=>new Date(`${d}T08:00:00+09:00`).toISOString();

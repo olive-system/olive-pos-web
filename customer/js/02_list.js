@@ -29,7 +29,6 @@ function renderList(){ const q=$('q').value.trim();
   $('rows').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(b.dataset.id)); }
 
 /* v1.67・SQL 380：お名前の下にフリガナ（任意）。検索の文字がかなだけの時はフリガナの枠に入れる */
-const kanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
 function newForm(q){ const kq=q&&!kanaBad(kanaFix(q)); return sheet(`<h3>新しいお客様</h3><label class="f">お名前<input id="nfName" value="${esc(kq?'':q)}"></label><label class="f">フリガナ<input id="nfKana" value="${esc(kq?kanaFix(q):'')}" placeholder="例）あおやぎ しろう or アオヤギ シロウ"></label><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>登録</button></div>`,(s,done)=>{ const n=s.querySelector('#nfName'), k=s.querySelector('#nfKana'); setTimeout(()=>(kq?n:(q?k:n)).focus(),50); k.onblur=()=>{ k.value=kanaFix(k.value); };
   s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>{ const nm=n.value.trim(), kn=kanaFix(k.value); if(!nm){ toast('お名前を入力してください'); return; } if(kanaBad(kn)){ toast('フリガナはカタカナで入力してください'); return; } done({nm,kn}); }; }); }
 $('newBtn').onclick=async()=>{ const v=await newForm($('q').value.trim()); if(!v) return; const nm=v.nm;
