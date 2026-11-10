@@ -28,7 +28,6 @@ const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numer
 
 // 管理サイトの共通の部品（金額・営業日・日付）。前は 10_register.js（現金管理）にあり、17 のファイルがそこに頼っていた（2026-11-08 コード整理）
 const sgnYen=n=>(n>0?'+':'')+yen(n);
-function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 const bdStart=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
 const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
 const WJ=['日','月','火','水','木','金','土'];
