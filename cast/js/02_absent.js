@@ -60,7 +60,7 @@ async function lateForm(hall){
     if(!await uiConfirm(`${dTxt(L.date)}の遅刻連絡を送信しますか？（出勤予定 ${eta}）`)) return;
     $('ltGo').disabled = true;
     const q = await sb.rpc(hall ? 'hall_late_submit' : 'cast_late_submit', { p_token: TOKEN, p_eta: eta, p_reason: rs });
-    if(q.error){ $('ltGo').disabled = false; await uiAlert(q.error.message); return; }
+    if(q.error){ if($('ltGo')) $('ltGo').disabled = false; await uiAlert(q.error.message); return; }
     let lineOk = true;
     try{ await liff.sendMessages([{ type:'text', text:`【遅刻連絡】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\nシフト ${q.data.shift}\n出勤予定 ${eta}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
     lateDone(hall, q.data.date, q.data.at, q.data.shift, eta, 'pending', false, lineOk, q.data.sent === 0);

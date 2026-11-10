@@ -44,7 +44,7 @@ function shiftPaint(ng){
     if(!await uiConfirm(`${mo}月の${OK?'出勤できる日':'出勤できない日'} ${days.length}日を提出しますか？${days.length?'\n'+days.map(mdDay).join('、'):''}`)) return;
     $('shGo').disabled = true;
     const q = await sb.rpc(OK ? 'cast_shift_ok_submit' : 'cast_shift_ng_submit', { p_token: TOKEN, p_days: days });
-    if(q.error){ $('shGo').disabled = false; await uiAlert(q.error.message); shiftHome(); return; }
+    if(q.error){ if($('shGo')) $('shGo').disabled = false; await uiAlert(q.error.message); shiftHome(); return; }
     SHIFT = q.data; await uiAlert('提出しました'); shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
   };
 }

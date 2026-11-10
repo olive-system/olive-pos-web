@@ -30,7 +30,7 @@ async function payslip(){
     $('sgOk').disabled = true;
     const png = cv.toDataURL('image/png');
     const q = await sb.rpc('cast_pay_sign', { p_token: TOKEN, p_signature: png });
-    if(q.error){ $('sgOk').disabled = false; await uiAlert(q.error.message); return; }
+    if(q.error){ if($('sgOk')) $('sgOk').disabled = false; await uiAlert(q.error.message); return; }
     const net = N(q.data.net), at = new Date(q.data.signed_at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     try{ await liff.sendMessages([{ type:'text', text:`${y}年${mo}月分の報酬として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${at}）` }]); }catch(e){ await uiAlert('公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください'); }
     // v0.06・SQL 100：サインの画像を保存して、店（公式 LINE）から本人のトークへ「○月分 報酬 ○円 の受取サイン」＋画像を送信

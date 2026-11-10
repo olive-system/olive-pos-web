@@ -20,7 +20,7 @@ async function cardOrder(){
     if(!await uiConfirm(`名刺 ${C.qty}枚（${nm}）を発注しますか？\n名刺代 ${yen(C.price)}は報酬から控除されます`)) return;
     $('cnGo').disabled = true;
     const q = await sb.rpc('cast_card_order', { p_token: TOKEN, p_family: f, p_given: g });
-    if(q.error){ $('cnGo').disabled = false; await uiAlert(q.error.message); return; }
+    if(q.error){ if($('cnGo')) $('cnGo').disabled = false; await uiAlert(q.error.message); return; }
     show(`<div class="card c"><div class="big">送信完了</div><p>名刺 ${q.data.qty}枚（${esc(nm)}）の発注を受付しました。</p>${q.data.sent?'':'<p class="err sm">印刷屋さんへのメールの送信に失敗しました。黒服にご連絡ください</p>'}</div><button class="btn g" id="cnHome">ホーム</button>`);
     $('cnHome').onclick = home;
   };
