@@ -12,7 +12,7 @@ $('custSearch').oninput=e=>renderCust(e.target.value.trim());
 async function custInsert(name){ const id=crypto.randomUUID(); const r=await sb.from('customers').insert({id,store_id:store.id,name}); if(r.error) return r; return await sb.from('customers').select('*').eq('id',id).single(); }
 $('custNew').onclick=guard($('custNew'),async()=>{ /* v12.30：二度押しで同じお客様が2人できないように */ const name=$('custSearch').value.trim(); if(!name){toast('名前を入力してください');return;}
   const kk=await custTsureKakari(); const { data, error } = await custInsert(name); if(error){toast(error.message);return;}
-  let km=''; if(kk){ const kr=await sb.from('customer_kakari').upsert({customer_id:data.id,store_id:store.id,staff_id:kk,updated_at:new Date().toISOString()},{onConflict:'customer_id,store_id'}); if(kr.error) toast(''+KL+'を保存できません：'+kr.error.message); else { data.kakari_staff_id=kk; km=`係 ${snm(kk)} を登録しました`; } }
+  let km=''; if(kk){ const kr=await sb.rpc('pos_kakari_set',{p_customer:data.id,p_store:store.id,p_staff:kk}); if(kr.error) toast(''+KL+'を保存できません：'+kr.error.message); else { data.kakari_staff_id=kk; km=`係 ${snm(kk)} を登録しました`; } }
   customers.push(data); customers.sort((a,b)=>a.name.localeCompare(b.name,'ja')); await attachCust(data.id); if(km) toast(km); });
 /* v12.46・SQL 328：銀座（係の店）だけ。伝票に新規のお客様（お連れ様）を登録した時、伝票の最初のお客様の係を、新規のお客様の係にする。最初のお客様に係が無い時は伝票の係（1人の時だけ）。広島（担当の店）ではしない（オーナー 2026-11-02「銀座ルール」） */
 async function custTsureKakari(){ const bl=custBill||cur; if((custPick&&!custBill)||!bl||KL!=='係') return null; const act=id=>staffAll.some(s=>s.id===id&&s.is_active);
