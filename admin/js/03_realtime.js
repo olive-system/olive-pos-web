@@ -3,7 +3,7 @@
 let rtCh=null, rtSt=null, rtT=0, rtOwn=0, mainDirty=false, rtWait=false;
 const RT_SKIP=new Set(['o_perms','o_share','o_ids','pw','none','cust']); // v0.37：顧客サイトは中の画面が自分で読み直す
 function rtSub(){ if(rtCh&&rtSt===storeId) return; if(rtCh){ sb.removeChannel(rtCh); rtCh=null; } rtSt=storeId; if(!storeId) return;
-  try{ rtCh=sb.channel('olive:'+storeId).on('broadcast',{event:'chg'},m=>rtKick(m.payload)).subscribe(); }catch(e){ console.warn('realtime',e); } }
+  rtCh=rtJoin(sb,storeId,rtKick); }
 function rtKick(p){ if(!page||RT_SKIP.has(page)) return; clearTimeout(rtT); rtT=setTimeout(rtRefresh,p?.kind==='bill'?4000:1200); }
 function rtBar(on){ let b=$('rtBar'); if(!on){ if(b) b.remove(); return; } if(b) return; b=document.createElement('div'); b.id='rtBar'; b.className='alertbar'; b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:40;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.2)';
   b.innerHTML='<span>ほかで変更がありました</span><button class="primary sm">最新にする</button>'; document.body.appendChild(b); b.querySelector('button').onclick=()=>{ mainDirty=false; rtBar(false); rtRefresh(true); }; }

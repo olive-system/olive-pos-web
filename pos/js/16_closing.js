@@ -1,7 +1,7 @@
 // ---------- 閉店作業（入出金の登録 → ボトル残量 → 顧客メモの更新申請の確認（顧客ウェブサイトから届いた分） → 今日出たお酒・ドリンク → レジ金合わせ → 月間一覧） ----------
 const DENOMS=[[10000,'1万円札'],[5000,'5千円札'],[2000,'2千円札'],[1000,'千円札'],[500,'500円玉'],[100,'100円玉'],[50,'50円玉'],[10,'10円玉'],[5,'5円玉'],[1,'1円玉']];
 let clDate=null, clCounts={}, clDeposit=0, clOpening=0, clMonth=null, clCtx=null, clReqAuthor='';
-function clRange(d){ const a=new Date(bdAt(d)); return [a.toISOString(), new Date(a.getTime()+24*3600*1000).toISOString()]; }
+function clRange(d){ const a=new Date(bdStart(d)); return [a.toISOString(), new Date(a.getTime()+24*3600*1000).toISOString()]; }
 // v10.43：閉店作業の④ 今日出たお酒・ドリンク（発注用）。取消の伝票・取消した注文は除く。フード・その他（h.c・b.c・立替金など）は出さない
 function clOrderHtml(od){ if(od.error) return `<div class="muted">${esc(od.error.message)}</div>`; const skip=new Set(categories.filter(c=>['フード','その他'].includes(c.name)).map(c=>c.id)); const agg=new Map();
   (od.data||[]).forEach(i=>{ const cid=i.category_id||products.find(p=>p.id===i.product_id)?.category_id||null; if(skip.has(cid)) return; const k=i.product_id||i.name; const a=agg.get(k)||{name:i.name,cid,qty:0}; a.qty+=Number(i.qty)||0; agg.set(k,a); });

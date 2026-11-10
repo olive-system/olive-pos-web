@@ -42,7 +42,7 @@ function contractForm(){
     if(!await uiConfirm(`${V.title}\nこの内容で同意しますか？\n同意は取消できません`)) return;
     $('dcOk').disabled = true;
     const q = await sb.rpc('cast_contract_agree', { p_token: TOKEN, p_version: V.id, p_name: n, p_address: ad, p_phone: ph, p_email: em, p_signature: cv.toDataURL('image/png') });
-    if(q.error){ $('dcOk').disabled = false; await uiAlert(q.error.message); return; }
+    if(q.error){ if($('dcOk')) $('dcOk').disabled = false; await uiAlert(q.error.message); return; }
     await uiAlert('契約書に同意しました。\n控えは PDF で保存できます');
     docsList();
   };

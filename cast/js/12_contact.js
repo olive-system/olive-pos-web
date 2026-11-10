@@ -52,14 +52,14 @@ async function contactForm(today){
       $('cxGo').disabled = true; let sent = 0, done = 0;
       for(const r of L){ const mode = r.k === 'unknown' || r.k === 'none' ? r.k : 'staff';
         const q = await sb.rpc('cast_contact_submit', { p_token: TOKEN, p_name: r.n, p_mode: mode, p_kakari: mode === 'staff' ? r.k : null, p_memo: r.m || null });
-        if(q.error){ cxRows = cxRows.slice(done); save(); $('cxGo').disabled = false; await uiAlert(`${done}人を提出しました。\n${r.n} 様で止まりました：${q.error.message}`); paint(); return; }
+        if(q.error){ cxRows = cxRows.slice(done); save(); if($('cxGo')) $('cxGo').disabled = false; await uiAlert(`${done}人を提出しました。\n${r.n} 様で止まりました：${q.error.message}`); paint(); return; }
         done++; if(q.data.notified) sent++; }
       clear(); await uiAlert(`${done}人を提出しました${sent?`。\n${KL}に LINE で共有しました`:''}`); contactList();
     };
     $('cxNone').onclick = async () => {
       if(!await uiConfirm('今日は連絡先の交換なしで提出しますか？')) return;
       $('cxNone').disabled = true; const q = await sb.rpc('cast_contact_none', { p_token: TOKEN });
-      if(q.error){ $('cxNone').disabled = false; await uiAlert(q.error.message); return; }
+      if(q.error){ if($('cxNone')) $('cxNone').disabled = false; await uiAlert(q.error.message); return; }
       clear(); await uiAlert('今日は交換なしで提出しました'); contactList();
     };
   };
@@ -111,14 +111,14 @@ function contactPick(T){
       $('cxGo').disabled = true; let sent = 0, done = 0;
       for(const r of P){
         const q = await sb.rpc('cast_contact_pick', { p_token: TOKEN, p_customer: r.id, p_name: r.id ? null : r.n, p_memo: r.m || null });
-        if(q.error){ save(); $('cxGo').disabled = false; await uiAlert(`${done}人を提出しました。\n${r.n} 様で止まりました：${q.error.message}`); contactForm(T.day); return; }
+        if(q.error){ save(); if($('cxGo')) $('cxGo').disabled = false; await uiAlert(`${done}人を提出しました。\n${r.n} 様で止まりました：${q.error.message}`); contactForm(T.day); return; }
         done++; if(r.id) delete S.sel[r.id]; else S.rows.splice(S.rows.indexOf(S.rows.find(x => x.n.trim().replace(/[\s　]+/g, ' ') === r.n)), 1); if(q.data.notified) sent++; }
       clear(); await uiAlert(`${done}人を提出しました${sent ? `。\n${KL}に LINE で共有しました` : ''}`); contactList();
     };
     $('cxNone').onclick = async () => {
       if(!await uiConfirm('今日は連絡先の交換なしで提出しますか？')) return;
       $('cxNone').disabled = true; const q = await sb.rpc('cast_contact_none', { p_token: TOKEN });
-      if(q.error){ $('cxNone').disabled = false; await uiAlert(q.error.message); return; }
+      if(q.error){ if($('cxNone')) $('cxNone').disabled = false; await uiAlert(q.error.message); return; }
       clear(); await uiAlert('今日は交換なしで提出しました'); contactList();
     };
   };

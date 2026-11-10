@@ -36,7 +36,7 @@ async function dressReport(){
       const d = await sb.rpc('cast_dress_done', { p_token: TOKEN, p_report: q.data.id }); if(d.error) throw d.error;
       /* SQL 111：記録は店の公式 LINE から本人へ（金額＋レシートの写真）。キャストからの文は送らない */
       dressReport();
-    }catch(e){ $('drGo').disabled = false; await uiAlert(e.message || String(e)); }
+    }catch(e){ if($('drGo')) $('drGo').disabled = false; await uiAlert(e.message || String(e)); }
   };
 }
 

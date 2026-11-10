@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OLIVE 鍵"><meta name="theme-color" content="#4b5320">
 <link rel="apple-touch-icon" href="icon.png"><link rel="icon" href="icon.png">
-<title>OLIVE 鍵</title><!-- key v1.03 -->
+<title>OLIVE 鍵</title><!-- key v1.04 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style>
 <link rel="stylesheet" href="../cast/cast.css">
 <style>
@@ -30,8 +30,6 @@
 // 鍵 v1.00（SQL 326・2026-11-02）：セサミの解錠・施錠。LINEマイページの「鍵」か、業者の QR から開き、ホーム画面に追加して使う
 //   ?t= の合言葉で、だれか・使える鍵・時間を読む（key_info）。押すと Edge Function「sesame-key」がセサミに送る
 //   ホーム画面のアイコンから開いた時、鍵が1つなら押さずに解錠（オーナー「ワンタッチで開けたい」）。30秒以内の2回目はしない
-const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
 const ls = (k, v) => { try{ if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } };
 const T = new URLSearchParams(location.search).get('t') || ls('olive_key_t') || '';

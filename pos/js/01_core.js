@@ -1,9 +1,7 @@
-const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 // v11.25・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v11.28：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */
 function kDom(){ const a=$('castAddBtn'); if(a) a.textContent='＋ '+KL+'／同伴'; const t=$('castAddTtl'); if(t) t.textContent=KL+'／同伴を追加'; const c=document.querySelector('#castRole [data-cr=kakari]'); if(c) c.textContent=KL; }
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
-const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 /* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
 /* v12.20・SQL 278：すべての通信に端末の合鍵を付ける（データベースが「登録した端末」かを確かめる。点検 2026-10-28） */
@@ -28,7 +26,6 @@ function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remo
 const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0);
 const WD_J='日月火水木金土', mdS=s=>`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`, wdS=s=>WD_J[new Date(String(s).slice(0,10)+'T00:00:00Z').getUTCDay()];
 /* 営業日の始まり（その日の 8:00・日本時間）。端末の時刻の設定に左右されないように +09:00 を付ける */
-const bdAt=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
 setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; const bd=businessDate(d); $('hdDate').textContent=`${+bd.slice(5,7)}月${+bd.slice(8,10)}日`; /* v11.95：0時〜朝8時は前の日の営業日を出す（ゲネプロ #59） */ },1000);
 
 $('loginForm').addEventListener('submit', async e => { e.preventDefault(); $('loginErr').textContent='';
@@ -105,7 +102,7 @@ const fpOf=b=>JSON.stringify(b,(k,v)=>k==='depPays'||k==='totals'?undefined:v);
 document.addEventListener('pointerdown',()=>{ rtTap=Date.now(); },true);
 const rtBusy=()=>!!document.querySelector('.modal.on');
 const onView=v=>$(v).classList.contains('on');
-function rtSub(){ if(rtCh||!store) return; try{ rtCh=sb.channel('olive:'+store.id).on('broadcast',{event:'chg'},m=>rtOn(m.payload||{})).subscribe(); }catch(e){ console.warn('realtime',e); } }
+function rtSub(){ if(rtCh||!store) return; rtCh=rtJoin(sb,store.id,rtOn); }
 let rtSide=false;
 function rtOn(p){ if(p.kind==='settings'){ hallDropAll(); clearTimeout(rtMastT); rtMastT=setTimeout(rtMasters,1500); return; }
   /* v12.30：変わった伝票の金額だけ計算し直す。置き・お預かり品は伝票・入金・お預かりが変わった時だけ読む */ if(p.bill) hallDrop(p.bill); else hallDropAll(); if(!p.table||['bills','payments','bill_tags'].includes(p.table)) rtSide=true;

@@ -165,10 +165,7 @@
 <!-- 2026-10-22：古い iPad（iOS 12）でも動くように、supabase-js 2.116.0 を esbuild で safari12 向けに直したもの（作り方は olive-tools/legacy/make.sh） -->
 <script src="supabase-safari12.js"></script>
 <script>
-const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 
-const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 /* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n, t, fn) => await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように（札はタブごと） */, storage:dualStore, storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
@@ -253,9 +250,7 @@ async function start(fromLogin){
 let rtCh = null, rtT = 0;
 function rtSub(){
   if (rtCh || !store) return;
-  try { rtCh = sb.channel('olive:' + store.id).on('broadcast', { event:'chg' }, m => {
-    if ((m.payload || {}).kind !== 'settings') return; clearTimeout(rtT); rtT = setTimeout(rtReload, 1500); }).subscribe(); }
-  catch (e) { console.warn('realtime', e); }
+  rtCh = rtJoin(sb, store.id, p => { if (p.kind !== 'settings') return; clearTimeout(rtT); rtT = setTimeout(rtReload, 1500); });
 }
 async function rtReload(){
   if (busy) { clearTimeout(rtT); rtT = setTimeout(rtReload, 3000); return; }

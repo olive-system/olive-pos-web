@@ -21,9 +21,9 @@ function resvThanks(x){
     const note = $('thN').value.trim();
     $('thGo').disabled = true;
     const q = await sb.rpc('cast_resv_thanks', { p_token: TOKEN, p_id: x.id, p_note: note || null });
-    if(q.error){ $('thGo').disabled = false; await uiAlert(q.error.message); return; }
+    if(q.error){ if($('thGo')) $('thGo').disabled = false; await uiAlert(q.error.message); return; }
     /* v1.05・点検 2026-11-02 A3・SQL 316：未連携と送信失敗で文を分ける。送信失敗の時は記録せず、送り直せる */
-    if(!q.data.sent && q.data.linked === true){ $('thGo').disabled = false; await uiAlert('ありがとうの送信に失敗しました。再度お試しください'); return; }
+    if(!q.data.sent && q.data.linked === true){ if($('thGo')) $('thGo').disabled = false; await uiAlert('ありがとうの送信に失敗しました。再度お試しください'); return; }
     await uiAlert(q.data.sent ? `${x.by}さんにありがとうを送信しました` : `ありがとうを記録しました。\n${x.by}さんは LINE 未連携のため、LINE は届いていません`);
     resvList();
   };
@@ -137,7 +137,7 @@ async function resvForm(ed){
     if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${srOn()?`\n出勤希望 ${$('rvST').value}`:''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
     $('rvGo').disabled = true;
     const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: cid, p_vip: vip, p_dh: dh ? dhIds : null, p_black: dh && blk && !DAY.black_taken ? blk : null });
-    if(q.error){ $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
+    if(q.error){ if($('rvGo')) $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
     dft?.clear();
     let lineOk = true;
     try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){ lineOk = false; }

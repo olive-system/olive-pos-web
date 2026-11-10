@@ -1,6 +1,5 @@
 // v1.33・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 'use strict';
-const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 /* v1.67・SQL 380：フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
 /* v1.32・SQL 076：管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
 /* v1.48・SQL 218：黒服マイページの中（#hall）も、パスワードを聞かずにマイページから入場券をもらう。管理サイトの中（EA）とちがい、編集は今までどおりメニューの編集パスワードで（オーナー 2026-10-23） */
@@ -73,7 +72,7 @@ async function start(){ if(!token){ showLogin(); return; }
 let rtCh=null, rtT=0;
 function rtSub(){ const sid=boot&&boot.store&&boot.store.id; if(rtCh||!sid||!window.supabase) return;
   try{ const c=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,storageKey:'olive-cs-rt'}});
-    rtCh=c.channel('olive:'+sid).on('broadcast',{event:'chg'},m=>{ const k=(m.payload||{}).kind; clearTimeout(rtT); rtT=setTimeout(()=>rtRefresh(k),k==='settings'?1500:2500); }).subscribe(); }catch(e){ console.warn('realtime',e); } }
+    rtCh=rtJoin(c,sid,p=>{ const k=p.kind; clearTimeout(rtT); rtT=setTimeout(()=>rtRefresh(k),k==='settings'?1500:2500); }); }catch(e){ console.warn('realtime',e); } }
 async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot',{p_token:token}); if(b){ boot=b; kSet(boot.store&&boot.store.kakari_label); $('storeName').textContent=(boot.store&&boot.store.name||'')+'　顧客'; document.title=(boot.store&&boot.store.name||'OLIVE')+' 顧客'; } }catch(e){} } csRefresh(false); } /* v1.53：知らせでは開いている詳細だけ読み直す（一覧の約6,000人は1分ごとの読み直しだけ。営業中に何回も読み直して重くなるため。点検 2026-10-30） */
 
 // ---------- 編集（v1.59：モードは無い。編集用でログインした人は、裏で編集の券を取り直し続ける） ----------

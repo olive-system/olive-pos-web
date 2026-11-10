@@ -37,7 +37,7 @@ function salesPick(){
       if(!await uiConfirm(`連絡済リスト ${n}名を共有しますか？`)) return;
       $('slGo').disabled = true;
       const q = await sb.rpc('cast_sales_report', { p_token: TOKEN, p_ids: [...on], p_extra: extra });
-      if(q.error){ $('slGo').disabled = false; await uiAlert(q.error.message); return; }
+      if(q.error){ if($('slGo')) $('slGo').disabled = false; await uiAlert(q.error.message); return; }
       SALES = q.data; salesShot();
     };
   };
@@ -65,7 +65,7 @@ function salesShot(){
         : `送り先${q.data.to ? `（${q.data.to}）` : ''}が LINE 未連携のため、スクショは届いていません。黒服にご連絡ください`;
       await uiAlert(q.data.sent ? `スクショを送信しました（${q.data.to}）` : ng);
       await salesLoad(); salesShot();
-    }catch(e){ $('slShot').disabled = false; await uiAlert(e.message || String(e)); }
+    }catch(e){ if($('slShot')) $('slShot').disabled = false; await uiAlert(e.message || String(e)); }
   };
 }
 

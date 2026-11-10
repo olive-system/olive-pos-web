@@ -49,7 +49,7 @@ function hallTodoOne(x, keep){
     ${x.need_photo ? `<div id="tdPs">${grid(tdShots.map((f,i)=>`<div style="position:relative"><img src="${f.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button class="xb img" data-tdx="${i}" aria-label="外す">×</button></div>`).join('') + (tdShots.length<40?`<label style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px dashed var(--line);border-radius:8px;cursor:pointer;color:var(--muted)">＋撮る<input type="file" id="tdP" accept="image/*" capture="environment" style="display:none"></label>`:''))}<div class="muted sm" style="text-align:center;margin-top:4px">${tdShots.length?`写真 ${tdShots.length}枚`:'写真を撮ってください'}${tdShots.length>=40?'（40枚まで）':''}</div></div>` : ''}
     <button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`);
   if(done){ $('tdRedo').onclick = async () => { if(!await uiConfirm('やり直しますか？\nこの TODO は「未」に戻ります。もう一度送ってください')) return;
-      $('tdRedo').disabled = true; const q = await sb.rpc('hall_todo_redo', { p_token: TOKEN, p_item: x.id , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ $('tdRedo').disabled = false; await uiAlert(q.error.message); return; }
+      $('tdRedo').disabled = true; const q = await sb.rpc('hall_todo_redo', { p_token: TOKEN, p_item: x.id , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRedo')) $('tdRedo').disabled = false; await uiAlert(q.error.message); return; }
       hallTodoOne({ ...x, status: 'open', photos: [], photo: null }); }; return; }
   const redraw = () => hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null });
   const abP = tdAB && tdAB.item === x.id ? tdAB.products || [] : [];
@@ -71,13 +71,13 @@ function hallTodoOne(x, keep){
       const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error) throw q.error;
       tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = []; tdAbVals = {};
       await uiAlert('完了しました'); hallTodo();
-    }catch(e){ $('tdGo').disabled = false; $('tdGo').textContent = x.need_photo ? '写真を送って完了' : '完了'; await uiAlert(e.message || String(e)); }
+    }catch(e){ if($('tdGo')) $('tdGo').disabled = false; if($('tdGo')) $('tdGo').textContent = x.need_photo ? '写真を送って完了' : '完了'; await uiAlert(e.message || String(e)); }
   };
   $('tdNo').onclick = () => {
     show(`<div class="ttl">${esc(x.name)}</div><label class="f" style="display:block">できない理由<textarea id="tdR" maxlength="500" style="${fld};min-height:100px">${esc(x.reason||'')}</textarea></label><button class="btn" id="tdRGo">送る</button>`);
     setBack(() => hallTodoOne(x, {}));
     $('tdRGo').onclick = async () => { const rs = $('tdR').value.trim(); if(!rs){ await uiAlert('理由を書いてください'); return; }
-      $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
+      $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRGo')) $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
   };
 }
 function hallSlipHtml(P){
