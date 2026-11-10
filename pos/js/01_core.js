@@ -22,7 +22,7 @@ let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], 
 function mkModal(z){ const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=z; return m; }
 /* 2026-11-08 オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */
 const TOAST_NG=/(できません|エラー|読めません|出せません|取り消せません|外せません)：|読み込めません|失敗|通信できませんでした/;
-function toast(m){ m=jaNet(m); if(TOAST_NG.test(String(m))&&typeof uiAlert==='function'&&!$('uiDlg').classList.contains('on')){ uiAlert(String(m)); return; } const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1800); }
+TOAST.ms=1800; TOAST.big=m=>{ if(TOAST_NG.test(String(m))&&typeof uiAlert==='function'&&!$('uiDlg').classList.contains('on')){ uiAlert(String(m)); return true; } return false; }; /* POS は失敗の知らせを見落とさないように、知らせの箱で出す */
 function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remove('on')); $(v).classList.add('on'); if(v==='v-hall'&&rtMastWait) setTimeout(rtMasters,0); }
 /* 同じ働きの書き方が画面ごとにあり、全角の数字を 0 と読む所があったので1つにする */
 const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0);

@@ -43,7 +43,7 @@ function sheet(html,onOpen){ return new Promise(res=>{ const m=$('modal'), s=$('
 function uiConfirm(msg,ok='OK',cls='primary'){ return sheet(`<div class="msg">${esc(msg)}</div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="${cls}" data-ok>${esc(ok)}</button></div>`,(s,done)=>{ s.querySelector('[data-x]').onclick=()=>done(false); s.querySelector('[data-ok]').onclick=()=>done(true); }); }
 function uiAlert(msg){ msg=jaNet(msg); return sheet(`<div class="msg">${esc(msg)}</div><div class="btns"><button class="primary" data-ok>OK</button></div>`,(s,done)=>{ s.querySelector('[data-ok]').onclick=()=>done(true); }); }
 function uiPrompt(title,val='',opt={}){ return sheet(`<h3>${esc(title)}</h3><input id="pIn" ${opt.pw?'type="password" autocomplete="off"':''} value="${esc(val)}" placeholder="${esc(opt.ph||'')}"><div class="err" id="pErr"></div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>${esc(opt.ok||'OK')}</button></div>`,(s,done)=>{ const i=s.querySelector('#pIn'); setTimeout(()=>i.focus(),50); const go=()=>done(i.value); s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=go; i.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } }; }); }
-let toastT=0; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2200); }
+TOAST.ms=2200;
 async function fail(e){ if(e&&e.code==='CS_AUTH'){ showLogin(e.message); return; } await uiAlert(e&&e.message||String(e)); }
 
 // ---------- 画面切り替え ----------
