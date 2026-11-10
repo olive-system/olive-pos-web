@@ -9,7 +9,6 @@ const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k);
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'olive-admin-auth',storage:dualStore}});
 const EMAIL_DOMAIN='@admin.olive.local';
 function toast(m){ const t=$('toast'); t.textContent=jaNet(m); t.classList.add('on'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('on'),2000); }
-function guard(btn,fn){ return async(...a)=>{ if(btn.disabled) return; btn.disabled=true; try{ await fn(...a); } finally{ btn.disabled=false; } }; }
 function modal(html){ const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box">${html}</div>`; document.body.appendChild(m); return m; }
 function uiAlert(msg){ msg=jaNet(msg); return new Promise(res=>{ const m=modal(`<div style="white-space:pre-wrap">${esc(msg)}</div><div class="bar"><button class="primary" data-k="ok">OK</button></div>`); m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(); }; }); }
 function uiConfirm(msg,okLabel='OK',cls='primary'){ return new Promise(res=>{ const m=modal(`<div style="white-space:pre-wrap">${esc(msg)}</div><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="${cls}" data-k="ok">${esc(okLabel)}</button></div>`); m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(false); }; m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(true); }; }); }
@@ -35,6 +34,5 @@ const wdJ=x=>WJ[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wd
 // 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。2026-11-08 コード整理）
 // 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（2026-11-08 コード整理）
 const hmJst=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
-async function sbAll(mk){ let all=[]; for(let from=0;;from+=1000){ const r=await mk().range(from,from+999); if(r.error) return {data:all.length?all:null,error:r.error}; all=all.concat(r.data||[]); if((r.data||[]).length<1000) return {data:all,error:null}; } }
 const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };

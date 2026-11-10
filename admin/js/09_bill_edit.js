@@ -5,7 +5,6 @@ const BE_M={cash:'現金',card:'カード',invoice:'請求書',oki:'置き'}, BE
 const beDh=r=>r==='douhan'||r==='douhan1'||r==='douhan2';
 const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
 // v0.93：来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
-const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
 // v2.20：フリガナ（顧客サイトの kanaFix・kanaBad と同じ。ひらがな→カタカナ）
 const beKanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), beKanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
 const beHm5=t=>t?hmJst(ceil5(t)):'';

@@ -11,7 +11,6 @@ const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_te
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 /* v12.72・SQL 380：お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
 // v11.45：来店の時刻は5分切り上げ（09:17→09:20）。セットの始まり（set_start）も切り上げた時刻で記録し、セットの終わり・延長もそこから数える。来店の記録（opened_at）と退店（closed_at）は実際の時刻（オーナー 2026-10-15）
-const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
 const hm5=t=>hm(ceil5(t));
 const hm = t => { const d=new Date(t); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
 const ROLE = { douhan1:'同伴①', douhan2:'同伴②', douhan:'同伴', none:'' };

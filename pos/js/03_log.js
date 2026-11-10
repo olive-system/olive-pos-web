@@ -6,16 +6,6 @@ const insPend=new Map();
 async function insOnce(t,row){ const k=t+JSON.stringify(row), pd=insPend.get(k), id=pd&&Date.now()-pd.at<600000?pd.id:crypto.randomUUID(); const r=await sb.from(t).insert({...row,id});
   if(r.error&&r.error.code==='23505'&&pd?.id===id){ const q=await sb.from(t).select('id').eq('id',id).maybeSingle(); if(q.data){ insPend.delete(k); return {data:null,error:null}; } }
   if(r.error) insPend.set(k,{id,at:Date.now()}); else insPend.delete(k); return r; }
-const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&v!==''&&!(Array.isArray(v)&&!v.length)&&k!=='table'&&k!=='reason'); e.sort((a,b)=>(a[0]==='by'?-1:0)-(b[0]==='by'?-1:0));
-  const md=v=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v)); return m?`${+m[2]}/${+m[3]}`:String(v); }, U={amount:'円',total:'円',total_before:'円',minutes:'分',guest_count:'名'};
-  return e.map(([k,v])=>{ const n=typeof v==='number'?v.toLocaleString('ja-JP')+(U[k]||''):null;
-    if(k==='by') return '操作者：'+String(v).replace(/^管理サイト：/,'');
-    if(k==='date'||k==='business_date') return md(v);
-    if(k==='kind'&&(v==='in'||v==='out')) return v==='in'?'入金':'出金';
-    if(k==='is_auto') return v?'自動延長':'手動延長';
-    if(['amount','minutes','guest_count'].includes(k)&&n!=null) return n;
-    if(k==='method'||k==='name'||k==='email') return val(v);
-    return `${KJ[k]||k}：${n!=null?n:val(v)}`; }).join(' ／ '); }; /* 2026-10-14：内容は短く（オーナー「長い」）。金額・分・人数・日付・入金／出金は値だけ */
 async function logOp(action, detail, reason, noBill){ try{ const t=noBill?null:tables.find(x=>x.id===cur?.table_id); const { error } = await sb.rpc('pos_log_add',{p_store:store.id,p_bill:noBill?null:(cur?.id||null),p_action:action,p_detail:{table:t?.name||null,...detail,...(opBy&&Date.now()-opBy.at<180000?{by:opBy.name}:{})},p_reason:reason||null}) /* SQL 430：入口の関数 */; opBy=null; if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
 // ブラウザ標準の確認・入力ダイアログ（サイト名が出る）を使わず、画面内のダイアログで聞く
 /* 2026-11-08 オーナー：理由を空のまま OK を押した時は、箱を閉じずに赤で「理由を入力してください」（前は箱が閉じて 1.8秒の知らせで中止）。need＝空の時に出す文 */
