@@ -1,6 +1,5 @@
 // ---------- 詳細 ----------
 /* v1.25：並び順を POS とそろえる（名前・卓名は日本語順、数字は数の順） */
-function jaCmp(a,b){ return (jaCmp.c||(jaCmp.c=new Intl.Collator('ja',{numeric:true}))).compare(String(a??''),String(b??'')); }
 async function openDetail(id){ curId=id; cur=null; const c=custs.find(x=>x.id===id); $('dName').textContent=c?c.name+' 様':''; $('detail').innerHTML='<div class="loading">読み込み中…</div>'; show('vDetail'); paintEdit();
   try{ const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id) return; cur=d; renderDetail(); }catch(e){ if(curId===id){ $('detail').innerHTML=''; } await fail(e); if(e.code==='CS_NOTFOUND'){ show('vList'); loadList(); } } }
 async function reloadDetail(){ if(!curId) return; try{ const d=await rpc('cs_detail',{p_token:token,p_id:curId}); cur=d; renderDetail(); }catch(e){ await fail(e); } }
@@ -73,7 +72,6 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
     if(freeName){ try{ await rpc('cs_bottle_add_named',{p_token:token,p_customer:c.id,p_name:freeName,p_remaining:rem}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ if(e.code==='SQL') await uiAlert('準備中です（SQL 044 が未実行）'); else { await fail(e); await reloadDetail(); } } return; }
     try{ const bid=await rpc('cs_bottle_add',{p_token:token,p_customer:c.id,p_product:p.id}); if(rem!==10) await rpc('cs_bottle',{p_token:token,p_bottle:bid,p_action:'remaining',p_value:String(rem)}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ await fail(e); await reloadDetail(); } };
 }
-function fitLine(root){ (root||document).querySelectorAll('.fit1').forEach(e=>{ if(e.dataset.fs==null) e.dataset.fs=e.style.fontSize||''; e.style.fontSize=e.dataset.fs; let s=parseFloat(getComputedStyle(e).fontSize)||14; while(e.scrollWidth>e.clientWidth+1&&s>9){ s-=0.5; e.style.fontSize=s+'px'; } }); }
 window.addEventListener('resize',()=>fitLine());
 // v1.55・SQL 306：ボトル移動の移動先・係（係は今の係を最初に選ぶ）
 function mvForm(b,c){ const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const k0=b.kakari_staff_id||c.kakari_staff_id||'';

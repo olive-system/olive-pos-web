@@ -2,12 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<script src="../lib/olive/err.js"></script><!-- 画面のエラーを送る（一番初めに読む） -->
+<script src="../lib/olive/core.js"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OLIVE 鍵"><meta name="theme-color" content="#4b5320">
 <link rel="apple-touch-icon" href="icon.png"><link rel="icon" href="icon.png">
-<title>OLIVE 鍵</title><!-- key v1.00 -->
+<title>OLIVE 鍵</title><!-- key v1.02 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style>
 <link rel="stylesheet" href="../cast/cast.css">
 <style>
@@ -31,8 +33,6 @@
 const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
-const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ls = (k, v) => { try{ if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } };
 const T = new URLSearchParams(location.search).get('t') || ls('olive_key_t') || '';
 const ALONE = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));

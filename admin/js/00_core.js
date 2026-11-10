@@ -1,19 +1,13 @@
 const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 // v0.57・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
-let KL='係'; const kl=s=>KL==='係'?s:String(s??'').replace(/係/g,KL); const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v0.64：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */ const KT=[];
-function kReg(...os){ const walk=o=>{ for(const k of Object.keys(o)){ const v=o[k]; if(typeof v==='string'){ if(v.includes('係')) KT.push([o,k,v]); } else if(v&&typeof v==='object') walk(v); } }; os.forEach(walk); }
-function kSet(v){ KL=(v&&String(v).trim())||'係'; KT.forEach(([o,k,v])=>{ o[k]=kl(v); }); }
+const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v0.64：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
 const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 // POS・タイムカードと同じサイト上にあるので、ログイン情報は別の場所にしまう（POSのログインを横取りしない）
 /* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
-const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'olive-admin-auth',storage:dualStore}});
 const EMAIL_DOMAIN='@admin.olive.local';
-const $=id=>document.getElementById(id);
-const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
 function toast(m){ const t=$('toast'); t.textContent=jaNet(m); t.classList.add('on'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('on'),2000); }
 function guard(btn,fn){ return async(...a)=>{ if(btn.disabled) return; btn.disabled=true; try{ await fn(...a); } finally{ btn.disabled=false; } }; }
 function modal(html){ const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box">${html}</div>`; document.body.appendChild(m); return m; }
@@ -33,17 +27,12 @@ function genPw(n=10){ const c='abcdefghjkmnpqrstuvwxyz23456789'; const a=crypto.
 const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 
 // 管理サイトの共通の部品（金額・営業日・日付）。前は 10_register.js（現金管理）にあり、17 のファイルがそこに頼っていた（2026-11-08 コード整理）
-const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円';
 const sgnYen=n=>(n>0?'+':'')+yen(n);
-function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 const bdStart=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
 const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
 const WJ=['日','月','火','水','木','金','土'];
 const wdJ=x=>WJ[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wdJ(x)}）`;
 // 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。2026-11-08 コード整理）
-async function shrinkJpeg(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=ng; i.src=URL.createObjectURL(file); });
-  const k=Math.min(1,1600/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
-  c.getContext('2d').drawImage(img,0,0,c.width,c.height); return await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.85)); }
 // 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（2026-11-08 コード整理）
 const hmJst=t=>t?new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 async function sbAll(mk){ let all=[]; for(let from=0;;from+=1000){ const r=await mk().range(from,from+999); if(r.error) return {data:all.length?all:null,error:r.error}; all=all.concat(r.data||[]); if((r.data||[]).length<1000) return {data:all,error:null}; } }

@@ -1,22 +1,15 @@
 const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 // v11.25・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
-let KL='係'; const kl=s=>KL==='係'?s:String(s??'').replace(/係/g,KL); const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v11.28：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */ const KT=[];
-function kReg(...os){ const walk=o=>{ for(const k of Object.keys(o)){ const v=o[k]; if(typeof v==='string'){ if(v.includes('係')) KT.push([o,k,v]); } else if(v&&typeof v==='object') walk(v); } }; os.forEach(walk); }
-function kSet(v){ KL=(v&&String(v).trim())||'係'; KT.forEach(([o,k,v])=>{ o[k]=kl(v); }); }
+const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v11.28：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */
 function kDom(){ const a=$('castAddBtn'); if(a) a.textContent='＋ '+KL+'／同伴'; const t=$('castAddTtl'); if(t) t.textContent=KL+'／同伴を追加'; const c=document.querySelector('#castRole [data-cr=kakari]'); if(c) c.textContent=KL; }
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
 const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 /* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
-const keyDb=(mode,fn)=>new Promise(res=>{ try{ const r=indexedDB.open('olive_keys',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('k'); }; r.onsuccess=()=>{ try{ const tx=r.result.transaction('k',mode), q=fn(tx.objectStore('k')); tx.oncomplete=()=>res(q&&q.result!=null?q.result:null); tx.onerror=()=>res(null); }catch(e){ res(null); } }; r.onerror=()=>res(null); }catch(e){ res(null); } });
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
 /* v12.20・SQL 278：すべての通信に端末の合鍵を付ける（データベースが「登録した端末」かを確かめる。点検 2026-10-28） */
 const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_terminal'+SLOT); }catch(e){} if(!k) return fetch(u,o); const h=new Headers(o.headers||{}); h.set('x-olive-term',k); return fetch(u,{...o,headers:h}); };
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
-const $ = id => document.getElementById(id);
-const esc=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 /* v12.72・SQL 380：お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
-const kanaFix=v=>String(v||'').normalize('NFKC').replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)).replace(/\s+/g,' ').trim(), kanaKey=v=>kanaFix(v).replace(/ /g,''), kanaHit=(c,q)=>{ const k=kanaKey(q); return !!k&&kanaKey(c.kana).includes(k); }, kanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
-const yen = n => (n ?? 0).toLocaleString('ja-JP') + '円';
 // v11.45：来店の時刻は5分切り上げ（09:17→09:20）。セットの始まり（set_start）も切り上げた時刻で記録し、セットの終わり・延長もそこから数える。来店の記録（opened_at）と退店（closed_at）は実際の時刻（オーナー 2026-10-15）
 const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
 const hm5=t=>hm(ceil5(t));
@@ -26,7 +19,6 @@ const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
 const METHOD = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
 /* v11.96：?slot= で同じブラウザに2店を開いても、端末に残す設定が混ざらないように */ const SLOT=((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'')?'-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,''):'');
 let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], customers=[], openBills=[], cur=null, payMethod='cash', billFrom='hall';
-const jaNet=m=>/Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed|AuthRetryableFetchError/i.test(String(m))?'通信できませんでした。再度お試しください':m; /* 2026-11-08 点検：電波が悪い時の英語（Failed to fetch・Load failed など）は日本語で出す（管理サイトのログインと同じ文） */
 /* 2026-11-08 構造をシンプルに（2回目）：小窓の箱（class modal on・重なりの順番）を作る3つの手順を1つに（前は同じ3つが18か所） */
 function mkModal(z){ const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=z; return m; }
 /* 2026-11-08 オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */
@@ -38,7 +30,6 @@ const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String
 const WD_J='日月火水木金土', mdS=s=>`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`, wdS=s=>WD_J[new Date(String(s).slice(0,10)+'T00:00:00Z').getUTCDay()];
 /* 営業日の始まり（その日の 8:00・日本時間）。端末の時刻の設定に左右されないように +09:00 を付ける */
 const bdAt=d=>new Date(`${d}T08:00:00+09:00`).toISOString();
-function businessDate(d=new Date()){ const x=new Date(d.getTime()-8*3600*1000); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; const bd=businessDate(d); $('hdDate').textContent=`${+bd.slice(5,7)}月${+bd.slice(8,10)}日`; /* v11.95：0時〜朝8時は前の日の営業日を出す（ゲネプロ #59） */ },1000);
 
 $('loginForm').addEventListener('submit', async e => { e.preventDefault(); $('loginErr').textContent='';
@@ -90,16 +81,14 @@ async function start(){ const { data:{ session } } = await sb.auth.getSession();
   $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 
 async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
-  const [s,st,pm,tb,ca,pr,sf,cu] = await Promise.all([
-    sb.from('stores').select('*').limit(1), sb.from('pos_settings').select('*').limit(1),
-    sb.from('pricing_modes').select('*').eq('is_active',true).order('sort_order').order('id'), sb.from('tables').select('*').order('sort_order').order('id'),
-    sb.from('categories').select('*').order('sort_order').order('id'), sb.from('products').select('*').order('sort_order').order('id'),
-    sb.from('staff').select('id,display_name,kind').eq('is_active',true).order('sort_order').order('id'), withCust?cuLoadAll():null]);
-  { const e=[s,st,pm,tb,ca,pr,sf,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
-  store=s.data?.[0]; kSet(store?.kakari_label); kDom(); settings=st.data?.[0]; modes=pm.data||[]; tables=tb.data||[]; categories=ca.data||[]; products=pr.data||[]; staff=sf.data||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
+  /* v13.04・SQL 427：店の設定（店・POS設定・料金・卓・分類・商品・在籍・閉店時刻）は入口の関数1回で読む（前は表を1つずつ8回） */
+  const [m,cu] = await Promise.all([sb.rpc('pos_masters'), withCust?cuLoadAll():null]);
+  { const e=[m,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
+  const d=m.data||{};
+  store=d.store||undefined; kSet(store?.kakari_label); kDom(); settings=d.settings||undefined; modes=d.modes||[]; tables=d.tables||[]; categories=d.categories||[]; products=d.products||[]; staff=d.staff||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
   $('storeName').textContent = store?.name || '店舗未設定';
   // v11.16・SQL 065：閉店時間（管理サイト「POS設定」の店の情報）。体験の時給の打ち止めに使う。読めない時は 1:00
-  if(store){ const r=await sb.rpc('store_close_time',{p_store:store.id}); if(!r.error&&/^\d{2}:\d{2}$/.test(r.data||'')) closeHM=r.data; }
+  if(store&&/^\d{2}:\d{2}$/.test(d.close_time||'')) closeHM=d.close_time;
   await expireTrials();
 }
 // 体験キャストは1日限り：登録した営業日の翌営業日になったら自動で「削除済」にする（記録は残る）

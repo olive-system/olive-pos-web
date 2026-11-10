@@ -5,16 +5,12 @@ const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
 const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
 const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
-const $ = id => document.getElementById(id);
 const WD = ['日','月','火','水','木','金','土'];
 const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`, mdDay = s => { const x = jd(s); return `${x.getMonth()+1}/${x.getDate()}`; }, mdW = s => mdWD(jd(s));
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* v1.41・SQL 380：お客様のフリガナで検索（ひらがな・カタカナどちらでも。空白は無視） */
-const kanaKey = v => String(v || '').normalize('NFKC').replace(/[\u3041-\u3096]/g, ch => String.fromCharCode(ch.charCodeAt(0) + 0x60)).replace(/\s+/g, '');
 const DRESS = '<img src="../icons/dress.svg" alt="黒ドレス" style="width:15px;height:15px;vertical-align:-2px;margin-left:2px">'; /* v1.30・SQL 368：黒ドレスの着用者の名前の横（オーナー 2026-11-05「イ 黒いドレスの形」。Phosphor） */
-const yen = n => Number(n||0).toLocaleString('ja-JP') + '円';
 const HM = h => { const t=Math.round(Number(h||0)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
-let TOKEN = null, ME = null, KL = '係', pollT = null, SHIFT_ALL = false;
+let TOKEN = null, ME = null, pollT = null, SHIFT_ALL = false; /* KL（係の呼び方）は共通の部品 lib/olive/core.js */
 
 // v0.50：入力の途中保存（ゲネプロ マイページ #4。画面を閉じて開き直すと消えていた）。この端末だけに1日まで残す。提出したら消す
 function draftBind(key, ids){ const k = 'olive_cast_draft_' + key + '_' + STORE; let v = {}; try{ v = JSON.parse(localStorage.getItem(k) || '{}'); }catch(e){}

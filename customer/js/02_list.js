@@ -3,7 +3,6 @@ function bd(){ return boot&&boot.business_date||new Date().toISOString().slice(0
 // 来店履歴は今年の分はそのまま出し、去年より前は年ごとにまとめる（タップで開く）。POSと同じ
 function visYears(list,dt,row){ const cy=bd().slice(0,4), g={}; const head=list.filter(v=>String(dt(v)).slice(0,4)===cy).map(row).join(''); for(const v of list){ const y=String(dt(v)).slice(0,4); if(y===cy) continue; (g[y]=g[y]||[]).push(v); } return head+Object.keys(g).sort().reverse().map(y=>`<details class="vyr"><summary>${y}年　${g[y].length}回</summary>${g[y].map(row).join('')}</details>`).join(''); }
 // 一覧のボトル：キープ中の銘柄を3本まで、4本以上は「ほか○本」。銘柄が届かない時は本数だけ。POSと同じ
-function bnLine(names,n){ names=names||[]; if(!names.length) return n?`ボトル${n}本`:''; return names.slice(0,3).join('、')+(names.length>3?` ほか${names.length-3}本`:''); }
 function md(d){ const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]===bd().slice(0,4)?'':m[1]+'/'}${+m[2]}/${+m[3]}`:''; }
 function cutoff(n){ const [y,m,d]=bd().split('-').map(Number); const x=new Date(y,m-1-n,1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* v1.37：月末のずれを直す */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 function base(c){ return c.last||c.first_bottle||String(c.created_at||'').slice(0,10)||''; }
@@ -29,7 +28,6 @@ function renderList(){ const q=$('q').value.trim();
   $('rows').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openDetail(b.dataset.id)); }
 
 /* v1.67・SQL 380：お名前の下にフリガナ（任意）。検索の文字がかなだけの時はフリガナの枠に入れる */
-const kanaBad=v=>!!v&&!/^[\u30A1-\u30F6ー・ ]+$/.test(v);
 function newForm(q){ const kq=q&&!kanaBad(kanaFix(q)); return sheet(`<h3>新しいお客様</h3><label class="f">お名前<input id="nfName" value="${esc(kq?'':q)}"></label><label class="f">フリガナ<input id="nfKana" value="${esc(kq?kanaFix(q):'')}" placeholder="例）あおやぎ しろう or アオヤギ シロウ"></label><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>登録</button></div>`,(s,done)=>{ const n=s.querySelector('#nfName'), k=s.querySelector('#nfKana'); setTimeout(()=>(kq?n:(q?k:n)).focus(),50); k.onblur=()=>{ k.value=kanaFix(k.value); };
   s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>{ const nm=n.value.trim(), kn=kanaFix(k.value); if(!nm){ toast('お名前を入力してください'); return; } if(kanaBad(kn)){ toast('フリガナはカタカナで入力してください'); return; } done({nm,kn}); }; }); }
 $('newBtn').onclick=async()=>{ const v=await newForm($('q').value.trim()); if(!v) return; const nm=v.nm;
