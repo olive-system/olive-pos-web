@@ -1,4 +1,3 @@
-const FX=(n,px=18)=>`<img src="../icons/${n}.svg" alt="" style="width:${px}px;height:${px}px;vertical-align:-3px">`; /* 絵文字の代わり（Firefox の絵柄。オーナー 2026-10-18） */
 // v11.25・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 const actL=a=>kl(a==='伝票取消'?'伝票削除':a); /* v11.28：操作ログの「伝票取消」は「伝票削除」と表示（記録の名前は変えない） */
 function kDom(){ const a=$('castAddBtn'); if(a) a.textContent='＋ '+KL+'／同伴'; const t=$('castAddTtl'); if(t) t.textContent=KL+'／同伴を追加'; const c=document.querySelector('#castRole [data-cr=kakari]'); if(c) c.textContent=KL; }
