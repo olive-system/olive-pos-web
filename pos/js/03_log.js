@@ -3,7 +3,7 @@ let DBLOG=false;
 /* v12.78（通しの点検 2026-11-07・iPad 4〜5台）：通信が切れて返事が届かなかった時に押し直すと、二重に登録されていた（入出金・罰金・領収書・延長）
    → 失敗の後に同じ中身を登録する時は、前と同じ id で入れる。データベースに入っていたら「もうある」と断られるので、入ったものとする */
 const insPend=new Map();
-async function insOnce(t,row){ const k=t+JSON.stringify(row), pd=insPend.get(k), id=pd&&Date.now()-pd.at<600000?pd.id:crypto.randomUUID(); const r=await sb.from(t).insert({...row,id});
+async function insOnce(t,row){ const k=t+JSON.stringify(row), pd=insPend.get(k), id=pd&&Date.now()-pd.at<600000?pd.id:crypto.randomUUID(); const r=await sb.rpc('pos_rows_add',{p_table:t,p:{...row,id}});
   if(r.error&&r.error.code==='23505'&&pd?.id===id){ const q=await sb.from(t).select('id').eq('id',id).maybeSingle(); if(q.data){ insPend.delete(k); return {data:null,error:null}; } }
   if(r.error) insPend.set(k,{id,at:Date.now()}); else insPend.delete(k); return r; }
 const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&v!==''&&!(Array.isArray(v)&&!v.length)&&k!=='table'&&k!=='reason'); e.sort((a,b)=>(a[0]==='by'?-1:0)-(b[0]==='by'?-1:0));
