@@ -127,5 +127,5 @@ async function clRegMemo(id){ const q=await sb.from('customers').select('id,name
   m.querySelector('[data-s]').onclick=guard(m.querySelector('[data-s]'),async()=>{ let v=m.querySelector('[data-m]').value.replace(/\s+$/,'')||null; if(v===(c.memo||null)){ m.remove(); return; }
     const now=await sb.from('customers').select('memo').eq('id',id).maybeSingle(); if(now.error){ toast(now.error.message); return; } let merged=false;
     if((now.data?.memo||null)!==(c.memo||null)){ const r=memoMerge(c.memo,v,now.data?.memo), ch=[]; for(const x of r.conflicts){ const p=await pickClash(x); if(p==null) return; ch.push(p); } v=memoMergeDone(r,ch).replace(/\s+$/,'')||null; merged=true; }
-    const u=await sb.from('customers').update({memo:v}).eq('id',id); if(u.error){ toast(u.error.message); return; } await logOp('顧客変更',{name:c.name,fields:['memo']},null,true);
+    const u=await sb.rpc('pos_customer_memo',{p_id:id,p_memo:v}); if(u.error){ toast(u.error.message); return; } await logOp('顧客変更',{name:c.name,fields:['memo']},null,true);
     const lc=customers.find(x=>x.id===id); if(lc) lc.memo=v; m.remove(); toast(merged?'ほかの人の変更と合わせて保存しました':'保存しました'); }); }

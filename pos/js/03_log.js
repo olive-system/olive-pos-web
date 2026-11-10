@@ -16,7 +16,7 @@ const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>
     if(['amount','minutes','guest_count'].includes(k)&&n!=null) return n;
     if(k==='method'||k==='name'||k==='email') return val(v);
     return `${KJ[k]||k}：${n!=null?n:val(v)}`; }).join(' ／ '); }; /* 2026-10-14：内容は短く（オーナー「長い」）。金額・分・人数・日付・入金／出金は値だけ */
-async function logOp(action, detail, reason, noBill){ try{ const t=noBill?null:tables.find(x=>x.id===cur?.table_id); const { error } = await sb.from('pos_audit_log').insert({store_id:store.id,bill_id:noBill?null:(cur?.id||null),action,detail:{table:t?.name||null,...detail,...(opBy&&Date.now()-opBy.at<180000?{by:opBy.name}:{})},reason:reason||null}); opBy=null; if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
+async function logOp(action, detail, reason, noBill){ try{ const t=noBill?null:tables.find(x=>x.id===cur?.table_id); const { error } = await sb.rpc('pos_log_add',{p_store:store.id,p_bill:noBill?null:(cur?.id||null),p_action:action,p_detail:{table:t?.name||null,...detail,...(opBy&&Date.now()-opBy.at<180000?{by:opBy.name}:{})},p_reason:reason||null}) /* SQL 430：入口の関数 */; opBy=null; if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
 // ブラウザ標準の確認・入力ダイアログ（サイト名が出る）を使わず、画面内のダイアログで聞く
 /* 2026-11-08 オーナー：理由を空のまま OK を押した時は、箱を閉じずに赤で「理由を入力してください」（前は箱が閉じて 1.8秒の知らせで中止）。need＝空の時に出す文 */
 function uiDlg(msg, withInput, def, need){ msg=jaNet(msg); return new Promise(res=>{ $('uiDlgMsg').textContent=msg; const inp=$('uiDlgIn'); let er=$('uiDlgErr'); if(!er){ er=document.createElement('div'); er.id='uiDlgErr'; er.style.cssText='color:var(--warn);font-size:14px;margin-top:6px'; inp.after(er); } er.textContent=''; inp.style.display=withInput?'':'none'; inp.value=def??''; inp.inputMode=(withInput&&/^\d+$/.test(String(def??'')))?'numeric':'text'; $('uiDlg').classList.add('on'); if(withInput) setTimeout(()=>{ inp.focus(); inp.select(); },50);
@@ -51,8 +51,8 @@ function tagLabel(t){ return `${TAGK[t.kind]||''}${t.tag_no?' #'+esc(t.tag_no):'
 function openHand(t){ const tg=handTags[t.id]||[]; if(!tg.length) return; const m=mkModal(60);
   m.innerHTML=`<div class="box" style="width:360px;text-align:center"><button class="xb dx" data-h="no" aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700">${esc(t.name)}　お預かり品</div><div style="margin:14px 0;font-size:22px;font-weight:800;line-height:1.5;text-align:left">${tg.map(x=>FX('label')+' '+tagLabel(x)).join('<br>')}</div><div class="bar" style="justify-content:flex-end"><button class="primary" data-h="ok">お渡ししました</button></div></div>`;
   document.body.appendChild(m); m.querySelector('[data-h=no]').onclick=()=>m.remove();
-  const ok=m.querySelector('[data-h=ok]'); ok.onclick=async()=>{ ok.disabled=true; const { error } = await sb.from('bill_tags').update({returned_at:new Date().toISOString()}).in('id',tg.map(x=>x.id)); if(error){ toast(error.message); ok.disabled=false; return; }
-    try{ await sb.from('pos_audit_log').insert({store_id:store.id,bill_id:tg[0].bill_id,action:'お預かり返却（会計後）',detail:{table:t.name,items:tg.map(x=>TAGK[x.kind]+(x.tag_no?'#'+x.tag_no:''))},reason:null}); }catch(e){ console.warn('audit',e); }
+  const ok=m.querySelector('[data-h=ok]'); ok.onclick=async()=>{ ok.disabled=true; const { error } = await sb.rpc('pos_tag_return',{p_ids:tg.map(x=>x.id)}); if(error){ toast(error.message); ok.disabled=false; return; }
+    try{ await sb.rpc('pos_log_add',{p_store:store.id,p_bill:tg[0].bill_id,p_action:'お預かり返却（会計後）',p_detail:{table:t.name,items:tg.map(x=>TAGK[x.kind]+(x.tag_no?'#'+x.tag_no:''))},p_reason:null}); }catch(e){ console.warn('audit',e); }
     m.remove(); toast('お渡ししました'); loadHall(); }; }
 // v11.29：未入金の置きだけをデータベースで絞って読む（前は会計済の伝票を全部読んでから絞っていて、1000枚を超えると欠けた）。新しい順に100件まで（オーナーの指示）
 const OKI_MAX=100;
