@@ -85,16 +85,14 @@ async function start(){ const { data:{ session } } = await sb.auth.getSession();
   $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 
 async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
-  const [s,st,pm,tb,ca,pr,sf,cu] = await Promise.all([
-    sb.from('stores').select('*').limit(1), sb.from('pos_settings').select('*').limit(1),
-    sb.from('pricing_modes').select('*').eq('is_active',true).order('sort_order').order('id'), sb.from('tables').select('*').order('sort_order').order('id'),
-    sb.from('categories').select('*').order('sort_order').order('id'), sb.from('products').select('*').order('sort_order').order('id'),
-    sb.from('staff').select('id,display_name,kind').eq('is_active',true).order('sort_order').order('id'), withCust?cuLoadAll():null]);
-  { const e=[s,st,pm,tb,ca,pr,sf,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
-  store=s.data?.[0]; kSet(store?.kakari_label); kDom(); settings=st.data?.[0]; modes=pm.data||[]; tables=tb.data||[]; categories=ca.data||[]; products=pr.data||[]; staff=sf.data||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
+  /* v13.04・SQL 427：店の設定（店・POS設定・料金・卓・分類・商品・在籍・閉店時刻）は入口の関数1回で読む（前は表を1つずつ8回） */
+  const [m,cu] = await Promise.all([sb.rpc('pos_masters'), withCust?cuLoadAll():null]);
+  { const e=[m,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
+  const d=m.data||{};
+  store=d.store||undefined; kSet(store?.kakari_label); kDom(); settings=d.settings||undefined; modes=d.modes||[]; tables=d.tables||[]; categories=d.categories||[]; products=d.products||[]; staff=d.staff||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
   $('storeName').textContent = store?.name || '店舗未設定';
   // v11.16・SQL 065：閉店時間（管理サイト「POS設定」の店の情報）。体験の時給の打ち止めに使う。読めない時は 1:00
-  if(store){ const r=await sb.rpc('store_close_time',{p_store:store.id}); if(!r.error&&/^\d{2}:\d{2}$/.test(r.data||'')) closeHM=r.data; }
+  if(store&&/^\d{2}:\d{2}$/.test(d.close_time||'')) closeHM=d.close_time;
   await expireTrials();
 }
 // 体験キャストは1日限り：登録した営業日の翌営業日になったら自動で「削除済」にする（記録は残る）
