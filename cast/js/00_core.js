@@ -5,7 +5,6 @@ const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
 const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
 const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
-const $ = id => document.getElementById(id);
 const WD = ['日','月','火','水','木','金','土'];
 const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`, mdDay = s => { const x = jd(s); return `${x.getMonth()+1}/${x.getDate()}`; }, mdW = s => mdWD(jd(s));
 /* v1.41・SQL 380：お客様のフリガナで検索（ひらがな・カタカナどちらでも。空白は無視） */

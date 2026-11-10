@@ -33,7 +33,6 @@
 const SUPABASE_URL = 'https://gjqaxenwvvazhjtziusf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
-const $ = id => document.getElementById(id);
 const ls = (k, v) => { try{ if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } };
 const T = new URLSearchParams(location.search).get('t') || ls('olive_key_t') || '';
 const ALONE = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));

@@ -10,7 +10,6 @@ const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'olive-admin-auth',storage:dualStore}});
 const EMAIL_DOMAIN='@admin.olive.local';
-const $=id=>document.getElementById(id);
 function toast(m){ const t=$('toast'); t.textContent=jaNet(m); t.classList.add('on'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('on'),2000); }
 function guard(btn,fn){ return async(...a)=>{ if(btn.disabled) return; btn.disabled=true; try{ await fn(...a); } finally{ btn.disabled=false; } }; }
 function modal(html){ const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="box">${html}</div>`; document.body.appendChild(m); return m; }

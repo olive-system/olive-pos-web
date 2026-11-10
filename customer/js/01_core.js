@@ -4,7 +4,6 @@ function kReg(...os){ const walk=o=>{ for(const k of Object.keys(o)){ const v=o[
 function kSet(v){ KL=(v&&String(v).trim())||'係'; KT.forEach(([o,k,v])=>{ o[k]=kl(v); }); }
 'use strict';
 const SUPABASE_URL='https://gjqaxenwvvazhjtziusf.supabase.co', SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw';
-const $=id=>document.getElementById(id);
 /* v1.67・SQL 380：フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
 /* v1.32・SQL 076：管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
 /* v1.48・SQL 218：黒服マイページの中（#hall）も、パスワードを聞かずにマイページから入場券をもらう。管理サイトの中（EA）とちがい、編集は今までどおりメニューの編集パスワードで（オーナー 2026-10-23） */
