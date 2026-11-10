@@ -112,7 +112,7 @@ async function clRcptView(mv){ if(!mv?.receipt_path) return; const s=await sb.st
   document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
 // ③ 領収書メール（v12.75・オーナー 2026-11-07「入出金の登録と領収書のメールを分ける」「何件あるのかだけ、1行とか2行で」）
 // 確認者を選んで［メール送信］→ iPad の共有の画面 → ショートカット「領収書メール」が 宛先・件名・PDF の入ったメールアプリを開く
-// 共有するのは mail.txt（1行目＝宛先〔管理サイト「領収書メールの宛先」〕・2行目＝件名）と PDF。ショートカットが mail.txt から宛先と件名を取り出す（共有の文はショートカットで種類を分けにくいので、ファイルにする）。送信の後は ① と同じ形で「確認者 時刻 送信」（メールアプリで送信まで済んだかは POS ではわからないので、共有した記録）
+// 共有するのは mail.txt（1行目＝宛先〔管理サイト「領収書メールの宛先」〕・2行目＝件名。最後に改行を付けない＝ショートカットは「最初の項目」「最後の項目」で取り出す）と PDF。ショートカットが mail.txt から宛先と件名を取り出す（共有の文はショートカットで種類を分けにくいので、ファイルにする）。送信の後は ① と同じ形で「確認者 時刻 送信」（メールアプリで送信まで済んだかは POS ではわからないので、共有した記録）
 async function clRcptRender(d,moves){ const el=$('clRcpt'); if(!el) return; const R=(moves||[]).filter(m=>m.receipt_path);
   if(!R.length){ el.innerHTML='<div class="muted">領収書なし</div>'; return; }
   const lg=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',store.id).eq('action',CL_RMAIL).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clRcpt')||clDate!==d) return; if(lg.error){ el.innerHTML=RDERR; return; }
@@ -123,7 +123,7 @@ async function clRcptRender(d,moves){ const el=$('clRcpt'); if(!el) return; cons
     :`<div style="display:flex;gap:10px;align-items:center;font-size:16px">${N}<select id="clRcptWho" style="width:auto;min-width:0"><option value="">確認者</option>${who.map(s=>`<option value="${esc(s.display_name)}">${esc(s.display_name)}</option>`).join('')}</select><button class="primary sm" id="clRcptSend" disabled>メール送信</button></div>`;
   const send=async by=>{ const to=String(settings?.receipt_mail_to||'').trim(); if(!to){ await uiAlert('領収書メールの宛先がありません\n管理サイトの POS設定「店の情報」で入力してください'); return; }
     let F; try{ F=await files; }catch(e){ await uiAlert('領収書を読み込めません：'+(e.message||'')); return; }
-    const subject=`【${store?.name||''}】現金払い（名前→${by}）`, S=[new File([`${to}\n${subject}\n`],'mail.txt',{type:'text/plain'}),...F], data={files:S,title:subject};
+    const subject=`【${store?.name||''}】現金払い（名前→${by}）`, S=[new File([`${to}\n${subject}`],'mail.txt',{type:'text/plain'}),...F], data={files:S,title:subject};
     if(!navigator.canShare||!navigator.canShare({files:S})){ await uiAlert('この端末では共有できません'); return; }
     try{ await navigator.share(data); }catch(e){ if(e?.name!=='AbortError') await uiAlert('共有できません：'+(e?.message||'')); return; }
     await logOp(CL_RMAIL,{business_date:d,by,count:R.length,ids:R.map(m=>m.id)},null,true); clRcptRender(d,moves); };
