@@ -10,7 +10,7 @@ const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `
 /* v1.41・SQL 380：お客様のフリガナで検索（ひらがな・カタカナどちらでも。空白は無視） */
 const DRESS = '<img src="../icons/dress.svg" alt="黒ドレス" style="width:15px;height:15px;vertical-align:-2px;margin-left:2px">'; /* v1.30・SQL 368：黒ドレスの着用者の名前の横（オーナー 2026-11-05「イ 黒いドレスの形」。Phosphor） */
 const HM = h => { const t=Math.round(Number(h||0)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
-let TOKEN = null, ME = null, KL = '係', pollT = null, SHIFT_ALL = false;
+let TOKEN = null, ME = null, pollT = null, SHIFT_ALL = false; /* KL（係の呼び方）は共通の部品 lib/olive/core.js */
 
 // v0.50：入力の途中保存（ゲネプロ マイページ #4。画面を閉じて開き直すと消えていた）。この端末だけに1日まで残す。提出したら消す
 function draftBind(key, ids){ const k = 'olive_cast_draft_' + key + '_' + STORE; let v = {}; try{ v = JSON.parse(localStorage.getItem(k) || '{}'); }catch(e){}
