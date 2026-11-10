@@ -10,9 +10,6 @@ const hm = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo',
 const tBtn = (k, i, t, g) => `<button class="btn${g ? ' g' : ''}" data-${k}="${i}" style="display:inline-block;width:auto;flex:none;padding:7px 14px;font-size:14px">${t}</button>`;
 const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);border-radius:6px;padding:2px 7px;font-size:13px;white-space:nowrap">${esc(n || '')} 作業中</b>`; // v1.00：「名前 時刻 完了」「名前 作業中」の順（POS と同じ。完了・作業中の位置をそろえる。オーナー 2026-10-30）
 const ckAll = x => (x.checks || []).every((c, j) => (opChecks[x.id] || []).includes(j));
-// v0.69・SQL 234：連休明けの休日分の知らせ（連休前の日の閉店作業の一番上）
-const aheadHtml = A => { if(!A || !A.items || !A.items.length) return ''; const ms = s => `${mdDay(s)} ${WD[jd(s).getDay()]}`, D = A.days || [];
-  return `<div style="background:var(--warn-soft);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.6"><b style="color:var(--warn)">連休明け ${mdW(A.next_day)} は休日分の TODO が ${A.items.length}件あります</b><div class="muted" style="font-size:13px">${mdW(D[0])}〜${mdW(D[D.length-1])}の${D.length}日間が休みです。期限 17:00</div><div style="margin-top:4px;font-size:13px">${A.items.map((x,i) => `${i+1}. ${esc(x.name)}（${ms(x.day)}）`).join('<br>')}</div></div>`; };
 const opWip = x => `作業中（あなた）${x.need_photo ? `　写真${opShots[x.id] ? `${opShots[x.id].length}枚` : ''}` : ''}`;
 // v1.10：撮った写真を TODO と同じく3列で並べ、右上の［×］で1枚ずつ外す（オーナー 2026-11-03）
 const opUrls = new Map(), opUrl = f => { if(!opUrls.has(f)) opUrls.set(f, URL.createObjectURL(f)); return opUrls.get(f); };
