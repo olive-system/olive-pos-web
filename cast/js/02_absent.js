@@ -15,12 +15,13 @@ async function absent(){
   show(`${segHtml('absent')}<div class="subh">${dTxt(A.date)} ${tTxt(A.now)}</div>
     <div class="card"><label class="f" for="abR">理由</label><textarea id="abR" maxlength="300"></textarea></div>${rule}
     <button class="btn" id="abGo">欠勤連絡</button><p class="muted sm" style="margin:10px 2px">送信内容は公式 LINE のトークにも送信されます</p>`); segBind();
-  $('abGo').onclick = async () => {
+  const go = $('abGo'); /* 送っている間に別の画面へ移ると $('abGo') が無くなるので、押したボタンを持っておく */
+  go.onclick = async () => {
     const rs = $('abR').value.trim(); if(!rs){ await uiAlert('理由を入力してください'); return; }
     if(!await uiConfirm(`${dTxt(A.date)}の欠勤連絡を送信しますか？`)) return;
-    $('abGo').disabled = true;
+    go.disabled = true;
     const q = await sb.rpc('cast_absence_submit', { p_token: TOKEN, p_reason: rs });
-    if(q.error){ $('abGo').disabled = false; await uiAlert(q.error.message); return; }
+    if(q.error){ go.disabled = false; await uiAlert(q.error.message); return; }
     let lineOk = true;
     try{ await liff.sendMessages([{ type:'text', text:`【当日欠勤】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
     absentDone(q.data.date, q.data.at, q.data.fine_name, false, lineOk, A.exempt);

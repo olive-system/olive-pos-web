@@ -84,6 +84,7 @@ async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部
   /* v13.04・SQL 427：店の設定（店・POS設定・料金・卓・分類・商品・在籍・閉店時刻）は入口の関数1回で読む（前は表を1つずつ8回） */
   const [m,cu] = await Promise.all([sb.rpc('pos_masters'), withCust?cuLoadAll():null]);
   { const e=[m,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
+  if(m.error&&store) return; /* 読み直しで読めなかった時は、前に読んだ店の設定のまま（空にすると、次の読み直しまで store.id で止まった） */
   const d=m.data||{};
   store=d.store||undefined; kSet(store?.kakari_label); kDom(); settings=d.settings||undefined; modes=d.modes||[]; tables=d.tables||[]; categories=d.categories||[]; products=d.products||[]; staff=d.staff||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
   $('storeName').textContent = store?.name || '店舗未設定';
