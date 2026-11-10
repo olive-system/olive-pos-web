@@ -74,6 +74,7 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; f.classList.toggle(
     $('cLine').textContent=l?(l.line_name||'LINE 名なし'):'未連携'; /* 連携中は LINE の名前だけ（オーナー 2026-10-15） */ b.style.display=''; b.textContent=l?'連携解除':'LINE連携';
     b.onclick=async()=>{ if(l){ if(!await uiConfirm(`${s.display_name} の LINE連携を解除しますか？\nLINEマイページに入れなくなります（再連携できます）`)) return; const u=await sb.rpc('pos_cast_unlink',{p_staff:s.id}); toast(u.error?u.error.message:'解除しました'); if(!u.error) renderCasts(); return; }
       /* v12.05：その店のマイページの入口の QR も出す（オーナー 2026-10-22「それぞれのリンクに飛ぶQRもつけてくれるとたすかる」） */
+      await needLib('qrcode').catch(()=>{}); /* QR の部品は使う時だけ読む（07 の S1） */
       const qu=MYPAGE_URL[store?.code], qb=document.createElement('div'); qb.id='uiDlgQr';
       if(qu&&window.qrcode){ const q=qrcode(0,'M'); q.addData(qu); q.make(); qb.style.cssText='text-align:center;margin:10px 0 4px';
         qb.innerHTML=`<div style="display:inline-block;background:#fff;padding:6px;border-radius:8px">${q.createSvgTag({cellSize:5,margin:2})}</div><div style="font-size:13px;color:var(--muted);line-height:1.5;margin-top:4px">まだ番号が出ていない時：キャストの LINE のカメラでこの QR を読むと、${esc(store?.name||'')} のマイページが開きます</div>`;
