@@ -113,8 +113,9 @@ async function resvForm(ed){
   // v0.31・SQL 129：顧客から選ぶ（お店の朝礼で、そのお客様のメモを確認するため）。候補に無い時は名前だけ
   const candPaint = L => { const b = $('rvCands'); if(!b) return;
     if(cid){ b.innerHTML = `<div class="sm" style="margin-top:6px;color:var(--ok);font-weight:700">✓ 顧客から選択</div>`; return; }
-    b.innerHTML = L && L.length ? `<div class="muted sm" style="margin-top:8px">顧客の候補</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${L.map(x => `<button class="btn g" data-cu="${x.id}" data-nm="${esc(x.name)}" style="width:auto;padding:8px 12px">${esc(x.name)}${x.kakari&&!NK?`<small class="muted">（${KL} ${esc(x.kakari)}）</small>`:''}</button>`).join('')}</div>` : '';
-    b.querySelectorAll('[data-cu]').forEach(x => x.onclick = () => { cid = x.dataset.cu; $('rvC').value = x.dataset.nm; candPaint(); }); };
+    b.innerHTML = L && L.length ? `<div class="muted sm" style="margin-top:8px">顧客の候補</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${L.map(x => `<button class="btn g" data-cu="${x.id}" data-nm="${esc(x.name)}" data-kk="${esc(x.kakari_id||'')}" style="width:auto;padding:8px 12px">${esc(x.name)}${x.kakari&&!NK?`<small class="muted">（${KL} ${esc(x.kakari)}）</small>`:''}</button>`).join('')}</div>` : '';
+    b.querySelectorAll('[data-cu]').forEach(x => x.onclick = () => { cid = x.dataset.cu; $('rvC').value = x.dataset.nm; const k = $('rvK'); /* 係はそのお客様の係（SQL 439。女の子の要望・オーナー 2026-11-10）。手で変更できる */
+      if(k && x.dataset.kk && [...k.options].some(o => o.value === x.dataset.kk)){ k.value = x.dataset.kk; k.dispatchEvent(new Event('change')); } candPaint(); }); };
   $('rvC').oninput = () => { cid = null; clearTimeout(cTimer); const v = $('rvC').value.trim(); if(!v){ candPaint([]); return; }
     cTimer = setTimeout(async () => { const q = await sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: v }); if($('rvC').value.trim() === v) candPaint(q.error ? [] : q.data); }, 300); };
   candPaint([]);
