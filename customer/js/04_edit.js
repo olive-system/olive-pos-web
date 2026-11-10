@@ -41,27 +41,7 @@ function pickClash(x){ return sheet(`<h3>同じ箇所をほかの人も修正し
   <div class="f">ほかの人<div class="memo" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">${esc(x.theirs.join('\n'))||'<span class="muted">（削除）</span>'}</div></div>
   <div class="btns"><button class="ghost" data-v="x">キャンセル</button><button class="ghost" data-v="b">両方残す</button><button class="ghost" data-v="t">ほかの人</button><button class="edit" data-v="m">あなた</button></div>`,(s,done)=>{ s.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>done(b.dataset.v==='x'?null:b.dataset.v)); }); }
 /* メモを行ごとに合わせる（3者マージ）。base＝書き始めた時のメモ、mine＝自分の入力、theirs＝ほかで変わった今のメモ。同じ所を両方が別々に直した時だけ conflicts に入る */
-function memoMerge(base,mine,theirs){ const L=s=>s?String(s).replace(/\r/g,'').split('\n'):[]; const b=L(base), m=L(mine), t=L(theirs), J=a=>a.join('\n');
-  if(J(m)===J(t)||J(t)===J(b)) return {lines:m,conflicts:[]}; if(J(m)===J(b)) return {lines:t,conflicts:[]};
-  const hunks=(a,o)=>{ const n=a.length, k=o.length, d=Array.from({length:n+1},()=>new Int32Array(k+1)); for(let i=n-1;i>=0;i--) for(let j=k-1;j>=0;j--) d[i][j]=a[i]===o[j]?d[i+1][j+1]+1:Math.max(d[i+1][j],d[i][j+1]);
-    const h=[]; let i=0,j=0,cur=null; const flush=()=>{ if(cur){ h.push(cur); cur=null; } };
-    while(i<n||j<k){ if(i<n&&j<k&&a[i]===o[j]){ flush(); i++; j++; } else if(j<k&&(i>=n||d[i][j+1]>=d[i+1][j])){ cur=cur||{s:i,e:i,lines:[]}; cur.lines.push(o[j]); j++; } else { cur=cur||{s:i,e:i,lines:[]}; cur.e=i+1; i++; } }
-    flush(); return h; };
-  const all=[...hunks(b,m).map(x=>({...x,w:'m'})),...hunks(b,t).map(x=>({...x,w:'t'}))].sort((x,y)=>x.s-y.s||x.e-y.e);
-  const hit=(x,y)=>(x.s===x.e&&y.s===y.e)?x.s===y.s:(x.s===x.e?(x.s>y.s&&x.s<y.e):y.s===y.e?(y.s>x.s&&y.s<x.e):Math.max(x.s,y.s)<Math.min(x.e,y.e));
-  const groups=[]; for(const x of all){ const g=groups[groups.length-1]; if(g&&g.some(y=>y.w!==x.w&&hit(x,y))){ g.push(x); g.S=Math.min(g.S,x.s); g.E=Math.max(g.E,x.e); } else { const ng=[x]; ng.S=x.s; ng.E=x.e; groups.push(ng); } }
-  const side=(g,w)=>{ const out=[]; let p=g.S; for(const x of g.filter(y=>y.w===w)){ out.push(...b.slice(p,x.s),...x.lines); p=x.e; } out.push(...b.slice(p,g.E)); return out; };
-  const out=[], conflicts=[]; let p=0;
-  for(const g of groups){ out.push(...b.slice(p,g.S)); const ws=new Set(g.map(x=>x.w));
-    if(ws.size===1){ out.push(...side(g,g[0].w)); }
-    else { const vm=side(g,'m'), vt=side(g,'t');
-      if(J(vm)===J(vt)) out.push(...vm);
-      else if(g.S===g.E) out.push(...vt,...vm); // 同じ所に両方が書き足した時は、両方残す（先に入っていた方が上）
-      else { conflicts.push({at:out.length,mine:vm,theirs:vt}); } }
-    p=Math.max(p,g.E); }
-  out.push(...b.slice(p)); return {lines:out,conflicts}; }
 /* conflicts の choice（'m'／'t'／'b'）で仕上げる */
-function memoMergeDone(r,choices){ const out=[...r.lines]; for(let i=r.conflicts.length-1;i>=0;i--){ const c=r.conflicts[i], ch=choices[i]; out.splice(c.at,0,...(ch==='m'?c.mine:ch==='t'?c.theirs:[...c.theirs,...c.mine])); } return out.join('\n'); }
 
 
 // 戻るボタン（スマホの戻る操作）で一覧へ
