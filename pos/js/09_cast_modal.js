@@ -15,12 +15,12 @@ $('castAddBtn').onclick=async()=>{
     // 既に伝票に付いている人を選んだ時は、追加ではなくその人の係／同伴を更新する
     const ex=(cur.bill_casts||[]).find(c=>c.staff_id===b.dataset.id);
     if(ex){ const upd={}; if(dh){ if(!isDouhan(ex.role)){ const n=(cur.bill_casts||[]).filter(c=>isDouhan(c.role)).length; if(n>=cur.guest_count){ toast(`同伴は客数（${cur.guest_count}名）までです`); return; } upd.role=douhanRole(cur.opened_at); } if(settings.douhan_is_kakari&&!ex.is_kakari) upd.is_kakari=true; } else if(!ex.is_kakari) upd.is_kakari=true;
-      if(Object.keys(upd).length){ const { error } = await sb.from('bill_casts').update(upd).eq('id',ex.id); if(error){toast(error.message);return;} await logOp(dh?'同伴を追加':'係を追加',{name:snm(ex.staff_id),kakari:upd.is_kakari??ex.is_kakari,kind:upd.role?ROLE[upd.role]:null,update:true}); if(upd.is_kakari) await syncHcBack(); }
+      if(Object.keys(upd).length){ const { error } = await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:upd}); if(error){toast(error.message);return;} await logOp(dh?'同伴を追加':'係を追加',{name:snm(ex.staff_id),kakari:upd.is_kakari??ex.is_kakari,kind:upd.role?ROLE[upd.role]:null,update:true}); if(upd.is_kakari) await syncHcBack(); }
       $('castModal').classList.remove('on'); openBill(cur.id); return; }
     if(dh){ const n=(cur.bill_casts||[]).filter(c=>isDouhan(c.role)).length; if(n>=cur.guest_count){ toast(`同伴は客数（${cur.guest_count}名）までです`); return; } }
     /* v11.95：出勤していない人・退勤した人を付ける時は聞く（ゲネプロ #32・#46） */ if((!present[b.dataset.id]&&!dh)||gone.has(b.dataset.id)){ if(!await uiConfirm(`${snm(b.dataset.id)} は${gone.has(b.dataset.id)?'もう退勤しています':'今日の出勤の記録がありません'}。\n${dh?'同伴':KL}に付けますか？`)) return; }
     const role=dh?douhanRole(cur.opened_at):'none'; const mk=dh?!!settings.douhan_is_kakari:true;
-    const { error } = await sb.from('bill_casts').insert({bill_id:cur.id,staff_id:b.dataset.id,role,is_kakari:mk}); if(error){toast(error.message);return;} await logOp(dh?'同伴を追加':'係を追加',{name:snm(b.dataset.id),kakari:mk,kind:dh?ROLE[role]:null});
+    const { error } = await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:cur.id,staff_id:b.dataset.id,role,is_kakari:mk}}); if(error){toast(error.message);return;} await logOp(dh?'同伴を追加':'係を追加',{name:snm(b.dataset.id),kakari:mk,kind:dh?ROLE[role]:null});
     if(mk) await syncHcBack();
     $('castModal').classList.remove('on'); openBill(cur.id); };
   /* 続けて押すと、手元の伝票がまだ古いまま2回とも付ける所まで進むので、1つ終わるまで次を受けない */ let picking=false; const pickOnce=async b=>{ if(picking) return; picking=true; try{ await pick(b); } finally{ picking=false; } };
@@ -36,7 +36,7 @@ async function resvDouhan(c){ if(!c||!cur) return; const r=await sb.rpc('pos_res
   let n=bc.filter(x=>isDouhan(x.role)).length; const role=douhanRole(cur.opened_at);
   for(const s of L){ if(n>=cur.guest_count){ toast(`同伴は客数（${cur.guest_count}名）までです`); break; }
     const ex=bc.find(x=>x.staff_id===s.id), upd={role}; if(settings.douhan_is_kakari) upd.is_kakari=true;
-    const q=ex?await sb.from('bill_casts').update(upd).eq('id',ex.id):await sb.from('bill_casts').insert({bill_id:cur.id,staff_id:s.id,role,is_kakari:!!settings.douhan_is_kakari});
+    const q=ex?await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:upd}):await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:cur.id,staff_id:s.id,role,is_kakari:!!settings.douhan_is_kakari}});
     if(q.error){ toast(q.error.message); break; } n++; await logOp('同伴を追加',{name:s.name,kakari:ex?(upd.is_kakari??ex.is_kakari):!!settings.douhan_is_kakari,kind:ROLE[role],update:!!ex||undefined,resv:true}); }
   if(settings.douhan_is_kakari) await syncHcBack(); await openBill(cur.id); }
 function douhanRole(ts){ const d=ts?new Date(ts):new Date(); const m=d.getHours()*60+d.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; }

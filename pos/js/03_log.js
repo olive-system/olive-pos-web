@@ -3,7 +3,7 @@ let DBLOG=false;
 /* v12.78（通しの点検 2026-11-07・iPad 4〜5台）：通信が切れて返事が届かなかった時に押し直すと、二重に登録されていた（入出金・罰金・領収書・延長）
    → 失敗の後に同じ中身を登録する時は、前と同じ id で入れる。データベースに入っていたら「もうある」と断られるので、入ったものとする */
 const insPend=new Map();
-async function insOnce(t,row){ const k=t+JSON.stringify(row), pd=insPend.get(k), id=pd&&Date.now()-pd.at<600000?pd.id:crypto.randomUUID(); const r=await sb.from(t).insert({...row,id});
+async function insOnce(t,row){ const k=t+JSON.stringify(row), pd=insPend.get(k), id=pd&&Date.now()-pd.at<600000?pd.id:crypto.randomUUID(); const r=await sb.rpc('pos_rows_add',{p_table:t,p:{...row,id}});
   if(r.error&&r.error.code==='23505'&&pd?.id===id){ const q=await sb.from(t).select('id').eq('id',id).maybeSingle(); if(q.data){ insPend.delete(k); return {data:null,error:null}; } }
   if(r.error) insPend.set(k,{id,at:Date.now()}); else insPend.delete(k); return r; }
 async function logOp(action, detail, reason, noBill){ try{ const t=noBill?null:tables.find(x=>x.id===cur?.table_id); const { error } = await sb.rpc('pos_log_add',{p_store:store.id,p_bill:noBill?null:(cur?.id||null),p_action:action,p_detail:{table:t?.name||null,...detail,...(opBy&&Date.now()-opBy.at<180000?{by:opBy.name}:{})},p_reason:reason||null}) /* SQL 430：入口の関数 */; opBy=null; if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
