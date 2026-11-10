@@ -15,7 +15,7 @@ PAGES.o_waive=async()=>{ const st=storeId, head=`<h1>罰金免除申請 <small c
   $('main').querySelectorAll('[data-wsc]').forEach(c=>c.onchange=async()=>{ const sc=c.dataset.wsc, ids=[...$('main').querySelectorAll(`[data-wsc="${sc}"]:checked`)].map(x=>x.value);
     const q=await rpc('admin_waive_set',{p_store:st,p_scope:sc,p_ids:ids}); if(q.ok) toast('保存しました'); else PAGES.o_waive(); });
   $('wvLink').onclick=guard($('wvLink'),async()=>{ const q=await rpc('admin_owner_link_code',{p_store:st}); if(!q.ok) return;
-    const qr=qrcode(0,'M'); qr.addData(q.data.url); qr.make();
+    await needLib('qrcode'); const qr=qrcode(0,'M'); qr.addData(q.data.url); qr.make();
     $('wvQr').innerHTML=`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px">${qr.createSvgTag(5,8)}<div style="font-size:14px;line-height:1.9">連携コード <b style="font-size:20px;letter-spacing:2px">${esc(q.data.code)}</b><br>有効期限 30分<br><span class="muted" style="font-size:13px">QR が読めない時は、公式 LINE に「オーナー連携 ${esc(q.data.code)}」と送信</span><br><button class="ghost sm" id="wvDone">連携の確認</button></div></div>`;
     $('wvDone').onclick=()=>PAGES.o_waive(); });
 };

@@ -64,7 +64,7 @@ function keyLockEdit(l){
     <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
   const q=id=>md.querySelector('#'+id);
   q('klF').onchange=async()=>{ const f=q('klF').files[0]; if(!f) return; q('klM').textContent='読取中…';
-    try{ const im=await createImageBitmap(f), c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const x=c.getContext('2d'); x.drawImage(im,0,0);
+    try{ await needLib('jsqr'); const im=await createImageBitmap(f), c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const x=c.getContext('2d'); x.drawImage(im,0,0);
       // 画面全体のスクリーンショットでは、ほかの QR を先に拾うことがある → 使えない QR は白で消して探し直す（2026-11-03）
       let k=null; for(let i=0;i<5&&!k;i++){ const d=x.getImageData(0,0,c.width,c.height), qr=window.jsQR&&jsQR(d.data,c.width,c.height); if(!qr) break;
         k=keyFromShare(qr.data); if(!k){ const L=qr.location, xs=[L.topLeftCorner.x,L.topRightCorner.x,L.bottomLeftCorner.x,L.bottomRightCorner.x], ys=[L.topLeftCorner.y,L.topRightCorner.y,L.bottomLeftCorner.y,L.bottomRightCorner.y];
@@ -89,7 +89,7 @@ function keyVendorEdit(st,v){ const isNew=!v; v=v||{name:'',days:[1,2,3,4,5,6,0]
     const r=await rpc('admin_key_vendor_save',{p_store:st,p_id:isNew?null:v.id,p_name:q('kvN').value,p_days:[...md.querySelectorAll('[data-kd]:checked')].map(e=>+e.dataset.kd),p_from:q('kvF').value,p_to:q('kvT').value,p_until:until});
     if(!r.ok) return; md.remove(); toast('保存しました'); await PAGES.o_key(); if(isNew) keyVendorQr({name:q('kvN').value.trim(),text:r.data.text,token:r.data.token}); });
 }
-function keyVendorQr(v){ const u=KEY_URL+'?t='+encodeURIComponent(v.token), qr=qrcode(0,'M'); qr.addData(u); qr.make();
+async function keyVendorQr(v){ await needLib('qrcode'); const u=KEY_URL+'?t='+encodeURIComponent(v.token), qr=qrcode(0,'M'); qr.addData(u); qr.make();
   const md=modal(`<button class="xb dx" data-k="no" aria-label="閉じる">×</button><h2 style="margin:0">${esc(v.name)}</h2><div style="text-align:left">${qr.createSvgTag(5,8)}<div style="font-size:14px;line-height:1.8">${esc(v.text)}</div>
     <div class="muted" style="font-size:13px">業者のスマホのカメラで読むと鍵の画面を表示します。ホーム画面に追加して使います</div></div>
     <div class="bar"><button class="ghost" data-k="cp">リンクのコピー</button></div>`);
