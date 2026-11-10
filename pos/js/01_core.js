@@ -11,7 +11,6 @@ const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_te
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 /* v12.72・SQL 380：お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
 // v11.45：来店の時刻は5分切り上げ（09:17→09:20）。セットの始まり（set_start）も切り上げた時刻で記録し、セットの終わり・延長もそこから数える。来店の記録（opened_at）と退店（closed_at）は実際の時刻（オーナー 2026-10-15）
-const ceil5=t=>{ const d=new Date(t); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+(5-d.getMinutes()%5)%5); return d; };
 const hm5=t=>hm(ceil5(t));
 const hm = t => { const d=new Date(t); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
 const ROLE = { douhan1:'同伴①', douhan2:'同伴②', douhan:'同伴', none:'' };
@@ -23,7 +22,7 @@ let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], 
 function mkModal(z){ const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=z; return m; }
 /* 2026-11-08 オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */
 const TOAST_NG=/(できません|エラー|読めません|出せません|取り消せません|外せません)：|読み込めません|失敗|通信できませんでした/;
-function toast(m){ m=jaNet(m); if(TOAST_NG.test(String(m))&&typeof uiAlert==='function'&&!$('uiDlg').classList.contains('on')){ uiAlert(String(m)); return; } const t=$('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),1800); }
+TOAST.ms=1800; TOAST.big=m=>{ if(TOAST_NG.test(String(m))&&typeof uiAlert==='function'&&!$('uiDlg').classList.contains('on')){ uiAlert(String(m)); return true; } return false; }; /* POS は失敗の知らせを見落とさないように、知らせの箱で出す */
 function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remove('on')); $(v).classList.add('on'); if(v==='v-hall'&&rtMastWait) setTimeout(rtMasters,0); }
 /* 同じ働きの書き方が画面ごとにあり、全角の数字を 0 と読む所があったので1つにする */
 const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0);
@@ -84,6 +83,7 @@ async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部
   /* v13.04・SQL 427：店の設定（店・POS設定・料金・卓・分類・商品・在籍・閉店時刻）は入口の関数1回で読む（前は表を1つずつ8回） */
   const [m,cu] = await Promise.all([sb.rpc('pos_masters'), withCust?cuLoadAll():null]);
   { const e=[m,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
+  if(m.error&&store) return; /* 読み直しで読めなかった時は、前に読んだ店の設定のまま（空にすると、次の読み直しまで store.id で止まった） */
   const d=m.data||{};
   store=d.store||undefined; kSet(store?.kakari_label); kDom(); settings=d.settings||undefined; modes=d.modes||[]; tables=d.tables||[]; categories=d.categories||[]; products=d.products||[]; staff=d.staff||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
   $('storeName').textContent = store?.name || '店舗未設定';

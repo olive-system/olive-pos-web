@@ -1,9 +1,6 @@
 // 基本情報・メモの編集（編集パスワードが必要）
-/* v1.61：領収書名は1社1枠（2社・3社の方がいる。オーナー 2026-11-04「スペースを食わない形で」）。保存は改行でつなぐ。「追加」は最後の枠のすぐ右。枠を空にして保存すると、その社は削除。value で読み書きできるので、ほかの欄と同じに扱える */
+CU_SITE.rnInp = 'margin:0'; /* 本名の欄（lib/olive/customer.js の rnBox）の入力欄の形 */
 const rnFirst=v=>String(v||'').split('\n')[0].trim();
-function rnBox(el){ let a=String(el.dataset.v||'').split('\n'); const vals=()=>[...el.querySelectorAll('input')].map(i=>i.value);
-  const draw=()=>{ el.innerHTML=a.map((x,i)=>`<input value="${esc(x)}" style="margin:0">${i===a.length-1?'<button type="button" class="ghost" data-rnadd style="padding:0 14px">追加</button>':'<span></span>'}`).join(''); el.querySelector('[data-rnadd]').onclick=()=>{ a=vals(); a.push(''); draw(); el.querySelector('input:last-of-type').focus(); }; };
-  Object.defineProperty(el,'value',{get:()=>vals().map(x=>x.trim()).filter(Boolean).join('\n'),set:v=>{ a=String(v||'').split('\n'); draw(); }}); draw(); }
 const EF=[['name','お名前'],['kana','フリガナ'],['birthday','お誕生日'],['company','会社名'],['receipt_name','領収書名'],['kakari_staff_id',''+KL+''],['company_address','会社住所'],['tobacco','タバコ'],['haisha','配車']]; /* v1.54・SQL 304：タバコ・配車（オーナー 2026-11-01。メモの【タバコ】【配車】から移した。2行になることがあるので入力は2行の枠） */
 function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draft)?draft[k]:c[k]; const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const curK=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?staffBy(c.kakari_staff_id):null;
   const fields=memoOnly?'':EF.map(([k,l])=>k==='kakari_staff_id'?`<label class="f">${l}<select data-k="${k}"><option value="">なし</option>${curK?`<option value="${curK.id}" selected>${esc(curK.name)}（退店）</option>`:''}${casts.map(s=>`<option value="${s.id}" ${dv(k)===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>`

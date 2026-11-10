@@ -1,6 +1,4 @@
 // ---------- 顧客（基本情報・キープボトル・来店履歴） ----------
-// v10.91：来店履歴は今年の分はそのまま出し、去年より前は年ごとにまとめる（タップで開く）。顧客サイトと同じ
-function visYears(list,dt,row){ const cy=businessDate().slice(0,4), g={}; const head=list.filter(v=>String(dt(v)).slice(0,4)===cy).map(row).join(''); for(const v of list){ const y=String(dt(v)).slice(0,4); if(y===cy) continue; (g[y]=g[y]||[]).push(v); } return head+Object.keys(g).sort().reverse().map(y=>`<details class="vyr"><summary>${y}年　${g[y].length}回</summary>${g[y].map(row).join('')}</details>`).join(''); }
 let cuSel=null;
 $('navCust').onclick=async()=>{ show('v-cust'); await loadMasters(); { const r=await cuPull(); if(r.data) customers=r.data; } /* v12.30：お客様は変わった分だけ読む */ renderCuList(); renderCuForm(); await loadCuInfo(); renderCuList(); };
 document.querySelectorAll('#cuModes [data-cm]').forEach(b=>b.onclick=()=>{ cuMode=b.dataset.cm; renderCuList(); });
@@ -26,8 +24,5 @@ async function cuCxLoad(c){ const box=()=>($('cuCx')&&cuSel===c.id)?$('cuCx'):nu
   const d=r.data||{}, key=x=>String(x||'').replace(/[\s　]/g,''), un=(d.unlinked||[]).slice().sort((a,b)=>(key(b.name)===key(c.name))-(key(a.name)===key(c.name)));
   box().innerHTML=`<div class="muted" style="font-size:13px">連絡先交換</div><div style="font-size:16px;padding:4px 0">${(d.casts||[]).length?d.casts.map(esc).join('・'):'<span class="muted">なし</span>'}</div>`+(un.length?`<div style="display:flex;gap:6px;align-items:center;margin-top:4px"><select id="cuCxSel" style="flex:1 1 0;min-width:0;width:0"><option value="">未選択の連絡先交換</option>${un.map(x=>`<option value="${x.id}">${esc(x.name)} 様（${esc(x.cast)} ${reqMd(x.date)}）</option>`).join('')}</select><button class="ghost sm" id="cuCxGo" style="flex:none">選択</button></div>`:'');
   const go=$('cuCxGo'); if(go) go.onclick=async()=>{ const id=$('cuCxSel').value; if(!id){ await uiAlert('連絡先交換を選んでください'); return; } const x=un.find(z=>z.id===id); if(!await uiConfirm(`${x.name} 様（${x.cast}）の連絡先交換を\n${c.name} 様にしますか？`)) return; go.disabled=true; const q=await sb.rpc('pos_contact_link',{p_id:id,p_customer:c.id}); if(q.error){ go.disabled=false; await uiAlert(q.error.message); return; } toast('顧客を選択しました'); cuCxLoad(c); }; }
-/* v12.57：領収書名は1社1枠（2社・3社の方がいる。オーナー 2026-11-04「スペースを食わない形で」。顧客サイトと同じ）。保存は改行でつなぐ。「追加」は最後の枠のすぐ右。枠を空にして保存すると、その社は削除。value で読み書きできるので、ほかの欄と同じに扱える */
+CU_SITE.rnInp='width:100%'; CU_SITE.rnBtn='height:40px;padding:0 14px'; /* 本名の欄（lib/olive/customer.js の rnBox）の入力欄と［追加］の形 */
 const rnList=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean), rnFirst=v=>rnList(v)[0]||'';
-function rnBox(el){ let a=String(el.dataset.v||'').split('\n'); const vals=()=>[...el.querySelectorAll('input')].map(i=>i.value);
-  const draw=()=>{ el.innerHTML=a.map((x,i)=>`<input value="${esc(x)}" style="width:100%">${i===a.length-1?'<button type="button" class="ghost" data-rnadd style="height:40px;padding:0 14px">追加</button>':'<span></span>'}`).join(''); el.querySelector('[data-rnadd]').onclick=()=>{ a=vals(); a.push(''); draw(); el.querySelector('input:last-of-type').focus(); }; };
-  Object.defineProperty(el,'value',{get:()=>rnList(vals().join('\n')).join('\n'),set:v=>{ a=String(v||'').split('\n'); draw(); }}); draw(); }

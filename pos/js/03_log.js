@@ -6,16 +6,6 @@ const insPend=new Map();
 async function insOnce(t,row){ const k=t+JSON.stringify(row), pd=insPend.get(k), id=pd&&Date.now()-pd.at<600000?pd.id:crypto.randomUUID(); const r=await sb.from(t).insert({...row,id});
   if(r.error&&r.error.code==='23505'&&pd?.id===id){ const q=await sb.from(t).select('id').eq('id',id).maybeSingle(); if(q.data){ insPend.delete(k); return {data:null,error:null}; } }
   if(r.error) insPend.set(k,{id,at:Date.now()}); else insPend.delete(k); return r; }
-const logShort=(o,KJ,val,unit)=>{ const e=Object.entries(o||{}).filter(([k,v])=>v!==null&&v!==undefined&&v!==''&&!(Array.isArray(v)&&!v.length)&&k!=='table'&&k!=='reason'); e.sort((a,b)=>(a[0]==='by'?-1:0)-(b[0]==='by'?-1:0));
-  const md=v=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v)); return m?`${+m[2]}/${+m[3]}`:String(v); }, U={amount:'円',total:'円',total_before:'円',minutes:'分',guest_count:'名'};
-  return e.map(([k,v])=>{ const n=typeof v==='number'?v.toLocaleString('ja-JP')+(U[k]||''):null;
-    if(k==='by') return '操作者：'+String(v).replace(/^管理サイト：/,'');
-    if(k==='date'||k==='business_date') return md(v);
-    if(k==='kind'&&(v==='in'||v==='out')) return v==='in'?'入金':'出金';
-    if(k==='is_auto') return v?'自動延長':'手動延長';
-    if(['amount','minutes','guest_count'].includes(k)&&n!=null) return n;
-    if(k==='method'||k==='name'||k==='email') return val(v);
-    return `${KJ[k]||k}：${n!=null?n:val(v)}`; }).join(' ／ '); }; /* 2026-10-14：内容は短く（オーナー「長い」）。金額・分・人数・日付・入金／出金は値だけ */
 async function logOp(action, detail, reason, noBill){ try{ const t=noBill?null:tables.find(x=>x.id===cur?.table_id); const { error } = await sb.rpc('pos_log_add',{p_store:store.id,p_bill:noBill?null:(cur?.id||null),p_action:action,p_detail:{table:t?.name||null,...detail,...(opBy&&Date.now()-opBy.at<180000?{by:opBy.name}:{})},p_reason:reason||null}) /* SQL 430：入口の関数 */; opBy=null; if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
 // ブラウザ標準の確認・入力ダイアログ（サイト名が出る）を使わず、画面内のダイアログで聞く
 /* 2026-11-08 オーナー：理由を空のまま OK を押した時は、箱を閉じずに赤で「理由を入力してください」（前は箱が閉じて 1.8秒の知らせで中止）。need＝空の時に出す文 */
@@ -23,8 +13,8 @@ function uiDlg(msg, withInput, def, need){ msg=jaNet(msg); return new Promise(re
   const done=v=>{ $('uiDlg').classList.remove('on'); er.textContent=''; $('uiDlgOk').onclick=$('uiDlgNo').onclick=inp.onkeydown=null; res(v); };
   const ok=()=>{ if(need&&withInput&&!inp.value.trim()){ er.textContent=need; inp.focus(); return; } done(withInput?inp.value:true); };
   $('uiDlgOk').onclick=ok; $('uiDlgNo').onclick=()=>done(withInput?null:false); inp.onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing) ok(); }; }); }
-const uiConfirm=msg=>uiDlg(msg,false), uiPrompt=(msg,def)=>uiDlg(msg,true,def); /* v11.88：お金が減る操作（延長・注文の削除）は理由を必ず聞く。null＝やめた（ゲネプロ #44：×1回で消え、理由も残らなかった） */ /* v11.92：お金が動く操作は「入れた人」（黒服）を選ぶ。操作ログの detail.by に入り、日報メールに出る（ゲネプロ #42・見本 オ） */ let opBy=null; const askBy=async(ttl='入れた人（黒服）')=>{ opBy=null; const hs=staff.filter(x=>x.kind==='hall'); if(!hs.length) return ''; const v=await uiPick(ttl,hs.map(h=>({label:h.display_name,value:h.display_name}))); if(!v) return null; opBy={name:v,at:Date.now()}; return v; };
- const askWhy=async msg=>{ if(await askBy()===null) return null; const w=await uiDlg(msg+'\n理由を入力してください（必須・操作ログに残ります）',true,'','理由を入力してください'); if(w===null) return null; if(!w.trim()){ toast('理由を入力してください'); return null; } return w.trim(); }; const uiAlert=async msg=>{ $('uiDlgNo').style.display='none'; try{ await uiDlg(msg,false); } finally { $('uiDlgNo').style.display=''; } };
+UI.input=true; UI.box=async o=>{ if(!o.cancel) $('uiDlgNo').style.display='none'; try{ return await uiDlg(o.msg,!!o.input,o.def,o.need); } finally { $('uiDlgNo').style.display=''; } }; /* 知らせの箱の見た目（POS の小窓）。uiAlert・uiConfirm・uiPrompt は lib/olive/core.js */ /* v11.88：お金が減る操作（延長・注文の削除）は理由を必ず聞く。null＝やめた（ゲネプロ #44：×1回で消え、理由も残らなかった） */ /* v11.92：お金が動く操作は「入れた人」（黒服）を選ぶ。操作ログの detail.by に入り、日報メールに出る（ゲネプロ #42・見本 オ） */ let opBy=null; const askBy=async(ttl='入れた人（黒服）')=>{ opBy=null; const hs=staff.filter(x=>x.kind==='hall'); if(!hs.length) return ''; const v=await uiPick(ttl,hs.map(h=>({label:h.display_name,value:h.display_name}))); if(!v) return null; opBy={name:v,at:Date.now()}; return v; };
+ const askWhy=async msg=>{ if(await askBy()===null) return null; const w=await uiDlg(msg+'\n理由を入力してください（必須・操作ログに残ります）',true,'','理由を入力してください'); if(w===null) return null; if(!w.trim()){ toast('理由を入力してください'); return null; } return w.trim(); };
 // 選択肢から1つ選ぶダイアログ（キャンセルは null）
 function uiPick(msg, opts){ return new Promise(res=>{ $('uiDlgMsg').textContent=msg; $('uiDlgIn').style.display='none'; let box=$('uiDlgPick'); if(!box){ box=document.createElement('div'); box.id='uiDlgPick'; box.style.cssText='display:flex;flex-direction:column;gap:8px;margin:12px 0'; $('uiDlgMsg').after(box); } box.innerHTML=opts.map((o,i)=>`<button class="ghost" data-pk="${i}" style="font-size:18px;padding:12px">${esc(o.label)}</button>`).join(''); $('uiDlgOk').style.display='none'; $('uiDlg').classList.add('on');
   const done=v=>{ $('uiDlg').classList.remove('on'); box.innerHTML=''; $('uiDlgOk').style.display=''; $('uiDlgNo').onclick=null; res(v); }; box.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>done(opts[Number(b.dataset.pk)].value)); $('uiDlgNo').onclick=()=>done(null); }); }
