@@ -9,7 +9,7 @@ function renderCust(q){ custActLoad(); const on=new Set(custPick?[]:((cur&&cur.b
   $('custList').querySelectorAll('.chip').forEach(b=>b.onclick=()=>attachCust(b.dataset.id)); }
 $('custSearch').oninput=e=>renderCust(e.target.value.trim());
 /* v11.85：お客様の新規登録。登録と読み返しを分ける（同じ命令で読み返すと、まだ「見てよいお客様」に入っていないので断られる。2026-10-18 ゲネプロで見つけた） */
-async function custInsert(name){ const id=crypto.randomUUID(); const r=await sb.from('customers').insert({id,store_id:store.id,name}); if(r.error) return r; return await sb.from('customers').select('*').eq('id',id).single(); }
+async function custInsert(name){ const id=crypto.randomUUID(); const r=await sb.rpc('pos_customer_add',{p:{id,store_id:store.id,name}}); if(r.error) return r; return await sb.from('customers').select('*').eq('id',id).single(); }
 $('custNew').onclick=guard($('custNew'),async()=>{ /* v12.30：二度押しで同じお客様が2人できないように */ const name=$('custSearch').value.trim(); if(!name){toast('名前を入力してください');return;}
   const kk=await custTsureKakari(); const { data, error } = await custInsert(name); if(error){toast(error.message);return;}
   let km=''; if(kk){ const kr=await sb.rpc('pos_kakari_set',{p_customer:data.id,p_store:store.id,p_staff:kk}); if(kr.error) toast(''+KL+'を保存できません：'+kr.error.message); else { data.kakari_staff_id=kk; km=`係 ${snm(kk)} を登録しました`; } }
