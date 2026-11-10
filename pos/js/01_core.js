@@ -105,7 +105,7 @@ const fpOf=b=>JSON.stringify(b,(k,v)=>k==='depPays'||k==='totals'?undefined:v);
 document.addEventListener('pointerdown',()=>{ rtTap=Date.now(); },true);
 const rtBusy=()=>!!document.querySelector('.modal.on');
 const onView=v=>$(v).classList.contains('on');
-function rtSub(){ if(rtCh||!store) return; try{ rtCh=sb.channel('olive:'+store.id).on('broadcast',{event:'chg'},m=>rtOn(m.payload||{})).subscribe(); }catch(e){ console.warn('realtime',e); } }
+function rtSub(){ if(rtCh||!store) return; rtCh=rtJoin(sb,store.id,rtOn); }
 let rtSide=false;
 function rtOn(p){ if(p.kind==='settings'){ hallDropAll(); clearTimeout(rtMastT); rtMastT=setTimeout(rtMasters,1500); return; }
   /* v12.30：変わった伝票の金額だけ計算し直す。置き・お預かり品は伝票・入金・お預かりが変わった時だけ読む */ if(p.bill) hallDrop(p.bill); else hallDropAll(); if(!p.table||['bills','payments','bill_tags'].includes(p.table)) rtSide=true;

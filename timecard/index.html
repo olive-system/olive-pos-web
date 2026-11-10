@@ -253,9 +253,7 @@ async function start(fromLogin){
 let rtCh = null, rtT = 0;
 function rtSub(){
   if (rtCh || !store) return;
-  try { rtCh = sb.channel('olive:' + store.id).on('broadcast', { event:'chg' }, m => {
-    if ((m.payload || {}).kind !== 'settings') return; clearTimeout(rtT); rtT = setTimeout(rtReload, 1500); }).subscribe(); }
-  catch (e) { console.warn('realtime', e); }
+  rtCh = rtJoin(sb, store.id, p => { if (p.kind !== 'settings') return; clearTimeout(rtT); rtT = setTimeout(rtReload, 1500); });
 }
 async function rtReload(){
   if (busy) { clearTimeout(rtT); rtT = setTimeout(rtReload, 3000); return; }

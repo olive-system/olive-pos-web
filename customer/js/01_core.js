@@ -73,7 +73,7 @@ async function start(){ if(!token){ showLogin(); return; }
 let rtCh=null, rtT=0;
 function rtSub(){ const sid=boot&&boot.store&&boot.store.id; if(rtCh||!sid||!window.supabase) return;
   try{ const c=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,storageKey:'olive-cs-rt'}});
-    rtCh=c.channel('olive:'+sid).on('broadcast',{event:'chg'},m=>{ const k=(m.payload||{}).kind; clearTimeout(rtT); rtT=setTimeout(()=>rtRefresh(k),k==='settings'?1500:2500); }).subscribe(); }catch(e){ console.warn('realtime',e); } }
+    rtCh=rtJoin(c,sid,p=>{ const k=p.kind; clearTimeout(rtT); rtT=setTimeout(()=>rtRefresh(k),k==='settings'?1500:2500); }); }catch(e){ console.warn('realtime',e); } }
 async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot',{p_token:token}); if(b){ boot=b; kSet(boot.store&&boot.store.kakari_label); $('storeName').textContent=(boot.store&&boot.store.name||'')+'　顧客'; document.title=(boot.store&&boot.store.name||'OLIVE')+' 顧客'; } }catch(e){} } csRefresh(false); } /* v1.53：知らせでは開いている詳細だけ読み直す（一覧の約6,000人は1分ごとの読み直しだけ。営業中に何回も読み直して重くなるため。点検 2026-10-30） */
 
 // ---------- 編集（v1.59：モードは無い。編集用でログインした人は、裏で編集の券を取り直し続ける） ----------
