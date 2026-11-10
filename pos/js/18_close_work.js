@@ -120,7 +120,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
 // v10.43：前回の精算の翌日〜前日のうち、未精算の日の現金の動き（現金売上＋入金−出金−日払い）の合計
 async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')), /* v11.30：1000行で切れないように分けて読む */
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')),
-    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').gte('paid_at',bdAt(after)).lt('paid_at',bdAt(d)).order('id')),
+    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').gte('paid_at',bdStart(after)).lt('paid_at',bdStart(d)).order('id')),
     sb.from('register_closings').select('business_date').eq('store_id',store.id).gt('business_date',after).lt('business_date',d) ]);
   { const e=[mv,adv,pay,cl].find(x=>x.error); if(e) return {net:0,days:[],error:e.error}; }
   const done=new Set((cl.data||[]).map(r=>r.business_date)); const net={}; const add=(k,v)=>{ if(!done.has(k)) net[k]=(net[k]||0)+v; };
@@ -135,7 +135,7 @@ function clRecalc(){ const c=clCtx; if(!c) return {}; const s=c.saved; const cnt
 async function clRenderWarn(d,after){ const el=$('clWarn'); if(!el) return; const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()-31); const lo=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; const from=after&&after>lo?after:lo;
   const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date').eq('store_id',store.id).gt('business_date',from).lt('business_date',d).order('id')), /* v12.30：1000行で切れないように分けて読む・店はデータベースで絞る */
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',from).lt('business_date',d).order('id')),
-    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',bdAt(from)).lt('paid_at',bdAt(d)).order('id')),
+    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',bdStart(from)).lt('paid_at',bdStart(d)).order('id')),
     sb.from('register_closings').select('business_date').eq('store_id',store.id).gt('business_date',from).lt('business_date',d) ]);
   if($('clWarn')!==el||clDate!==d) return; const done=new Set((cl.data||[]).map(r=>r.business_date)); const act=new Set();
   (mv.data||[]).forEach(r=>act.add(r.business_date)); (adv.data||[]).filter(r=>r.amount>0).forEach(r=>act.add(r.business_date));
@@ -149,7 +149,7 @@ async function clRenderMonth(){ const el=$('clMonthBox'); if(!el) return; const 
     sb.from('register_closings').select('next_float').eq('store_id',store.id).lt('business_date',d1).order('business_date',{ascending:false}).limit(1),
     sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gte('business_date',d1).lte('business_date',dN).order('id')), /* v12.30：1000行で切れないように分けて読む・店はデータベースで絞る */
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gte('business_date',d1).lte('business_date',dN).order('id')),
-    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',bdAt(d1)).lt('paid_at',bdAt(nx)).order('id')) ]);
+    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',bdStart(d1)).lt('paid_at',bdStart(nx)).order('id')) ]);
   if(!$('clMonthBox')) return; const er=r.error||mv.error||adv.error||pay.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; }
   const byD={}; (r.data||[]).forEach(x=>byD[x.business_date]=x); const sum={}; const add=(dd,k,v)=>{ (sum[dd]=sum[dd]||{sales:0,cin:0,cout:0})[k]+=Number(v)||0; };
   (mv.data||[]).forEach(x=>add(x.business_date,x.kind==='in'?'cin':'cout',x.amount)); (adv.data||[]).filter(x=>x.amount>0).forEach(x=>add(x.business_date,'cout',x.amount));
