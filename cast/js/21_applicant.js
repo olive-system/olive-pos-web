@@ -71,8 +71,14 @@ function apIv(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet,
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px"><label class="f">本名<input id="apRn" maxlength="60" value="${esc(A.real_name || '')}" style="${AP_FS}"></label><label class="f">希望源氏名<input id="apGn" maxlength="30" placeholder="例）サヤ・ハル" value="${esc(A.trial_name && A.trial_name !== A.name ? A.trial_name : '')}" style="${AP_FS}"></label></div></div>
       ${photos}<button class="btn" id="apIvOk" style="margin-top:14px">保存</button>` : `<div style="padding:4px 0">面接結果　${esc(({ trial: '体験', considering: '体験', joined: '入店', declined: '辞退', rejected: '不採用' })[A.status] || '')}</div>${photos}`}${hs}</div>`; }
 // 体験
-function apTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; return A.trial_name ? `<div class="card"><div class="gh">体験　${esc(apDt(A.trial_at))}</div>
-    ${A.joined ? '<div style="padding:4px 0">体験結果　入店</div>' : `<div class="f">体験結果</div>${apSeg('tr', [['joined', '入店'], ['considering', '検討中'], ['declined', '辞退'], ['rejected', '不採用']], trRes)}`}
+function apTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P;
+  /* v1.76・SQL 446：［再体入］は体験の日が来てから。同じ体験の子に新しい体験の日を足す（前の日の出勤・日払いは残す） */
+  const reOk = !A.joined && apIsoDay(A.trial_at) <= A.today;
+  return A.trial_name ? `<div class="card"><div class="gh">体験　${esc(apDt(A.trial_at))}</div>
+    ${A.joined ? '<div style="padding:4px 0">体験結果　入店</div>' : `<div class="f">体験結果</div>${apSeg('tr', [['joined', '入店'], ...(reOk ? [['retrial', '再体入']] : []), ['considering', '検討中'], ['declined', '辞退'], ['rejected', '不採用']], trRes)}`}
+    ${reOk ? `<div id="apReIn" style="display:none">
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px"><label class="f">体験日<input id="apRd" type="date" min="${A.today}" style="${AP_FS}"></label><label class="f">時刻${apSel(AP_T.map(t => [t, t]), apIsoTime(A.trial_at), 'id="apRt"')}</label></div>
+      <label class="f" style="margin-top:8px">体験の報酬</label><div style="display:flex;gap:8px"><select id="apRp" style="${AP_FS};width:auto;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([k, n]) => `<option value="${k}" ${k === (A.trial_pay_type || 'daily') ? 'selected' : ''}>${n}</option>`).join('')}</select><input id="apRa" type="number" inputmode="numeric" min="1" placeholder="円" value="${A.trial_pay_amount || ''}" style="${AP_FS};flex:1;min-width:0"></div></div>` : ''}
     <div class="f">よかった点</div>${apGrid('good', A.good)}<div class="f" style="margin-top:8px">気になった点</div>${apGrid('concern', A.concern)}
     <div id="apRsIn" style="${['declined', 'rejected'].includes(trRes) ? '' : 'display:none'}"><label class="f" style="margin-top:8px">理由<span style="color:var(--warn)">（必須）</span></label><textarea id="apRs" maxlength="500" style="min-height:70px">${esc(A.trial_reason || '')}</textarea></div>
     <button class="btn" id="apTrOk" style="margin-top:12px">保存</button></div>` : ''; }
@@ -85,7 +91,7 @@ function apRest(P){ const { id, store, back, A, again, ivOpen, thumb, bust, shee
   return `${vc}${jn}${dc}${memo}`; }
 /* 押した時の動き：区切りのボタン・担当黒服・区分・メモ・次回連絡日・写真 */
 function apBindBase(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; const M = $('main'); const save = p => apSave(P, p);
-  M.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if(s.dataset.seg === 'iv' && $('apTrialIn')) $('apTrialIn').style.display = b.dataset.v === 'trial' ? '' : 'none'; if(s.dataset.seg === 'tr' && $('apRsIn')) $('apRsIn').style.display = ['declined', 'rejected'].includes(b.dataset.v) ? '' : 'none'; }));
+  M.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if(s.dataset.seg === 'iv' && $('apTrialIn')) $('apTrialIn').style.display = b.dataset.v === 'trial' ? '' : 'none'; if(s.dataset.seg === 'tr' && $('apRsIn')) $('apRsIn').style.display = ['declined', 'rejected'].includes(b.dataset.v) ? '' : 'none'; if(s.dataset.seg === 'tr' && $('apReIn')) $('apReIn').style.display = b.dataset.v === 'retrial' ? '' : 'none'; }));
   $('apHall').onchange = () => save({ hall_staff_id: $('apHall').value });
   if($('apKind')) $('apKind').onchange = () => save({ kind: $('apKind').value });
   $('apMemo').onchange = () => save({ memo: $('apMemo').value });
@@ -113,6 +119,9 @@ function apBindIv(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sh
 function apBindTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; const M = $('main'); const segV = apSegV;
   if($('apTrOk')) $('apTrOk').onclick = async e => { const v = A.joined ? 'joined' : segV('tr'); if(!v){ await uiAlert('体験結果を選んでください'); return; }
     if(v === 'joined' && !A.joined && !await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します', '入店')) return;
+    if(v === 'retrial'){ e.target.disabled = true;
+      const q = await sb.rpc('ap_retrial', { p_token: TOKEN, p_store: store || null, p_id: id, p_day: $('apRd').value || null, p_time: $('apRt').value, p_pay_type: $('apRp').value, p_amount: parseInt($('apRa').value || '0', 10) || 0 });
+      if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); return; }
     const pick = k => [...M.querySelectorAll(`[data-${k}]`)].filter(x => x.checked).map(x => x.dataset[k]);
     const rs = ['declined', 'rejected'].includes(v) ? $('apRs').value.trim() : null; if(rs === ''){ await uiAlert('理由を入力してください'); return; }
     e.target.disabled = true;
