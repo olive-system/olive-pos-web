@@ -18,10 +18,14 @@ async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId
   const show=(label,code)=>termCodeShow(label,code,'この端末のタイムカードを開いて入力してください（30分有効・1回だけ使えます）');
   const add=$('tcAdd'); add.onclick=guard(add,async()=>{ const lb=$('tcLabel').value.trim(); if(!lb){ await uiAlert('端末名を入力してください'); return; }
     const x=await rpc('admin_tc_code',{p_store:st,p_id:null,p_label:lb}); if(!x.ok) return; await show(lb,x.data.code); tcCard(); });
+  tcRowWire(box,st,show); }
+/* タイムカードの端末の行の［再登録］［×］ */
+function tcRowWire(box,st,show){
   box.querySelectorAll('[data-tcre]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm(`${b.dataset.l} を再登録しますか？\n今の登録は無効になり、新しい登録コードを入れるまで、この端末では打刻できません`)) return;
     const x=await rpc('admin_tc_code',{p_store:st,p_id:b.dataset.tcre,p_label:null}); if(!x.ok) return; await show(b.dataset.l,x.data.code); tcCard(); }));
   box.querySelectorAll('[data-tcdel]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm(`${b.dataset.l} を削除しますか？\nこの端末では打刻できなくなります`,'削除','danger')) return;
-    const x=await rpc('admin_tc_delete',{p_id:b.dataset.tcdel}); if(!x.ok) return; toast('削除しました'); tcCard(); })); }
+    const x=await rpc('admin_tc_delete',{p_id:b.dataset.tcdel}); if(!x.ok) return; toast('削除しました'); tcCard(); }));
+}
 /* 店の POS の ID（無ければ［作成］） */
 async function tcPosId(st){
   { const ph=await sb.rpc('admin_pos_account_has',{p_store:st}); if(!ph.error&&page==='pw'&&$('tcBox')){ const d=document.createElement('div'); d.style.cssText='margin-top:14px;display:flex;align-items:center;gap:10px'; d.innerHTML=`<span class="muted" style="font-size:13px">POS の ID</span>${ph.data?'<span class="badge k">作成済</span>':'<button class="ghost" id="posIdAdd">作成</button>'}`; $('tcBox').appendChild(d);
