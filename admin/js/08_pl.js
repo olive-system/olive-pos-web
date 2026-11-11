@@ -24,6 +24,11 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
   const r=await sb.rpc('admin_pl_month',{p_store:st,p_month:m}); if(page!=='pl'||storeId!==st||plMonth!==m||plDate) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_pl_month|cast_month_calc/.test(r.error.message)?'SQL 070 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; wire(); return; }
   data=r.data; const T=plTotals(data), cols=PL_COLS.flatMap(([g,cs])=>cs);
+  const K=pmKit({st,m,mOpts,data,T,cols});
+  $('main').innerHTML=head+K.phoneTop+pmHtml(K);
+  wire(); invRender(st); }
+/* 上の4つの箱（売上・来店・経費・入金）の部品と、スマホの幅の1つの箱 */
+function pmKit(K){ const {st,m,mOpts,data,T,cols}=K;
   const box=(l,v,c)=>`<div style="display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;flex:1 1 220px"><span style="background:${c};padding:12px 16px;font-weight:700;white-space:nowrap">${l}</span><b style="flex:1;text-align:right;padding:12px 16px;font-size:20px">${v}</b></div>`;
   // v1.11：上に「まとめ」の月間（売上・来店・経費・入金の4つの箱。オーナー 2026-10-17「収支の上にまとめの月間を。かさばらないように」→ 見本ア、客単価のあとで改行）
   const Nn=v=>Number(v||0), per=(a,b)=>Nn(b)?Math.round(Nn(a)/Nn(b)).toLocaleString('ja-JP'):'0', cm=v=>Nn(v).toLocaleString('ja-JP'), lab=plLabor(T), ex=lab+Nn(T.cash_out);
@@ -32,7 +37,9 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
   /* v1.60：スマホの幅では4つを1つの箱に行で並べる（売上は 現金・カード／請求・置き の2行。オーナー 2026-10-25 案ウ） */
   const kl=(k,v,lines,n)=>`<div style="padding:8px 0;${n?'border-top:1px solid var(--line)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="muted" style="font-size:13px">${k}</span><b style="font-size:18px">${v}</b></div>${lines.map(r=>`<div style="display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;margin-top:2px">${r.map(([x,y])=>`<span><span class="muted">${x}</span> ${y}</span>`).join('')}</div>`).join('')}</div>`;
   const phoneTop=`<div class="card pltopl" style="margin:0 0 12px;padding:6px 12px">${kl('売上',plYen(T.sales),[[['現金',cm(T.cash)],['カード',cm(T.card)]],[['請求',cm(T.invoice)],['置き','<span data-pl="oki">…</span>']]],0)}${kl('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[[['ユニーク','<span data-pl="uq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]]],1)}${kl('経費',plYen(ex),[[['キャスト',cm(Nn(T.cast_pay)+Nn(T.cast_adv))],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))],['諸経費',cm(T.cash_out)]]],1)}${kl('入金',plYen(T.cash_in),[],1)}</div>`;
-  $('main').innerHTML=head+phoneTop+`<div class="pltop4" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px">
+  return {...K,box,Nn,per,cm,lab,ex,kb,kl,phoneTop}; }
+/* 4つの箱・請求書の未入金・日ごとの表 */
+function pmHtml(K){ const {st,m,mOpts,data,T,cols,box,Nn,per,cm,lab,ex,kb,kl,phoneTop}=K; return `<div class="pltop4" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px">
       ${kb('売上',plYen(T.sales),[['現金',cm(T.cash)],['カード',cm(T.card)],['請求',cm(T.invoice)],['置き','<span data-pl="oki">…</span>']])}
       ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[['ユニーク','<span data-pl="uq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]])}
       ${kb('経費',plYen(ex),[['キャスト',cm(Nn(T.cast_pay)+Nn(T.cast_adv))],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))],['諸経費',cm(T.cash_out)]])}
@@ -42,8 +49,7 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     <tr class="kst"><td class="nm"><b>合計</b></td>${cols.map(([k])=>`<td>${plCell(k,T)}</td>`).join('')}</tr>
     ${(data.days||[]).map(x=>{ const wd=new Date(x.date+'T00:00:00').getDay(); return `<tr><td class="nm"><a data-pld="${x.date}" style="color:var(--blue);cursor:pointer">${md(x.date)}</a> <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WD[wd]}</span></td>${cols.map(([k])=>`<td>${plCell(k,x)}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済の伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金日に、入金方法（現金・カード）で入ります<br>キャスト報酬：日ごとは目安です（月の報酬の合計とは合いません）。その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は源泉などを引く前の額。売上が税込みなので人件費も引く前で数えます）<br>総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の報酬（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の報酬」と同じ）も入ります。黒服日払いは黒服の報酬の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`;
-  wire(); invRender(st); }
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済の伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金日に、入金方法（現金・カード）で入ります<br>キャスト報酬：日ごとは目安です（月の報酬の合計とは合いません）。その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は源泉などを引く前の額。売上が税込みなので人件費も引く前で数えます）<br>総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の報酬（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の報酬」と同じ）も入ります。黒服日払いは黒服の報酬の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`; }
 async function plExcel(d){ /* 請求書がある月は、フォルダのいちばん上に 00_請求書_… を入れる（plInvoices） */ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const T=plTotals(d), cols=PL_COLS.flatMap(([g,cs])=>cs.map(c=>[g,...c])), [y,mo]=String(d.month).split('-').map(Number);
   const val=(k,x)=>k==='rate'?(Number(x.sales||0)?Math.round(plLabor(x)/Number(x.sales)*10000)/100:0):k==='labor'?plLabor(x):k==='adv'?Number(x.cast_adv||0)+Number(x.hall_adv||0):Number(x[k]||0);
