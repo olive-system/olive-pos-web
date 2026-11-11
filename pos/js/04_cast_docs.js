@@ -1,9 +1,11 @@
 // SQL 445：在籍キャストの［編集］の「書類」（2026-11-11 オーナー「黒服がアップロード」「セキュリティを考えると POS」「アップロードしないとチェックが入らないように」）。
 //   5つの四角：写真が無い書類は点線の四角（押すとカメラか写真から選ぶ。入力欄は画面の中の label に置く＝スキル olive-photo-shoot）、写真があれば押すと小窓（追加・削除）。
 //   ヒアリングシートは LINEマイページで入力した人は入力内容、契約書は LINEマイページで署名した人は署名の日。部品は lib/olive/staff_docs.js（管理サイトと同じ）
-async function posDocs(s){ const box = $('cDocs'); if(!box || cSel !== s) return;
+// v13.43：［退店・体験］の［詳細］の小窓（pastSel）でも同じ「書類」を出す
+const posDocsOn = s => cSel === s || (typeof pastSel !== 'undefined' && pastSel === s);
+async function posDocs(s){ const box = $('cDocs'); if(!box || !posDocsOn(s)) return;
   box.innerHTML = '<span class="muted">読み込み中…</span>';
-  const r = await sb.rpc('pos_staff_docs', { p_staff: s.id }); if(cSel !== s) return;
+  const r = await sb.rpc('pos_staff_docs', { p_staff: s.id }); if(!posDocsOn(s)) return;
   if(r.error){ box.innerHTML = `<span style="color:var(--warn)">書類を表示できません：${esc(r.error.message)}</span>`; return; }
   const D = r.data || {}; ['contract_done', 'doc_id_ok', 'doc_roster_ok'].forEach(k => { s[k] = D[k]; }); /* 一覧の印もそろえる */
   const W = 68, H = Math.round(W * 4 / 3), sq = `width:${W}px;height:${H}px;border-radius:8px;box-sizing:border-box`;
