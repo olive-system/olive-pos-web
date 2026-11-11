@@ -21,12 +21,11 @@ const apGrid = (k, on) => `<div style="display:grid;grid-template-columns:1fr 1f
 const apSeg = (k, opts, v) => `<div class="seg" data-seg="${k}">${opts.map(([x, n]) => `<button type="button" data-v="${x}" class="${x === v ? 'on' : ''}" style="white-space:nowrap;padding:9px 4px">${n}</button>`).join('')}</div>`;
 
 async function apPhotoUrl(store, id){ const r = await sb.rpc('ap_photo', { p_token: TOKEN, p_store: store || null, p_photo: id }); return r.error ? '' : r.data; }
-const apBlob64 = blob => new Promise((ok, ng) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = ng; f.readAsDataURL(blob); });
 // 写真を撮る（カメラ）→ 縮めて送る（09_dress.js の shrinkJpeg）
 // v1.34：入力欄を画面に置いてから開く（画面に無い入力欄は、iPhone の LINE でカメラから戻った時に写真が届かないことがある。2026-11-05 広島で1回あった）
 function apShoot(store, id, kind, done){ document.querySelectorAll('input[data-apshoot]').forEach(x => x.remove());
   const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment'; i.dataset.apshoot = '1'; i.style.display = 'none'; document.body.appendChild(i);
-  i.onchange = async () => { const f = i.files && i.files[0]; i.remove(); if(!f) return; try{ const d = await apBlob64(await shrinkJpeg(f));
+  i.onchange = async () => { const f = i.files && i.files[0]; i.remove(); if(!f) return; try{ const d = await blob64(await shrinkJpeg(f));
     const r = await sb.rpc('ap_photo_add', { p_token: TOKEN, p_store: store || null, p_id: id, p_kind: kind, p_data: d }); if(r.error){ await uiAlert(r.error.message); return; } done(); }catch(e){ await uiAlert('写真を送信できませんでした'); } };
   i.click(); }
 // 写真を大きく表示（削除もここ）
@@ -51,7 +50,7 @@ function apParts(P){ const { A } = P;
   /* v1.33：バストアップの撮影は左上の四角だけ（同じ撮影が2か所で迷う。オーナー 2026-11-05「直感的に操作したい」） */
   /* v1.33：バストアップの撮影は左上の四角だけ（同じ撮影が2か所で迷う。オーナー 2026-11-05「直感的に操作したい」） */
   const photos = `<div style="margin-top:12px"><div class="f">ヒアリングシート</div><div style="display:flex;gap:6px;flex-wrap:wrap">${sheet.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="sheet" style="width:64px;height:86px;padding:0">撮影</button></div></div>`;
-  const hl = sheetLines(A.hearing); /* v1.21・SQL 350：本人が LINE で入力したヒアリングシート */
+  const hl = sheetLines(A.hearing, SH_HR()); /* v1.21・SQL 350：本人が LINE で入力したヒアリングシート */
   const hs = `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">ヒアリングシートの入力内容</b><button class="btn g" id="apSh" style="width:auto;padding:8px 16px">編集</button></div>` + (hl.length ? `<div class="sm" style="line-height:1.8;padding-top:6px">${hl.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:45%">${esc(k)}</span><span style="min-width:0">${esc(v)}</span></div>`).join('')}</div>` : '');
   /* v1.42・SQL 388：体験結果に不採用。ジャッジが不採用なら最初から選択。辞退・不採用は理由が必須（オーナー 2026-11-06「入店にならなかった場合、その理由を強制的に」） */
   const trRes = ({ joined: 'joined', considering: 'considering', declined: 'declined', rejected: 'rejected' })[A.status] || (A.status === 'trial' && A.judge === 'not' ? 'rejected' : '');

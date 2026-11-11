@@ -4,7 +4,7 @@
 const jgParam = k => { const q = new URLSearchParams(location.search); let v = q.get(k); if(!v){ const st = q.get('liff.state'); if(st) v = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get(k); } return v; };
 // 1人分の箱（写真・名前・時刻・あなたの判断・ヒアリングシート・押した人／まだ）
 function judgeCard(it, cl){ /* v1.42・SQL 388：閉店作業では、ジャッジの後に体験結果がまだなら［体験結果］（cl） */
-  const hl = sheetLines(it.hearing).filter(([k]) => k !== '17点確認');
+  const hl = sheetLines(it.hearing, SH_HR()).filter(([k]) => k !== '17点確認');
   const res = it.closed && it.result ? `<div style="margin-top:8px;font-weight:700">採用 ${it.result.yes}・不採用 ${it.result.no}　→ ${it.result.result === 'hired' ? '採用' : '不採用'}</div>` : '';
   return `<div class="card" data-jg="${it.id}"><div style="display:flex;gap:12px;align-items:flex-start">
     ${it.photo ? `<img src="${it.photo}" alt="" style="flex:none;width:84px;height:112px;object-fit:cover;border:1px solid var(--line);border-radius:8px">` : '<div style="flex:none;width:84px;height:112px;border:1px solid var(--line);border-radius:8px;background:var(--soft)"></div>'}
