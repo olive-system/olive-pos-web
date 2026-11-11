@@ -144,7 +144,36 @@ function cfFines(s){ const tx=(i,v)=>{ const e=$(i); if(e) e.textContent=v; }; i
 function cfHall(s){ sb.from('cast_terms').select('*').eq('staff_id',s.id).lte('month',businessDate().slice(0,7)+'-01').order('month',{ascending:false}).then(r=>{ if(cSel!==s||r.error) return; const m1=businessDate().slice(0,7)+'-01', t=(r.data||[]).find(x=>x.month===m1||!x.only_month), e=$('cHallPay'); if(!e||!t?.pay_type) return; const a=t.pay_type==='monthly'?t.monthly_wage:t.pay_type==='hourly'?t.hourly_wage:t.daily_wage; e.textContent=({monthly:'月給',hourly:'時給',daily:'日給'})[t.pay_type]; /* v11.34：金額は出さない（POS はみんなで使うので、黒服同士で報酬が見えないように） */ });
   clMgrSum(s).then(v=>{ if(cSel!==s) return; const e=$('cMgrSum'), p=$('cMgrPct'); if(e) e.innerHTML=v.sum; if(p) p.textContent=v.pct; }); }
 /* 区分で出す欄を切り替える。保存で使う kEff・選んだ欄を返す */
-function cfKind(s,f){ const kSel=f.querySelector('[data-k=kind]'); const pSel=f.querySelector('[data-k=cast_pay]'), dwIn=f.querySelector('[data-k=daily_wage]'); [pSel,dwIn].forEach(x=>x&&x.addEventListener('input',()=>{ x.dataset.touched='1'; })); /* v11.68：折半は区分ではなく報酬（オーナー 2026-10-17）。v12.43：折半は管理サイトの表（キャストの月ごとの条件）だけで決める。POS は staff.is_seppan を出すだけで、選ぶ所・書き換えは無し（点検 2026-11-02 C1） */ const kEff=()=>kSel.value==='cast'&&s.is_seppan?'seppan':kSel.value; const pv=()=>{ const on=kSel.value==='cast'; $('cPayBox').style.display=on?'':'none'; $('cDwBox').style.display=on&&pSel&&pSel.value==='daily'?'':'none'; }; if(pSel) pSel.onchange=()=>tb(); const tb=()=>{ pv(); $('cTrialBox').style.display=kSel.value==='trial'?'':'none'; $('cNoTcBox').style.display=kEff()==='seppan'?'':'none'; $('cMgrBox').style.display=(kSel.value==='hall'||kSel.value==='kakari')?'none':''; f.querySelectorAll('.c-cast').forEach(e=>e.style.display=(kSel.value==='hall'||kSel.value==='kakari')?'none':(e.dataset.disp||'')); { const fr=$('cFineRow'); if(fr) fr.style.display=kSel.value==='kakari'?'none':'contents'; } { const dr=$('cDocRow'); if(dr) dr.style.display=kSel.value==='kakari'?'none':'contents'; } /* v12.49：書類は黒服にも（SQL 271 で黒服にも3つ。オーナー 2026-11-03） */ f.querySelectorAll('.c-hall').forEach(e=>e.style.display=kSel.value==='hall'?(e.dataset.disp||''):'none'); }; kSel.onchange=tb; tb(); const mSel=f.querySelector('[data-k=manager_staff_id]'); const mCol=()=>{ mSel.style.color=mSel.value?'':'var(--warn)'; }; mSel.onchange=mCol; mCol(); return {kEff,pSel,dwIn,mSel}; }
+function cfKind(s,f){ const kSel=f.querySelector('[data-k=kind]');
+  const pSel=f.querySelector('[data-k=cast_pay]'), dwIn=f.querySelector('[data-k=daily_wage]');
+  [pSel,dwIn].forEach(x=>x&&x.addEventListener('input',()=>{ x.dataset.touched='1';
+  }));
+  /* v11.68：折半は区分ではなく報酬（オーナー 2026-10-17）。v12.43：折半は管理サイトの表（キャストの月ごとの条件）だけで決める。POS は staff.is_seppan を出すだけで、選ぶ所・書き換えは無し（点検 2026-11-02 C1） */ const kEff=()=>kSel.value==='cast'&&s.is_seppan?'seppan':kSel.value;
+  const pv=()=>{ const on=kSel.value==='cast';
+  $('cPayBox').style.display=on?'':'none';
+  $('cDwBox').style.display=on&&pSel&&pSel.value==='daily'?'':'none';
+  };
+  if(pSel) pSel.onchange=()=>tb();
+  const tb=()=>{ pv();
+  $('cTrialBox').style.display=kSel.value==='trial'?'':'none';
+  $('cNoTcBox').style.display=kEff()==='seppan'?'':'none';
+  $('cMgrBox').style.display=(kSel.value==='hall'||kSel.value==='kakari')?'none':'';
+  f.querySelectorAll('.c-cast').forEach(e=>e.style.display=(kSel.value==='hall'||kSel.value==='kakari')?'none':(e.dataset.disp||''));
+  { const fr=$('cFineRow');
+  if(fr) fr.style.display=kSel.value==='kakari'?'none':'contents';
+  } { const dr=$('cDocRow');
+  if(dr) dr.style.display=kSel.value==='kakari'?'none':'contents';
+  } /* v12.49：書類は黒服にも（SQL 271 で黒服にも3つ。オーナー 2026-11-03） */ f.querySelectorAll('.c-hall').forEach(e=>e.style.display=kSel.value==='hall'?(e.dataset.disp||''):'none');
+  };
+  kSel.onchange=tb;
+  tb();
+  const mSel=f.querySelector('[data-k=manager_staff_id]');
+  const mCol=()=>{ mSel.style.color=mSel.value?'':'var(--warn)';
+  };
+  mSel.onchange=mCol;
+  mCol();
+  return {kEff,pSel,dwIn,mSel};
+  }
 async function cfSave(s,f,{kEff,pSel,dwIn,mSel}){ const kv=kEff(); const o={display_name:f.querySelector('[data-k=display_name]').value.trim(),real_name:f.querySelector('[data-k=real_name]').value.trim(),kind:kv==='hall'?'hall':'cast',is_trial:kv==='trial',kakari_only:kv==='kakari',no_timecard:kv==='seppan'&&f.querySelector('[data-k=no_timecard]').checked,is_active:true,manager_staff_id:(kv==='hall'||kv==='kakari')?null:(mSel.value||null)}; if(kv==='trial'){ o.trial_pay_type=f.querySelector('[data-k=trial_pay_type]').value; o.trial_pay_amount=parseInt(f.querySelector('[data-k=trial_pay_amount]').value||'0',10)||0; if(o.trial_pay_amount<=0){ toast('体験の時給または日給の金額を入力してください'); return; } }
     { let iv=toHan(f.querySelector('[data-k=invoice_number]').value.trim()).replace(/[\s-]/g,'').toUpperCase(); if(iv&&!/^T\d{13}$/.test(iv)){ await uiAlert('インボイス番号は T＋数字13桁 で入力してください'); return; } /* v11.63・SQL 132：T が無い・13桁でない時はエラー（T の自動付与をやめた。オーナー 2026-10-17） */ o.invoice_number=iv||null; }
     { const v=toHan(f.querySelector('[data-k=birthday]').value).trim(); /* v11.74・SQL 147：お誕生日（月/日。朝礼の「2週間以内のお誕生日」に出る） */
