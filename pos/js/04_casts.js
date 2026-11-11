@@ -27,7 +27,39 @@ async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').class
   caList(C); caBindA(C); caBindB(C);
   renderCastForm(); }
 /* その日の日払（立替）・手当・打刻・体験の受領・罰金・精算を読む */
-async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev={}, rcp={}, fixN={}, finT={}, finP={}, clDone=false; { const bd=businessDate(); const [ra,re,rc,rr,rf]=await Promise.all([ sb.from('daily_advances').select('*').eq('business_date',bd), sb.from('attendance_events').select('*').eq('business_date',bd).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at'), sb.from('register_closings').select('id').eq('store_id',store.id).eq('business_date',bd), sb.from('trial_receipts').select('id,staff_id,business_date,amount,calc,signed_at').eq('business_date',bd), sb.from('staff_fines').select('*').eq('store_id',store.id).eq('business_date',bd) ]); if(rf.error) toast('SQL 041 が未適用です：'+rf.error.message); { const e=[ra,re,rc,rr].find(x=>x.error); if(e) toast('打刻・日払いを読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと全員「打刻なし・日払い0円」に見えた */ (rf.data||[]).forEach(x=>{ if(!x.is_void){ finT[x.staff_id]=(finT[x.staff_id]||0)+Number(x.amount||0); if(x.wage_pct) finP[x.staff_id]=(finP[x.staff_id]||0)+Number(x.wage_pct); } }); (rr.data||[]).forEach(x=>{ rcp[x.staff_id]=x; }); (ra.data||[]).forEach(a=>{ adv[a.staff_id]=a.amount; advX[a.staff_id]=a.extra||0; advN[a.staff_id]=a.calc_note||''; advA[a.staff_id]=a.allowance||0; advM[a.staff_id]=a.allowance_memo||''; }); (re.data||[]).forEach(e=>{ const t=tev[e.staff_id]||(tev[e.staff_id]={}); if(e.event_type==='clock_out'||e.event_type==='after'){ t.out=e.event_at; t.outFix=e.is_corrected; t.outPh=e.photo_path; t.after=e.event_type==='after'; t.outR=e.rounded_at||null; t.outO=e.orig_rounded_at||e.orig_at||null; } else if(!t.in){ t.in=e.event_at; t.inFix=e.is_corrected; t.inPh=e.photo_path; t.inR=e.rounded_at||null; t.inO=e.orig_rounded_at||e.orig_at||null; } if(e.is_corrected&&e.event_type!=='douhan') fixN[e.staff_id]=(fixN[e.staff_id]||0)+1; }); clDone=!!(rc.data||[]).length; }
+async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev={}, rcp={}, fixN={}, finT={}, finP={}, clDone=false;
+  { const bd=businessDate();
+  const [ra,re,rc,rr,rf]=await Promise.all([ sb.from('daily_advances').select('*').eq('business_date',bd), sb.from('attendance_events').select('*').eq('business_date',bd).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at'), sb.from('register_closings').select('id').eq('store_id',store.id).eq('business_date',bd), sb.from('trial_receipts').select('id,staff_id,business_date,amount,calc,signed_at').eq('business_date',bd), sb.from('staff_fines').select('*').eq('store_id',store.id).eq('business_date',bd) ]);
+  if(rf.error) toast('SQL 041 が未適用です：'+rf.error.message);
+  { const e=[ra,re,rc,rr].find(x=>x.error);
+  if(e) toast('打刻・日払いを読み込めません。再度開いてください：'+e.error.message);
+  } /* 通しチェック3：読めないと全員「打刻なし・日払い0円」に見えた */ (rf.data||[]).forEach(x=>{ if(!x.is_void){ finT[x.staff_id]=(finT[x.staff_id]||0)+Number(x.amount||0);
+  if(x.wage_pct) finP[x.staff_id]=(finP[x.staff_id]||0)+Number(x.wage_pct);
+  } });
+  (rr.data||[]).forEach(x=>{ rcp[x.staff_id]=x;
+  });
+  (ra.data||[]).forEach(a=>{ adv[a.staff_id]=a.amount;
+  advX[a.staff_id]=a.extra||0;
+  advN[a.staff_id]=a.calc_note||'';
+  advA[a.staff_id]=a.allowance||0;
+  advM[a.staff_id]=a.allowance_memo||'';
+  });
+  (re.data||[]).forEach(e=>{ const t=tev[e.staff_id]||(tev[e.staff_id]={});
+  if(e.event_type==='clock_out'||e.event_type==='after'){ t.out=e.event_at;
+  t.outFix=e.is_corrected;
+  t.outPh=e.photo_path;
+  t.after=e.event_type==='after';
+  t.outR=e.rounded_at||null;
+  t.outO=e.orig_rounded_at||e.orig_at||null;
+  } else if(!t.in){ t.in=e.event_at;
+  t.inFix=e.is_corrected;
+  t.inPh=e.photo_path;
+  t.inR=e.rounded_at||null;
+  t.inO=e.orig_rounded_at||e.orig_at||null;
+  } if(e.is_corrected&&e.event_type!=='douhan') fixN[e.staff_id]=(fixN[e.staff_id]||0)+1;
+  });
+  clDone=!!(rc.data||[]).length;
+  }
   return {adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone}; }
 /* 体験の子の日払（立替）を、打刻から計算し直して保存する */
 async function caTrialPay(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
@@ -76,7 +108,8 @@ async function caMarks(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN
 /* 一覧の1行：名前としるし（caRowHtml）と、時刻・日払・手当・ボタン（caRowCtl） */
 function caRowHtml(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; return `<div class="rrow ${s.is_active?'':'inactive'}" data-id="${s.id}">${cSorting?'<span class="hd">≡</span>':''}<span class="nm"${cMode==='today'?' style="white-space:nowrap"':''}>${esc(s.display_name)}${needMgr(s)&&s.is_active?(mgrOf(s)?` <small style="color:var(--muted);font-size:13px">${esc(mgrOf(s).display_name)}</small>`:' <small style="color:var(--warn);font-size:13px">未選択</small>'):''}${s.is_active&&absM[s.id]?' <span class="badge warnb">当日欠勤</span>':''}${!s.is_active?'':lateM[s.id]?.eta?` <span class="badge gray">遅刻 ${esc(lateM[s.id].eta)}</span>`:(lateM[s.id]?.nocontact?' <span class="badge warnb">無断遅刻</span>':'')}${
     noReal(s)?'<small style="display:block;color:var(--warn);font-size:12px;line-height:1.3">本名未入力</small>':''}${s.is_trial?' <span class="badge warnb">体験</span>':''}${s.is_seppan?' <span class="badge gray">折半</span>':''}${s.kakari_only?' <span class="badge gray">'+KL+'専用</span>':''}${s.is_active?'':(s.leave_pending?leaveBadge(s):' <span class="badge" style="background:var(--muted)">退店</span>')}${cMode==='today'&&s.is_trial&&present.has(s.id)&&!tev[s.id]?.out?` <button class="sm" data-pout="${s.id}">退勤</button>`:''}${cMode==='today'&&s.is_trial&&rcp[s.id]?` <span class="badge" data-show="${s.id}" style="background:var(--acc);cursor:pointer">受領済</span>`:(cMode==='today'&&s.is_trial&&present.has(s.id)&&tev[s.id]?.out&&tcalc[s.id]?.ready&&adv[s.id]===tcalc[s.id].pay?` <button class="sm" data-show="${s.id}">報酬明細</button>`:'')}</span>`+caRowCtl(C,s); }
-function caRowCtl(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; return `${cMode==='today'&&!cSorting&&!cDeleteMode&&s.is_active&&!s.kakari_only&&(!s.is_trial||present.has(s.id))?(s.is_trial?`<span style="display:flex;align-items:center;gap:8px;flex:2 1 340px;min-width:0;justify-content:flex-end;flex-wrap:wrap;row-gap:6px">${tmHtml(s,!!rcp[s.id])}<span class="lp" data-tamt style="justify-content:flex-end"><b style="font-size:18px">${rcp[s.id]?yen(rcp[s.id].amount):(tcalc[s.id]?.ready?yen(tcalc[s.id].pay):'')}</b></span><span class="lp"><span class="muted" style="font-size:14px">手当</span><input type="number" inputmode="numeric" data-extra="${s.id}" value="${advX[s.id]||''}" placeholder="0" ${clDone||rcp[s.id]?'disabled':''} style="width:84px;font-size:16px;text-align:right"></span></span>`:`<span style="display:flex;align-items:center;gap:8px;flex:2 1 340px;min-width:0;justify-content:flex-end;flex-wrap:wrap;row-gap:6px">${s.no_timecard?'':tmHtml(s)}${
+function caRowCtl(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
+  return `${cMode==='today'&&!cSorting&&!cDeleteMode&&s.is_active&&!s.kakari_only&&(!s.is_trial||present.has(s.id))?(s.is_trial?`<span style="display:flex;align-items:center;gap:8px;flex:2 1 340px;min-width:0;justify-content:flex-end;flex-wrap:wrap;row-gap:6px">${tmHtml(s,!!rcp[s.id])}<span class="lp" data-tamt style="justify-content:flex-end"><b style="font-size:18px">${rcp[s.id]?yen(rcp[s.id].amount):(tcalc[s.id]?.ready?yen(tcalc[s.id].pay):'')}</b></span><span class="lp"><span class="muted" style="font-size:14px">手当</span><input type="number" inputmode="numeric" data-extra="${s.id}" value="${advX[s.id]||''}" placeholder="0" ${clDone||rcp[s.id]?'disabled':''} style="width:84px;font-size:16px;text-align:right"></span></span>`:`<span style="display:flex;align-items:center;gap:8px;flex:2 1 340px;min-width:0;justify-content:flex-end;flex-wrap:wrap;row-gap:6px">${s.no_timecard?'':tmHtml(s)}${
     advFineHtml(s)}${alwHtml(s)}</span>`):''}${!s.is_active&&s.leave_pending?`<button class="sm" data-ldone="${s.id}">退店完了</button>`:cDeleteMode?(s.is_active?`<button class="sm" style="background:var(--warn);color:#fff" data-del="${s.id}">退店</button>`:`<button class="sm" data-restore="${s.id}">復元</button>`):`${!cSorting&&s.is_trial&&s.is_active&&!present.has(s.id)?`<button class="sm" data-pin="${s.id}">出勤</button>`:''}<button class="primary sm" data-edit="${s.id}">編集</button>`}</div>`; }
 function caList(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
   const nr=staffAll.filter(noReal);
@@ -85,7 +118,31 @@ function caList(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,f
   { const w=$('cList').querySelector('[data-afk]')?.closest('.lp')?.getBoundingClientRect().width; if(w) $('cList').querySelectorAll('[data-tamt]').forEach(e=>{ e.style.width=w+'px'; }); } /* v12.69：体験の金額の枠は 日払（立替）の枠と同じ幅にして、出・退の時刻の位置をほかの人とそろえる */
   $('cList').querySelectorAll('.rrow').forEach(r=>{ if(r.querySelector('[data-extra]')) r.style.flexWrap='wrap'; else if(r.querySelector('[data-alw]')) r.querySelectorAll('span.muted,button').forEach(e=>{ e.style.whiteSpace='nowrap'; e.style.flexShrink='0'; }); });
 }
-async function caSaveAlw(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; const st=staffAll.find(x=>x.id===id); if(await askBy()===null) return; const m0=await uiDlg(`${st?.display_name||''}　手当の理由`,true,advM[id]||'','理由を入力してください'); if(m0==null) return; const m=m0.trim(); if(!m){ toast('理由を入力してください'); return; } const a0=await uiPrompt(`${st?.display_name||''}　手当の金額（円）`,String(advA[id]||0)); if(a0==null) return; const a=numIn(a0); if(a===(advA[id]||0)&&m===(advM[id]||'')) return; { const now=await sb.from('daily_advances').select('allowance,allowance_memo').eq('staff_id',id).eq('business_date',businessDate()).maybeSingle(); if(now.error){ toast('保存エラー：'+now.error.message); return; } if((now.data?.allowance||0)!==(advA[id]||0)||(now.data?.allowance_memo||'')!==(advM[id]||'')){ toast('ほかの端末で変更されました'); renderCasts(); return; } } /* v12.30：書く前に今の手当を読み、ほかで変わっていたら上書きしないで読み直す */ const r=await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:store.id,staff_id:id,business_date:businessDate(),allowance:a,allowance_memo:m||null},p_conflict:'staff_id,business_date'}); if(r.error){ toast(r.error.message.includes('allowance')?'SQL 024 が未適用です：'+r.error.message:'保存エラー：'+r.error.message); return; } await logOp('手当',{name:st?.display_name,amount:a,before:advA[id]||0,memo:m||null},null,true); advA[id]=a; advM[id]=m; toast('手当を保存しました');
+async function caSaveAlw(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
+  const st=staffAll.find(x=>x.id===id);
+  if(await askBy()===null) return;
+  const m0=await uiDlg(`${st?.display_name||''}　手当の理由`,true,advM[id]||'','理由を入力してください');
+  if(m0==null) return;
+  const m=m0.trim();
+  if(!m){ toast('理由を入力してください');
+  return;
+  } const a0=await uiPrompt(`${st?.display_name||''}　手当の金額（円）`,String(advA[id]||0));
+  if(a0==null) return;
+  const a=numIn(a0);
+  if(a===(advA[id]||0)&&m===(advM[id]||'')) return;
+  { const now=await sb.from('daily_advances').select('allowance,allowance_memo').eq('staff_id',id).eq('business_date',businessDate()).maybeSingle();
+  if(now.error){ toast('保存エラー：'+now.error.message);
+  return;
+  } if((now.data?.allowance||0)!==(advA[id]||0)||(now.data?.allowance_memo||'')!==(advM[id]||'')){ toast('ほかの端末で変更されました');
+  renderCasts();
+  return;
+  } } /* v12.30：書く前に今の手当を読み、ほかで変わっていたら上書きしないで読み直す */ const r=await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:store.id,staff_id:id,business_date:businessDate(),allowance:a,allowance_memo:m||null},p_conflict:'staff_id,business_date'});
+  if(r.error){ toast(r.error.message.includes('allowance')?'SQL 024 が未適用です：'+r.error.message:'保存エラー：'+r.error.message);
+  return;
+  } await logOp('手当',{name:st?.display_name,amount:a,before:advA[id]||0,memo:m||null},null,true);
+  advA[id]=a;
+  advM[id]=m;
+  toast('手当を保存しました');
 }
 // v11.67：報酬の種類から選ぶ（種類 → 回数）。手当はその日の手当に足す（理由に「名前×回数」）。その他は今までどおり 理由 → 金額
 function caRwPick(C,id,title,types,extra){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; return new Promise(res=>{ const st=staffAll.find(x=>x.id===id); const m=mkModal(60);

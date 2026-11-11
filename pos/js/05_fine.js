@@ -25,7 +25,7 @@ async function fineDlg(id){ const st=staffAll.find(x=>x.id===id); const nm=st?.d
       const Q=900000, day0=new Date(`${bd}T00:00:00`).getTime(); let pt=p0.rounded_at?new Date(p0.rounded_at).getTime():late?Math.ceil(new Date(p0.event_at).getTime()/Q)*Q:Math.floor(new Date(p0.event_at).getTime()/Q)*Q; let aft='';
       if(!late&&p0.event_type==='after') aft=pt>Math.floor(new Date(p0.event_at).getTime()/Q)*Q?'アフター・延長あり':'アフター';
       const v=await uiPrompt(`${nm}　${t.name}\n決まった${late?'出勤':'退勤'}時刻（例 ${late?'20:00':'1:00'}）\n打刻：${hmJst(p0.event_at)}${aft?`（${aft}）`:''}　→ 計算に使う時刻 ${hmJst(pt)}`,''); if(v==null) return false;
-      const mt=String(v).replace(/[０-９：]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/\s/g,'').match(/^(\d{1,2})(?:[:時](\d{1,2})?分?|(\d{2}))?$/); const h=mt?+mt[1]:NaN, mi=mt?+(mt[2]||mt[3]||0):0;
+      const mt=toHan(v).replace(/\s/g,'').match(/^(\d{1,2})(?:[:時](\d{1,2})?分?|(\d{2}))?$/); const h=mt?+mt[1]:NaN, mi=mt?+(mt[2]||mt[3]||0):0;
       if(!mt||h>29||mi>59){ await uiAlert('時刻は 20:00 のように入力してください'); return false; }
       const sch=day0+((h<12?h+24:h)*60+mi)*60000; const min=Math.round((late?pt-sch:sch-pt)/60000);
       if(min<=0){ await uiAlert(late?`出勤 ${hmJst(pt)}（丸めた時刻）は、決まった出勤時刻 ${hmJst(sch)} より遅れていません`:`${aft?'アフター':'退勤'} ${hmJst(pt)}（丸めた時刻）は、決まった退勤時刻 ${hmJst(sch)} より早くありません`); return false; }

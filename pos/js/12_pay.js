@@ -35,7 +35,26 @@ let okiBusy=false; async function closeAsOki(){ if(okiBusy||!cur||cur.status!=='
     if(!(cl||[]).length){ await sb.rpc('pos_rows_del',{p_table:'payments',p_where:{id:(r.data.id)??null}}); if(!await stillOpen()) return; if(!await posTermLost()) toast('会計の締めに失敗しました。再度お試しください'); return; } /* 2026-11-08 6台の点検：もう1台が先に締めた時は、置きの入金を残さず開き直す */
     await logOp('会計締め（置き）',{total:cur.totals.amount_due,oki:un,payments:[...(cur.payments||[]).filter(p=>p.amount>0).map(p=>`${METHOD[p.method]}:${p.amount}`),`${METHOD.oki}:${un}`]}); toast('置きで会計を終了しました'); payMethod='cash'; loadHall(); show('v-hall'); } finally { okiBusy=false; } }
 // v11.12：値引は請求額まで（請求額より多くは引けない）
-async function addAdj(kind){ const v=parseInt($('payAmount').value||'0',10); if(!v){toast('金額を入力してください');return;} if(kind==='discount'){ const due=Number(cur.totals?.amount_due||0); if(v>due){ await uiAlert(`値引は請求額（${yen(due)}）までです`); return; } } /* v11.87：値引・値増は理由を必ず聞く。未収の全額を値引きする時はそう出す（ゲネプロ #23：金額の欄が未収のままで、OK 1回で全額値引きになっていた） */ if(await askBy()===null) return; const lbl=kind==='discount'?'値引':'値増', all=kind==='discount'&&v>=Math.max(0,cur.totals?.unpaid??0); const why=await uiPrompt(`${lbl} ${yen(v)}${all?'（未収の全額です）':''}\n理由を入力してください（必須・操作ログに残ります）`,''); if(why===null) return; if(!why.trim()){ toast('理由を入力してください'); return; } const wasOki=isOki(cur); const ra=await sb.rpc('pos_rows_add',{p_table:'bill_adjustments',p:{bill_id:cur.id,kind,amount:v,reason:why.trim()}}); if(ra.error){ toast(ra.error.message); return; } await logOp(lbl,{amount:v},why.trim()); await openBill(cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); }
+async function addAdj(kind){ const v=parseInt($('payAmount').value||'0',10);
+  if(!v){toast('金額を入力してください');return;} if(kind==='discount'){ const due=Number(cur.totals?.amount_due||0);
+  if(v>due){ await uiAlert(`値引は請求額（${yen(due)}）までです`);
+  return;
+  } } /* v11.87：値引・値増は理由を必ず聞く。未収の全額を値引きする時はそう出す（ゲネプロ #23：金額の欄が未収のままで、OK 1回で全額値引きになっていた） */ if(await askBy()===null) return;
+  const lbl=kind==='discount'?'値引':'値増', all=kind==='discount'&&v>=Math.max(0,cur.totals?.unpaid??0);
+  const why=await uiPrompt(`${lbl} ${yen(v)}${all?'（未収の全額です）':''}\n理由を入力してください（必須・操作ログに残ります）`,'');
+  if(why===null) return;
+  if(!why.trim()){ toast('理由を入力してください');
+  return;
+  } const wasOki=isOki(cur);
+  const ra=await sb.rpc('pos_rows_add',{p_table:'bill_adjustments',p:{bill_id:cur.id,kind,amount:v,reason:why.trim()}});
+  if(ra.error){ toast(ra.error.message);
+  return;
+  } await logOp(lbl,{amount:v},why.trim());
+  await openBill(cur.id);
+  if(await okiSync(wasOki)) return;
+  renderPay();
+  show('v-pay');
+  }
 $('payAdjDiscount').onclick=()=>addAdj('discount'); $('payAdjSurcharge').onclick=()=>addAdj('surcharge');
 $('payAdd').onclick=guard($('payAdd'),async()=>{ const v=parseInt($('payAmount').value||'0',10); if(!v||v<0){toast('金額を入力してください');return;}
   const wasOki=isOki(cur); if(wasOki&&v>okiRemain(cur)){ toast(`置きの残額は ${yen(okiRemain(cur))} です`); return; }
