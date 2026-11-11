@@ -86,7 +86,7 @@ async function csCastPart(box,st,ed,m){
       if(q('sl')){ q('sl').dataset.v='[]'; q('sl').disabled=sp; q('sl').innerHTML=sp?'—':'<span class="badge warnb">未選択</span>'; }
       ['g','q','gf'].forEach(k=>{ q(k).disabled=sp; if(sp){ if(k==='gf') q(k).checked=false; else q(k).value=''; } }); q('gu').disabled=sp||q('gf').checked; if(sp) q('gu').value=''; };
     if(q('sl')) q('sl').onclick=()=>{ const u=q('pt')?.value==='daily'?'daily':'hourly', cur=JSON.parse(q('sl').dataset.v||'[]'), opts=tbls.filter(x=>x.unit===u&&(!x.archived||cur.includes(x.id)));
-      const md=modal(`<h2 style="margin:0">スライド表</h2><div class="muted" style="font-size:14px">${esc(rows.find(r=>r.s.id===tr.dataset.sid).s.display_name)}：使う表を選びます（${u==='daily'?'日給':'時給'}の表）。選んだ表と保証時給のうち一番高い金額になります</div>
+      const md=mkModal(null,`<h2 style="margin:0">スライド表</h2><div class="muted" style="font-size:14px">${esc(rows.find(r=>r.s.id===tr.dataset.sid).s.display_name)}：使う表を選びます（${u==='daily'?'日給':'時給'}の表）。選んだ表と保証時給のうち一番高い金額になります</div>
         <div style="display:flex;flex-direction:column;gap:8px">${opts.map(o=>`<label style="display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink)"><input type="checkbox" style="width:auto;height:auto" value="${o.id}" ${cur.includes(o.id)?'checked':''}>${esc(o.name)}</label>`).join('')||`<div class="muted">${u==='daily'?'日給':'時給'}のスライド表がありません（報酬・罰金項目で作成します）</div>`}</div>
         <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">決める</button></div>`);
       md.querySelector('[data-k=no]').onclick=()=>md.remove();
@@ -94,7 +94,7 @@ async function csCastPart(box,st,ed,m){
     q('wm').onchange=()=>{ q('wa').disabled=q('wm').value!=='amount'; };
     q('gf').onchange=()=>{ q('gu').disabled=q('gf').checked||q('pt').value==='seppan'; };
     q('ex').onclick=()=>{ const cur=JSON.parse(q('ex').dataset.v||'[]'); const opts=[...new Set([...fines,...cur])];
-      const md=modal(`<h2 style="margin:0">罰金の免除</h2><div class="muted" style="font-size:14px">${esc(rows.find(r=>r.s.id===tr.dataset.sid).s.display_name)}：チェックした罰金は付けません</div>
+      const md=mkModal(null,`<h2 style="margin:0">罰金の免除</h2><div class="muted" style="font-size:14px">${esc(rows.find(r=>r.s.id===tr.dataset.sid).s.display_name)}：チェックした罰金は付けません</div>
         <div style="display:flex;flex-direction:column;gap:8px">${opts.map(o=>`<label style="display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink)"><input type="checkbox" style="width:auto;height:auto" value="${esc(o)}" ${cur.includes(o)?'checked':''}>${esc(o)}</label>`).join('')}</div>
         <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">決める</button></div>`);
       md.querySelector('[data-k=no]').onclick=()=>md.remove();
@@ -124,7 +124,7 @@ async function csCastPart(box,st,ed,m){
       if(r.staff||r.terms) out.push(r); }
     if(!out.length){ csEdit=false; toast('変更はありません'); PAGES.set_cast(); return; }
     let only=false;
-    if(needP){ const ans=await new Promise(res=>{ const md=modal(`<h2 style="margin:0">いつから変更しますか？</h2><div style="display:flex;flex-direction:column;gap:8px">
+    if(needP){ const ans=await new Promise(res=>{ const md=mkModal(null,`<h2 style="margin:0">いつから変更しますか？</h2><div style="display:flex;flex-direction:column;gap:8px">
         <button class="ghost" data-v="after">${csMShort(m)}以降</button><button class="ghost" data-v="only">${csMShort(m)}のみ</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">キャンセル</button></div>`);
         md.querySelectorAll('button').forEach(b=>b.onclick=()=>{ md.remove(); res(b.dataset.v); }); });
       if(!ans) return; only=ans==='only'; }
@@ -176,7 +176,7 @@ async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const hal
   // v1.27：折半は区分ではなく報酬（オーナー 2026-10-17「折半の場合は時給も日給もない。時給か日給か折半と言う選択肢が正しい」）
   const k0=s?(s.kind==='hall'?'hall':s.kakari_only?'kakari':s.is_trial?'trial':'cast'):(kd==='seppan'?'cast':kd);
   const KD=[['cast','キャスト'],['hall','黒服'],['trial','体験'],['kakari',`${KL}専用（店・ママなど。タイムカードに出ない）`]];
-  const md=modal(`<h2 style="margin:0">${isNew?(kd==='hall'?'黒服の追加':'キャストの追加'):esc(s.display_name)+'　基本情報'}</h2>
+  const md=mkModal(null,`<h2 style="margin:0">${isNew?(kd==='hall'?'黒服の追加':'キャストの追加'):esc(s.display_name)+'　基本情報'}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>源氏名<input id="seN" value="${esc(s?.display_name||'')}"></label><label>本名<input id="seR" value="${esc(s?.real_name||'')}"></label></div>
     <label>区分<select id="seK">${KD.map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
     <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬${isNew?'<select id="seP"><option value="hourly">時給</option><option value="daily">日給</option></select>':`<input value="${s.is_seppan?'折半':s.pay_type==='daily'?'日給':'時給'}" disabled>`}</label><label id="seDwB">日給（円）<input id="seDw" inputmode="numeric"></label></div>

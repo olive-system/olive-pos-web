@@ -46,7 +46,7 @@ function keyRuleRow(k,r,L){ const opt=(n,list,val)=>`<select data-kr="${n}" styl
     <td>${al?dash:k==='cast'?`シフトの ${opt('before',bf,r.before)} 前`:opt('start',hm(8,23.5),r.start)}</td>
     <td>${al?dash:`翌 ${opt('end',hm(0,12),r.end)}`}</td></tr>`; }
 function keyApiEdit(st){
-  const md=modal(`<h2 style="margin:0">API キー</h2><div class="muted" style="font-size:13px">セサミの開発者ページ（CANDY HOUSE）の API キー。保存後は非表示</div>
+  const md=mkModal(null,`<h2 style="margin:0">API キー</h2><div class="muted" style="font-size:13px">セサミの開発者ページ（CANDY HOUSE）の API キー。保存後は非表示</div>
     <label>API キー<input id="kaK" type="password" autocomplete="off"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const q=await rpc('admin_key_api_set',{p_store:st,p_key:md.querySelector('#kaK').value}); if(!q.ok) return; md.remove(); toast('保存しました'); PAGES.o_key(); });
@@ -58,7 +58,7 @@ function keyFromShare(txt){ try{ let sk=new URL(String(txt).replace(/^ssm:\/\//,
   const h=a=>[...a].map(x=>x.toString(16).padStart(2,'0')).join(''), u=h(b.length>=99?b.slice(83,99):b.slice(-16));
   return { secret:h(b.slice(1,17)), uuid:`${u.slice(0,8)}-${u.slice(8,12)}-${u.slice(12,16)}-${u.slice(16,20)}-${u.slice(20)}` }; }catch(e){ return null; } }
 function keyLockEdit(l){
-  const md=modal(`<h2 style="margin:0">${esc(l.name)}のセサミ</h2><div class="muted" style="font-size:13px">セサミのアプリ → この鍵 → 共有（オーナーかマネージャー）の QR の画像を選択すると入力されます。保存後は非表示</div>
+  const md=mkModal(null,`<h2 style="margin:0">${esc(l.name)}のセサミ</h2><div class="muted" style="font-size:13px">セサミのアプリ → この鍵 → 共有（オーナーかマネージャー）の QR の画像を選択すると入力されます。保存後は非表示</div>
     <label>共有 QR の画像<input id="klF" type="file" accept="image/*"></label><div id="klM" class="muted" style="font-size:13px"></div>
     <label>UUID<input id="klU" type="password" autocomplete="off"></label><label>秘密鍵<input id="klS" type="password" autocomplete="off"></label>
     <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
@@ -76,7 +76,7 @@ function keyLockEdit(l){
 }
 function keyVendorEdit(st,v){ const isNew=!v; v=v||{name:'',days:[1,2,3,4,5,6,0],from:'10:00',to:'12:00',until:null};
   const tm=(id,val)=>`<select id="${id}" style="width:auto">${Array.from({length:96},(_,i)=>`${String(Math.floor(i/4)).padStart(2,'0')}:${String(i%4*15).padStart(2,'0')}`).map(t=>`<option ${t===val?'selected':''}>${t}</option>`).join('')}</select>`;
-  const md=modal(`<h2 style="margin:0">${isNew?'業者の追加':esc(v.name)}</h2><label>名称<input id="kvN" value="${esc(v.name)}"></label>
+  const md=mkModal(null,`<h2 style="margin:0">${isNew?'業者の追加':esc(v.name)}</h2><label>名称<input id="kvN" value="${esc(v.name)}"></label>
     <div><div style="font-size:13px;color:var(--muted)">曜日</div><div style="display:flex;gap:6px;flex-wrap:wrap">${KEY_WD_ORDER.map(i=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-kd="${i}" ${v.days.includes(i)?'checked':''} style="width:auto">${KEY_WD[i]}</label>`).join('')}</div></div>
     <div><div style="font-size:13px;color:var(--muted)">時間</div><div style="display:flex;gap:8px;align-items:center">${tm('kvF',v.from)}〜${tm('kvT',v.to)}</div></div>
     <label>期限<select id="kvU"><option value="">無期限</option><option value="d" ${v.until?'selected':''}>日付指定</option></select></label><label id="kvDw">期限日<input type="date" id="kvD" value="${esc(v.until||'')}"></label>
@@ -90,7 +90,7 @@ function keyVendorEdit(st,v){ const isNew=!v; v=v||{name:'',days:[1,2,3,4,5,6,0]
     if(!r.ok) return; md.remove(); toast('保存しました'); await PAGES.o_key(); if(isNew) keyVendorQr({name:q('kvN').value.trim(),text:r.data.text,token:r.data.token}); });
 }
 async function keyVendorQr(v){ await needLib('qrcode'); const u=KEY_URL+'?t='+encodeURIComponent(v.token), qr=qrcode(0,'M'); qr.addData(u); qr.make();
-  const md=modal(`<button class="xb dx" data-k="no" aria-label="閉じる">×</button><h2 style="margin:0">${esc(v.name)}</h2><div style="text-align:left">${qr.createSvgTag(5,8)}<div style="font-size:14px;line-height:1.8">${esc(v.text)}</div>
+  const md=mkModal(null,`<button class="xb dx" data-k="no" aria-label="閉じる">×</button><h2 style="margin:0">${esc(v.name)}</h2><div style="text-align:left">${qr.createSvgTag(5,8)}<div style="font-size:14px;line-height:1.8">${esc(v.text)}</div>
     <div class="muted" style="font-size:13px">業者のスマホのカメラで読むと鍵の画面を表示します。ホーム画面に追加して使います</div></div>
     <div class="bar"><button class="ghost" data-k="cp">リンクのコピー</button></div>`);
   md.querySelector('[data-k=no]').onclick=()=>md.remove();

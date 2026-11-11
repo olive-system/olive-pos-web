@@ -26,12 +26,12 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
     :'<div class="card muted">この日の打刻はありません</div>')+`<div class="muted" style="font-size:13px;margin-top:10px">写真を押すと大きく出ます</div>`;
   wire();
   const nameOf=id=>(sf.data||[]).find(x=>x.id===id)?.display_name||'', typeOf=k=>(PC_TYPES.find(x=>x[0]===k)||[])[1]||'';
-  const askTime=(title,def)=>new Promise(res=>{ const m=modal(`<h2 style="margin:0">${esc(title)}</h2><label>時刻<input type="time" id="pcT" value="${esc(def||'')}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
+  const askTime=(title,def)=>new Promise(res=>{ const m=mkModal(null,`<h2 style="margin:0">${esc(title)}</h2><label>時刻<input type="time" id="pcT" value="${esc(def||'')}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
     m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(null); }; m.querySelector('[data-k=ok]').onclick=()=>{ const v=m.querySelector('#pcT').value; m.remove(); res(v||''); }; });
   const at=t=>`${t<'08:00'?dayAdd(d,1):d}T${t}:00+09:00`; /* 朝8時より前は次の日の時刻 */
   $('main').querySelectorAll('[data-pcfix]').forEach(b=>b.onclick=guard(b,async()=>{ const t=await askTime(`${nameOf(b.dataset.n)}　${typeOf(b.dataset.k)}の修正`,b.dataset.t.padStart(5,'0')); if(t===null) return; if(!t){ await uiAlert('時刻を入力してください'); return; }
     const z=await rpc('admin_punch_fix',{p_event:b.dataset.pcfix,p_at:at(t),p_reason:null}); if(!z.ok) return; toast('修正しました'); PAGES.punches(); }));
   $('main').querySelectorAll('[data-pcadd]').forEach(b=>b.onclick=guard(b,async()=>{ const t=await askTime(`${nameOf(b.dataset.pcadd)}　${typeOf(b.dataset.k)}の追加`,''); if(t===null) return; if(!t){ await uiAlert('時刻を入力してください'); return; }
     const z=await rpc('admin_punch_add',{p_store:st,p_staff:b.dataset.pcadd,p_type:b.dataset.k,p_date:d,p_at:at(t)}); if(!z.ok) return; toast('追加しました'); PAGES.punches(); }));
-  $('main').querySelectorAll('[data-big]').forEach(im=>im.onclick=()=>{ const m=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><img src="${esc(im.dataset.big)}" alt="" style="width:100%;border-radius:10px">`); m.querySelector('[data-k=ok]').onclick=()=>m.remove(); }); };
+  $('main').querySelectorAll('[data-big]').forEach(im=>im.onclick=()=>{ const m=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><img src="${esc(im.dataset.big)}" alt="" style="width:100%;border-radius:10px">`); m.querySelector('[data-k=ok]').onclick=()=>m.remove(); }); };
 

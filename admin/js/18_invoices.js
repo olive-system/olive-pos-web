@@ -14,12 +14,12 @@ async function invRender(st){ const ed=perm('pl')==='edit', box=()=>$('invBox'),
   box().querySelectorAll('[data-it]').forEach(b=>b.onclick=()=>{ invTab=b.dataset.it; again(); });
   const row=id=>all.find(x=>x.id===id), what=x=>`${x.business_date}　${x.table_name||''}${x.customers?'　'+x.customers+' 様':''}　${yen(x.amount)}`;
   box().querySelectorAll('[data-ip]').forEach(b=>b.onclick=guard(b,async()=>{ const x=row(b.dataset.ip); if(!x) return;
-    const t=todayJst(), m=modal(`<h2 style="margin:0">入金済にする</h2><div>${esc(what(x))}</div><label>入金日<input type="date" id="ipDate" value="${t}" min="${esc(x.business_date)}" max="${t}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">入金済にする</button></div>`);
+    const t=todayJst(), m=mkModal(null,`<h2 style="margin:0">入金済にする</h2><div>${esc(what(x))}</div><label>入金日<input type="date" id="ipDate" value="${t}" min="${esc(x.business_date)}" max="${t}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">入金済にする</button></div>`);
     const d=await new Promise(res=>{ m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(null); }; m.querySelector('[data-k=ok]').onclick=()=>{ const v=m.querySelector('#ipDate').value; m.remove(); res(v||''); }; });
     if(d===null) return; if(!d){ await uiAlert('入金日を入力してください'); return; }
     const z=await rpc('admin_invoice_paid',{p_payment:x.id,p_date:d}); if(!z.ok) return; toast(`${mdj(d)} 入金済にしました`); again(); }));
   box().querySelectorAll('[data-iu]').forEach(b=>b.onclick=guard(b,async()=>{ const x=row(b.dataset.iu); if(!x) return;
-    const m=modal(`<h2 style="margin:0">未入金に戻す</h2><div>${esc(what(x))}<br>入金日 ${esc(x.paid_on)}</div><label>理由（必須・操作ログに残ります）<input id="iuWhy" maxlength="100"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="danger" data-k="ok">未入金に戻す</button></div>`);
+    const m=mkModal(null,`<h2 style="margin:0">未入金に戻す</h2><div>${esc(what(x))}<br>入金日 ${esc(x.paid_on)}</div><label>理由（必須・操作ログに残ります）<input id="iuWhy" maxlength="100"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="danger" data-k="ok">未入金に戻す</button></div>`);
     const w=await new Promise(res=>{ m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(null); }; m.querySelector('[data-k=ok]').onclick=()=>{ const v=m.querySelector('#iuWhy').value.trim(); m.remove(); res(v); }; });
     if(w===null) return; if(!w){ await uiAlert('理由を入力してください'); return; }
     const z=await rpc('admin_invoice_unpaid',{p_payment:x.id,p_reason:w}); if(!z.ok) return; toast('未入金に戻しました'); again(); })); }

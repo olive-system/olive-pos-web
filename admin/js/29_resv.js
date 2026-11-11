@@ -45,14 +45,14 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   if(ed) $('rvAddT').onclick=()=>resvForm(st,S,today,null);
   $('rvM0').onchange=()=>{ rvMonth=$('rvM0').value; PAGES.resv(); };
   $('main').querySelectorAll('[data-rvd]').forEach(c=>c.onclick=()=>{ const day=c.dataset.rvd, L=byDay[day]||[];
-    const box=modal(`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px"><h2 style="margin:0">${mdW(day)}</h2><small class="muted">${OFF.has(day)?'休　':''}予約 ${L.filter(x=>!x.douhan).length}・同伴 ${L.filter(x=>x.douhan).length}</small></div>
+    const box=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px"><h2 style="margin:0">${mdW(day)}</h2><small class="muted">${OFF.has(day)?'休　':''}予約 ${L.filter(x=>!x.douhan).length}・同伴 ${L.filter(x=>x.douhan).length}</small></div>
       ${L.map(row).join('')||'<div class="muted" style="margin-top:6px">この日の予約はありません</div>'}
       ${ed?'<div class="bar"><button class="ghost" data-k="add" style="margin-right:auto">＋ 予約を追加</button></div>':''}`);
     const close=()=>box.remove(); box.querySelector('[data-k=ok]').onclick=close; const ad=box.querySelector('[data-k=add]'); if(ad) ad.onclick=()=>{ close(); resvForm(st,S,day,null); };
     wireRows(box,L,day,close); });
 };
 function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option value="">—</option>':'')+S.map(s=>`<option value="${s.id}" ${s.id===id?'selected':''}>${esc(s.name)}${s.kind==='hall'?'（黒服）':''}</option>`).join('');
-  const m=modal(`<h2 style="margin:0">${x.id?'予約修正':'予約追加'}</h2>
+  const m=mkModal(null,`<h2 style="margin:0">${x.id?'予約修正':'予約追加'}</h2>
     <div class="grid2" style="margin-top:8px"><label>日付<input type="date" id="rvD" value="${esc(x.day||day)}"></label><label>時刻（空なら未定・同伴は 20:30）<input id="rvT" inputmode="numeric" placeholder="21:00" value="${esc(x.time||'')}"></label>
     <label>お客様<input id="rvN" maxlength="40" value="${esc(x.name||'')}"></label><label>人数<input id="rvG" inputmode="numeric" value="${esc(x.guests||1)}"></label>
     <label>誘客<select id="rvB">${opt(x.by||S.find(s=>s.name==='店')?.id,false)}</select></label>${rvNoKK()?'':`<label>${KL}<select id="rvK">${opt(x.kakari,true)}</select></label>`}</div>
