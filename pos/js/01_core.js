@@ -21,7 +21,6 @@ const TOAST_NG=/(できません|エラー|読めません|出せません|取�
 TOAST.ms=1800; TOAST.big=m=>{ if(TOAST_NG.test(String(m))&&typeof uiAlert==='function'&&!$('uiDlg').classList.contains('on')){ uiAlert(String(m)); return true; } return false; }; /* POS は失敗の知らせを見落とさないように、知らせの箱で出す */
 function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remove('on')); $(v).classList.add('on'); if(v==='v-hall'&&rtMastWait) setTimeout(rtMasters,0); }
 /* 同じ働きの書き方が画面ごとにあり、全角の数字を 0 と読む所があったので1つにする */
-const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0);
 const WD_J='日月火水木金土', mdS=s=>`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`, wdS=s=>WD_J[new Date(String(s).slice(0,10)+'T00:00:00Z').getUTCDay()];
 /* 営業日の始まり（その日の 8:00・日本時間）。端末の時刻の設定に左右されないように +09:00 を付ける */
 setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; const bd=businessDate(d); $('hdDate').textContent=`${+bd.slice(5,7)}月${+bd.slice(8,10)}日`; /* v11.95：0時〜朝8時は前の日の営業日を出す（ゲネプロ #59） */ },1000);

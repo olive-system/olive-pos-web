@@ -24,7 +24,6 @@ async function regMoves(fromEx,toEx){
 
 // v0.16・SQL 057：POS の閉店作業と同じように、入出金の登録・削除とレジ金合わせ（精算の保存）ができる。POS と同じ表・同じ操作ログに入る
 let regCounts={}, regDeposit=0, regOpening=0;
-const regNum=v=>{ const n=parseInt(String(v??'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; };
 async function regDayPage(){
   const today=businessDate(); if(!regDate) regDate=today; if(!regMonth) regMonth=regDate.slice(0,7); const d=regDate; const st=storeId; const ed=perm('register')==='edit';
   $('main').innerHTML=regHead()+`<div class="card muted">読み込み中…</div>`; regTabs();
@@ -56,7 +55,7 @@ async function regDayPage(){
     <table class="t">${moves.map(m=>`<tr><td style="width:60px"><span class="badge ${m.kind==='out'?'gray':''}">${m.kind==='out'?'出金':'入金'}</span></td><td style="width:100%">${esc(m.memo||'')}</td><td class="num">${yen(m.amount)}</td>${canMove?`<td><button class="xb" data-mvdel="${m.id}" aria-label="削除">×</button></td>`:''}</tr>`).join('')}
     <tr><td><span class="badge gray">出金</span></td><td style="width:100%">日払（立替）合計 <small class="muted">${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('、')):'なし'}（POS の在籍リストで入力）</small></td><td class="num">${yen(advSum)}</td>${canMove?'<td></td>':''}</tr></table></div>
   <div class="card"><h2>レジ金合わせ</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start">
-    <table class="t rgden"><tr><th>金種</th><th class="num">枚数</th><th class="num">金額</th></tr>${DENOMS.map(([v,n])=>{ const c=regNum(cnt[v]); return `<tr><td>${n}</td><td class="num">${canSave?`<input data-den="${v}" inputmode="numeric" value="${cnt[v]||''}" style="width:90px;text-align:right">`:(c?c.toLocaleString():'')}</td><td class="num" data-denamt="${v}"></td></tr>`; }).join('')}<tr><td><b>合計金額</b></td><td></td><td class="num"><b id="rgCounted"></b></td></tr></table>
+    <table class="t rgden"><tr><th>金種</th><th class="num">枚数</th><th class="num">金額</th></tr>${DENOMS.map(([v,n])=>{ const c=numIn(cnt[v]); return `<tr><td>${n}</td><td class="num">${canSave?`<input data-den="${v}" inputmode="numeric" value="${cnt[v]||''}" style="width:90px;text-align:right">`:(c?c.toLocaleString():'')}</td><td class="num" data-denamt="${v}"></td></tr>`; }).join('')}<tr><td><b>合計金額</b></td><td></td><td class="num"><b id="rgCounted"></b></td></tr></table>
     <div class="kv2">
       <span>本日釣銭${gapDays.length?`<br><small class="muted">${gapDays.map(md).join('・')} の未精算分 ${sgnYen(gapNet)} を含む</small>`:''}</span>${!saved&&!prevRow&&canSave?`<input id="rgOpenIn" inputmode="numeric" value="${regOpening||''}" placeholder="初回のみ入力" style="width:150px;text-align:right">`:`<span class="num" id="rgOpen"></span>`}
       <span>現金売上 <small class="muted">その日に受け取った現金</small></span><span class="num" id="rgSales"></span>
@@ -71,7 +70,7 @@ async function regDayPage(){
     ${ed&&!saved&&!future?`<div class="row" style="margin-top:12px;justify-content:flex-end">${later?'<span class="muted">後の日の精算があるため保存できません</span>':'<button class="primary" id="rgSave">精算を保存</button>'}</div>`:''}</div>
 `; regTabs();
   // 計算は POS の閉店作業と同じ（本日釣銭＋現金売上＋入金−出金＝理論値、レジ内現金−理論値＝過不足、レジ内現金−預金＝翌日釣銭準備金）
-  const calc=()=>{ let counted=0; DENOMS.forEach(([v])=>{ const a=v*regNum(cnt[v]); counted+=a; const e=$('main').querySelector(`[data-denamt="${v}"]`); if(e) e.textContent=a?yen(a):''; });
+  const calc=()=>{ let counted=0; DENOMS.forEach(([v])=>{ const a=v*numIn(cnt[v]); counted+=a; const e=$('main').querySelector(`[data-denamt="${v}"]`); if(e) e.textContent=a?yen(a):''; });
     if(saved) counted=saved.counted;
     const opening=saved?saved.opening_float:(prevRow?Number(prevRow.next_float)+gapNet:(canSave?regOpening:null));
     const sales=saved?saved.cash_sales:cashSales, cin=saved?saved.cash_in:inSum, cout=saved?saved.cash_out:outSum+advSum;
@@ -87,11 +86,11 @@ async function regDayPage(){
   const goD=x=>{ regDate=x; regCounts={}; regDeposit=0; PAGES.register(); };
   $('regDateIn').onchange=e=>{ if(e.target.value) goD(e.target.value); };
   $('regPrev').onclick=()=>goD(dayAdd(d,-1)); $('regNext').onclick=()=>goD(dayAdd(d,1));
-  $('main').querySelectorAll('[data-den]').forEach(i=>i.oninput=()=>{ regCounts[i.dataset.den]=regNum(i.value); calc(); });
-  if($('rgDepIn')) $('rgDepIn').oninput=e=>{ regDeposit=regNum(e.target.value); calc(); };
-  if($('rgOpenIn')) $('rgOpenIn').oninput=e=>{ regOpening=regNum(e.target.value); calc(); };
+  $('main').querySelectorAll('[data-den]').forEach(i=>i.oninput=()=>{ regCounts[i.dataset.den]=numIn(i.value); calc(); });
+  if($('rgDepIn')) $('rgDepIn').oninput=e=>{ regDeposit=numIn(e.target.value); calc(); };
+  if($('rgOpenIn')) $('rgOpenIn').oninput=e=>{ regOpening=numIn(e.target.value); calc(); };
   if($('rgKind')){ const mvu=()=>{ const out=$('rgKind').value==='out'; $('rgMemoSel').style.display=out?'':'none'; $('rgMemo').style.display=(!out||$('rgMemoSel').value==='__other')?'':'none'; $('rgMemo').placeholder=out?'内容を入力':'内容（例：両替、釣銭補充）'; }; $('rgKind').onchange=mvu; $('rgMemoSel').onchange=()=>{ mvu(); if($('rgMemoSel').value==='__other') $('rgMemo').focus(); }; mvu();
-    const ad=$('rgAdd'); ad.onclick=guard(ad,async()=>{ const amount=regNum($('rgAmt').value), kind=$('rgKind').value, memo=(kind==='out'&&$('rgMemoSel').value!=='__other')?$('rgMemoSel').value:$('rgMemo').value.trim();
+    const ad=$('rgAdd'); ad.onclick=guard(ad,async()=>{ const amount=numIn($('rgAmt').value), kind=$('rgKind').value, memo=(kind==='out'&&$('rgMemoSel').value!=='__other')?$('rgMemoSel').value:$('rgMemo').value.trim();
       if(!amount){ await uiAlert('金額を入力してください'); return; } if(!memo){ await uiAlert('内容を入力してください'); return; }
       const r=await rpc('admin_add_cash_move',{p_store:st,p_date:d,p_kind:kind,p_amount:amount,p_memo:memo}); if(!r.ok) return; toast(kind==='out'?'出金を登録しました':'入金を登録しました'); PAGES.register(); }); }
   $('main').querySelectorAll('[data-mvdel]').forEach(x=>x.onclick=guard(x,async()=>{ const m=moves.find(z=>z.id===x.dataset.mvdel); if(!m||!await uiConfirm(`${m.kind==='out'?'出金':'入金'} ${yen(m.amount)}（${m.memo||''}）を削除しますか？`,'削除','danger')) return;
@@ -99,7 +98,7 @@ async function regDayPage(){
   if($('rgSave')){ const sv=$('rgSave'); sv.onclick=guard(sv,async()=>{ const v=calc(); if(v.opening==null){ await uiAlert('本日釣銭を入力してください'); return; }
     if(v.deposit>v.counted){ await uiAlert('預金金額がレジ内現金より多くなっています'); return; }
     if(!await uiConfirm(`${d} のレジ精算を保存しますか？\nレジ内現金 ${yen(v.counted)}／過不足 ${sgnYen(v.diff)}\n保存すると、この日の入出金は変更できなくなります（POS も同じ）`)) return;
-    const counts={}; DENOMS.forEach(([dv])=>{ const c=regNum(regCounts[dv]); if(c) counts[dv]=c; });
+    const counts={}; DENOMS.forEach(([dv])=>{ const c=numIn(regCounts[dv]); if(c) counts[dv]=c; });
     const r=await rpc('admin_save_register_closing',{p_store:st,p_date:d,p_counts:counts,p_opening:v.opening,p_sales:v.sales,p_in:v.cin,p_out:v.cout,p_expected:v.expected,p_counted:v.counted,p_diff:v.diff,p_deposit:v.deposit,p_next:v.next});
     if(!r.ok) return; regCounts={}; regDeposit=0; toast('精算を保存しました'); PAGES.register(); }); }
   // 前回の精算の翌日〜前日で、動きがあったのに精算していない日（直近31日）
