@@ -6,7 +6,7 @@ const insPend=new Map();
 async function insOnce(t,row){ const k=t+JSON.stringify(row), pd=insPend.get(k), id=pd&&Date.now()-pd.at<600000?pd.id:crypto.randomUUID(); const r=await sb.rpc('pos_rows_add',{p_table:t,p:{...row,id}});
   if(r.error&&r.error.code==='23505'&&pd?.id===id){ const q=await sb.from(t).select('id').eq('id',id).maybeSingle(); if(q.data){ insPend.delete(k); return {data:null,error:null}; } }
   if(r.error) insPend.set(k,{id,at:Date.now()}); else insPend.delete(k); return r; }
-async function logOp(action, detail, reason, noBill){ try{ const t=noBill?null:tables.find(x=>x.id===cur?.table_id); const { error } = await sb.rpc('pos_log_add',{p_store:store.id,p_bill:noBill?null:(cur?.id||null),p_action:action,p_detail:{table:t?.name||null,...detail,...(opBy&&Date.now()-opBy.at<180000?{by:opBy.name}:{})},p_reason:reason||null}) /* SQL 430：入口の関数 */; opBy=null; if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
+async function logOp(action, detail, reason, noBill){ try{ const { error } = await sb.rpc('pos_log_add',{p_store:store.id,p_bill:noBill?null:(cur?.id||null),p_action:action,p_detail:{table:noBill?null:billTable(cur)||null,...detail,...(opBy&&Date.now()-opBy.at<180000?{by:opBy.name}:{})},p_reason:reason||null}) /* SQL 430：入口の関数 */; opBy=null; if(error) console.warn('audit',error.message); }catch(e){ console.warn('audit',e); } }
 // ブラウザ標準の確認・入力ダイアログ（サイト名が出る）を使わず、画面内のダイアログで聞く
 /* 2026-11-08 オーナー：理由を空のまま OK を押した時は、箱を閉じずに赤で「理由を入力してください」（前は箱が閉じて 1.8秒の知らせで中止）。need＝空の時に出す文 */
 function uiDlg(msg, withInput, def, need){ msg=jaNet(msg); return new Promise(res=>{ $('uiDlgMsg').textContent=msg; const inp=$('uiDlgIn'); let er=$('uiDlgErr'); if(!er){ er=document.createElement('div'); er.id='uiDlgErr'; er.style.cssText='color:var(--warn);font-size:14px;margin-top:6px'; inp.after(er); } er.textContent=''; inp.style.display=withInput?'':'none'; inp.value=def??''; inp.inputMode=(withInput&&/^\d+$/.test(String(def??'')))?'numeric':'text'; $('uiDlg').classList.add('on'); if(withInput) setTimeout(()=>{ inp.focus(); inp.select(); },50);
@@ -52,7 +52,7 @@ async function loadOki(){ const SEL='id,memo,guest_count,set_start,business_date
   okiBills=(r.data||[]).filter(b=>(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)); }
 function renderHall(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
   const al=openBills.filter(b=>(billEnd(b)-now)<10*60000);
-  $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(tables.find(t=>t.id===b.table_id)?.name||'?')).join('、')}</div>` : '';
+  $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(billTable(b)||'?')).join('、')}</div>` : '';
   $('bdHall').textContent=openBills.length;
   $('tables').innerHTML='';
   for (const t of tables.filter(t=>t.is_visible)) { const b=openBills.find(x=>x.table_id===t.id); const el=document.createElement('div'); const hd=handTags[t.id]||[];
