@@ -51,15 +51,17 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
     const close=()=>box.remove(); box.querySelector('[data-k=ok]').onclick=close; const ad=box.querySelector('[data-k=add]'); if(ad) ad.onclick=()=>{ close(); resvForm(st,S,day,null); };
     wireRows(box,L,day,close); });
 };
-function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option value="">—</option>':'')+S.map(s=>`<option value="${s.id}" ${s.id===id?'selected':''}>${esc(s.name)}${s.kind==='hall'?'（黒服）':''}</option>`).join('');
-  const m=mkModal(null,`<h2 style="margin:0">${x.id?'予約修正':'予約追加'}</h2>
+/* 予約の小窓の中身（日付・時刻・お客様・誘客・同伴・VIPルーム・メモ） */
+function resvFormHtml(S,day,x,opt){ return `<h2 style="margin:0">${x.id?'予約修正':'予約追加'}</h2>
     <div class="grid2" style="margin-top:8px"><label>日付<input type="date" id="rvD" value="${esc(x.day||day)}"></label><label>時刻（空なら未定・同伴は 20:30）<input id="rvT" inputmode="numeric" placeholder="21:00" value="${esc(x.time||'')}"></label>
     <label>お客様<input id="rvN" maxlength="40" value="${esc(x.name||'')}"></label><label>人数<input id="rvG" inputmode="numeric" value="${esc(x.guests||1)}"></label>
     <label>誘客<select id="rvB">${opt(x.by||S.find(s=>s.name==='店')?.id,false)}</select></label>${rvNoKK()?'':`<label>${KL}<select id="rvK">${opt(x.kakari,true)}</select></label>`}</div>
     <div class="row" style="gap:16px;align-items:center;flex-wrap:wrap"><label class="ck"><input type="checkbox" id="rvDh" ${x.douhan?'checked':''}>同伴</label>${rvRooms.length?`<label style="flex:1;min-width:160px">VIPルーム<select id="rvV"><option value="">なし</option>${rvRooms.map(v=>`<option value="${v.id}" ${v.id===x.vip_id?'selected':''}>${esc(v.name)}</option>`).join('')}</select></label>`:''}</div>
     <div id="rvDhW" class="${x.douhan?'':'hide'}"><div class="muted" style="font-size:13px">同伴（人数まで）</div><div style="display:flex;flex-wrap:wrap;gap:4px 14px">${S.filter(s=>s.kind==='cast').map(s=>`<label class="ck"><input type="checkbox" data-dhc="${s.id}" ${(x.dh||[]).includes(s.id)?'checked':''}>${esc(s.name)}</label>`).join('')}</div></div>
     <label>メモ<input id="rvMm" maxlength="200" value="${esc(x.memo||'')}"></label>
-    <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
+    <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`; }
+function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option value="">—</option>':'')+S.map(s=>`<option value="${s.id}" ${s.id===id?'selected':''}>${esc(s.name)}${s.kind==='hall'?'（黒服）':''}</option>`).join('');
+  const m=mkModal(null,resvFormHtml(S,day,x,opt));;
   // 同伴にした時、同伴の子が空なら誘客を入れる
   const dhSync=()=>{ const on=m.querySelector('#rvDh').checked; m.querySelector('#rvDhW').classList.toggle('hide',!on); const C=[...m.querySelectorAll('[data-dhc]')]; if(on&&!C.some(c=>c.checked)){ const b=C.find(c=>c.dataset.dhc===m.querySelector('#rvB').value); if(b) b.checked=true; } };
   m.querySelector('#rvDh').onchange=e=>{ if(e.target.checked&&!m.querySelector('#rvT').value.trim()) m.querySelector('#rvT').value='20:30'; dhSync(); };
