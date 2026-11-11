@@ -51,7 +51,10 @@ function shiftPaint(ng){
 async function shiftDay(iso){
   const F = (SHIFT.fixed || []).find(f => iso >= f.month && iso.slice(0,7) === String(f.month).slice(0,7)); if(!F) return;
   const t = (F.days||[]).find(x => x.day === iso), k = (F.marks||[]).filter(x => x.day === iso), d = new Date(iso+'T00:00:00+09:00');
-  await uiView(`${mdWD(d)}\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`);
+  // v1.65・SQL 442：その日の出勤キャストの名前（オーナー 2026-11-11 見本 シフト_ほかの出勤_案 の案ア「人数は表示させない」）。出勤時刻・誰と同伴かは出さない。読めない時は自分の分だけ
+  const q = await Promise.resolve(sb.rpc('cast_shift_mates', { p_token: TOKEN, p_day: iso })).catch(() => null), L = q && !q.error ? q.data || [] : [];
+  await uiView(`${mdWD(d)}\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`
+    + (L.length ? `\n\n出勤キャスト\n${L.map(x => x.name + (x.douhan ? '（同伴）' : '') + (x.trial ? '（体験）' : '')).join('・')}` : ''));
 }
 
 // v0.70・SQL 257：黒服とママ（staff.shift_all）はキャスト全員のシフト（オーナー 2026-10-26 見本 全員のシフト_マイページ_見本「この形で作る」）。
