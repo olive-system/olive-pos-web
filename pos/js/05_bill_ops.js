@@ -7,7 +7,7 @@ $('gMinus').onclick=guard($('gMinus'),async()=>{ if(cur.guest_count<=1)return; a
 // 途中退店（v10.41）：過去のセット・延長・h.c・b.c はそのまま。次の延長から新しい人数。入金は通常の入金と同じ
 /* v11.93：卓の名前に「卓」を足す（「1卓」はそのまま、「B」は「B卓」） */ const tk=n=>/卓$/.test(String(n||''))?String(n):`${n||''}卓`;
 /* v11.93・SQL 163：席移動。空いている卓へ移す／お客様がいる卓なら伝票をまとめる（ゲネプロ #43・見本 ウ） */
-$('bMove').onclick=guard($('bMove'),async()=>{ if(!cur||cur.status!=='open') return; const from=tables.find(t=>t.id===cur.table_id)?.name||'';
+$('bMove').onclick=guard($('bMove'),async()=>{ if(!cur||cur.status!=='open') return; const from=billTable(cur);
   const ob=await sb.from('bills').select('id,table_id,guest_count,bill_customers(customers(name))').eq('store_id',store.id).eq('status','open'); if(ob.error){ toast(ob.error.message); return; }
   const at=new Map((ob.data||[]).map(x=>[x.table_id,x])); const list=tables.filter(t=>t.id!==cur.table_id&&t.is_active!==false&&(!t.store_id||t.store_id===store.id));
   const tid=await uiPick('どの卓へ移しますか？',list.map(t=>{ const x=at.get(t.id); const nm=x?.bill_customers?.[0]?.customers?.name; return {label:x?`${t.name}　${nm?nm+' 様 ':''}${x.guest_count}名`:`${t.name}　空席`,value:t.id}; })); if(!tid) return;
