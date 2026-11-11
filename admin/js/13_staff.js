@@ -38,14 +38,14 @@ function hpHtml(K){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lock,sel,in
   return `<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="chAdd">＋追加</button><button class="ghost" id="chEd">編集</button>`)):''}</div>
   ${sql064?'':'<div class="card err">SQL 064 が未実行です（黒服の月給・時給を保存できません）</div>'}
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
-  ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${ed&&!E?`<a data-hed="${r.s.id}">${esc(r.s.display_name)}</a>`:esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
+  ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${!E?`<a data-hed="${r.s.id}">${esc(r.s.display_name)}</a>`:esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍の黒服がいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}<br>限定項目：可の黒服のみ、開店・閉店作業の限定の項目と、LINEマイページの顧客サイトの編集が可能です</div>
 `; }
 /* 押した時の動き：編集・追加・名前・キャンセル・報酬と厚生費の欄・保存 */
 function hpBind(K){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lock,sel,inp,own,hm5,cell}=K;
   if(!ed) return;
-  if(!E){ if(!lock){ $('chEd').onclick=()=>{ csEdit='hall'; PAGES.set_cast(); }; $('chAdd').onclick=()=>staffEdit(st,null,'hall'); } box.querySelectorAll('[data-hed]').forEach(a=>a.onclick=()=>staffEdit(st,halls.find(h=>h.id===a.dataset.hed),'hall')); return; }
+  if(!E){ if(!lock){ $('chEd').onclick=()=>{ csEdit='hall'; PAGES.set_cast(); }; $('chAdd').onclick=()=>staffEdit(st,null,'hall'); } box.querySelectorAll('[data-hed]').forEach(a=>a.onclick=()=>{ csDetail={store:st,s:halls.find(h=>h.id===a.dataset.hed)}; csTab='memo'; PAGES.set_cast(); }); return; } /* SQL 445：黒服も名前でキャストと同じ画面（メモ・書類。基本情報の変更はボタンから。2026-11-11 オーナー） */
   $('chCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
   const tb=box.querySelector('table.cs');
   tb.querySelectorAll('tr[data-sid]').forEach(tr=>{ const q=k=>tr.querySelector(`[data-k=${k}]`);
@@ -82,16 +82,17 @@ async function hpSave(K,tb){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lo
 }
 
 // 名前を押した時：その人だけの条件・メモ
-async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast')==='edit';
+async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast')==='edit', hl=s.kind==='hall'; /* 黒服は メモ・書類（個別設定・注文集計はキャストだけ） */
   const head=`<div class="row" style="margin-bottom:12px"><button class="ghost" id="csBack">← 一覧に戻る</button><h1 style="margin:0">${esc(s.display_name)}</h1><span style="flex:1"></span>${ed?'<button class="ghost" id="csBase">基本情報の変更</button>':''}</div>
-   <div class="cs-tabs"><button data-t="memo" class="${csTab==='memo'?'on':''}">メモ</button><button data-t="sp" class="${csTab==='sp'?'on':''}">個別設定</button><button data-t="ord" class="${csTab==='ord'?'on':''}">注文集計</button></div>`;
+   <div class="cs-tabs"><button data-t="memo" class="${csTab==='memo'?'on':''}">メモ</button>${hl?'':`<button data-t="sp" class="${csTab==='sp'?'on':''}">個別設定</button><button data-t="ord" class="${csTab==='ord'?'on':''}">注文集計</button>`}<button data-t="doc" class="${csTab==='doc'?'on':''}">書類</button></div>`; /* SQL 445：書類（閲覧のみ。撮影は POS） */
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const wire=()=>{ $('csBack').onclick=()=>{ csDetail=null; PAGES.set_cast(); }; if($('csBase')) $('csBase').onclick=()=>staffEdit(st,s,'cast'); $('main').querySelectorAll('.cs-tabs button').forEach(b=>b.onclick=()=>{ csTab=b.dataset.t; csDetailPage(); }); };
+  const wire=()=>{ $('csBack').onclick=()=>{ csDetail=null; PAGES.set_cast(); }; if($('csBase')) $('csBase').onclick=()=>staffEdit(st,s,hl?'hall':'cast'); $('main').querySelectorAll('.cs-tabs button').forEach(b=>b.onclick=()=>{ csTab=b.dataset.t; csDetailPage(); }); };
   wire();
-  const t=csTab;
+  const t=hl&&(csTab==='sp'||csTab==='ord')?'memo':csTab;
   const K={st,s,ed,head,wire,t};
   if(t==='sp') return cdSp(K);
   if(t==='ord') return cdOrd(K);
+  if(t==='doc'){ $('main').innerHTML=head+'<div class="card" id="csDoc"><span class="muted">読み込み中…</span></div>'; wire(); await csDocsTab(st,s); return; } // SQL 445（35_staff_docs.js）
   return cdMemo(K); }
 /* 個別設定（支給・控除・時給）：一覧と追加の欄 */
 async function cdSp(K){ const {st,s,ed,head,wire,t}=K;

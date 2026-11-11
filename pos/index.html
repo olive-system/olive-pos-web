@@ -5,9 +5,12 @@
 <script src="../lib/olive/err.js"></script><!-- 画面のエラーを送る（一番初めに読む） -->
 <script src="../lib/olive/core.js"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
 <script src="../lib/olive/customer.js"></script><!-- POS の顧客画面と顧客サイトで同じ部品 -->
+<script src="../lib/olive/photo.js"></script><!-- 写真を小さくする -->
+<script src="../lib/olive/sheet.js"></script><!-- ヒアリングシートの項目 -->
+<script src="../lib/olive/staff_docs.js"></script><!-- スタッフの書類（管理サイトと同じ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v13.39 -->
+<title>OLIVE 会計</title><!-- v13.40 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <link rel="stylesheet" href="pos.css"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
@@ -187,6 +190,7 @@
 <script src="js/03_log.js"></script>
 <script src="js/04_casts.js"></script>
 <script src="js/04_cast_form.js"></script>
+<script src="js/04_cast_docs.js"></script>
 <script src="js/04_cast_trial.js"></script>
 <script src="js/04_cast_punch.js"></script>
 <script src="js/04_new_bill.js"></script>

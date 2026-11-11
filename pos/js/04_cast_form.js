@@ -42,7 +42,7 @@ function renderCastForm(){ const f=$('cForm'); const s=cSel; f.classList.toggle(
   f.innerHTML=cfHtmlTop(s)+cfHtmlCast(s)+cfHtmlInfo(s)+cfHtmlFoot(s);
   if(!s._new) cfShiftWish(s);
   if(!s._new) cfSalesRow(s);
-  if(!s._new) cfDocs(s);
+  if(!s._new) posDocs(s);
   if(!s._new&&!s.is_trial) cfLine(s);
   $('cDel').onclick=()=>leaveDlg(s);
   if(s.kind!=='hall') cfWage(s,f);
@@ -76,13 +76,6 @@ function cfShiftWish(s){ const sv=async(k,v,l)=>{ const u=await sb.rpc('pos_row_
 // v11.56・SQL 121：アプローチの今日の状態と、提案（連絡先交換のお客様から30名）の入替
 function cfSalesRow(s){ const r=salesM[s.id], el=$('cSl'); if(el) el.textContent=r&&r.count!=null?`連絡済 ${r.count}名・スクショ${r.sent?'送信済':'未送信'}`:'未連絡';
     const b=$('cSlBtn'); if(b) b.onclick=()=>salesPlanEdit(s); }
-// v11.55・SQL 120：書類（3点セット）の提出済み。店で受け取ったら黒服がチェック（契約書は LINEマイページで同意すると自動）。オーナー 2026-10-16。v12.49：黒服にも出す（管理サイトの黒服の表・マイページと同じ列）
-function cfDocs(s){ const DOCS=[['contract_done','契約書'],['doc_id_ok','本人確認書類'],['doc_roster_ok','従業者名簿']]; const paint=()=>{ const box=$('cDocs'); if(!box||cSel!==s) return;
-      box.innerHTML=DOCS.map(([k,l])=>`<button type="button" class="chip ${s[k]?'on':''}" data-doc="${k}" style="padding:2px 10px;font-size:13px;white-space:nowrap">${s[k]?'☑':'☐'} ${l}</button>`).join('');
-      box.querySelectorAll('[data-doc]').forEach(b=>b.onclick=async()=>{ const k=b.dataset.doc, l=DOCS.find(x=>x[0]===k)[1], on=!s[k];
-        if(!await uiConfirm(`${s.display_name} の${l}を${on?'提出済':'未提出'}にしますか？`)) return; b.disabled=true;
-        const u=await sb.rpc('pos_row_update',{p_table:'staff',p_id:s.id,p:{[k]:on}}); if(u.error||!(u.data||[]).length){ b.disabled=false; toast(u.error?.message||'保存できませんでした'); return; }
-        s[k]=on; await logOp('書類の提出',{name:s.display_name,doc:l,on}); toast(`${l}を${on?'提出済':'未提出'}にしました`); paint(); }); }; paint(); }
 // v11.48・SQL 096：LINEマイページの LINE連携（キャストの画面の4桁の番号を入力）。SQL 096 が無い時は出さない。v11.49：言葉を熟語に（オーナー 2026-10-15）
 // v12.69・SQL 373：体験の子には出さない（LINE は応募の友だち追加で控えてあり、在籍に変更すると自動で連携。オーナー 2026-11-06）
 function cfLine(s){ sb.rpc('pos_cast_links').then(r=>{ const row=$('cLineRow'); if(!row||cSel!==s||r.error) return; row.style.display='contents'; const l=(r.data||[]).find(x=>x.staff_id===s.id), b=$('cLineBtn');
