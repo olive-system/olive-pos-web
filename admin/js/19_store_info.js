@@ -29,7 +29,7 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     if($('siLogoX')) $('siLogoX').onclick=async()=>{ if(!await uiConfirm('領収書ロゴを削除しますか？','削除')) return; const x=await rpc('admin_save_receipt_logo',{p_store:st,p_logo:null}); if(!x.ok) return; toast('領収書ロゴを削除しました'); siRender(); }; }
   const sv=$('siSave'); sv.onclick=guard(sv,async()=>{ const v=id=>$(id).value.trim(), name=v('siName'), op=v('siOpen'), cl=v('siClose');
     if(!name){ await uiAlert('店名を入力してください'); return; } if(!cl){ await uiAlert('閉店時間を入力してください'); return; } if(cl>'06:00'&&cl<'18:00'){ await uiAlert('閉店時間は 18:00〜翌6:00 の間にしてください'); return; }
-    let iv=v('siInv').replace(/[Ａ-Ｚａ-ｚ０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[\s-]/g,'').toUpperCase(); /* v1.10・SQL 132：T の自動付与をやめた（T が無い・13桁でない時はエラー） */
+    let iv=toHan(v('siInv')).replace(/[\s-]/g,'').toUpperCase(); /* v1.10・SQL 132：T の自動付与をやめた（T が無い・13桁でない時はエラー） */
     if(iv&&!/^T\d{13}$/.test(iv)){ await uiAlert('インボイス番号は T＋数字13桁 で入力してください'); return; }
     const em=/^[^@\s]+@[^@\s]+\.[^@\s]+$/; if(v('siMail')&&!em.test(v('siMail'))){ await uiAlert('メールアドレスの形が正しくありません'); return; } if(v('siRcpt')&&!em.test(v('siRcpt'))){ await uiAlert('領収書メールの宛先の形が正しくありません'); return; }
     const chg=[]; if(name!==(d.name||'')) chg.push('店名（全部のサイトの表示が変わります）'); if(cl!==(d.close||'')) chg.push(`閉店時間 ${closeTxt(cl)}（これから押す打刻から変わります）`);

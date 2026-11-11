@@ -73,15 +73,14 @@ function hallHome(){
     ${sh('キャスト')}<div class="tiles">${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('shift','シフト','全員',true)}</div>
     ${sh('店舗情報')}<div class="tiles" data-info="1">${tile('cs','顧客サイト','',true)}</div>
     ${sh('個人')}<div class="tiles" data-me="1">${tile('late','遅刻連絡','',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('docs','書類','',true)}${tile('card','名刺発注','',true)}</div>`);
+  hallHomeWire(H, night);
+}
+/* 黒服のホームのボタンをつなぐ */
+function hallHomeWire(H, night){
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
   keyTile(); /* v1.07・SQL 326：鍵（20_key.js）。店と更衣室 */
   memoTile(); /* v1.22・SQL 352：共有メモ（共有された時だけ。22_memo.js） */
-  { const b = $('main').querySelector('[data-go=work]'); let ph = night ? 'close' : 'open', closeOn = true; /* v0.55：開店作業。v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
-    b.onclick = () => { opSwitch = closeOn; hallTasks(ph); };
-    const cnt = r => { b.querySelector('small')?.remove(); const L = r.data.items || []; if(L.length) b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); };
-    H.close.then(rc => { if(rc.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5：読めなかった時は1行 */ closeOn = !!rc.data.on;
-      if(night && closeOn){ cnt(rc); return; } ph = 'open'; b.querySelector('b').textContent = '開店作業';
-      H.open.then(ro => { if(ro.error){ loadNg(); return; } cnt(ro); }); }); }
+  hallWorkTile(H, night);
   H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b) return; if(r.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5 */ const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* v0.69・SQL 234：休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
@@ -94,6 +93,15 @@ function hallHome(){
   mtHallTile(H.mtg); /* v0.93・SQL 287：ミーティング（担当の子の割当）。v1.17：ボタンはシフトの中。未申請はシフトのボタンに */
   $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* v0.70・SQL 257：キャスト全員のシフト（4段目の右の空きに） */
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
+}
+/* 開店作業・閉店作業のボタン（夜は閉店作業。済んだ数を出す） */
+function hallWorkTile(H, night){
+  { const b = $('main').querySelector('[data-go=work]'); let ph = night ? 'close' : 'open', closeOn = true; /* v0.55：開店作業。v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
+    b.onclick = () => { opSwitch = closeOn; hallTasks(ph); };
+    const cnt = r => { b.querySelector('small')?.remove(); const L = r.data.items || []; if(L.length) b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); };
+    H.close.then(rc => { if(rc.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5：読めなかった時は1行 */ closeOn = !!rc.data.on;
+      if(night && closeOn){ cnt(rc); return; } ph = 'open'; b.querySelector('b').textContent = '開店作業';
+      H.open.then(ro => { if(ro.error){ loadNg(); return; } cnt(ro); }); }); }
 }
 
 // v0.62・SQL 218：顧客サイト（オーナー 2026-10-23「黒服のマイページにも顧客サイトを」→ パスワードなしで開く）。管理サイトの中と同じく、顧客サイトをこの画面の中に出して入場券を渡す（#hall）。編集は顧客サイトのメニューから編集パスワードで

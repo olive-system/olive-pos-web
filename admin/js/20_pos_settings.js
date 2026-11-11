@@ -39,7 +39,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     ${ed&&tables.length?`<div class="row" style="margin-top:8px"><select id="vipAdd" style="width:auto"><option value="">＋VIP の卓を追加</option>${tables.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>`:''}${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
   <div class="muted hint" style="font-size:13px;margin-top:10px;line-height:1.6">保存すると、POS の次の伝票から変わります（今開いている伝票はそのまま）<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">日払（立替）の上限・体験の源泉・ポイント・同伴の準備時間は「報酬・罰金項目」で設定します</div></div>`;
   if(keep) $('siBox').replaceWith(keep); else siRender();
-  if($('tgtSave')) $('tgtSave').onclick=async()=>{ const raw=$('psTgt').value.replace(/[,，\s円]/g,'').replace(/[０-９]/g,x=>String.fromCharCode(x.charCodeAt(0)-0xFEE0)); if(raw!==''&&!/^\d+$/.test(raw)){ toast('売上目標を入力してください'); return; }
+  if($('tgtSave')) $('tgtSave').onclick=async()=>{ const raw=toHan($('psTgt').value).replace(/[,，\s円]/g,''); if(raw!==''&&!/^\d+$/.test(raw)){ toast('売上目標を入力してください'); return; }
     const q=await rpc('admin_sales_target_save',{p_store:st,p_amount:raw===''?null:Number(raw)}); if(!q.ok) return; toast('保存しました'); $('psTgt').value=raw===''?'':Number(raw).toLocaleString('ja-JP'); };
   if(!ed) return;
   // v0.48：VIP料金は VIP の卓だけ出す。「＋VIP の卓を足す」で行を足す、× で外す（保存すると0円＝通常卓）
