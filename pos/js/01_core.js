@@ -72,8 +72,8 @@ async function start(){ const run=++startRun; clearTimeout(start.r); clearTimeou
   try{ const { data:{ session } } = await sb.auth.getSession(); if(!live()) return; if (!session){ loginWait(false); return; }
   if(!$('loginErr').textContent) loginWait(true,'');
   /* v11.31・SQL 084：タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
-  try{ const tc=await sb.rpc('is_timecard_user'); if(!live()) return; if(tc.data===true){ await sb.auth.signOut(); loginWait(false,'タイムカード専用IDでは、POS は開けません'); return; }
-    const dl=await sb.rpc('db_logs_on'); DBLOG=dl.data===true; }catch(e){}
+  try{ const [tc,dl]=await Promise.all([sb.rpc('is_timecard_user'),sb.rpc('db_logs_on')]); /* 読むだけの2つは同時に */ if(!live()) return; if(tc.data===true){ await sb.auth.signOut(); loginWait(false,'タイムカード専用IDでは、POS は開けません'); return; }
+    DBLOG=dl.data===true; }catch(e){}
   if(!live()) return;
   /* v12.01・SQL 186：登録した端末だけ開く。v12.20：確認できない時（通信の失敗など）も開かない */
   { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
@@ -95,7 +95,7 @@ async function loadMasters(withCust,quiet){ /* v12.30：お客様は最初だけ
   $('storeName').textContent = store?.name || '店舗未設定';
   // v11.16・SQL 065：閉店時間（管理サイト「POS設定」の店の情報）。体験の時給の打ち止めに使う。読めない時は 1:00
   if(store&&/^\d{2}:\d{2}$/.test(d.close_time||'')) closeHM=d.close_time;
-  await expireTrials();
+  expireTrials(); /* 1日1回の体験の在籍・自動削除は、ホールを出すのを待たせない（終わったら在籍の一覧から外す） */
 }
 // 体験キャストは1日限り：登録した営業日の翌営業日になったら自動で「削除済」にする（記録は残る）
 // v12.18・SQL 273：マイページのシフトから前もって登録した体験の人は、体験の日（trial_day）に在籍に出し、その次の営業日に削除済にする
