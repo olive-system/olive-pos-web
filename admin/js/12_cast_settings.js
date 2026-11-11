@@ -31,6 +31,10 @@ PAGES.set_cast=async()=>{
   <div id="csHallBox" style="margin-top:28px"><h2 style="margin:0 0 8px">黒服</h2><div class="card muted">読み込み中…</div></div>`;
   $('csM').onchange=()=>{ csMonth=$('csM').value; PAGES.set_cast(); };
   await Promise.all([csCastPart($('csCastBox'),st,ed,m), csShiftPart($('csShBox'),st,ed,m), csHallPart($('csHallBox'),st,ed,m)]); };
+/* 条件を変えた時に「いつから」を聞く（キャスト・黒服の表）。返し：'after'＝その月以降・'only'＝その月のみ・''＝キャンセル */
+function csAskWhen(m){ return new Promise(res=>{ const md=mkModal(null,`<h2 style="margin:0">いつから変更しますか？</h2><div style="display:flex;flex-direction:column;gap:8px">
+        <button class="ghost" data-v="after">${csMShort(m)}以降</button><button class="ghost" data-v="only">${csMShort(m)}のみ</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">キャンセル</button></div>`);
+        md.querySelectorAll('button').forEach(b=>b.onclick=()=>{ md.remove(); res(b.dataset.v); }); }); }
 async function csCastPart(box,st,ed,m){
   const [sf,tm,ft,nt,stb]=await Promise.all([csList(st), sbAll(()=>sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m).order('id')),
     sb.from('fine_types').select('name').eq('store_id',st).order('sort_order'), sbAll(()=>sb.from('cast_notes').select('staff_id').eq('store_id',st).eq('is_void',false).order('id')), /* v0.67：1000行で切れないように分けて読む */
@@ -151,10 +155,7 @@ async function csCastCollect(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls
 async function csCastSave(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const c=await csCastCollect(K,tb); if(!c) return; const {out,needP}=c;
     if(!out.length){ csEdit=false; toast('変更はありません'); PAGES.set_cast(); return; }
     let only=false;
-    if(needP){ const ans=await new Promise(res=>{ const md=mkModal(null,`<h2 style="margin:0">いつから変更しますか？</h2><div style="display:flex;flex-direction:column;gap:8px">
-        <button class="ghost" data-v="after">${csMShort(m)}以降</button><button class="ghost" data-v="only">${csMShort(m)}のみ</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">キャンセル</button></div>`);
-        md.querySelectorAll('button').forEach(b=>b.onclick=()=>{ md.remove(); res(b.dataset.v); }); });
-      if(!ans) return; only=ans==='only'; }
+    if(needP){ const ans=await csAskWhen(m); if(!ans) return; only=ans==='only'; }
     const r=await rpc('admin_save_cast_settings',{p_store:st,p_month:m,p_only:only,p_rows:out}); if(!r.ok) ret
 }
 
