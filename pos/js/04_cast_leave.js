@@ -27,3 +27,23 @@ async function leaveDone(s){
   const r=await sb.rpc('pos_staff_leave',{p_staff:s.id,p_done:true}); if(r.error){ await uiAlert(r.error.message); return; }
   toast(`${s.display_name}：退店完了`); await loadStaffAll(); renderCasts();
 }
+// v13.41・SQL 447：［退店・体験］の一覧。退店日・体験日が半年以内の人（受取待ちは今までどおり在籍リストの一番下）。詳細は表示のみ（在籍に戻す時は今までどおり［新規登録］で同じ名前）
+//   オーナー 2026-11-11「退店した女の子や、体験入店した女の子、過去の女の子を、過去、半年分表示」。黒服の退店も出す
+const PAST_RES={considering:'検討中',declined:'辞退',rejected:'不採用'};
+let pastSel=null;
+const pastDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
+async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast').classList.add('on'); $('cSort').textContent='並べ替え';
+  const r=await sb.rpc('pos_staff_past',{p_day:businessDate()});
+  if(r.error){ pastSel=null; $('cList').innerHTML=/pos_staff_past/.test(r.error.message)?'<div class="muted">SQL 447 が未実行です</div>':RDERR; pastForm(); return; }
+  const q=$('cSearch').value.trim(), L=(r.data||[]).filter(s=>!q||(s.display_name+(s.real_name||'')).includes(q));
+  if(pastSel) pastSel=L.find(x=>x.id===pastSel.id)||null;
+  /* しるし・日付・体験結果は幅を決めた枠に入れて、名前の長さで縦の位置がずれないようにする */
+  const col='flex:none;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap';
+  $('cList').innerHTML=L.map(s=>`<div class="rrow" data-id="${s.id}"><span class="nm">${esc(s.display_name)}${s.kind==='hall'?' <span class="badge gray">黒服</span>':''}</span><span style="${col};width:48px"><span class="badge gray">${s.is_trial?'体験':'退店'}</span></span><span style="${col};width:96px">${pastDay(s.day)}</span><span style="${col};width:56px">${PAST_RES[s.result]||''}</span><button class="primary sm" data-pdt="${s.id}">詳細</button></div>`).join('')||'<div class="muted">該当なし</div>';
+  $('cList').querySelectorAll('[data-pdt]').forEach(b=>b.onclick=()=>{ pastSel=L.find(x=>x.id===b.dataset.pdt)||null; pastForm(); castFormShow(); });
+  pastForm(); }
+function pastForm(){ const f=$('cForm'), s=pastSel; f.classList.toggle('empty',!s); if(!s){ f.innerHTML='<div class="muted">一覧の「詳細」を押してください</div>'; return; }
+  const mg=s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null;
+  const kb=s.kind==='hall'?'黒服':s.is_trial?'体験':s.kakari_only?KL+'専用':s.is_seppan?'折半':'キャスト';
+  const R=[['源氏名',s.display_name],['本名',s.real_name||''],['区分',kb],...(s.is_trial?[['体験日',pastDay(s.day)],['体験結果',PAST_RES[s.result]||'未入力']]:[['入店日',pastDay(s.joined_on)],['退店日',pastDay(s.day)]]),...(mg?[['担当黒服',mg.display_name]]:[])];
+  f.innerHTML=`<div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 10px;align-items:center;font-size:15px">${R.map(([k,v])=>`<span class="muted" style="font-size:13px">${k}</span><span>${esc(v)}</span>`).join('')}</div>`; }

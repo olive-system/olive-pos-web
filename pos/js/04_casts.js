@@ -1,11 +1,12 @@
 // ---------- 在籍キャスト ----------
-let cMode='today', cSorting=false, cDeleteMode=false, cSel=null;
-$('navCasts').onclick=()=>{ renderCasts(); show('v-casts'); };
-$('cTabToday').onclick=()=>{ cMode='today'; renderCasts(); };
+let cMode='today', cSorting=false, cDeleteMode=false, cSel=null, cPast=false; /* cPast：［退店・体験］の一覧（04_cast_leave.js の renderPast） */
+$('navCasts').onclick=()=>{ cPast=false; renderCasts(); show('v-casts'); };
+$('cTabToday').onclick=()=>{ cMode='today'; cPast=false; renderCasts(); };
+$('cTabPast').onclick=()=>{ cPast=true; cSorting=false; renderCasts(); };
 $('cTabAll').onclick=()=>{ cMode='all'; renderCasts(); };
-$('cSort').onclick=()=>{ cSorting=!cSorting; renderCasts(); };
+$('cSort').onclick=()=>{ cSorting=!cSorting; cPast=false; renderCasts(); };
 $('cSearch').oninput=()=>renderCasts();
-$('cNew').onclick=()=>{ cSel={_new:true,display_name:'',real_name:'',kind:'cast',is_trial:false,is_active:true}; cMode='all'; renderCasts(); castFormShow(); };
+$('cNew').onclick=()=>{ cPast=false; cSel={_new:true,display_name:'',real_name:'',kind:'cast',is_trial:false,is_active:true}; cMode='all'; renderCasts(); castFormShow(); };
 // v11.98：狭い画面（iPad の縦向き）は詳細が一覧の上に出るので、編集・新規登録を押したらそこへ動く（ゲネプロ #8）
 function castFormShow(){ if(innerWidth<=900) setTimeout(()=>$('cForm')?.closest('.cside')?.scrollIntoView({block:'start',behavior:'smooth'}),50); }
 let staffAll=[], closeHM='01:00';
@@ -14,7 +15,7 @@ async function loadStaffAll(){ const { data, error } = await sb.from('staff').se
 const hallList=()=>staffAll.filter(x=>x.kind==='hall'&&x.is_active);
 const mgrOf=s=>{ const m=s&&s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null; return m&&m.is_active&&m.kind==='hall'?m:null; };
 const needMgr=s=>s.kind!=='hall'&&!s.kakari_only;
-async function renderCasts(){ cMode='today'; { const ta=$('cTabAll'); if(ta) ta.style.display='none'; } /* v10.64：在籍リストと全員を1つにまとめる（出勤した人が上） */ await expireTrials(); await loadStaffAll(); attDrop(); /* v12.30：在籍リストは出勤を読み直す */ const present=await updateCastBadge(); const q=$('cSearch').value.trim();
+async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').classList.remove('on'); cMode='today'; { const ta=$('cTabAll'); if(ta) ta.style.display='none'; } /* v10.64：在籍リストと全員を1つにまとめる（出勤した人が上） */ await expireTrials(); await loadStaffAll(); attDrop(); /* v12.30：在籍リストは出勤を読み直す */ const present=await updateCastBadge(); const q=$('cSearch').value.trim();
   const C=await caLoadDay(); C.present=present; C.q=q;
   /* v11.67・SQL 140：報酬の種類（手当・ポイント） */ let rdErr=false; /* v12.43：読めなかった項目（手当／ポイント・当日欠勤・遅刻）は黙って消さず、一覧の上に1行出す（点検 2026-11-02 B5） */ { const r=await sb.rpc('pos_rewards',{p_day:businessDate()}); if(r.error) rdErr=true; RW=r.error?{point_slide:false,types:[],points:[],auto:{}}:(r.data||RW); }
   C.rdErr=rdErr; C.tcalc=await caTrialPay(C);
