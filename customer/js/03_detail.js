@@ -15,7 +15,11 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
   const good=(cur.good||[]).slice().sort((a,b)=>b.n-a.n||jaCmp(sname(a.staff_id),sname(b.staff_id))).slice(0,3)/* v1.28・SQL 066：全員を受け取り、多い順・同じ回数は名前順で3名（POS と同じ） */.map(g=>`<span style="margin-right:14px;white-space:nowrap;display:inline-block">${esc(sname(g.staff_id))} <small class="muted">${g.n}回</small></span>`).join('')||'<span class="muted">なし</span>';
   const reqs=(cur.requests||[]).map(q=>`<div class="req"><div class="who">${cuMd(q.business_date)}　${esc(sname(q.author_staff_id))}　申請中</div><div style="white-space:pre-wrap">${esc(q.body)}</div></div>`).join('');
   const keep=(boot.keep_products||[]);
-  $('detail').innerHTML=`
+  const V={c,bts,open,fin,exp,kakari,good,reqs,keep};
+  $('detail').innerHTML=rdHtmlInfo(V)+rdHtmlBottles(V)+rdHtmlRest(V);
+  rdBindTop(V); rdBindBottles(V); rdBindAdd(V); }
+/* お客様の情報（フリガナ〜連絡先交換） */
+function rdHtmlInfo(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; return `
   <div class="card" style="position:relative"><button class="edit sm" id="editInfo" style="position:absolute;top:10px;right:10px">編集</button>
     <dl class="kv info">
       <dt>フリガナ</dt><dd>${esc(c.kana||'—')}</dd>
@@ -28,14 +32,20 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
       <dt>配車</dt><dd style="white-space:pre-line">${esc(c.haisha||'—')}</dd>
       <dt>反応◎</dt><dd>${good}</dd>
       <dt>連絡先交換</dt><dd id="dCx"><span class="muted">…</span></dd>
-    </dl></div>
+    </dl></div>`; }
+/* キープボトル（ほかの店舗・新しく登録・期限切れ・飲み切り） */
+function rdHtmlBottles(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; return `
   <div class="card"><h2>キープボトル ${open.length}本</h2>
     ${open.map(b=>`<div class="bt"><div class="b1"><span class="nm" style="min-width:0;display:flex;align-items:baseline;white-space:nowrap"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(b.name)}</span><small style="flex:none">${cuMd(b.opened_on)}〜</small>${b.share?`<small style="margin-left:6px;flex:none"><span class="badge" style="font-size:11px;padding:0 5px">共同</span> <a data-shgo="${b.share_id||''}" style="color:var(--pri);text-decoration:underline;cursor:pointer">${esc(b.share)} 様</a></small>`:''}</span><select data-rem="${b.id}" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>
       <div class="b2"><div class="kn"><span class="muted">キープ名</span><input data-kn="${b.id}" value="${esc(b.keep_name||c.name)}" aria-label="キープ名"></div><div class="b3"><button class="ghost sm" data-fin="${b.id}">飲切</button><button class="ghost sm" data-exp="${b.id}">期限切</button><button class="ghost sm" data-mv="${b.id}">移動</button><button class="ghost sm" data-sh="${b.id}">共同</button></div></div></div>`).join('')||'<div class="muted" style="margin-bottom:8px">なし</div>'}
-    ${(cur.other_bottles||[]).length?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">ほかの店舗のキープ（閲覧のみ）</div>${cur.other_bottles.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.store+'：'+b.name+'　'+(b.remaining??0)+'/10　'+cuMd(b.opened_on)+'〜')}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
+    ${(cur.other_bottles||[]).length?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">ほかの店舗のキープ（閲覧のみ）</div>${cur.other_bottles.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.store+'：'+b.name+'　'+(b.remaining??0)+'/10　'+cuMd(b.opened_on)+'〜')}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}`+rdHtmlBtNew(V); }
+/* 新しくボトルを登録・期限切れ・飲み切り済 */
+function rdHtmlBtNew(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; return `
     <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px"><div class="muted" style="font-size:13px;margin-bottom:6px">新しくボトルを登録</div><div style="display:flex;gap:6px;align-items:center"><select id="btSel" style="flex:1;min-width:0;padding:10px 6px"><option value="">銘柄を選ぶ</option>${keep.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}<option value="__free">＋ リストに無い銘柄</option></select><select id="btRem" style="width:auto;flex:none;padding:10px 6px" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}">${n}/10</option>`).join('')}</select><button class="ok" id="btAdd" style="flex:none">登録</button></div></div>
     ${exp.length?`<div style="margin-top:4px">${exp.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((b.moved?'ボトル移動':'期限切れ')+'：'+b.name+'　'+(b.remaining??0)+'/10　'+(d=>d?String(d).slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on)+(b.moved&&(b.moved_to||b.moved_staff)?'　'+[b.moved_to?'移動先 '+b.moved_to:'',b.moved_staff?KL+' '+b.moved_staff:''].filter(Boolean).join('・'):''))}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
-    ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>
+    ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>`; }
+/* メモ・請求先・来店履歴・削除 v1.47・SQL 196：お客様を削除（オーナー 2026-10-22。来店の履歴・キープボトルがある人は消さない） */
+function rdHtmlRest(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; return `
   <div class="card"><h2>メモ<button class="edit sm" id="editMemo">編集</button></h2>
     <div class="memo">${c.memo?esc(c.memo):'<span class="muted">なし</span>'}</div>${reqs}
     <button class="ok" id="reqBtn" style="width:100%;margin-top:12px">＋ 気づきを申請</button></div>
@@ -44,14 +54,18 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
     <div class="muted" style="font-size:13px;margin-bottom:4px">今月 ${cur.month_count}回・${yen(cur.month_sum)}　／　累計 ${cur.visit_total}回</div>
     ${visYears((cur.visits||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||jaCmp(a.table,b.table)||(a.guests-b.guests)),v=>v.date,v=>`<div class="vis"><span>${cuMd(v.date)}　${v.store?`【${esc(v.store)}】`:esc(v.table||'')}　${v.guests}名${v.open?' <span class="badge">来店中</span>':''}${v.oki?' <span class="badge gray">置き</span>':''}</span><span class="amt">${v.amount!=null?yen(v.amount):''}</span></div>`)||'<div class="muted">まだありません</div>'}
     ${(cur.visits||[]).length<cur.visit_total?'<div class="muted" style="font-size:12px;margin-top:6px">直近30回を表示しています</div>':''}</div>
-  <div style="text-align:right;margin:4px 0 20px"><button class="danger sm" id="cuDel">削除</button></div>`; /* v1.47・SQL 196：お客様を削除（オーナー 2026-10-22。来店の履歴・キープボトルがある人は消さない） */
-
+  <div style="text-align:right;margin:4px 0 20px"><button class="danger sm" id="cuDel">削除</button></div>`; }
+/* 押した時の動き：請求先・削除・編集・申請 */
+function rdBindTop(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
   const D=$('detail'); fitLine(D); cxLoad(c); btcLoad(c); $('btcAdd').onclick=async()=>{ if(await needEdit()) btcForm(c,null); };
   $('cuDel').onclick=async()=>{ if(!await needEdit()) return; if(!await uiConfirm(`${c.name} 様を削除しますか？`,'削除','danger')) return;
     try{ await rpc('cs_customer_delete',{p_token:token,p_edit_token:editTok,p_id:c.id}); toast('削除しました'); curId=null; cur=null; show('vList'); renderList(); await loadList(); }catch(e){ await fail(e); } };
   $('editInfo').onclick=async()=>{ if(await needEdit()) editForm(false); };
   $('editMemo').onclick=async()=>{ if(await needEdit()) editForm(true); };
   $('reqBtn').onclick=()=>reqForm();
+}
+/* 押した時の動き：ボトルの残量・飲み切り・期限切れ・移動・共同・キープ名 */
+function rdBindBottles(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; const D=$('detail');
   D.querySelectorAll('[data-rem]').forEach(x=>x.onchange=async()=>{ const b=bts.find(z=>z.id===x.dataset.rem); const v=x.value; x.disabled=true;
     try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:'remaining',p_value:v}); b.remaining=Number(v); toast(`${b.name} を 残り ${v}/10 にしました`); }catch(e){ x.value=String(b.remaining); await fail(e); } finally{ x.disabled=false; } });
   D.querySelectorAll('[data-fin]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.fin); if(!await uiConfirm(`${b.name} を飲み切りにしますか？`,'飲み切り')) return; await bottleAct(b,'finish','飲み切りにしました'); });
@@ -62,6 +76,9 @@ function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モ�
   D.querySelectorAll('[data-unexp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.unexp); if(!await uiConfirm(`${b.name} の${b.moved?'ボトル移動':'期限切れ'}を取り消して、キープ中に戻しますか？`,'戻す')) return; if(!await needEdit()) return; await bottleAct(b,'unexpire','キープ中に戻しました',null,true); });
   /* v1.10：キープ名は常に表示。書き換えて枠を離れたら、編集パスワードを確認してから保存（POS と同じ形） */
   D.querySelectorAll('[data-kn]').forEach(x=>x.onchange=async()=>{ const b=bts.find(z=>z.id===x.dataset.kn); const v=x.value.trim(); const before=b.keep_name||c.name; if((v||c.name)===before){ x.value=before; return; } if(!await needEdit()){ x.value=before; return; } await bottleAct(b,'keep_name','キープ名を保存しました',v,true); });
+}
+/* ボトルの追加（リストに無い銘柄も） */
+function rdBindAdd(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
   let btPrev='';
   $('btSel').onchange=async()=>{ const sel=$('btSel'); if(sel.value!=='__free'){ btPrev=sel.value; return; }
     const cur0=sel.querySelector('option[data-free]'); const nm=await uiPrompt('リストに無い銘柄の名前',cur0?cur0.dataset.free:'',{ok:'決定',ph:'例：マッカラン18年'});
