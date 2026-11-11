@@ -64,22 +64,33 @@ storeSwLoad().then(storeSwShow);
 async function posTermLost(){ try{ const [tk]=await ptLoad(); const pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error||!pt.data) return false;
   if(pt.data.stale){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); return true; }
   if(pt.data.ok===false){ $('posReg').style.display='flex'; $('posRegCode').value=''; return true; } }catch(e){} return false; }
-async function start(){ const { data:{ session } } = await sb.auth.getSession(); if (!session) return;
+/* 起動で通信が通らない時は「通信を確認しています…」を出し、5秒ごとに自動でやり直す（管理サイト・タイムカードと同じ）。ログインしたまま待つ間は入力欄を出さない。
+   20秒たっても返事が無い時も、最初からやり直す。前は赤い文字が出るだけで止まり、通信が戻っても開かず、入力欄が出て「ログインできない」と思わせた（2026-11-11 広島） */
+let startRun=0;
+const loginWait=(on,msg)=>{ $('loginForm').classList.toggle('waiting',on); $('loginErr').textContent=msg||''; };
+async function start(){ const run=++startRun; clearTimeout(start.r); clearTimeout(start.slow);
+  const live=()=>run===startRun&&!hallOn; const retry=()=>{ if(!live()) return; loginWait(true,'通信を確認しています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); };
+  start.slow=setTimeout(retry,20000);
+  try{ const { data:{ session } } = await sb.auth.getSession(); if(!live()) return; if (!session){ loginWait(false); return; }
+  if(!$('loginErr').textContent) loginWait(true,'');
   /* v11.31・SQL 084：タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
-  try{ const tc=await sb.rpc('is_timecard_user'); if(tc.data===true){ await sb.auth.signOut(); $('loginErr').textContent='タイムカード専用IDでは、POS は開けません'; return; }
+  try{ const tc=await sb.rpc('is_timecard_user'); if(!live()) return; if(tc.data===true){ await sb.auth.signOut(); loginWait(false,'タイムカード専用IDでは、POS は開けません'); return; }
     const dl=await sb.rpc('db_logs_on'); DBLOG=dl.data===true; }catch(e){}
+  if(!live()) return;
   /* v12.01・SQL 186：登録した端末だけ開く。v12.20：確認できない時（通信の失敗など）も開かない */
   { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
-    const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note});
-    if(pt.error||!pt.data){ $('loginErr').textContent='端末を確認できません。通信を確認して、再度開いてください'; return; }
-    if(pt.data.stale){ await sb.auth.signOut(); $('loginErr').textContent='パスワードが変わりました。新しいパスワードでログインしてください'; return; } /* 点検 2026-11-02・SQL 313 */
-    if(pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } termSwitch=pt.data.store_switch===true; }
-  $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
+    const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note}); if(!live()) return;
+    if(pt.error||!pt.data){ retry(); return; }
+    if(pt.data.stale){ await sb.auth.signOut(); loginWait(false,'パスワードが変わりました。新しいパスワードでログインしてください'); return; } /* 点検 2026-11-02・SQL 313 */
+    if(pt.data.ok===false){ loginWait(false); $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } termSwitch=pt.data.store_switch===true; }
+  await loadMasters(true,true); if(!live()) return; if(!store){ retry(); return; } /* 店の設定が読めない時も開かずにやり直す（開くと店が空のまま動かない） */
+  hallOn=true; loginWait(false); $('login').classList.add('hidden'); checkVersion(); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); show('v-hall');
+  }finally{ if(run===startRun) clearTimeout(start.slow); /* 返事が来た時は止める。待ったまま返事が無い時だけ 20秒でやり直す */ } } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 
-async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
+async function loadMasters(withCust,quiet){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
   /* v13.04・SQL 427：店の設定（店・POS設定・料金・卓・分類・商品・在籍・閉店時刻）は入口の関数1回で読む（前は表を1つずつ8回） */
   const [m,cu] = await Promise.all([sb.rpc('pos_masters'), withCust?cuLoadAll():null]);
-  { const e=[m,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
+  { const e=[m,cu].find(x=>x&&x.error); if(e&&!quiet) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
   if(m.error&&store) return; /* 読み直しで読めなかった時は、前に読んだ店の設定のまま（空にすると、次の読み直しまで store.id で止まった） */
   const d=m.data||{};
   store=d.store||undefined; kSet(store?.kakari_label); kDom(); settings=d.settings||undefined; modes=d.modes||[]; tables=d.tables||[]; categories=d.categories||[]; products=d.products||[]; staff=d.staff||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
