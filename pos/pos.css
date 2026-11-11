@@ -54,6 +54,7 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;display:none;z-index:80}.toast.on{display:block}
   .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
   .login form{width:360px;background:#fff;padding:32px;border-radius:16px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+  .login form.waiting input,.login form.waiting button{display:none} /* ログインしたまま起動・通信を待つ間は入力欄を出さない */
   .hidden{display:none!important}.muted{color:var(--muted)}.right{text-align:right}
   .badge.warnb{background:var(--warn)}.badge.gray{background:var(--muted)}.badge.tag{background:var(--muted)}
   .cast-line{display:flex;align-items:center;gap:8px;padding:4px 0 4px 12px;font-size:15px}

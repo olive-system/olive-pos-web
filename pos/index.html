@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="pos.css"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
 <body>
-<div class="login" id="login"><form id="loginForm">
+<div class="login" id="login"><form id="loginForm" class="waiting">
   <h1 style="margin:0;font-size:20px">店舗端末ログイン</h1>
   <input id="email" type="email" placeholder="端末メールアドレス" autocomplete="username" required><input id="pw" type="password" placeholder="パスワード" autocomplete="current-password" required>
   <button class="primary" type="submit">ログイン</button><div id="loginErr" style="color:var(--warn);font-size:14px;min-height:18px"></div>
