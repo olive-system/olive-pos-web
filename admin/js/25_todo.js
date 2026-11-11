@@ -61,7 +61,19 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
   /* v1.59：カレンダーの TODO の名前を押すと、その項目の編集（オーナー 2026-10-25「カレンダーからのタップで編集できるように。いちいち項目から探すのだるい」） */
   $('main').querySelectorAll('[data-tdc]').forEach(c=>c.onclick=e=>{ e.stopPropagation(); todoEdit(st,byId[c.dataset.tdc]); }); };
 function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekly',rule_dows:[],rule_days:[],rule_nth:[],rule_date:null,slot:'open',need_photo:false,need_note:false,note_hint:''};
-  const md=mkModal(null,`<h2 style="margin:0">${isNew?'TODO の追加':esc(x.name)}</h2><label>名前<input id="tdN" value="${esc(x.name)}"></label>
+  const md=mkModal(null,todoEditHtml(x,isNew));
+  const q=id=>md.querySelector('#'+id), paint=()=>{ const k=q('tdK').value; q('tdKw').style.display=['weekly','biweekly','nth'].includes(k)?'flex':'none'; q('tdKn').style.display=k==='nth'?'flex':'none'; q('tdKm').style.display=k==='monthly'?'':'none'; q('tdKo').style.display=['biweekly','yearly','once'].includes(k)?'':'none'; q('tdKoL').textContent=k==='biweekly'?'初めの日（この日から隔週）':k==='yearly'?'日付（毎年この月日）':'日付'; q('tdHw').style.display=q('tdW').value==='true'?'':'none'; };
+  q('tdK').onchange=paint; q('tdW').onchange=paint; paint();
+  md.querySelector('[data-k=no]').onclick=()=>md.remove();
+  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を削除しますか？\n今までの記録は残ります`,'削除','danger')) return; const r=await rpc('admin_todo_remove',{p_store:st,p_id:x.id}); if(!r.ok) return; md.remove(); toast('削除しました'); PAGES.set_todo(); }; /* v1.59：外す → 削除（オーナー 2026-10-25「外すではなく削除だろ」） */
+  md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{
+    const row={name:q('tdN').value.trim(),rule_kind:q('tdK').value,rule_dows:[...md.querySelectorAll('[data-dw]:checked')].map(e=>+e.dataset.dw),rule_days:q('tdDays').value.split(/[,、\s]+/).map(v=>parseInt(v,10)).filter(v=>v>=1&&v<=31),rule_nth:[...md.querySelectorAll('[data-nth]:checked')].map(e=>+e.dataset.nth),rule_date:q('tdDt').value||null,
+      slot:q('tdS').value,need_photo:q('tdP').value==='true',need_note:q('tdW').value==='true',note_hint:q('tdH').value.trim(),steps:q('tdT').value};
+    if(!row.name){ await uiAlert('名前を入力してください'); return; }
+    const r=await rpc('admin_todo_save',{p_store:st,p_id:isNew?null:x.id,p_row:row}); if(!r.ok) return; md.remove(); toast('保存しました'); PAGES.set_todo(); }); }
+/* TODO の追加・変更の小窓の中身 */
+function todoEditHtml(x,isNew){
+  return `<h2 style="margin:0">${isNew?'TODO の追加':esc(x.name)}</h2><label>名前<input id="tdN" value="${esc(x.name)}"></label>
     <label>いつ<select id="tdK">${TODO_KIND.map(([v,n])=>`<option value="${v}" ${x.rule_kind===v?'selected':''}>${n}</option>`).join('')}</select></label>
     <div id="tdKn" style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(n=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-nth="${n}" ${(x.rule_nth||[]).includes(n)?'checked':''} style="width:auto">第${n}</label>`).join('')}</div>
     <div id="tdKw" style="display:flex;gap:6px;flex-wrap:wrap">${WD.map((w,i)=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-dw="${i}" ${(x.rule_dows||[]).includes(i)?'checked':''} style="width:auto">${w}</label>`).join('')}</div>
@@ -72,13 +84,5 @@ function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekl
     <label>書く欄<select id="tdW"><option value="false">なし</option><option value="true" ${x.need_note?'selected':''}>あり</option></select></label>
     <label id="tdHw">書く欄の見出し<input id="tdH" value="${esc(x.note_hint||'')}" placeholder="例：在庫の数"></label>
     <label>手順（黒服に見せる）<textarea id="tdT" rows="6" style="width:100%;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(x.steps||'')}</textarea></label>
-    <div class="bar">${isNew?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
-  const q=id=>md.querySelector('#'+id), paint=()=>{ const k=q('tdK').value; q('tdKw').style.display=['weekly','biweekly','nth'].includes(k)?'flex':'none'; q('tdKn').style.display=k==='nth'?'flex':'none'; q('tdKm').style.display=k==='monthly'?'':'none'; q('tdKo').style.display=['biweekly','yearly','once'].includes(k)?'':'none'; q('tdKoL').textContent=k==='biweekly'?'初めの日（この日から隔週）':k==='yearly'?'日付（毎年この月日）':'日付'; q('tdHw').style.display=q('tdW').value==='true'?'':'none'; };
-  q('tdK').onchange=paint; q('tdW').onchange=paint; paint();
-  md.querySelector('[data-k=no]').onclick=()=>md.remove();
-  const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${x.name}」を削除しますか？\n今までの記録は残ります`,'削除','danger')) return; const r=await rpc('admin_todo_remove',{p_store:st,p_id:x.id}); if(!r.ok) return; md.remove(); toast('削除しました'); PAGES.set_todo(); }; /* v1.59：外す → 削除（オーナー 2026-10-25「外すではなく削除だろ」） */
-  md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{
-    const row={name:q('tdN').value.trim(),rule_kind:q('tdK').value,rule_dows:[...md.querySelectorAll('[data-dw]:checked')].map(e=>+e.dataset.dw),rule_days:q('tdDays').value.split(/[,、\s]+/).map(v=>parseInt(v,10)).filter(v=>v>=1&&v<=31),rule_nth:[...md.querySelectorAll('[data-nth]:checked')].map(e=>+e.dataset.nth),rule_date:q('tdDt').value||null,
-      slot:q('tdS').value,need_photo:q('tdP').value==='true',need_note:q('tdW').value==='true',note_hint:q('tdH').value.trim(),steps:q('tdT').value};
-    if(!row.name){ await uiAlert('名前を入力してください'); return; }
-    const r=await rpc('admin_todo_save',{p_store:st,p_id:isNew?null:x.id,p_row:row}); if(!r.ok) return; md.remove(); toast('保存しました'); PAGES.set_todo(); }); }
+    <div class="bar">${isNew?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`;
+}

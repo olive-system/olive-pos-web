@@ -4,7 +4,17 @@ function knLabel(b,cname){ return b.keep_name&&b.keep_name!==cname?`（キープ
 async function expireBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`)) return false; const d=businessDate(); const { error } = await sb.rpc('pos_bottle_set',{p_id:b.id,p:{expired_on:d}}); if(error){ toast(error.message.includes('column')?'SQL 017 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル期限切れ',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=d; toast('期限切れにしました'); return true; }
 // v10.75：ボトル移動（移動先は記録しない。日付と残量を残してキープから外す。SQL 045）
 // v12.40・SQL 306：移動先・係を記録（オーナー 2026-11-01「移籍先のお店に持っていける。一応記録しておきたい」）
-function uiMoveForm(b,k0){ return new Promise(res=>{ const cs=staff.filter(x=>x.kind==='cast'&&x.is_active!==false); const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(420px,92vw)"><h2 style="margin:0 0 8px">${esc(b.name)}（${b.remaining??0}/10）をボトル移動にしますか？</h2><label>移動先<input data-mf="to" maxlength="60" placeholder="例）ファースト" style="width:100%"></label><label>${KL}<select data-mf="st" style="width:100%"><option value="">なし</option>${cs.map(s=>`<option value="${s.id}" ${s.id===k0?'selected':''}>${esc(s.display_name)}</option>`).join('')}</select></label><div class="bar" style="justify-content:flex-end"><button class="ghost" data-mf="no">キャンセル</button><button class="primary" data-mf="ok">ボトル移動</button></div></div>`; document.body.appendChild(m); const done=v=>{ m.remove(); res(v); }; m.querySelector('[data-mf=no]').onclick=()=>done(null); m.querySelector('[data-mf=ok]').onclick=()=>done({to:m.querySelector('[data-mf=to]').value.trim()||null,staff:m.querySelector('[data-mf=st]').value||null}); }); }
+function uiMoveForm(b,k0){ return new Promise(res=>{ const cs=staff.filter(x=>x.kind==='cast'&&x.is_active!==false);
+  const m=mkModal(60);
+  m.innerHTML=`<div class="box" style="width:min(420px,92vw)"><h2 style="margin:0 0 8px">${esc(b.name)}（${b.remaining??0}/10）をボトル移動にしますか？</h2><label>移動先<input data-mf="to" maxlength="60" placeholder="例）ファースト" style="width:100%"></label><label>${KL}<select data-mf="st" style="width:100%"><option value="">なし</option>${cs.map(s=>`<option value="${s.id}" ${s.id===k0?'selected':''}>${esc(s.display_name)}</option>`).join('')}</select></label><div class="bar" style="justify-content:flex-end"><button class="ghost" data-mf="no">キャンセル</button><button class="primary" data-mf="ok">ボトル移動</button></div></div>`;
+  document.body.appendChild(m);
+  const done=v=>{ m.remove();
+  res(v);
+  };
+  m.querySelector('[data-mf=no]').onclick=()=>done(null);
+  m.querySelector('[data-mf=ok]').onclick=()=>done({to:m.querySelector('[data-mf=to]').value.trim()||null,staff:m.querySelector('[data-mf=st]').value||null});
+  });
+  }
 async function moveBottle(b,cname,k0){ if(!b) return false; const mf=await uiMoveForm(b,b.kakari_staff_id||k0||''); if(!mf) return false; const d=businessDate(); const { error } = await sb.rpc('pos_bottle_set',{p_id:b.id,p:{expired_on:d,moved:true,moved_to:mf.to,moved_staff_id:mf.staff}}); if(error){ toast(error.message.includes('moved')?'SQL 045 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル移動',{customer:cname,bottle:b.name,remaining:b.remaining,to:mf.to,staff:staff.find(x=>x.id===mf.staff)?.display_name||null},null,true); b.expired_on=d; b.moved=true; toast('ボトル移動にしました'); return true; }
 /* v12.30：期限切れ・移動を戻すボタンは v10.86 から出していないので unexpireBottle は消した */
 function btMonths(){ return Number(settings?.bottle_keep_months)||6; } /* v10.99：お店の設定（ボトルのキープ期間）と同じ。顧客サイトと同じ */

@@ -6,7 +6,7 @@ const SLIDE_DEF={
   douhan:{t:'同伴スライド',sub:'月の同伴回数で時給が決まる',cols:[{k:'threshold',l:'同伴（回以上）'},{k:'wage',l:'時給（円）'}]},
   hall:{t:'黒服ボーナススライド',sub:'',cols:[{k:'sales_man',l:'売上（万円以上）'},{k:'target_ratio',l:'目標比率（%）',sc:0.01},{k:'b_within',l:'以内'},{k:'b_plus2',l:'＋2%まで'},{k:'b_plus5',l:'＋5%まで'},{k:'b_over',l:'5%超'},{k:'b_sales',l:'売上ボーナス'}]},
 };
-const slNum=v=>{ const t=String(v??'').replace(/[０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[,，\s]/g,''); return t===''?null:Number(t); };
+const slNum=v=>{ const t=toHan(v).replace(/[,，\s]/g,''); return t===''?null:Number(t); };
 const slShow=(v,sc)=>v==null?'':String(Math.round(Number(v)/(sc||1)*10000)/10000);
 // v0.90：報酬・罰金項目の箱は、タイトルだけ並べて押すと開く（payOpen：開いている箱。保存して描き直しても開いたまま）
 const payOpen=new Set();

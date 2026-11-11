@@ -188,14 +188,17 @@ async function csShiftPart(box,st,ed,m){
   if(!ed) return;
   if(!E){ if(lock) return; $('cshEd').onclick=()=>{ csEdit='shift'; PAGES.set_cast(); }; return; }
   $('cshCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
-  const sv=$('cshSave'); sv.onclick=guard(sv,async()=>{
+  const sv=$('cshSave'); sv.onclick=guard(sv,()=>csShiftSave(box,st,rows));
+}
+/* シフトの表の［保存］：変わった人だけを送る */
+async function csShiftSave(box,st,rows){
     const out=[];
     for(const c of rows){ const tr=box.querySelector(`tr[data-sid="${c.id}"]`), q=k=>tr.querySelector(`[data-k=${k}]`);
       const x={id:c.id,week:q('w').value?Number(q('w').value):null,earliest:q('e').value||null,ok_only:q('o').value==='true',rank:Number(q('r').value),joined:q('j').value||null};
       if(x.week!==(c.week??null)||x.earliest!==(c.earliest||null)||x.ok_only!==!!c.ok_only||x.rank!==(c.rank||0)||x.joined!==(c.joined||null)) out.push(x); }
     if(!out.length){ csEdit=false; toast('変更はありません'); PAGES.set_cast(); return; }
     const q=await rpc('admin_shift_staff_save',{p_store:st,p_rows:out}); if(!q.ok) return;
-    csEdit=false; toast('保存しました'); PAGES.set_cast(); });
+    csEdit=false; toast('保存しました'); PAGES.set_cast();
 }
 
 // v1.16・SQL 136：キャスト・黒服の追加・基本情報の変更・在籍から外す（オーナー 2026-10-17「管理サイトでキャストや黒服を追加できるように。POS にもタイムカードにも」）

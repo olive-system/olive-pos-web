@@ -2,7 +2,32 @@
 const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), bill_extensions(id,minutes,unit_price,qty,is_auto), bill_items(id,product_id,category_id,name,qty,unit_price,cast_subtotal_price,back_amount,back_points,is_service_target,is_keep,added_at,is_void,bill_item_splits(id,staff_id,sales_amount,back_amount,back_points)), bill_customers(customer_id), bill_adjustments(id,kind,amount,reason), payments(*), bill_tags(id,kind,tag_no,memo,returned_at)';
 async function openBill(id){ if(!cur||cur.id!==id) extOpen=false;
   const { data, error } = await sb.from('bills').select(BILL_SEL).eq('id',id).single();
-  if (error) { toast(error.message); return; } cur=data; billFp=fpOf(data); { const dp=await sb.from('bill_departures').select('payment_id').eq('bill_id',id); cur.depPays=new Set((dp.data||[]).map(x=>x.payment_id).filter(Boolean)); } if((cur.bill_customers||[]).some(x=>!customers.some(c=>c.id===x.customer_id))) await cuFresh(); /* v12.78：ほかの iPad で登録したお客様 */ if(cur.status==='open'){ const ind=modes.find(m=>m.code==='industry'), normal=modes.find(m=>m.code==='normal'); const isI=cur.pricing_mode_id===ind?.id; let want=(cur.bill_customers||[]).some(x=>customers.find(c=>c.id===x.customer_id)?.is_industry); if(ind&&normal&&want!==isI){ await cuFresh(); want=(cur.bill_customers||[]).some(x=>customers.find(c=>c.id===x.customer_id)?.is_industry); } /* v12.78：切り替える前に、ほかの iPad の変更を読む（古い一覧で同業を解除していた） */ if(ind&&normal&&want!==isI){ const u=await sb.rpc('pos_rows_set',{p_table:'bills',p_where:{id:(id)??null},p:{pricing_mode_id:want?ind.id:normal.id,fixed_total:null}}); if(!u.error){ cur.pricing_mode_id=want?ind.id:normal.id; billFp=fpOf(cur); await logOp(want?'同業に切替':'同業を解除',{auto:true}); } } } const r=await sb.rpc('calc_bill',{p_bill:id}); if(r.error){ toast('伝票の金額を読み込めません：'+r.error.message); return; } cur.totals=r.data||{}; if(cur.status==='open') hallPut(id,r.data); /* v12.30：ホールの金額も最新に */ /* 通しチェック3：読めない時に0円と出て、置きの残額を消すことがあった */ present=await updateCastBadge(); if(!staffAll.length) await loadStaffAll(); renderBill(); show('v-bill'); }
+  if (error) { toast(error.message);
+    return;
+    } cur=data;
+    billFp=fpOf(data);
+    { const dp=await sb.from('bill_departures').select('payment_id').eq('bill_id',id);
+    cur.depPays=new Set((dp.data||[]).map(x=>x.payment_id).filter(Boolean));
+    } if((cur.bill_customers||[]).some(x=>!customers.some(c=>c.id===x.customer_id))) await cuFresh();
+    /* v12.78：ほかの iPad で登録したお客様 */ if(cur.status==='open'){ const ind=modes.find(m=>m.code==='industry'), normal=modes.find(m=>m.code==='normal');
+    const isI=cur.pricing_mode_id===ind?.id;
+    let want=(cur.bill_customers||[]).some(x=>customers.find(c=>c.id===x.customer_id)?.is_industry);
+    if(ind&&normal&&want!==isI){ await cuFresh();
+    want=(cur.bill_customers||[]).some(x=>customers.find(c=>c.id===x.customer_id)?.is_industry);
+    } /* v12.78：切り替える前に、ほかの iPad の変更を読む（古い一覧で同業を解除していた） */ if(ind&&normal&&want!==isI){ const u=await sb.rpc('pos_rows_set',{p_table:'bills',p_where:{id:(id)??null},p:{pricing_mode_id:want?ind.id:normal.id,fixed_total:null}});
+    if(!u.error){ cur.pricing_mode_id=want?ind.id:normal.id;
+    billFp=fpOf(cur);
+    await logOp(want?'同業に切替':'同業を解除',{auto:true});
+    } } } const r=await sb.rpc('calc_bill',{p_bill:id});
+    if(r.error){ toast('伝票の金額を読み込めません：'+r.error.message);
+    return;
+    } cur.totals=r.data||{};
+    if(cur.status==='open') hallPut(id,r.data);
+    /* v12.30：ホールの金額も最新に */ /* 通しチェック3：読めない時に0円と出て、置きの残額を消すことがあった */ present=await updateCastBadge();
+    if(!staffAll.length) await loadStaffAll();
+    renderBill();
+    show('v-bill');
+    }
 let present=new Set(); const TAGK={coat:'コート',bag:'バッグ',umbrella:'傘',other:'その他'};
 // お誕生日リマインド：前後21日以内なら伝票とホール状況に表示
 function bdayDiff(bd){ const m=String(bd||'').match(/^(\d{1,2})\/(\d{1,2})$/); if(!m) return null; const [y,mo,d]=businessDate().split('-').map(Number); const today=new Date(y,mo-1,d); let best=null; for(const yy of [y-1,y,y+1]){ const diff=Math.round((new Date(yy,+m[1]-1,+m[2])-today)/86400000); if(best===null||Math.abs(diff)<Math.abs(best)) best=diff; } return Math.abs(best)<=21?best:null; }
