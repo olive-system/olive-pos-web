@@ -81,8 +81,11 @@ function contactPick(T){
   const clear = () => { cpState = null; try{ localStorage.removeItem(KEY); }catch(e){} };
   const kk = c => NK ? '' : c.sent ? '提出済' : c.kakari ? `${KL} ${esc(c.kakari)}` : `${KL}確認中`;
   const cnt = () => Object.keys(S.sel).length + S.rows.filter(r => r.n.trim()).length;
-  const paint = () => {
-    show(`<div class="ttl">${dl} 連絡先交換の提出</div>
+  const K = { T, fld, d, dl, L, NK, KEY, S, save, clear, kk, cnt };
+  K.paint = () => { show(cpHtml(K)); cpBind(K); };
+  K.paint(); }
+/* 連絡先交換の提出の画面（本日来店のお客様・その他・提出） */
+function cpHtml(K){ const { T, fld, d, dl, L, NK, KEY, S, save, clear, kk, cnt, paint } = K; return `<div class="ttl">${dl} 連絡先交換の提出</div>
       ${L.length ? `<div class="card"><div class="gh">本日来店（敬称略）　${L.length}名（伝票順）</div>
         <input id="cpQ" type="search" placeholder="名前・フリガナで検索" style="${fld};margin:6px 0 8px">
         ${L.map(c => { const on = S.sel[c.id] !== undefined; return `<div data-cpr="${esc(c.name.replace(/[\s　]+/g, ''))}" data-cpk="${esc(kanaKey(c.kana))}"><label style="display:flex;align-items:center;gap:8px;border:1px solid ${on ? 'var(--ink)' : 'var(--line)'};border-radius:8px;padding:10px;margin-bottom:6px;${c.sent ? 'opacity:.5' : ''}">
@@ -94,7 +97,9 @@ function contactPick(T){
         <label class="f" style="margin-top:8px">メモ（任意）<input data-cpo="${i}" maxlength="300" value="${esc(r.m)}" style="${fld}"></label></div>`).join('')}</div>
       <button class="btn g" id="cxAdd">＋ もう1人</button>
       <button class="btn" id="cxGo" style="margin-top:8px">${cnt()}人を提出</button>${NK ? '' : `<p class="muted sm" style="margin:10px 2px">提出をすると${KL}に共有されます</p>`}
-      <button class="btn g" id="cxNone">今日は交換なし</button>`);
+      <button class="btn g" id="cxNone">今日は交換なし</button>`; }
+/* 押した時の動き：検索・選ぶ・メモ・もう1人・提出・交換なし */
+function cpBind(K){ const { T, fld, d, dl, L, NK, KEY, S, save, clear, kk, cnt, paint } = K;
     const m = $('main'), go = () => { $('cxGo').textContent = `${cnt()}人を提出`; };
     if($('cpQ')) $('cpQ').oninput = e => { const q = e.target.value.replace(/[\s　]+/g, ''), k = kanaKey(q); m.querySelectorAll('[data-cpr]').forEach(x => { x.style.display = !q || x.dataset.cpr.includes(q) || (k && x.dataset.cpk.includes(k)) ? '' : 'none'; }); };
     m.querySelectorAll('[data-cpc]').forEach(e => e.onchange = () => { if(e.checked) S.sel[e.dataset.cpc] = ''; else delete S.sel[e.dataset.cpc]; save(); const q = $('cpQ') ? $('cpQ').value : ''; paint(); if(q && $('cpQ')){ $('cpQ').value = q; $('cpQ').oninput({ target: $('cpQ') }); } });
@@ -121,6 +126,4 @@ function contactPick(T){
       if(q.error){ if($('cxNone')) $('cxNone').disabled = false; await uiAlert(q.error.message); return; }
       clear(); await uiAlert('今日は交換なしで提出しました'); contactList();
     };
-  };
-  paint();
 }
