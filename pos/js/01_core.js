@@ -15,6 +15,8 @@ const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
 const METHOD = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
 /* v11.96：?slot= で同じブラウザに2店を開いても、端末に残す設定が混ざらないように */ const SLOT=((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'')?'-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,''):'');
 let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], customers=[], openBills=[], cur=null, payMethod='cash', billFrom='hall';
+/* SQL 448：伝票の卓は、その時の卓の名前（bills.table_name。卓を削除・名前を変更しても前の伝票は前の名前）。営業中の伝票だけ今の卓の名前 */
+const billTable=b=>!b?'':(b.status==='open'&&tables.find(t=>t.id===b.table_id)?.name)||b.table_name||tables.find(t=>t.id===b.table_id)?.name||'';
 /* 2026-11-08 構造をシンプルに（2回目）：小窓の箱（class modal on・重なりの順番）を作る3つの手順を1つに（前は同じ3つが18か所） */
 /* 2026-11-08 オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */
 const TOAST_NG=/(できません|エラー|読めません|出せません|取り消せません|外せません)：|読み込めません|失敗|通信できませんでした/;

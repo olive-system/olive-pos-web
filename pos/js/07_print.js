@@ -3,7 +3,7 @@ const PRINT={ method: localStorage.getItem('print_method'+SLOT)||'tmpa' };
 function padLine(l,r,w=32){ l=String(l); r=String(r); const lw=[...l].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0), rw=[...r].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0); const sp=Math.max(1,w-lw-rw); return l+' '.repeat(sp)+r; }
 function buildLines(kind){ const b=cur,T=b.totals,t=tables.find(x=>x.id===b.table_id); const L=[]; const d=new Date();
   L.push({c:true,b:true,t:store?.name||'OLIVE'}); L.push({c:true,t:kind==='estimate'?'【 概 算 】':kind==='detail'?'【 明 細 】':'【 御 会 計 】'});
-  L.push({t:`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${hmJst(d)}  ${t?.name||''}  ${b.guest_count}名`});
+  L.push({t:`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${hmJst(d)}  ${billTable(b)}  ${b.guest_count}名`});
   const custs=(b.bill_customers||[]).map(c=>customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・'); if(custs) L.push({t:custs+' 様'});
   L.push({t:'-'.repeat(32)});
   if(T.set) L.push({t:padLine(`セット ${b.set_minutes}分 ×${b.set_guest_count??b.guest_count}`,T.set.toLocaleString())}); if(T.vip_set) L.push({t:padLine('VIP代',T.vip_set.toLocaleString())});
@@ -116,7 +116,7 @@ $('extAdd').textContent=`${settings?.ext_minutes||30}分延長`;
 $('extAdd').onclick=guard($('extAdd'),async()=>{ const { error } = await insOnce('bill_extensions',{bill_id:cur.id,minutes:settings.ext_minutes,unit_price:settings.ext_unit_price,qty:cur.guest_count,is_auto:false}); if(error){ if(await stale(error)) return; toast(error.message); return; } await logOp('延長追加（手動）',{minutes:settings.ext_minutes,amount:settings.ext_unit_price*cur.guest_count}); await openBill(cur.id); });
 $('bBack').onclick=()=>{ if(billFrom==='bills'){ renderSettings('bills'); show('v-settings'); return; } loadHall(); show('v-hall'); };
 // v11.12：先に「削除しますか？」を出す（やめられる）。続けて理由（必須）
-$('bVoid').onclick=async()=>{ const tn=tables.find(t=>t.id===cur.table_id)?.name||''; if(!await uiConfirm(`${tk(tn)}の伝票を削除しますか？\n履歴は残ります`))return; const by=await askBy(); if(by===null) return; const why0=await askReason(`${tk(tn)}の伝票を削除します。`); if(!why0)return; const why=by?`${why0}（${by}）`:why0; const vb=$('bVoid'); if(vb.disabled) return; vb.disabled=true; /* v11.27：取消できたのを確かめてから操作ログに書く（前はログが先で、失敗しても「取消」が残った） */
+$('bVoid').onclick=async()=>{ const tn=billTable(cur); if(!await uiConfirm(`${tk(tn)}の伝票を削除しますか？\n履歴は残ります`))return; const by=await askBy(); if(by===null) return; const why0=await askReason(`${tk(tn)}の伝票を削除します。`); if(!why0)return; const why=by?`${why0}（${by}）`:why0; const vb=$('bVoid'); if(vb.disabled) return; vb.disabled=true; /* v11.27：取消できたのを確かめてから操作ログに書く（前はログが先で、失敗しても「取消」が残った） */
   try{ const u=await cashClosed(()=>sb.rpc('pos_rows_set',{p_table:'bills',p_where:{id:(cur.id)??null,'status!':('void')??null},p:{status:'void',closed_at:new Date().toISOString(),...(DBLOG?{void_reason:why}:{})}}),`伝票の削除（${tn}）`); /* v12.07・SQL 220：現金の入金がある伝票は、精算済みの日は精算の取消の後に削除 */
     if(u.error?.cancel){}
     else if(u.error||!(u.data||[]).length){ await uiAlert(u.error?'伝票を削除できませんでした：'+u.error.message:'伝票を削除できませんでした（ほかの端末で変更されています）'); }
