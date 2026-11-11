@@ -8,10 +8,9 @@ const resvMsg = (head, x, kn, by) => `【${x.douhan?head.replace('予約','同�
 // v0.79：予約のしるし（同伴・VIPルーム）は右の決まった列に（オーナー 2026-10-27「VIP、VIP同伴の表示の列がバラバラで見にくい」）
 const rvTag = v => v ? `<b style="color:var(--ok);font-size:12px;white-space:nowrap">${esc(v)}</b>` : '';
 const rvTags = x => `<span>${rvTag(x.douhan && '同伴')}</span><span>${rvTag(x.vip)}</span>`;
-const rvDhH = x => { const L = x.dh_names || x.dh || []; if(!rvDh(x)) return x.douhan && x.black ? '同伴 ' + esc(x.black) + DRESS : ''; return '同伴 ' + L.map(n => esc(n) + (n === x.black ? DRESS : '')).join('・'); }; /* v1.30・SQL 368：黒ドレスのしるし */
 // v1.31・SQL 368：本人の予約一覧にも黒ドレスのしるし（cast_resv_list は dh＝id・dh_names＝名前・black_id。オーナー 2026-11-05「付ける」）
 const rvDhMine = x => { const ids = x.dh || [], nm = x.dh_names || []; if(!rvDh(x)) return x.douhan && x.black_id ? '同伴 ' + (x.mine ? '自分' : esc(x.by || '')) + DRESS : ''; return '同伴 ' + nm.map((n, i) => esc(n) + (x.black_id && ids[i] === x.black_id ? DRESS : '')).join('・'); };
-const rvRow = (x, sub, i) => { const s = [rvDhH(x), esc(sub)].filter(Boolean).join('・');
+const rvRow = (x, s, i) => { /* s＝名前の下の行（HTML。シフト（全員）は朝礼と同じ resvWho） */
   return `<div style="padding:6px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:grid;grid-template-columns:3.2em minmax(0,1fr) 2.4em 3.4em;gap:6px;align-items:baseline"><b>${esc(x.time)}</b><span>${esc(x.name)} 様 ${Number(x.guests)||0}名</span>${rvTags(x)}</div>${s ? `<div class="muted sm" style="padding-left:calc(3.2em + 6px)">${s}</div>` : ''}</div>`; };
 // v0.86：広島はお店のお客様で、女の子に担当は無い（POS の担当は誘客した子を報酬に付ける印だけ。2026-10-28 オーナー）→ 予約画面に担当を出さない。担当は申請した子（誘客）
 const RV_NOKK = () => STORE === 'hiroshima'; /* v0.92：女の子の LINE から送る文（resvMsg）にも担当を出さない（2026-10-29 オーナー「まだあるけど？」）。お店・同伴の子に届く文は SQL 288 */
