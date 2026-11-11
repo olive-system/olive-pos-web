@@ -28,8 +28,11 @@ async function contactForm(today){
   const save = () => { try{ localStorage.setItem(KEY, JSON.stringify({ day: today, rows: cxRows })); }catch(e){} };
   const clear = () => { cxRows = null; try{ localStorage.removeItem(KEY); }catch(e){} };
   const opts = k => `<option value="">選んでください</option>${(st.data||[]).map(s => `<option value="${s.id}" ${k===s.id?'selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('')}<option value="unknown" ${k==='unknown'?'selected':''}>わからない</option><option value="none" ${k==='none'?'selected':''}>なし</option>`;
-  const paint = () => {
-    show(`<div class="ttl">${dl} 連絡先交換の提出</div>${restored?'<div class="muted sm" style="margin:0 2px 8px">途中の入力を戻しました</div>':''}
+  const K = { today, st, fld, me, d, dl, KEY, NK, restored, save, clear, opts };
+  K.paint = () => { show(cxFormHtml(K)); cxFormBind(K); };
+  K.paint(); }
+/* 連絡先交換の提出の画面（1人ずつ：お客様・係・メモ） */
+function cxFormHtml(K){ const { today, st, fld, me, d, dl, KEY, NK, restored, save, clear, opts, paint } = K; return `<div class="ttl">${dl} 連絡先交換の提出</div>${restored?'<div class="muted sm" style="margin:0 2px 8px">途中の入力を戻しました</div>':''}
       ${cxRows.map((r, i) => `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b class="sm">${i+1}人目</b>${cxRows.length>1?`<button data-cxd="${i}" class="btn g" style="width:auto;padding:4px 10px;font-size:13px">外す</button>`:''}</div>
         <label class="f" style="margin-top:6px">お客様（フルネーム）<input data-cxn="${i}" maxlength="30" placeholder="例：孫 正義" value="${esc(r.n)}" style="${fld}"></label>
         ${i===0?'<div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/25))">ニックネームではなく、フルネームで入力してください</div>':''}
@@ -37,7 +40,9 @@ async function contactForm(today){
         <label class="f" style="margin-top:8px">メモ（任意）<input data-cxm="${i}" maxlength="300" value="${esc(r.m)}" style="${fld}"></label></div>`).join('')}
       <button class="btn g" id="cxAdd">＋ もう1人</button>
       <button class="btn" id="cxGo" style="margin-top:8px">${cxRows.length}人を提出</button>${NK ? '' : `<p class="muted sm" style="margin:10px 2px">提出をすると${KL}に共有されます</p>`}
-      <button class="btn g" id="cxNone">今日は交換なし</button>`);
+      <button class="btn g" id="cxNone">今日は交換なし</button>`; }
+/* 押した時の動き：入力・もう1人・提出・交換なし */
+function cxFormBind(K){ const { today, st, fld, me, d, dl, KEY, NK, restored, save, clear, opts, paint } = K;
     $('main').querySelectorAll('[data-cxn]').forEach(e => e.oninput = () => { cxRows[+e.dataset.cxn].n = e.value; save(); });
     $('main').querySelectorAll('[data-cxk]').forEach(e => e.onchange = () => { cxRows[+e.dataset.cxk].k = e.value; save(); });
     $('main').querySelectorAll('[data-cxm]').forEach(e => e.oninput = () => { cxRows[+e.dataset.cxm].m = e.value; save(); });
@@ -62,8 +67,6 @@ async function contactForm(today){
       if(q.error){ if($('cxNone')) $('cxNone').disabled = false; await uiAlert(q.error.message); return; }
       clear(); await uiAlert('今日は交換なしで提出しました'); contactList();
     };
-  };
-  paint();
 }
 
 // v1.15・SQL 343：連絡先交換を LINE で聞く（オーナー 2026-11-03）。本日来店のお客様から選ぶ。係はお客様の台帳から（無ければ係確認中。黒服が閉店作業で入力）。女の子は係を選ばない
