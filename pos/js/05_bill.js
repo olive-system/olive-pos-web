@@ -45,18 +45,35 @@ async function billPeopleEdit(id){ let box=$('uiDlgList'); if(!box){ box=documen
       if(e){ toast(e.message); } else if(kak) await hc(); draw(); }); };
   await draw(); const tn=tables.find(z=>z.id===b?.table_id)?.name||''; try{ await uiAlert(`${tn}　${b?hm5(b.opened_at):''}〜　${KL}・同伴・反応◎`); } finally { box.remove(); } }
 function renderBill(){ const b=cur, t=tables.find(x=>x.id===b.table_id);
+  const mode=modes.find(m=>m.id===b.pricing_mode_id); const T0=b.totals;
+  const R={b,t,mode,T0};
+  rbHead(R); rbTags(R); rbCust(R); rbCasts(R); rbSetHtml(R); rbSetBind(R);
+  Object.assign(R,rbItemKit(R)); rbItems(R); rbItemBind(R); rbTotals(R); }
+/* 伝票の上：お誕生日・卓・しるし */
+function rbHead(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   { let bb=$('bBday'); if(!bb){ bb=document.createElement('div'); bb.id='bBday'; $('v-bill').querySelector('.card').prepend(bb); } const ls=b.status==='void'?[]:bdayLines(b); bb.style.cssText=ls.length?'background:var(--gold-soft);border:2px solid var(--brand);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:20px;font-weight:700;color:var(--brand-d)':'display:none'; bb.innerHTML=ls.map(x=>FX('birthdaycake',22)+' '+esc(x)).join('<br>'); }
   $('bTable').innerHTML=`<small class="muted" style="font-size:14px;font-weight:400">卓</small> ${esc(t?.name||'')}`; $('bGuests').textContent=b.guest_count; $('bTime').textContent=`${hm5(b.set_start)}〜${hm5(billEnd(b))}`;
-  const mode=modes.find(m=>m.id===b.pricing_mode_id); const T0=b.totals;
   $('bFlags').innerHTML=(t?.vip_set_fee>0?'<span class="badge warnb">VIP卓</span>':'')+(b.status!=='open'&&!isOki(b)?`<span class="badge gray">${b.status==='void'?'削除済':'会計済'}</span>`:'')+(mode&&mode.code!=='normal'?`<span class="badge warnb">${esc(mode.name)}</span>`:'')+(b.service_rate_override!=null?`<span class="badge warnb">サ料 ${b.service_rate_override}%</span>`:'')+((b.bill_tags||[]).filter(t=>!t.returned_at).length?`<span class="badge tag">${FX('label')} お預かり ${(b.bill_tags||[]).filter(t=>!t.returned_at).length}</span>`:'');
+}
+/* 札（お預かり） */
+function rbTags(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bTags').innerHTML=(b.bill_tags||[]).filter(t=>!t.returned_at).map(t=>`<div class="item"><span class="n">${FX('label')} ${TAGK[t.kind]||esc(t.kind)} ${t.tag_no?'#'+esc(t.tag_no):''} <small>${esc(t.memo||'')}</small></span><button class="xb" data-tagdel="${t.id}" aria-label="削除">×</button></div>`).join('');
   $('bTags').querySelectorAll('[data-tagdel]').forEach(x=>x.onclick=guard(x,async()=>{ const tg=(b.bill_tags||[]).find(z=>z.id===x.dataset.tagdel), nm=`${TAGK[tg?.kind]||tg?.kind||''}${tg?.tag_no?' #'+tg.tag_no:''}`; /* 付け間違い・先に帰るお客様の分（SQL 438） */
     if(!await uiConfirm(`${nm} を削除しますか？`)) return; const q=await sb.rpc('pos_tag_del',{p_id:tg.id}); if(q.error){ toast('削除できません：'+q.error.message); return; } await logOp('お預かり削除',{kind:TAGK[tg?.kind],tag_no:tg?.tag_no}); openBill(b.id); }));
+}
+/* お客様 */
+function rbCust(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bCust').innerHTML=(b.bill_customers||[]).map(c=>{ const cu=customers.find(x=>x.id===c.customer_id); return `<div class="item"><span class="n">${esc(cu?.name||'')}</span><button class="xb" data-rmcust="${c.customer_id}">×</button></div>`; }).join('');
   $('bCust').querySelectorAll('[data-rmcust]').forEach(x=>x.onclick=async()=>{ { const dl=await sb.rpc('pos_rows_del',{p_table:'bill_customers',p_where:{bill_id:(b.id)??null,customer_id:(x.dataset.rmcust)??null}}); if(dl.error){ toast(dl.error.message); return; } } await logOp('お客様を伝票から外す',{customer:customers.find(z=>z.id===x.dataset.rmcust)?.name}); openBill(b.id); }); /* v12.30：外せたのを確かめてから記録 */
+}
+/* 係・同伴・反応◎ */
+function rbCasts(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bCasts').innerHTML=(b.bill_casts||[]).map(c=>`<div class="item cast"><span class="n"><span class="nm">${present.has(c.staff_id)?'✓ ':''}${esc(snm(c.staff_id))}</span> ${c.is_kakari?'<span class="badge k">'+KL+'</span>':''} ${ROLE[c.role]?`<span class="badge">${ROLE[c.role]}</span>`:''}${present.has(c.staff_id)||staffAll.find(z=>z.id===c.staff_id)?.kakari_only?'':' <span class="badge gray">未出勤</span>'}</span><div class="btns"><button class="xb" data-rmcast="${c.id}">×</button></div></div>`).join('');
   $('bCasts').querySelectorAll('[data-rmcast]').forEach(x=>x.onclick=async()=>{ const bc=(b.bill_casts||[]).find(c=>c.id===x.dataset.rmcast); { const dl=await sb.rpc('pos_rows_del',{p_table:'bill_casts',p_where:{id:(x.dataset.rmcast)??null}}); if(dl.error){ toast('キャストを外せません：'+dl.error.message); return; } } await logOp('キャストを伝票から外す',{name:snm(bc?.staff_id)}); if(bc?.is_kakari) await syncHcBack(); /* v11.95：その人のバックが付いた注文が残っていたら知らせる（ゲネプロ #51） */ const left=(b.bill_items||[]).filter(i=>!i.is_void&&i.name!=='HC'&&(i.bill_item_splits||[]).some(sp=>sp.staff_id===bc?.staff_id)).map(i=>`${i.name}×${i.qty}`); await openBill(b.id); if(left.length) await uiAlert(`${snm(bc?.staff_id)} のバックが付いた注文が残っています。\n${left.join('・')}\n修正する時は、注文の「振分」を押してください`); });
   renderGood(b); // v10.53：反応◎
+}
+/* セット・VIP・延長 */
+function rbSetHtml(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bSet').innerHTML=`<div class="item"><span class="n">1セット ${b.set_minutes}分<br><small>${yen(b.set_unit_price)}×${b.set_guest_count??b.guest_count}</small></span><span class="amt">${yen(b.set_unit_price*(b.set_guest_count??b.guest_count))}</span></div>`+
     (t?.vip_set_fee>0&&!b.vip_set_off?`<div class="item" style="flex-wrap:nowrap;gap:6px"><span class="n" style="white-space:nowrap"><span class="badge warnb">VIP</span> VIP代</span><span class="amt">${yen(b.totals?.vip_set??t.vip_set_fee)}</span><button class="xb" data-vipoff aria-label="削除">×</button></div>`:'')+ /* v12.64・SQL 371：VIP代は × で外せる（サービス） */ /* SQL 414：金額は calc_bill の値（会計済みの伝票は会計した時の VIP代） */
     (()=>{ const ex=b.bill_extensions||[]; if(!ex.length) return ''; const tot=ex.reduce((a,e)=>a+e.unit_price*e.qty,0), mins=ex.reduce((a,e)=>a+e.minutes,0);
@@ -65,6 +82,8 @@ function renderBill(){ const b=cur, t=tables.find(x=>x.id===b.table_id);
         (t?.vip_ext_fee>0?`<div class="item"><span class="n">VIP${settings.ext_minutes}分延長 ×${ex.length}</span><span class="amt">${yen(b.totals?.vip_ext??t.vip_ext_fee*ex.length)}</span></div>`:''); })()+
     (b.ext_waived_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した延長 ${b.ext_waived_minutes}分（料金なし）</div>`:'')+
     (t?.vip_set_fee>0&&b.vip_set_off?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した VIP代（料金なし）</div>`:'');
+}
+function rbSetBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   if($('extSum')) $('extSum').onclick=()=>{ extOpen=!extOpen; openBill(b.id); };
   $('bSet').querySelectorAll('[data-vipoff]').forEach(x=>x.onclick=async()=>{ const why=await askWhy(`VIP代 ${yen(t.vip_set_fee)} を削除します。`); if(why===null) return; { const up=await sb.rpc('pos_rows_set',{p_table:'bills',p_where:{id:(b.id)??null},p:{vip_set_off:true}}); if(up.error){ if(await stale(up.error)) return; toast('VIP代を削除できません：'+up.error.message); return; } } await logOp('VIP代削除',{table:t.name,amount:t.vip_set_fee},why); openBill(b.id); });
   $('bSet').querySelectorAll('[data-ext]').forEach(x=>x.onclick=async()=>{ const e=(b.bill_extensions||[]).find(z=>z.id===x.dataset.ext); const why=await askWhy(`延長 ${e?.minutes??''}分 ${yen(e?e.unit_price*e.qty:0)} を削除します。`); if(why===null) return; { const dl=await sb.rpc('pos_rows_del',{p_table:'bill_extensions',p_where:{id:(x.dataset.ext)??null}}); if(dl.error){ if(await stale(dl.error)) return; toast('延長を削除できません：'+dl.error.message); return; } } await logOp('延長削除',{minutes:e?.minutes,amount:e?e.unit_price*e.qty:null,is_auto:e?.is_auto},why);
@@ -72,14 +91,23 @@ function renderBill(){ const b=cur, t=tables.find(x=>x.id===b.table_id);
     const rest=(b.bill_extensions||[]).filter(z=>z.id!==x.dataset.ext); const endAfter=billEnd({...b,bill_extensions:rest});
     if(e&&endAfter<new Date()){ const r=await sb.rpc('pos_ext_waive',{p_bill:b.id,p_minutes:e.minutes}); if(r.error) toast(r.error.message); } /* v12.30・SQL 291：今の値に足す（2台同時でも消えない） */
     openBill(b.id); });
+}
+/* 注文の行の部品（ボトルかどうか・値段や数を変えられるか・1行の形） */
+function rbItemKit(R){ const {b,t,mode,T0}=R;
   const items=(b.bill_items||[]).filter(i=>!i.is_void); const grp=groupItems(items), gOf=id=>grp.find(g=>g.id===id); /* v12.70：同じ注文は1行にまとめる（×・金額・振分・数量はまとめた注文の全部に） */
   const isBottle=i=>{ const p=products.find(x=>x.id===i.product_id); const cn=categories.find(c=>c.id===(i.category_id||p?.category_id))?.name||''; return !!p?.is_keepable||/シャンパン|ワイン|ボトル|焼酎|ウイスキー|ウィスキー|ブランデー/.test(cn); };
   const priceEdit=i=>(!!settings.auto_hc_product_id&&i.product_id===settings.auto_hc_product_id)||/^h\.?c/i.test(i.name||''); // v10.42：伝票上で金額を変えられるのは h.c だけ。ほかは枠なしの文字
   const qtyEdit=i=>noBack(i)&&!isBottle(i)&&!priceEdit(i)&&!i.is_keep&&!/^(HC|BC)$/i.test(i.name||''); // v12.70：数量を変えられるのはバックが無い品だけ（ボトル・HC・BC・h.c は対象外）
   const itemRow=i=>{ const sp=(i.bill_item_splits||[]).map(s=>staff.find(x=>x.id===s.staff_id)?.display_name).filter(Boolean).join('/');
     return `<div class="item" style="flex-wrap:nowrap;gap:6px;padding-left:8px;padding-right:8px"><span class="n" style="flex:1 1 0;min-width:0">${esc(i.name)} ${qtyEdit(i)?`<span class="qb" data-qty="${i.id}">×${i.qty}</span>`:`×${i.qty}`}${noBack(i)?'':`<br><small>${sp?'バック:'+esc(sp):'バックなし'}</small> <button class="ghost sm" data-split="${i.id}">振分</button>`}</span>${priceEdit(i)?`<button class="ghost sm amt" data-price="${i.id}" style="min-width:0;flex:0 0 auto;white-space:nowrap">${yen(i.unit_price*i.qty)}</button>`:`<span class="amt" style="min-width:0;flex:0 0 auto;white-space:nowrap">${yen(i.unit_price*i.qty)}</span>`}<button class="xb" data-del="${i.id}">×</button></div>`; }; /* v12.70：× はどの行も右端にそろえる（振分はバックの人の横） */
+  return {items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}; }
+/* 注文（ボトルとそのほか） */
+function rbItems(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bItems').innerHTML=grp.filter(isBottle).map(itemRow).join('')||'<div class="muted">なし</div>';
   $('bItems2').innerHTML=grp.filter(i=>!isBottle(i)).map(itemRow).join('')||'<div class="muted">なし</div>';
+}
+/* 注文の値段・取消・振分・数量 */
+function rbItemBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bOrders').querySelectorAll('[data-price]').forEach(x=>x.onclick=async()=>{ const it=gOf(x.dataset.price); const v=await uiPrompt(`${it.name} の1つあたりの金額`, it.unit_price); if(v===null)return; const np=parseInt(v,10); if(isNaN(np)||np<0){toast('金額が正しくありません');return;} if(np===it.unit_price)return; const why=await askReason(`${it.name} の金額を ${yen(it.unit_price)} → ${yen(np)} に変更します。`); if(!why)return;
     const p0=products.find(p=>p.id===it.product_id); const zero=Number(p0?p0.cast_subtotal_price:it.cast_subtotal_price)===0; // 小計価格が0円の商品（h.c・b.c・立替金など）は、金額を変更しても係小計には入れない
     { const up=await sb.rpc('pos_rows_set',{p_table:'bill_items',p_where:{id:(it.ids)??null},p:{unit_price:np,cast_subtotal_price:zero?0:np}}); if(up.error){ if(await stale(up.error)) return; toast('単価を変更できません：'+up.error.message); return; } } await logOp('金額変更',{item:it.name,qty:it.qty,before:it.unit_price,after:np},why); /* v12.30：変えられたのを確かめてから記録 */
@@ -87,10 +115,14 @@ function renderBill(){ const b=cur, t=tables.find(x=>x.id===b.table_id);
   $('bOrders').querySelectorAll('[data-del]').forEach(x=>x.onclick=async()=>{ const it=gOf(x.dataset.del); if(await askBy()===null||!await uiConfirm(`${it?.name??''} ×${it?.qty??''}（${yen(it?it.unit_price*it.qty:0)}）を削除します。`)) return; /* v12.70：注文の削除・数量を減らす時は理由を聞かない（2026-11-06 オーナー「理由は入れなくてもいい」）。入れた人は今までどおり */ const r=await sb.rpc('pos_rows_set',{p_table:'bill_items',p_where:{id:(it.ids)??null},p:{is_void:true}}); if(r.error){ if(await stale(r.error)) return; toast('削除できません：'+r.error.message); return; } await logOp('注文削除',{item:it?.name,qty:it?.qty,amount:it?it.unit_price*it.qty:null}); await openBill(b.id); if((cur?.totals?.unpaid??0)<0) await uiAlert(`入金が請求額より ${yen(-cur.totals.unpaid)} 多くなりました。会計の画面で入金を取り消してください`); }); /* v11.43：削除を確かめてから記録（前は失敗しても記録が残った） */
   $('bOrders').querySelectorAll('[data-split]').forEach(x=>x.onclick=()=>openSplit(gOf(x.dataset.split)));
   $('bOrders').querySelectorAll('[data-qty]').forEach(x=>x.onclick=()=>qtyChange(b,gOf(x.dataset.qty)));
+}
+/* 合計とボタン（会計済みは押せない） */
+function rbTotals(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   const T=b.totals;
   $('bTotals').innerHTML=`<span>小計</span><span class="right">${yen(T.subtotal)}</span><span>サービス料${T.service_rate!=null?' '+T.service_rate+'%':''}</span><span class="right">${yen(T.service)}</span><span>消費税</span><span class="right">${yen(T.tax)}</span><span>合計</span><span class="right">${yen(T.total_rounded)}</span>${T.adjustment?`<span>値引/値増</span><span class="right">${yen(T.adjustment)}</span>`:''}<span class="big">請求額</span><span class="big right">${yen(T.amount_due)}</span>${T.paid>0&&!isOki(b)?`<span>入金済</span><span class="right">${yen(T.paid)}</span><span>未収</span><span class="right">${yen(T.unpaid)}</span>`:''}${kakariRows(b,T)}`; /* v11.86：途中退店などで先に受け取った分を伝票でも見せる（ゲネプロ #33） */
   const ro=b.status!=='open'; $('bBack').textContent=billFrom==='bills'?'伝票一覧へ':'ホールへ'; let pb=$('bPaid'); if(!pb){ pb=document.createElement('div'); pb.id='bPaid'; pb.style.cssText='flex:1 1 280px;max-width:460px'; $('bTotals').after(pb); } pb.innerHTML='';
-  const okiB=isOki(b); $('v-bill').querySelectorAll('button').forEach(x=>{ const keep=['bBack','extSumBtn'].includes(x.id)||(okiB&&['prEst','prBill','prDetail','bPay'].includes(x.id)); x.disabled=ro&&!keep; x.style.display=(ro&&!keep)?'none':''; }); renderStatement(b,T,ro&&!okiB); $('gLeave').style.display=(b.status==='open'&&b.guest_count>=2)?'':'none'; $('bTime').style.cssText=b.status==='open'?'cursor:pointer;text-decoration:underline dotted':''; }
+  const okiB=isOki(b); $('v-bill').querySelectorAll('button').forEach(x=>{ const keep=['bBack','extSumBtn'].includes(x.id)||(okiB&&['prEst','prBill','prDetail','bPay'].includes(x.id)); x.disabled=ro&&!keep; x.style.display=(ro&&!keep)?'none':''; }); renderStatement(b,T,ro&&!okiB); $('gLeave').style.display=(b.status==='open'&&b.guest_count>=2)?'':'none'; $('bTime').style.cssText=b.status==='open'?'cursor:pointer;text-decoration:underline dotted':'';
+}
 // v12.70：まとめた行の数量の変更。増やす＝増えた分を新しい注文で足す／減らす＝入れた人を聞いて、後から入れた注文から減らす（0 は × で削除）
 async function qtyChange(b,g){ if(!g) return; const v=await uiPrompt(`${g.name} の数量`, g.qty); if(v===null) return; const n=Number(String(v).trim()); if(!Number.isInteger(n)||n<0){ toast('数量が正しくありません'); return; } if(n===g.qty) return; if(n===0){ toast('削除は × を押してください'); return; }
   const bad=async e=>{ if(await stale(e)) return; toast('数量を変更できません：'+e.message); };
@@ -109,7 +141,7 @@ function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card');
   const L=(l,r,cls)=>`<div class="ln ${cls||''}"><span>${l}</span><span style="white-space:nowrap">${r}</span></div>`;
   const items=groupItems((b.bill_items||[]).filter(i=>!i.is_void)).map(i=>{ const bk=(i.bill_item_splits||[]).filter(sp=>(sp.back_amount||0)>0||Number(sp.back_points||0)>0).map(sp=>sn(sp.staff_id)).filter(Boolean); return L(`${esc(i.name)} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`, yen(i.unit_price*i.qty)); }).join('');
   const pays=[]; (b.payments||[]).filter(p=>p.amount>0).forEach(p=>{ const k=p.method+'|'+(p.method==='oki'&&p.received_at?md(p.received_at):'')+(p.method==='invoice'?'|'+(p.invoice_paid_on||''):''); const e=pays.find(z=>z.k===k); if(e) e.amount+=p.amount; else pays.push({k,method:p.method,amount:p.amount,received_at:p.received_at,invoice_paid_on:p.invoice_paid_on}); }); const adjs=(b.bill_adjustments||[]);
-  st.innerHTML=`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(tables.find(x=>x.id===b.table_id)?.name||'')}</b><span>${bd}　${b.closed_at?hm5(b.opened_at)+'〜'+hm(b.closed_at):esc($('bTime').textContent)}　${b.guest_count}名</span><span class="badge gray" style="margin-left:auto;font-size:15px">${b.status==='void'?'削除済':'会計済'}</span></div>
+  st.innerHTML=`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(tables.find(x=>x.id===b.table_id)?.name||'')}</b><span>${bd}　${b.closed_at?hm5(b.opened_at)+'〜'+hmJst(b.closed_at):esc($('bTime').textContent)}　${b.guest_count}名</span><span class="badge gray" style="margin-left:auto;font-size:15px">${b.status==='void'?'削除済':'会計済'}</span></div>
   <div class="sm" style="margin-top:6px">お客様：${custs.length?esc(custs.map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}</div><hr>
   ${(T.set||0)?L(`セット <small>× ${T.set_guests??b.guest_count}</small>`,yen(T.set)):''}${(T.vip_set||0)?L('VIPルーム料金',yen(T.vip_set)):''}${(T.extension||0)?L(`延長 <small>計${extMin}分</small>`,yen(T.extension)):''}${(T.vip_ext||0)?L('VIPルーム延長',yen(T.vip_ext)):''}${items}<hr>
   ${L('小計',yen(T.subtotal),'sm')}${L('サービス料'+(T.service_rate!=null?' '+T.service_rate+'%':''),yen(T.service),'sm')}${L('消費税',yen(T.tax),'sm')}${adjs.map(a=>L((a.kind==='discount'?'値引':'値増')+(a.reason?` <small>${esc(a.reason)}</small>`:''),(a.kind==='discount'?'−':'')+yen(a.amount),'sm')).join('')}

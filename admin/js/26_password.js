@@ -35,7 +35,7 @@ function bindOwn(){ $('mySave').onclick=guard($('mySave'),async()=>{
   $('myPw1').value=''; $('myPw2').value=''; toast('パスワードを変更しました'); if(page==='pw') PAGES.pw(); }); }
 async function changeOne(key,label){
   const [kind,id]=[key.slice(0,key.indexOf(':')),key.slice(key.indexOf(':')+1)];
-  const m=modal(`<h2 style="margin:0">パスワードの変更</h2><div>${esc(label)}</div>
+  const m=mkModal(null,`<h2 style="margin:0">パスワードの変更</h2><div>${esc(label)}</div>
     <label>新しいパスワード（8文字以上）<input data-k="pw" autocapitalize="off" spellcheck="false"></label>
     <div class="muted" style="font-size:14px">${kind==='acc'?'このIDでログインしている分はログアウトされます':'この端末・サイトでログインしている分は全部ログアウトされます'}</div>
     <div class="bar"><button class="ghost" data-k="gen">自動作成</button><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">変更</button></div>`);

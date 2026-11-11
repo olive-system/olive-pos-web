@@ -51,7 +51,10 @@ function shiftPaint(ng){
 async function shiftDay(iso){
   const F = (SHIFT.fixed || []).find(f => iso >= f.month && iso.slice(0,7) === String(f.month).slice(0,7)); if(!F) return;
   const t = (F.days||[]).find(x => x.day === iso), k = (F.marks||[]).filter(x => x.day === iso), d = new Date(iso+'T00:00:00+09:00');
-  await uiView(`${mdWD(d)}\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`);
+  // v1.65・SQL 442：その日の出勤キャストの名前（オーナー 2026-11-11 見本 シフト_ほかの出勤_案 の案ア「人数は表示させない」）。出勤時刻・誰と同伴かは出さない。読めない時は自分の分だけ
+  const q = await Promise.resolve(sb.rpc('cast_shift_mates', { p_token: TOKEN, p_day: iso })).catch(() => null), L = q && !q.error ? q.data || [] : [];
+  await uiView(`${mdWD(d)}\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`
+    + (L.length ? `\n\n出勤キャスト\n${L.map(x => x.name + (x.douhan ? '（同伴）' : '')).join('・')}` : ''));
 }
 
 // v0.70・SQL 257：黒服とママ（staff.shift_all）はキャスト全員のシフト（オーナー 2026-10-26 見本 全員のシフト_マイページ_見本「この形で作る」）。
@@ -73,6 +76,11 @@ async function shiftAll(store){
   const r = await sb.rpc('cast_shift_all', { p_token: TOKEN, p_store: store || null }); if(r.error){ fail(r.error.message); return; }
   const mt = pMt ? await pMt : null, mtBox = mt && !mt.error ? mtHallBox(mt.data) : '';
   const A = SHALL = r.data, td = new Date(A.today+'T00:00:00+09:00'), KLs = A.kakari_label || '係';
+  const S = saKitB(saKitA({ store, mtBox, A, td, KLs })); S.cal = M => saCal(S, M);
+  show(`${S.sw}${S.shHead}${S.mtBox}<div class="card"><div class="gh">本日 ${mdWD(S.td)} 出勤 ${S.tL.length}人${S.tL.some(x => x.trial) || (!SHQ && S.tHt.length) ? apLegend() : ''}</div>${S.rows(S.tL) || '<div class="muted sm">シフトなし</div>'}${S.todayExtra}</div>${(S.A.months || []).map(S.cal).join('')}`);
+  saBind(S); }
+/* 全員のシフトの部品：時刻ごとのまとめ・予約・面接・黒服の休み */
+function saKitA(S){ const { store, mtBox, A, td, KLs } = S;
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   // v0.72・SQL 259：同伴がある人は「同伴」の行にまとめて件数だけ（オーナー 2026-10-26 案ア）。黒服はシフトに出さない（休みの日だけ「黒服の休み」）
   const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x); }); /* v0.84・SQL 273。v1.18：体験は「（体験）」を付けず、名前を丸で囲む（オーナー 2026-11-04） */
@@ -86,6 +94,9 @@ async function shiftAll(store){
   const who = x => [x.by ? `誘客 ${x.by}` : '', x.kakari && A.store !== 'hiroshima' ? `${KLs} ${x.kakari}` : ''].filter(Boolean).join('・'); /* v0.90：広島は担当を出さない（予約画面 v0.86 と同じ。2026-10-29 オーナー） */
   const ivOf = iso => all('iv').filter(x => x.day === iso), htOf = iso => all('hall_trial').filter(x => x.day === iso); /* v1.18・SQL 347：面接・黒服の体験 */
   const ivRows = L => L.map((x, i) => `<div data-ap="${x.id}" style="display:grid;grid-template-columns:3.2em minmax(0,1fr);gap:6px;padding:4px 0;cursor:pointer;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(x.time)}</b><span>${esc(x.name)}</span></div>`).join('');
+  return { ...S, box, groups, rows, all, hit, shT, hallOff, resvOf, rvHead, who, ivOf, htOf, ivRows }; }
+/* 今日の分・店の切り替え・見出し */
+function saKitB(S){ const { store, mtBox, A, td, KLs, box, groups, rows, all, hit, shT, hallOff, resvOf, rvHead, who, ivOf, htOf, ivRows } = S;
   const cur = (A.months || [])[0] || {}, tL = (cur.fixed ? cur.shifts || [] : []).filter(x => x.day === A.today && hit(x)), tOff = hallOff(A.today), tR = resvOf(A.today), tIv = ivOf(A.today), tHt = htOf(A.today);
   const sep = '<div style="border-top:1px solid var(--line);margin:8px 0"></div>';
   const todayExtra = SHQ ? '' : (tOff.length ? `${sep}<div class="gh">黒服の休み</div><div>${esc(tOff.join('・'))}</div>` : '')
@@ -93,12 +104,16 @@ async function shiftAll(store){
     + (tR.length ? `${sep}<div class="gh">${rvHead(tR)}</div>${tR.map((x, i) => rvRow(x, who(x), i)).join('')}` : '') /* v0.79：しるしは右の列・同伴の子 */
     + (tIv.length ? `${sep}<div class="gh">面接 ${tIv.length}件</div>${ivRows(tIv)}` : '');
   const sw = (A.stores || []).length > 1 ? `<div style="display:flex;gap:8px;margin-bottom:10px">${A.stores.map(s => `<button class="btn${s.code === A.store ? '' : ' g'}" data-shst="${s.code}" style="flex:1">${esc(SH_STORE[s.code] || s.name)}</button>`).join('')}</div>` : '';
-  const cal = M => { const OFF = new Set(M.off || []), D = {}, RV = {}; (M.shifts || []).forEach(x => (D[x.day] = D[x.day] || []).push(x)); (M.resv || []).forEach(x => RV[x.day] = (RV[x.day] || 0) + 1); const IV = {}; (M.iv || []).forEach(x => IV[x.day] = (IV[x.day] || 0) + 1); /* v1.18 */ const RVD = {}; (M.resv || []).forEach(x => { if(x.douhan) RVD[x.day] = (RVD[x.day] || 0) + 1; }); /* v0.74：同伴と、同伴でない予約を分けて出す（足すと合計。オーナー 2026-10-26「予約が2件と別に同伴が2件で合計4件あるみたい」→ 見本でウ「予約0 と表示したい」）。v0.75：同伴・予約の行は場所を固定して、0 も出す（オーナー「予約の場所、同伴の列、固定して」「同伴も0ならゼロで表示する」） */
+  const shHead = `<div style="position:relative;margin-bottom:6px"><div class="ttl" style="margin:0;line-height:36px">シフト（全員）</div><div style="position:absolute;right:0;top:0">${SHQ ? `<span style="display:inline-flex;align-items:center;height:36px;max-width:9em;border:1px solid var(--line);border-radius:8px;padding:0 2px 0 10px;background:var(--card);font-size:14px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(SHQ)}</span><button class="xb" id="shQx" aria-label="解除">×</button></span>` : '<button class="btn g" id="shQgo" style="width:auto;padding:0 14px;height:36px;font-size:14px">検索</button>'}</div></div>`; /* v1.38 */
+  return { ...S, cur, tL, tOff, tR, tIv, tHt, sep, todayExtra, sw, shHead }; }
+/* 1か月のカレンダー（確定した月） */
+function saCal(S, M){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hallOff,resvOf,rvHead,who,ivOf,htOf,ivRows,cur,tL,tOff,tR,tIv,tHt,sep,todayExtra,sw,shHead } = S; const OFF = new Set(M.off || []), D = {}, RV = {}; (M.shifts || []).forEach(x => (D[x.day] = D[x.day] || []).push(x)); (M.resv || []).forEach(x => RV[x.day] = (RV[x.day] || 0) + 1); const IV = {}; (M.iv || []).forEach(x => IV[x.day] = (IV[x.day] || 0) + 1); /* v1.18 */ const RVD = {}; (M.resv || []).forEach(x => { if(x.douhan) RVD[x.day] = (RVD[x.day] || 0) + 1; }); /* v0.74：同伴と、同伴でない予約を分けて出す（足すと合計。オーナー 2026-10-26「予約が2件と別に同伴が2件で合計4件あるみたい」→ 見本でウ「予約0 と表示したい」）。v0.75：同伴・予約の行は場所を固定して、0 も出す（オーナー「予約の場所、同伴の列、固定して」「同伴も0ならゼロで表示する」） */
     return `<div class="card"><div class="gh">${Number(String(M.month).slice(5,7))}月の出勤（確定）</div>${M.fixed ? calGrid(M.month, (iso, d) => { const LA = D[iso] || [], L = LA.filter(hit), dh = L.reduce((a, x) => a + Number(x.douhan || 0), 0), rv = RV[iso] || 0;
       const iv = IV[iso] || 0; return `<div ${LA.length||rv||iv||(iso>=A.today&&!OFF.has(iso))?`data-sa="${iso}"`:''} style="${box};${L.length?'cursor:pointer;background:var(--gold-soft);font-weight:700':''}">${d}${SHQ ? (L.length ? `<small style="display:block;font-size:10px;color:var(--pri);white-space:nowrap">${L.length > 1 ? L.length + '人' : esc(shT(L[0]))}</small>` : OFF.has(iso) ? '<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>' : '') : L.length?`<small style="display:block;font-size:10px;color:var(--pri)">${L.length}人</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':''}${!SHQ && (L.length || rv || iv) ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">同伴${RVD[iso] || 0}</small><small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">予約${rv - (RVD[iso] || 0)}</small><small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">面接${iv}</small>` : ''}</div>`; })
-      + '<div class="muted sm" style="margin-top:6px">タップで詳細表示</div>' : '<div class="muted sm">まだ確定していません</div>'}</div>`; };
-  const shHead = `<div style="position:relative;margin-bottom:6px"><div class="ttl" style="margin:0;line-height:36px">シフト（全員）</div><div style="position:absolute;right:0;top:0">${SHQ ? `<span style="display:inline-flex;align-items:center;height:36px;max-width:9em;border:1px solid var(--line);border-radius:8px;padding:0 2px 0 10px;background:var(--card);font-size:14px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(SHQ)}</span><button class="xb" id="shQx" aria-label="解除">×</button></span>` : '<button class="btn g" id="shQgo" style="width:auto;padding:0 14px;height:36px;font-size:14px">検索</button>'}</div></div>`; /* v1.38 */
-  show(`${sw}${shHead}${mtBox}<div class="card"><div class="gh">本日 ${mdWD(td)} 出勤 ${tL.length}人${tL.some(x => x.trial) || (!SHQ && tHt.length) ? apLegend() : ''}</div>${rows(tL) || '<div class="muted sm">シフトなし</div>'}${todayExtra}</div>${(A.months || []).map(cal).join('')}`);
+      + '<div class="muted sm" style="margin-top:6px">タップで詳細表示</div>' : '<div class="muted sm">まだ確定していません</div>'}</div>`;
+}
+/* 押した時の動き：検索・店・面接・日の小窓 */
+function saBind(S){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hallOff,resvOf,rvHead,who,ivOf,htOf,ivRows,cur,tL,tOff,tR,tIv,tHt,sep,todayExtra,sw,shHead } = S;
   if($('shQgo')) $('shQgo').onclick = async () => { const v = await shSearch(); if(v){ SHQ = v; shiftAll(A.store); } };
   if($('shQx')) $('shQx').onclick = () => { SHQ = ''; shiftAll(A.store); };
   if($('mtGo')) $('mtGo').onclick = () => mtHall(() => shiftAll(store)); /* v1.17 */

@@ -34,7 +34,7 @@ PAGES.o_ids=async()=>{
   $('main').querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>editAccount(list.find(a=>a.id===b.dataset.ed),halls));
 };
 async function editAccount(a,halls){ if(!a) return;
-  const m=modal(`<h2 style="margin:0">IDの変更：${esc(a.login_id)}</h2>
+  const m=mkModal(null,`<h2 style="margin:0">IDの変更：${esc(a.login_id)}</h2>
     <label>名前<input data-k="name" value="${esc(a.name)}"></label>
     <label>黒服と連携<select data-k="staff"><option value="">連携なし</option>${halls.map(h=>`<option value="${h.id}" ${h.id===a.staff_id?'selected':''}>${esc(h.name)}</option>`).join('')}${a.staff_id&&!halls.some(h=>h.id===a.staff_id)?`<option value="${a.staff_id}" selected>${esc(a.staff_name||'（削除済の黒服）')}</option>`:''}</select></label>
     <label>状態<select data-k="active"><option value="1" ${a.is_active?'selected':''}>使える</option><option value="0" ${a.is_active?'':'selected'}>停止（ログイン不可）</option></select></label>

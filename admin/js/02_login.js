@@ -22,7 +22,7 @@ async function loadMe(){ let r=await sb.rpc('admin_me'); if(r.error){ let re=nul
 async function start(){
   const { data:{ session } }=await sb.auth.getSession(); if(!session){ showLogin(); return; }
   me=await loadMe();
-  if(me===undefined){ showLogin('通信を確かめています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); return; }
+  if(me===undefined){ showLogin('通信を確認しています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); return; }
   if(me&&!me.is_owner){ const ms=await sb.rpc('admin_my_staff'); me.staff_id=ms.error?undefined:ms.data; } /* v0.68・SQL 087：結びつけた黒服。黒服の報酬は自分の分だけ出す（関数が無い時は undefined＝今までどおり） */
   if(!me){ await sb.auth.signOut(); showLogin('このIDでは管理サイトにログインできません（停止中か、パスワードが変更されました）'); return; }
   const saved=(()=>{ try{ return localStorage.getItem('olive_admin_store'); }catch(e){ return null; } })();

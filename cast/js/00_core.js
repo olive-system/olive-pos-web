@@ -3,7 +3,6 @@
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
 const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
 const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
-const WD = ['日','月','火','水','木','金','土'];
 const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`, mdDay = s => { const x = jd(s); return `${x.getMonth()+1}/${x.getDate()}`; }, mdW = s => mdWD(jd(s));
 /* v1.41・SQL 380：お客様のフリガナで検索（ひらがな・カタカナどちらでも。空白は無視） */
 const DRESS = '<img src="../icons/dress.svg" alt="黒ドレス" style="width:15px;height:15px;vertical-align:-2px;margin-left:2px">'; /* v1.30・SQL 368：黒ドレスの着用者の名前の横（オーナー 2026-11-05「イ 黒いドレスの形」。Phosphor） */

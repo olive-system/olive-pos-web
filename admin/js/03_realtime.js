@@ -27,7 +27,7 @@ function unsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')||UNSAVED_S
 $('main').addEventListener('input',unsavedMark,true); $('main').addEventListener('change',unsavedMark,true);
 const unsavedLeft=()=>[...unsavedBtns].filter(b=>b.isConnected&&!b.disabled), unsavedNow=()=>unsavedLeft().length>0;
 async function leaveOk(){ if(!unsavedNow()) return true;
-  const ans=await new Promise(res=>{ const m=modal(`<h2 style="margin:0">保存していない変更があります</h2>
+  const ans=await new Promise(res=>{ const m=mkModal(null,`<h2 style="margin:0">保存していない変更があります</h2>
       <div style="display:flex;flex-direction:column;gap:8px"><button class="primary" data-v="save">保存して進む</button><button class="ghost" data-v="go">保存せずに進む</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">戻る</button></div>`);
     m.querySelectorAll('button').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); });
   if(!ans) return false;

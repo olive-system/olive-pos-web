@@ -9,22 +9,18 @@ const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_te
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 /* v12.72・SQL 380：お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
 // v11.45：来店の時刻は5分切り上げ（09:17→09:20）。セットの始まり（set_start）も切り上げた時刻で記録し、セットの終わり・延長もそこから数える。来店の記録（opened_at）と退店（closed_at）は実際の時刻（オーナー 2026-10-15）
-const hm5=t=>hm(ceil5(t));
-const hm = t => { const d=new Date(t); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const hm5=t=>hmJst(ceil5(t));
 const ROLE = { douhan1:'同伴①', douhan2:'同伴②', douhan:'同伴', none:'' };
 const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
 const METHOD = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
 /* v11.96：?slot= で同じブラウザに2店を開いても、端末に残す設定が混ざらないように */ const SLOT=((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'')?'-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,''):'');
 let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], customers=[], openBills=[], cur=null, payMethod='cash', billFrom='hall';
 /* 2026-11-08 構造をシンプルに（2回目）：小窓の箱（class modal on・重なりの順番）を作る3つの手順を1つに（前は同じ3つが18か所） */
-function mkModal(z){ const m=document.createElement('div'); m.className='modal on'; m.style.zIndex=z; return m; }
 /* 2026-11-08 オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */
 const TOAST_NG=/(できません|エラー|読めません|出せません|取り消せません|外せません)：|読み込めません|失敗|通信できませんでした/;
 TOAST.ms=1800; TOAST.big=m=>{ if(TOAST_NG.test(String(m))&&typeof uiAlert==='function'&&!$('uiDlg').classList.contains('on')){ uiAlert(String(m)); return true; } return false; }; /* POS は失敗の知らせを見落とさないように、知らせの箱で出す */
 function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remove('on')); $(v).classList.add('on'); if(v==='v-hall'&&rtMastWait) setTimeout(rtMasters,0); }
 /* 同じ働きの書き方が画面ごとにあり、全角の数字を 0 と読む所があったので1つにする */
-const numIn=v=>Math.max(0,parseInt(String(v??'').replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'')||'0',10)||0);
-const WD_J='日月火水木金土', mdS=s=>`${+String(s).slice(5,7)}/${+String(s).slice(8,10)}`, wdS=s=>WD_J[new Date(String(s).slice(0,10)+'T00:00:00Z').getUTCDay()];
 /* 営業日の始まり（その日の 8:00・日本時間）。端末の時刻の設定に左右されないように +09:00 を付ける */
 setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; const bd=businessDate(d); $('hdDate').textContent=`${+bd.slice(5,7)}月${+bd.slice(8,10)}日`; /* v11.95：0時〜朝8時は前の日の営業日を出す（ゲネプロ #59） */ },1000);
 
@@ -64,22 +60,33 @@ storeSwLoad().then(storeSwShow);
 async function posTermLost(){ try{ const [tk]=await ptLoad(); const pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error||!pt.data) return false;
   if(pt.data.stale){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); return true; }
   if(pt.data.ok===false){ $('posReg').style.display='flex'; $('posRegCode').value=''; return true; } }catch(e){} return false; }
-async function start(){ const { data:{ session } } = await sb.auth.getSession(); if (!session) return;
+/* 起動で通信が通らない時は「通信を確認しています…」を出し、5秒ごとに自動でやり直す（管理サイト・タイムカードと同じ）。ログインしたまま待つ間は入力欄を出さない。
+   20秒たっても返事が無い時も、最初からやり直す。前は赤い文字が出るだけで止まり、通信が戻っても開かず、入力欄が出て「ログインできない」と思わせた（2026-11-11 広島） */
+let startRun=0;
+const loginWait=(on,msg)=>{ $('loginForm').classList.toggle('waiting',on); $('loginErr').textContent=msg||''; };
+async function start(){ const run=++startRun; clearTimeout(start.r); clearTimeout(start.slow);
+  const live=()=>run===startRun&&!hallOn; const retry=()=>{ if(!live()) return; loginWait(true,'通信を確認しています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); };
+  start.slow=setTimeout(retry,20000);
+  try{ const { data:{ session } } = await sb.auth.getSession(); if(!live()) return; if (!session){ loginWait(false); return; }
+  if(!$('loginErr').textContent) loginWait(true,'');
   /* v11.31・SQL 084：タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
-  try{ const tc=await sb.rpc('is_timecard_user'); if(tc.data===true){ await sb.auth.signOut(); $('loginErr').textContent='タイムカード専用IDでは、POS は開けません'; return; }
+  try{ const tc=await sb.rpc('is_timecard_user'); if(!live()) return; if(tc.data===true){ await sb.auth.signOut(); loginWait(false,'タイムカード専用IDでは、POS は開けません'); return; }
     const dl=await sb.rpc('db_logs_on'); DBLOG=dl.data===true; }catch(e){}
+  if(!live()) return;
   /* v12.01・SQL 186：登録した端末だけ開く。v12.20：確認できない時（通信の失敗など）も開かない */
   { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
-    const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note});
-    if(pt.error||!pt.data){ $('loginErr').textContent='端末を確認できません。通信を確認して、再度開いてください'; return; }
-    if(pt.data.stale){ await sb.auth.signOut(); $('loginErr').textContent='パスワードが変わりました。新しいパスワードでログインしてください'; return; } /* 点検 2026-11-02・SQL 313 */
-    if(pt.data.ok===false){ $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } termSwitch=pt.data.store_switch===true; }
-  $('login').classList.add('hidden'); checkVersion(); await loadMasters(true); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); hallOn=true; show('v-hall'); } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
+    const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note}); if(!live()) return;
+    if(pt.error||!pt.data){ retry(); return; }
+    if(pt.data.stale){ await sb.auth.signOut(); loginWait(false,'パスワードが変わりました。新しいパスワードでログインしてください'); return; } /* 点検 2026-11-02・SQL 313 */
+    if(pt.data.ok===false){ loginWait(false); $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } termSwitch=pt.data.store_switch===true; }
+  await loadMasters(true,true); if(!live()) return; if(!store){ retry(); return; } /* 店の設定が読めない時も開かずにやり直す（開くと店が空のまま動かない） */
+  hallOn=true; loginWait(false); $('login').classList.add('hidden'); checkVersion(); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); show('v-hall');
+  }finally{ if(run===startRun) clearTimeout(start.slow); /* 返事が来た時は止める。待ったまま返事が無い時だけ 20秒でやり直す */ } } /* v12.30：1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 
-async function loadMasters(withCust){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
+async function loadMasters(withCust,quiet){ /* v12.30：お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
   /* v13.04・SQL 427：店の設定（店・POS設定・料金・卓・分類・商品・在籍・閉店時刻）は入口の関数1回で読む（前は表を1つずつ8回） */
   const [m,cu] = await Promise.all([sb.rpc('pos_masters'), withCust?cuLoadAll():null]);
-  { const e=[m,cu].find(x=>x&&x.error); if(e) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
+  { const e=[m,cu].find(x=>x&&x.error); if(e&&!quiet) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
   if(m.error&&store) return; /* 読み直しで読めなかった時は、前に読んだ店の設定のまま（空にすると、次の読み直しまで store.id で止まった） */
   const d=m.data||{};
   store=d.store||undefined; kSet(store?.kakari_label); kDom(); settings=d.settings||undefined; modes=d.modes||[]; tables=d.tables||[]; categories=d.categories||[]; products=d.products||[]; staff=d.staff||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
