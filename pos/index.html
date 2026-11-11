@@ -10,7 +10,7 @@
 <script src="../lib/olive/staff_docs.js"></script><!-- スタッフの書類（管理サイトと同じ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v13.40 -->
+<title>OLIVE 会計</title><!-- v13.41 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <link rel="stylesheet" href="pos.css"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
@@ -38,7 +38,7 @@
   <nav class="nav">
     <button id="navHall">ホール<br>状況<span class="bd" id="bdHall">0</span></button>
     <button id="navOrder">注文</button>
-    <button id="navCasts">在籍<br>キャスト<span class="bd" id="bdCasts">0</span></button>
+    <button id="navCasts">スタッフ<span class="bd" id="bdCasts">0</span></button>
     <button id="navCust">顧客</button>
     <button id="navSettings">設定</button>
   </nav>
@@ -116,10 +116,11 @@
 <section class="view" id="v-casts"><div class="card">
   <div class="bar" style="margin:0 0 12px">
     <button class="pillbtn brown" id="cTabToday">在籍リスト<span id="cTodayN" style="display:none"></span></button>
+    <button class="pillbtn brown" id="cTabPast">退店・体験</button>
     <button class="pillbtn brown" id="cTabAll">全員</button>
     <button class="pillbtn brown" id="cSort">並べ替え</button>
     <button class="pillbtn brown" id="cNew">新規登録</button>
-    <input id="cSearch" placeholder="キャスト検索" style="flex:1;font-size:18px">
+    <input id="cSearch" placeholder="スタッフ検索" style="flex:1;font-size:18px">
     
   </div>
   <div class="cgrid">
