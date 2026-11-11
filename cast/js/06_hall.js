@@ -91,7 +91,6 @@ function hallSlipHtml(P){
     <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
     <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${N(x.prev_adjust)?L('前月精算', (N(x.prev_adjust)<0?'−':'')+Math.abs(N(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
 }
-const hm2 = t => t ? new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false }) : '';
 async function hallCasts(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('hall_casts', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
@@ -102,7 +101,7 @@ async function hallCasts(){
     const todo = [c.sales_left ? 'アプローチ' : '', c.docs ? esc(c.docs) : '', c.dress ? `ドレス ${mdDay(c.dress)}まで` : ''].filter(Boolean);
     return `<div style="padding:8px 0;${i?'border-top:1px solid var(--line)':''}"><div class="row" style="padding:0"><b>${esc(c.name)}</b><span class="sm">${att}</span></div>
       <div class="sm muted" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>${esc(KL)}小計 ${Math.round(N(st.sales)/10000).toLocaleString('ja-JP')}万・同伴${N(st.douhan)}・反応◎${N(st.reactions)}</span>${todo.length?`<span class="err">未提出：${todo.join('・')}</span>`:''}</div>
-      ${c.absent?`<div class="sm err">${hm2(c.absent.at)}・${esc(c.absent.reason||'')}</div>`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
+      ${c.absent?`<div class="sm err">${hmJst(c.absent.at)}・${esc(c.absent.reason||'')}</div>`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
 }
 let hcOpen = new Set();
 /* v0.38：天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー 2026-10-18「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
@@ -128,7 +127,7 @@ function hcPaint(){
   const C = hcD, G = C.guests || [], left = G.filter(g => g.customer && !g.ok_at).length;
   const tag = '<span style="display:inline-block;background:var(--pri);color:#fff;border-radius:4px;padding:0 5px;font-size:12px;font-weight:700">同伴</span> ';
   const guest = g => { const cu = g.customer, op = hcOpen.has(g.id) && cu;
-    const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済 ${hm2(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
+    const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済 ${hmJst(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
     let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${g.time}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${resvWho(g,{noKK:STORE==='hiroshima',mark:DRESS})}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div></div>`; /* v0.91：広島は担当を出さない（2026-10-29 オーナー）。v0.98・SQL 298：卓（POS の朝礼と同じ。選ぶとすぐ保存） */
     if(!op) return h;
     const bd = cu.birthday ? `${esc(cu.birthday)}${cu.bday_in===0?'（本日）':cu.bday_in!=null&&cu.bday_in<=7?`（あと${cu.bday_in}日）`:''}` : '—';

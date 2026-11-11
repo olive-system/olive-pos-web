@@ -6,7 +6,6 @@
 // 開始 → 作業中（ほかの黒服の画面にも出る）→ 完了（写真の項目は写真を撮って完了・決まった画面の項目は保存）。ほかの人が作業中の時は「交代」。対象が「限定」の項目は、限定項目「可」の黒服だけ
 let opShots = {}, opChecks = {}, opNotes = {}, opSwitch = false; /* v0.63：リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
 const TASK_TTL = { open:'開店作業', close:'閉店作業' };
-const hm = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
 const tBtn = (k, i, t, g) => `<button class="btn${g ? ' g' : ''}" data-${k}="${i}" style="display:inline-block;width:auto;flex:none;padding:7px 14px;font-size:14px">${t}</button>`;
 const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);border-radius:6px;padding:2px 7px;font-size:13px;white-space:nowrap">${esc(n || '')} 作業中</b>`; // v1.00：「名前 時刻 完了」「名前 作業中」の順（POS と同じ。完了・作業中の位置をそろえる。オーナー 2026-10-30）
 const ckAll = x => (x.checks || []).every((c, j) => (opChecks[x.id] || []).includes(j));
@@ -28,7 +27,7 @@ async function hallTasks(ph){
     let right;
     if(nil(x)) right = '<span class="muted sm">なし</span>';
     else if(x.status === 'done') right = x.kind === 'todo' ? '<b style="color:var(--ok);font-size:13px">完了</b>'
-      : `<b style="color:var(--ok);font-size:13px;white-space:nowrap">${esc(x.by || '')} ${x.at ? hm(x.at) : ''} 完了</b>${simple && x.staff_id === D.me ? tBtn('opu', i, '取消', true) : ''}`;
+      : `<b style="color:var(--ok);font-size:13px;white-space:nowrap">${esc(x.by || '')} ${x.at ? hmJst(x.at) : ''} 完了</b>${simple && x.staff_id === D.me ? tBtn('opu', i, '取消', true) : ''}`;
     else if(x.kind === 'todo') right = `<b style="color:var(--warn);font-size:13px">未完了 ${x.todo_open}</b>${tBtn('optd', i, '表示', true)}`;
     else if(na) right = `${x.wip_by ? wipTag(x.wip_by) : ''}<span class="muted sm">対象外</span>`;
     else if(other) right = `${wipTag(x.wip_by)}${tBtn('opt', i, '交代', true)}`;
