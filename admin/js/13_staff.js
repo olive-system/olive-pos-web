@@ -77,7 +77,12 @@ async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast
   const wire=()=>{ $('csBack').onclick=()=>{ csDetail=null; PAGES.set_cast(); }; if($('csBase')) $('csBase').onclick=()=>staffEdit(st,s,'cast'); $('main').querySelectorAll('.cs-tabs button').forEach(b=>b.onclick=()=>{ csTab=b.dataset.t; csDetailPage(); }); };
   wire();
   const t=csTab;
-  if(t==='sp'){
+  const K={st,s,ed,head,wire,t};
+  if(t==='sp') return cdSp(K);
+  if(t==='ord') return cdOrd(K);
+  return cdMemo(K); }
+/* 個別設定（支給・控除・時給）：一覧と追加の欄 */
+async function cdSp(K){ const {st,s,ed,head,wire,t}=K;
     const r=await sb.from('cast_specials').select('*').eq('staff_id',s.id).eq('is_void',false).order('from_month',{ascending:false}).order('created_at',{ascending:false});
     if(page!=='set_cast'||storeId!==st||csDetail?.s!==s||csTab!==t) return;
     if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; wire(); return; }
@@ -90,6 +95,8 @@ async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast
       <select id="spTo" style="width:auto"><option value="">無期限</option>${mo.map(x=>`<option value="${x}">${csMLabel(x)}まで</option>`).join('')}</select><button class="primary" id="spAdd">追加</button></div>
       <div class="muted hint" style="font-size:13px;margin-top:8px">支給・控除は、その期間の毎月の報酬に加算／減算する金額です。支給の「時給加算」は、1時間あたりの金額をスライド表の時給に加算します<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">「時給加算」は時給の人だけです（日給の人には付きません）。スライド表の金額に加算してから保証時給と比べるので、保証時給の方が高い間は決定時給は変わりません。時給で決まる罰金（％の罰金・同伴ノルマ）も、加算後の決定時給で計算します<br>罰金の免除は一覧の「罰金の免除」で決めます</div></div></div>`:''}`;
     wire(); if(!ed) return;
+  cdSpBind(K); }
+function cdSpBind(K){ const {st,s,ed,head,wire,t}=K;
     $('main').querySelectorAll('[data-del]').forEach(b=>b.onclick=guard(b,async()=>{ if(!await uiConfirm('この条件を削除しますか？','削除','danger')) return; const x=await rpc('admin_void_cast_special',{p_id:b.dataset.del}); if(!x.ok) return; toast('削除しました'); csDetailPage(); }));
     const spSync=()=>{ const pay=$('spK').value==='pay'; $('spW').classList.toggle('hide',!pay); if(!pay) $('spW').value=''; $('spA').placeholder=$('spW').value==='wage'?'1時間あたり':'金額'; }; $('spK').onchange=spSync; $('spW').onchange=spSync; spSync();
     const ad=$('spAdd'); ad.onclick=guard(ad,async()=>{ const kind=$('spK').value==='pay'&&$('spW').value==='wage'?'wage':$('spK').value, title=$('spT').value.trim(), a=slNum($('spA').value), f=$('spF').value, to=$('spTo').value||null;
@@ -98,15 +105,18 @@ async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast
       if(to&&to<f){ await uiAlert('期間が逆になっています'); return; }
       rtOwn=Date.now(); const x=await sb.rpc('admin_add_cast_special',{p_store:st,p_staff:s.id,p_kind:kind,p_title:title,p_amount:kind==='text'?null:a,p_from:f,p_to:to}); rtOwn=Date.now();
       if(x.error){ await uiAlert(kind==='wage'&&/種類が違います|cast_specials_kind_check/.test(x.error.message)?'SQL 079 が未実行です（「時給加算」はまだ使えません）':x.error.message); return; } toast('追加しました'); csDetailPage(); });
-    return; }
-  if(t==='ord'){ // v0.33・SQL 073：注文集計（その月、この人にバックが付いた注文を商品ごとに。取消は除く）
+}
+/* v0.33・SQL 073：注文集計（その月、この人にバックが付いた注文を商品ごとに。取消は除く） */
+async function cdOrd(K){ const {st,s,ed,head,wire,t}=K;
     const now=csNowMonth(); if(!csOrdM) csOrdM=now; const om=csOrdM, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
     $('main').innerHTML=head+`<div class="card"><select id="coM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===om?'selected':''}>${csMLabel(x)}</option>`).join('')}</select><div id="coBox" class="muted" style="margin-top:10px">読み込み中…</div></div>`; wire();
     $('coM').onchange=()=>{ csOrdM=$('coM').value; csDetailPage(); };
     const r=await sb.rpc('admin_cast_orders',{p_staff:s.id,p_month:om}); if(page!=='set_cast'||csDetail?.s!==s||csTab!==t||csOrdM!==om) return;
     if(r.error){ $('coBox').innerHTML=`<span class="err">${esc(/admin_cast_orders/.test(r.error.message)?'SQL 073 が未実行です：':'読み込めません：')}${esc(r.error.message)}</span>`; return; }
     const L=r.data||[]; $('coBox').className=''; $('coBox').innerHTML=L.length?`<table class="t"><tr><th>商品</th><th style="text-align:right">数</th><th style="text-align:right">注文額</th></tr>${L.map(x=>`<tr><td>${esc(x.name)}</td><td style="text-align:right">${Number(x.qty)}</td><td style="text-align:right">${yen(x.amount)}</td></tr>`).join('')}<tr class="kst"><td>合計</td><td style="text-align:right">${L.reduce((a,x)=>a+Number(x.qty),0)}</td><td style="text-align:right">${yen(L.reduce((a,x)=>a+Number(x.amount),0))}</td></tr></table><div class="muted" style="font-size:13px;margin-top:6px">この人にバックが付いた注文（会計済）。何人かで分けた注文も、それぞれの人に全部の数が入ります</div>`:'<div class="muted">この月の注文はありません</div>';
-    return; }
+}
+/* メモ（分類つき・管理サイトだけで見る） */
+async function cdMemo(K){ const {st,s,ed,head,wire,t}=K;
   const [nr,cr]=await Promise.all([sb.from('cast_notes').select('*').eq('staff_id',s.id).eq('is_void',false).order('created_at',{ascending:false}), sb.from('cast_note_cats').select('names').eq('store_id',st).maybeSingle()]);
   if(page!=='set_cast'||storeId!==st||csDetail?.s!==s||csTab!==t) return;
   if(nr.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(nr.error.message)}</div>`; wire(); return; }
