@@ -156,7 +156,8 @@ async function csCastSave(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,ca
     if(!out.length){ csEdit=false; toast('変更はありません'); PAGES.set_cast(); return; }
     let only=false;
     if(needP){ const ans=await csAskWhen(m); if(!ans) return; only=ans==='only'; }
-    const r=await rpc('admin_save_cast_settings',{p_store:st,p_month:m,p_only:only,p_rows:out}); if(!r.ok) ret
+    const r=await rpc('admin_save_cast_settings',{p_store:st,p_month:m,p_only:only,p_rows:out}); if(!r.ok) return;
+    csEdit=false; toast('保存しました'); PAGES.set_cast();
 }
 
 // v1.06・SQL 127：キャストのシフトの設定（希望出勤日数・出勤可能時間・出勤できる日のみ・入店日）。月に関係なし。POS のキャストの詳細からも入れられる
