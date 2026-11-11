@@ -56,7 +56,7 @@ async function resvForm(ed){
       <div style="display:flex;gap:8px;margin-top:8px"><label class="f" style="flex:1;min-width:0;margin:0">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
         <label class="f" style="width:64px;flex:none;margin:0">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label></div>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
-      ${NK?'':`<label class="f" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>`}
+      ${NK?'':`<label class="f" id="rvKW" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>`}
       ${/* v1.30・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
       <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end"><label class="f hide" id="rvVW" style="flex:1;min-width:0;margin:0">VIPルーム<select id="rvV" style="${fld}"><option value="">なし</option></select></label>
         <div style="flex:none"><div class="f">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 14px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 14px">あり</button></div></div></div>
@@ -114,9 +114,13 @@ async function resvForm(ed){
   const candPaint = L => { const b = $('rvCands'); if(!b) return;
     if(cid){ b.innerHTML = `<div class="sm" style="margin-top:6px;color:var(--ok);font-weight:700">✓ 顧客から選択</div>`; return; }
     b.innerHTML = L && L.length ? `<div class="muted sm" style="margin-top:8px">顧客の候補</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${L.map(x => `<button class="btn g" data-cu="${x.id}" data-nm="${esc(x.name)}" data-kk="${esc(x.kakari_id||'')}" style="width:auto;padding:8px 12px">${esc(x.name)}${x.kakari&&!NK?`<small class="muted">（${KL} ${esc(x.kakari)}）</small>`:''}</button>`).join('')}</div>` : '';
-    b.querySelectorAll('[data-cu]').forEach(x => x.onclick = () => { cid = x.dataset.cu; $('rvC').value = x.dataset.nm; const k = $('rvK'); /* 係はそのお客様の係（SQL 439。女の子の要望・オーナー 2026-11-10）。手で変更できる */
-      if(k && x.dataset.kk && [...k.options].some(o => o.value === x.dataset.kk)){ k.value = x.dataset.kk; k.dispatchEvent(new Event('change')); } candPaint(); }); };
-  $('rvC').oninput = () => { cid = null; clearTimeout(cTimer); const v = $('rvC').value.trim(); if(!v){ candPaint([]); return; }
+    b.querySelectorAll('[data-cu]').forEach(x => x.onclick = () => { cid = x.dataset.cu; $('rvC').value = x.dataset.nm; kkSet(x.dataset.kk); candPaint(); }); };
+  // SQL 449：台帳に係のあるお客様は、予約の係が台帳の係にそろうので係の欄を出さない。係の無いお客様・新しいお客様だけ選ぶ
+  let kkPrev = null; const kkSet = id => { const k = $('rvK'); if(!k) return; const on = !!id && [...k.options].some(o => o.value === id);
+    if(on){ if(kkPrev === null) kkPrev = k.value; k.value = id; k.dispatchEvent(new Event('change')); } else if(kkPrev !== null){ k.value = kkPrev; kkPrev = null; }
+    $('rvKW').classList.toggle('hide', on); };
+  if(ed && cid && !NK) sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: ed.name }).then(q => { const x = (q.data || []).find(v => v.id === cid); if(x && cid === ed.customer_id) kkSet(x.kakari_id); });
+  $('rvC').oninput = () => { cid = null; kkSet(null); clearTimeout(cTimer); const v = $('rvC').value.trim(); if(!v){ candPaint([]); return; }
     cTimer = setTimeout(async () => { const q = await sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: v }); if($('rvC').value.trim() === v) candPaint(q.error ? [] : q.data); }, 300); };
   candPaint([]);
   // v0.50・SQL 173：来店日を選んだ時に、お店の休みならすぐ出す（ゲネプロ マイページ #5。前は申請を押した後にわかった）
@@ -128,6 +132,8 @@ async function resvForm(ed){
     if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return; }
     if(offs.has(d)){ await uiAlert(`${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください`); return; }
     if(!c){ await uiAlert('お客様のフルネームを入力してください'); return; }
+    if(!NK && !cid){ const w = await sb.rpc('cast_customer_same_name', { p_token: TOKEN, p_name: c }); /* SQL 449：同じ名前の顧客がいる時は候補から選ぶ（係を台帳の係にするため。広島は今まで通り） */
+      if(w.data === true){ await uiAlert('同じ名前の顧客がいます。\n顧客の候補から選択してください'); $('rvC').dispatchEvent(new Event('input')); return; } }
     if(!k){ await uiAlert(KL + 'を選んでください'); return; }
     if(!(n >= 1)){ await uiAlert('人数を入力してください'); return; }
     if(dh && !dhIds.length){ await uiAlert('同伴のキャストを選んでください'); return; }
