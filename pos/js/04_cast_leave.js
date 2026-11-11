@@ -31,7 +31,7 @@ async function leaveDone(s){
 //   オーナー 2026-11-11「退店した女の子や、体験入店した女の子、過去の女の子を、過去、半年分表示」。黒服の退店も出す
 // v13.43・SQL 451：［詳細］は右上の × で閉じる小窓（右の欄 300px には書類の写真と体験日の行が入らない。POS の見るだけの小窓と同じ形）。
 //   体験の報酬・体験日ごとの時刻と日払（立替）（記録を読むだけ。［受領済］は在籍リストと同じ受領のサインの画面）・書類（在籍の［編集］と同じ部品 posDocs。撮影・削除も同じ）
-const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',declined:'辞退',rejected:'不採用'}; /* v13.44・SQL 452：検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
+const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',declined:'辞退',rejected:'不採用'}; /* v13.45・SQL 452：検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
 let pastSel=null;
 const pastDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
 async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast').classList.add('on'); $('cSort').textContent='並べ替え';
