@@ -30,7 +30,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   const todayCard=`<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><div><b>本日 ${mdW(today)}</b>　<small class="muted">予約 ${RT.filter(x=>!x.douhan).length}・同伴 ${RT.filter(x=>x.douhan).length}</small></div>${ed?'<button class="ghost sm" id="rvAddT">＋ 予約を追加</button>':''}</div>
     <div id="rvToday">${RT.map(row).join('')||'<div class="muted" style="margin-top:6px">本日の予約はありません</div>'}</div></div>`;
   // 月
-  let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WJ.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
+  let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){ const k=iso(d), L=byDay[k]||[], dh=L.filter(x=>x.douhan).length;
     cal+=`<div data-rvd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:78px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${OFF.has(k)?'background:var(--soft);color:var(--muted)':''}">
       <b style="color:var(--ink)">${d}</b>${OFF.has(k)&&!L.length?'<div style="font-size:13px">休</div>':''}

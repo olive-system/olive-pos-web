@@ -8,7 +8,7 @@
 //   添付は送る時に置き場「notice-files」へ上げる（店のid/番号.jpg|pdf）。写真は 1600px の JPEG に縮める。お知らせの削除・予約の取消・添付を外した保存のあと、使われなくなったものを消す
 let ntEdit=null, ntSched=null, ntFiles=[], ntKey='', ntPick=new Set();
 const NT_STORE={ginza:'銀座',hiroshima:'広島'}, ntStoreName=s=>NT_STORE[s?.code]||s?.name||'';
-const ntWhen=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${'日月火水木金土'[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
+const ntWhen=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 const NT_TO={all:'全員',cast:'キャストのみ',hall:'黒服のみ',pick:'個別'};
 const ntUrl=p=>sb.storage.from('notice-files').getPublicUrl(p).data.publicUrl;
 // 新しく足したものを上げて、[{p,n,t}] を返す（上げたものは up に入れる。失敗した時に消すため）
@@ -37,7 +37,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   // 送信時刻：今日から60日・15分ごと（はじめは15分より先の15分の区切り）
   const now=Date.now(), first=new Date(Math.ceil((now+15*60e3)/(15*60e3))*15*60e3), j0=new Date(first.getTime()+9*3600e3);
   const sa=SE?new Date(new Date(SE.send_at).getTime()+9*3600e3):j0, ymd=d=>d.toISOString().slice(0,10), hm=d=>d.toISOString().slice(11,16);
-  const dOpts=Array.from({length:60},(_,i)=>{ const d=new Date(now+9*3600e3+i*864e5); return [ymd(d),`${d.getUTCMonth()+1}/${d.getUTCDate()}（${'日月火水木金土'[d.getUTCDay()]}）`]; });
+  const dOpts=Array.from({length:60},(_,i)=>{ const d=new Date(now+9*3600e3+i*864e5); return [ymd(d),`${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）`]; });
   const tOpts=Array.from({length:96},(_,i)=>`${String(Math.floor(i/4)).padStart(2,'0')}:${String(i%4*15).padStart(2,'0')}`);
   const sel=(id,opts,v)=>`<select id="${id}" style="width:auto">${opts.map(([k,l])=>`<option value="${esc(k)}" ${k===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
   const area=v=>`<textarea id="ntB" rows="6" maxlength="2000" style="width:100%;font:inherit;font-size:16px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(v||'')}</textarea>`;

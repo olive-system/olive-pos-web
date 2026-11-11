@@ -3,7 +3,7 @@
 //   セサミの設定は、セサミのアプリの「共有」の QR の画像からも読める（この画面の中で読み、送るのは UUID と秘密鍵だけ）
 // v1.87・SQL 329：名前を「鍵」→「セサミ連携」。在籍キャスト・黒服の鍵・日（シフトの日／営業日／常時）・開始・終了を表の中で変更（変更するとすぐ保存）
 //   オーナー 2026-11-03「編集できるように」「これ小窓で開く必要ある？」「ずっと（言い方考えて）がない」→ 常時
-const KEY_URL=new URL('../key/',location.href).href, KEY_WD=['日','月','火','水','木','金','土'], KEY_WD_ORDER=[1,2,3,4,5,6,0];
+const KEY_URL=new URL('../key/',location.href).href, KEY_WD_ORDER=[1,2,3,4,5,6,0];
 PAGES.o_key=async()=>{ const st=storeId, head=`<h1>セサミ連携 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_key_get',{p_store:st}); if(page!=='o_key'||storeId!==st) return;
@@ -77,7 +77,7 @@ function keyLockEdit(l){
 function keyVendorEdit(st,v){ const isNew=!v; v=v||{name:'',days:[1,2,3,4,5,6,0],from:'10:00',to:'12:00',until:null};
   const tm=(id,val)=>`<select id="${id}" style="width:auto">${Array.from({length:96},(_,i)=>`${String(Math.floor(i/4)).padStart(2,'0')}:${String(i%4*15).padStart(2,'0')}`).map(t=>`<option ${t===val?'selected':''}>${t}</option>`).join('')}</select>`;
   const md=mkModal(null,`<h2 style="margin:0">${isNew?'業者の追加':esc(v.name)}</h2><label>名称<input id="kvN" value="${esc(v.name)}"></label>
-    <div><div style="font-size:13px;color:var(--muted)">曜日</div><div style="display:flex;gap:6px;flex-wrap:wrap">${KEY_WD_ORDER.map(i=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-kd="${i}" ${v.days.includes(i)?'checked':''} style="width:auto">${KEY_WD[i]}</label>`).join('')}</div></div>
+    <div><div style="font-size:13px;color:var(--muted)">曜日</div><div style="display:flex;gap:6px;flex-wrap:wrap">${KEY_WD_ORDER.map(i=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-kd="${i}" ${v.days.includes(i)?'checked':''} style="width:auto">${WD[i]}</label>`).join('')}</div></div>
     <div><div style="font-size:13px;color:var(--muted)">時間</div><div style="display:flex;gap:8px;align-items:center">${tm('kvF',v.from)}〜${tm('kvT',v.to)}</div></div>
     <label>期限<select id="kvU"><option value="">無期限</option><option value="d" ${v.until?'selected':''}>日付指定</option></select></label><label id="kvDw">期限日<input type="date" id="kvD" value="${esc(v.until||'')}"></label>
     <div class="bar">${isNew?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);

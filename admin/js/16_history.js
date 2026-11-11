@@ -1,7 +1,7 @@
 // ---------- 履歴 v0.56：メモ一覧（日のメモ）・入出金履歴・印刷履歴（領収書の発行）・削除履歴（操作ログのうち、消した・取り消した操作）。どれも見るだけ。SQL なし（表を直接読む） ----------
 // 期間（31日まで）は 入出金履歴・印刷履歴・削除履歴 で共通。メモ一覧は月
 let hiFrom=null, hiTo=null, hiMonth=null, hiCashK='all', hiDelK='all';
-const hiDay=x=>{ if(!x) return '—'; const wd=new Date(x+'T00:00:00').getDay(); return `${md(x)} <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WJ[wd]}</span>`; };
+const hiDay=x=>{ if(!x) return '—'; const wd=new Date(x+'T00:00:00').getDay(); return `${md(x)} <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WD[wd]}</span>`; };
 const hiDT=t=>t?new Date(t).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
 const hiHead=k=>`<h1>${esc(nameOf(k))} <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
 function hiPeriod(k,extra,note){ const today=businessDate(); if(!hiFrom){ hiFrom=today.slice(0,8)+'01'; hiTo=today; }

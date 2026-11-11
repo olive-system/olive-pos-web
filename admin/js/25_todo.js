@@ -5,7 +5,7 @@ const TODO_SLOT={open:'開店作業',close:'閉店作業',by17:'17時まで',non
 // v1.88・SQL 332：月末は店の月の最終営業日（休みの日は数えない）
 // v2.07・SQL 354：イベント最終日（シフト設定のイベント日が続く時は最後の日。休みの日は飛ばす。オーナー 2026-11-04 銀座のイベントのノルマ）
 const TODO_KIND=[['daily','毎日'],['weekly','毎週'],['biweekly','隔週'],['monthly','毎月（日にち）'],['nth','毎月（第◯ ◯曜日）'],['month_end','月末（最終営業日）'],['event_last','イベント最終日'],['yearly','毎年'],['once','その日だけ']];
-const todoMd=d=>String(d||'').slice(5).split('-').map(Number).join('/'), todoWds=x=>(x.rule_dows||[]).map(d=>WJ[d]).join('・');
+const todoMd=d=>String(d||'').slice(5).split('-').map(Number).join('/'), todoWds=x=>(x.rule_dows||[]).map(d=>WD[d]).join('・');
 const todoWhen=x=>x.rule_kind==='daily'?'毎日':x.rule_kind==='weekly'?`毎週 ${todoWds(x)}`:x.rule_kind==='biweekly'?`隔週 ${todoWds(x)}`:x.rule_kind==='monthly'?`毎月 ${(x.rule_days||[]).join('・')}日`:x.rule_kind==='nth'?`毎月 第${(x.rule_nth||[]).join('・')} ${todoWds(x)}`:x.rule_kind==='month_end'?'月末':x.rule_kind==='event_last'?'イベント最終日':x.rule_kind==='yearly'?`毎年 ${todoMd(x.rule_date)}`:`${todoMd(x.rule_date)} だけ`;
 // v1.34・SQL 153：TODO は設定の中の1つだけ（オーナー 2026-10-18「わざわざタブ一つつくる必要ある？」）。上＝その日の TODO（済・できない・未・写真）、下＝月のカレンダー（TimeTree のように）。「項目」で足す・変える
 let todoDay=null, todoMon=null, todoView='cal';
@@ -53,7 +53,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
       ${L.slice(0,4).map(x=>`<div ${ed&&byId[x.id]?`data-tdc="${x.id}"`:''} style="font-size:12px;line-height:1.35;border-radius:4px;padding:1px 4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${CHS[stOf(x,k)]}">${esc(x.name)}</div>`).join('')}${L.length>4?`<div class="muted" style="font-size:12px">ほか ${L.length-4}</div>`:''}</div>`; }
   const sw=k=>`<span style="display:inline-block;width:14px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:3px;${CHS[k]}"></span>`;
   $('main').innerHTML=head+dayCard+`<div class="card" style="margin-top:14px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><button class="ghost sm" id="tdmP">‹</button><b style="font-size:18px">${yy}年${mm}月</b><button class="ghost sm" id="tdmN">›</button><span style="flex:1"></span><span class="muted" style="font-size:12px">${sw('done')}完了　${sw('open')}未完了　${sw('skip')}できない　${sw('fut')}これから</span></div>
-    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${WJ.map(w=>`<div class="muted" style="text-align:center;font-size:12px;padding:3px">${w}</div>`).join('')}${cells}</div></div>`;
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px;padding:3px">${w}</div>`).join('')}${cells}</div></div>`;
   wire();
   const mv=n=>{ const d=new Date(yy,mm-1+n,1); todoMon=ymd(d).slice(0,7); PAGES.set_todo(); }; $('tdmP').onclick=()=>mv(-1); $('tdmN').onclick=()=>mv(1);
   $('main').querySelectorAll('[data-tdd]').forEach(c=>{ if(c.dataset.tdd) c.onclick=()=>{ todoDay=c.dataset.tdd; PAGES.set_todo(); window.scrollTo(0,0); }; });
@@ -64,7 +64,7 @@ function todoEdit(st,x){ const isNew=!x; x=x||{name:'',steps:'',rule_kind:'weekl
   const md=mkModal(null,`<h2 style="margin:0">${isNew?'TODO の追加':esc(x.name)}</h2><label>名前<input id="tdN" value="${esc(x.name)}"></label>
     <label>いつ<select id="tdK">${TODO_KIND.map(([v,n])=>`<option value="${v}" ${x.rule_kind===v?'selected':''}>${n}</option>`).join('')}</select></label>
     <div id="tdKn" style="display:flex;gap:6px;flex-wrap:wrap">${[1,2,3,4,5].map(n=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-nth="${n}" ${(x.rule_nth||[]).includes(n)?'checked':''} style="width:auto">第${n}</label>`).join('')}</div>
-    <div id="tdKw" style="display:flex;gap:6px;flex-wrap:wrap">${WJ.map((w,i)=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-dw="${i}" ${(x.rule_dows||[]).includes(i)?'checked':''} style="width:auto">${w}</label>`).join('')}</div>
+    <div id="tdKw" style="display:flex;gap:6px;flex-wrap:wrap">${WD.map((w,i)=>`<label style="display:flex;align-items:center;gap:4px;margin:0"><input type="checkbox" data-dw="${i}" ${(x.rule_dows||[]).includes(i)?'checked':''} style="width:auto">${w}</label>`).join('')}</div>
     <label id="tdKm">日（「1,15」のように）<input id="tdDays" value="${esc((x.rule_days||[]).join(','))}" inputmode="numeric"></label>
     <label id="tdKo"><span id="tdKoL">日付</span><input type="date" id="tdDt" value="${esc(x.rule_date||'')}"></label>
     <label>時間<select id="tdS">${Object.entries(TODO_SLOT).map(([v,n])=>`<option value="${v}" ${x.slot===v?'selected':''}>${n}</option>`).join('')}</select></label>

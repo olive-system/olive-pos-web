@@ -30,7 +30,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   // v1.01・SQL 123：マスには主要メンバー（その月の出勤日数が多い子 → 在籍期間の長い子）を4人まで、残りは「他○名」（オーナー 2026-10-16）
   const mCnt={}; (M.shifts||[]).forEach(x=>{ mCnt[x.staff_id]=(mCnt[x.staff_id]||0)+1; }); const since=id=>C.find(c=>c.id===id)?.since||'9999-12-31';
   const mainOrd=(a,b)=>(mCnt[b.staff_id]||0)-(mCnt[a.staff_id]||0)||since(a.staff_id).localeCompare(since(b.staff_id))||ord(a)-ord(b);
-  let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WJ.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
+  let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){ const k=iso(d);
     if(OFF.has(k)){ cal+=`<div style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;background:var(--soft);color:var(--muted)"><b style="color:var(--ink)">${d}</b><div style="font-size:13px;margin-top:4px">休</div></div>`; continue; } // v1.07・SQL 128：お店の休み
     const L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;

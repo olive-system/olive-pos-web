@@ -23,8 +23,7 @@ const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numer
 // 管理サイトの共通の部品（金額・営業日・日付）。前は 10_register.js（現金管理）にあり、17 のファイルがそこに頼っていた（2026-11-08 コード整理）
 const sgnYen=n=>(n>0?'+':'')+yen(n);
 const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
-const WJ=['日','月','火','水','木','金','土'];
-const wdJ=x=>WJ[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wdJ(x)}）`;
+const wdJ=x=>WD[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wdJ(x)}）`;
 // 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。2026-11-08 コード整理）
 // 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（2026-11-08 コード整理）
 const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };

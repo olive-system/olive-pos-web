@@ -125,7 +125,7 @@ async function regMonthPage(){
   const byD={}; (r.data||[]).forEach(x=>byD[x.business_date]=x); const sum=g.sum||{};
   let carry=Number((pv.data||[])[0]?.next_float)||0; const rows=[]; const C=v=>`<td>${v}</td>`; const CS=v=>`<td style="text-align:left;font-size:12px;line-height:1.3">${v}</td>`;
   const tot={sales:0,cin:0,cout:0,diff:0,deposit:0};
-  for(let i=1;i<=last;i++){ const dd=`${mo}-${String(i).padStart(2,'0')}`; const dl=`${dd.slice(5).replace('-','/')}（${WJ[new Date(dd+'T00:00:00').getDay()]}）`; const x=byD[dd];
+  for(let i=1;i<=last;i++){ const dd=`${mo}-${String(i).padStart(2,'0')}`; const dl=`${dd.slice(5).replace('-','/')}（${WD[new Date(dd+'T00:00:00').getDay()]}）`; const x=byD[dd];
     if(x){ rows.push(`<tr data-rd="${dd}">${C(dl)}${C(yen(x.opening_float))}${C(yen(x.cash_sales))}${C(yen(x.cash_in))}${C(yen(x.cash_out))}${C(yen(x.expected))}${C(yen(x.counted))}<td style="${x.diff?'color:var(--warn)':''}">${sgnYen(x.diff)}</td>${C(yen(x.deposit))}${CS('精算済')}</tr>`);
       tot.sales+=x.cash_sales; tot.cin+=x.cash_in; tot.cout+=x.cash_out; tot.diff+=x.diff; tot.deposit+=x.deposit; carry=Number(x.next_float??(x.counted-x.deposit))||0; continue; }
     if(dd>today){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
