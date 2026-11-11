@@ -23,7 +23,15 @@ async function hallTasks(ph){
   const sw = opSwitch ? `<div style="display:flex;gap:8px;margin-bottom:10px">${['open', 'close'].map(k => `<button class="btn${k === ph ? '' : ' g'}" data-opsw="${k}" style="flex:1">${TASK_TTL[k]}</button>`).join('')}</div>` : '';
   const swWire = () => $('main').querySelectorAll('[data-opsw]').forEach(b => b.onclick = () => { if(b.dataset.opsw !== ph) hallTasks(b.dataset.opsw); });
   if(!D.on){ show(`${sw}<div class="ttl">${TASK_TTL[ph]}</div><div class="card muted">閉店作業は POS で行います</div>`); swWire(); return; }
-  const row = (x, i) => { const mine = x.wip_id === D.me, other = x.wip_id && !mine, simple = x.kind === 'simple', na = x.limited && !D.limited_ok;
+  const row = (x, i) => htRow({ D, nil }, x, i);
+  show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${mdWD(d)}</div><div id="opAhead"></div>
+    <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${nAll}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
+  swWire();
+  if(ph === 'close') sb.rpc('hall_todo_ahead', { p_token: TOKEN }).then(q => { const el = $('opAhead'); if(el && !q.error) el.innerHTML = aheadHtml(q.data); }); /* v0.69・SQL 234：連休前の日の閉店作業に、連休明けの休日分を知らせる（オーナー 2026-10-25） */
+  const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
+  const K = { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, again, at }; htBindA(K); htBindB(K); }
+/* 作業の1行（右の欄：なし・完了・未完了・対象外・交代・開始・写真と完了・表示） */
+function htRow(K, x, i){ const { D, nil } = K; const mine = x.wip_id === D.me, other = x.wip_id && !mine, simple = x.kind === 'simple', na = x.limited && !D.limited_ok;
     let right;
     if(nil(x)) right = '<span class="muted sm">なし</span>';
     else if(x.status === 'done') right = x.kind === 'todo' ? '<b style="color:var(--ok);font-size:13px">完了</b>'
@@ -35,12 +43,10 @@ async function hallTasks(ph){
     else if(simple) right = `${x.need_photo ? `<label class="btn g" data-opl="${i}" style="display:${(opShots[x.id] || []).length < 10 ? 'inline-block' : 'none'};width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" data-opp="${i}" style="display:none"></label>` : ''}${tBtn('opd', i, '完了').replace('<button', ckAll(x) ? '<button' : '<button disabled')}`;
     else right = `${wipTag(x.wip_by)}${tBtn('opv', i, '表示')}`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:11px 2px;border-top:1px solid var(--line)">
-    <div style="flex:1;line-height:1.4">${esc(x.name)}${x.status === 'done' && x.detail && x.detail.comment ? `<div class="sm" style="white-space:pre-wrap;margin-top:2px">コメント：${esc(x.detail.comment)}</div>` : ''}${mine && simple && x.status !== 'done' ? `<div class="muted sm" data-opn="${i}">${opWip(x)}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}<div data-opg="${i}">${opGrid(x, i)}</div>${x.need_comment ? `<textarea data-opk="${i}" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;margin-top:8px;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}` : ''}</div>${right}</div>`; };
-  show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${mdWD(d)}</div><div id="opAhead"></div>
-    <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${nAll}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
-  swWire();
-  if(ph === 'close') sb.rpc('hall_todo_ahead', { p_token: TOKEN }).then(q => { const el = $('opAhead'); if(el && !q.error) el.innerHTML = aheadHtml(q.data); }); /* v0.69・SQL 234：連休前の日の閉店作業に、連休明けの休日分を知らせる（オーナー 2026-10-25） */
-  const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
+    <div style="flex:1;line-height:1.4">${esc(x.name)}${x.status === 'done' && x.detail && x.detail.comment ? `<div class="sm" style="white-space:pre-wrap;margin-top:2px">コメント：${esc(x.detail.comment)}</div>` : ''}${mine && simple && x.status !== 'done' ? `<div class="muted sm" data-opn="${i}">${opWip(x)}</div>${(x.checks || []).map((c, j) => `<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:15px"><input type="checkbox" data-opc="${i}:${j}"${(opChecks[x.id] || []).includes(j) ? ' checked' : ''} style="width:22px;height:22px;flex:none;margin:0;accent-color:var(--pri)">${esc(c)}</label>`).join('')}<div data-opg="${i}">${opGrid(x, i)}</div>${x.need_comment ? `<textarea data-opk="${i}" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;margin-top:8px;font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}` : ''}</div>${right}</div>`;
+}
+/* 押した時の動き：チェック・書く欄・開始・交代・表示・TODO */
+function htBindA(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, again, at } = K;
   $('main').querySelectorAll('[data-opc]').forEach(c => c.onchange = () => { const [i, j] = c.dataset.opc.split(':').map(Number), x = L[i], a = new Set(opChecks[x.id] || []);
     c.checked ? a.add(j) : a.delete(j); opChecks[x.id] = [...a]; const d = $('main').querySelector(`[data-opd="${i}"]`); if(d) d.disabled = !ckAll(x); });
   $('main').querySelectorAll('[data-opk]').forEach(t => t.oninput = () => { opNotes[L[+t.dataset.opk].id] = t.value; });
@@ -49,6 +55,9 @@ async function hallTasks(ph){
   $('main').querySelectorAll('[data-opt]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`${x.wip_by}さんが作業中です。\n交代しますか？`, '交代')) return; if(!await start(x, true)) return; if(x.kind === 'simple') again(); else hallCloseTask(x, ph); });
   $('main').querySelectorAll('[data-opv]').forEach(b => b.onclick = () => hallCloseTask(at(b), ph));
   $('main').querySelectorAll('[data-optd]').forEach(b => b.onclick = hallTodo);
+}
+/* 押した時の動き：写真・完了・取消 */
+function htBindB(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, again, at } = K;
   const opRow = i => { const x = L[+i], q = a => $('main').querySelector(`[${a}="${i}"]`), n = (opShots[x.id] || []).length; /* v0.94：その行だけ直す（前は全部読み直していた）・v1.10：写真の並びと［×］も */
     if(!q('data-opn') || !q('data-opg')) return again(); q('data-opn').textContent = opWip(x); q('data-opg').innerHTML = opGrid(x, i); if(q('data-opl')) q('data-opl').style.display = n < 10 ? 'inline-block' : 'none';
     q('data-opg').querySelectorAll('[data-opx]').forEach(b => b.onclick = () => { opDrop(x, +b.dataset.opx.split(':')[1]); opRow(i); }); };
