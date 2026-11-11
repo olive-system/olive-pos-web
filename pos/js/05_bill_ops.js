@@ -9,7 +9,7 @@ $('gMinus').onclick=guard($('gMinus'),async()=>{ if(cur.guest_count<=1)return; a
 /* v11.93・SQL 163：席移動。空いている卓へ移す／お客様がいる卓なら伝票をまとめる（ゲネプロ #43・見本 ウ） */
 $('bMove').onclick=guard($('bMove'),async()=>{ if(!cur||cur.status!=='open') return; const from=tables.find(t=>t.id===cur.table_id)?.name||'';
   const ob=await sb.from('bills').select('id,table_id,guest_count,bill_customers(customers(name))').eq('store_id',store.id).eq('status','open'); if(ob.error){ toast(ob.error.message); return; }
-  const at=new Map((ob.data||[]).map(x=>[x.table_id,x])); const list=tables.filter(t=>t.id!==cur.table_id&&t.is_active!==false&&(!t.store_id||t.store_id===store.id));
+  const at=new Map((ob.data||[]).map(x=>[x.table_id,x])); const list=tables.filter(t=>t.id!==cur.table_id&&t.is_active!==false&&!t.deleted_at&&(!t.store_id||t.store_id===store.id));
   const tid=await uiPick('どの卓へ移しますか？',list.map(t=>{ const x=at.get(t.id); const nm=x?.bill_customers?.[0]?.customers?.name; return {label:x?`${t.name}　${nm?nm+' 様 ':''}${x.guest_count}名`:`${t.name}　空席`,value:t.id}; })); if(!tid) return;
   const to=tables.find(t=>t.id===tid)?.name||'', x=at.get(tid);
   if(!x){ if(!await uiConfirm(`${tk(from)} → ${tk(to)} に移しますか？`)) return; const r=await sb.rpc('pos_bill_move',{p_bill:cur.id,p_table:tid}); if(r.error){ await uiAlert(/pos_bill_move/.test(r.error.message)?'SQL 163 が未実行です':r.error.message); return; } toast(`${tk(to)}に移しました`); await openBill(cur.id); return; }
