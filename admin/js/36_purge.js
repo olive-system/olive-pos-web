@@ -16,6 +16,10 @@ PAGES.o_purge=async()=>{ const st=storeId, head=`<h1>データの削除 <small c
       ${ok&&cnt?`<button class="ghost sm" data-purge="${k}">削除</button>`:''}</div>`).join('')}</div></div>`;
   $('main').querySelectorAll('[data-purge]').forEach(b=>b.onclick=async()=>{ const x=R.find(z=>z[0]===b.dataset.purge);
     if(!await uiConfirm(`${y}年${mo}月までの${x[1]} ${n(x[4])}件を削除しますか？\n削除すると元に戻せません`,'削除','danger')) return;
-    b.disabled=true; const q=await sb.rpc('admin_purge',{p_store:st,p_kind:x[0]});
+    b.disabled=true;
+    if(x[0]==='cash'){ /* 領収書の写真も一緒に消す（オーナー 2026-11-12）。写真を先に消してから行を消す */
+      const f=await sb.rpc('admin_purge_files',{p_store:st}); if(f.error){ b.disabled=false; await uiAlert(f.error.message); return; }
+      for(let i=0;i<(f.data||[]).length;i+=100){ const rm=await sb.storage.from('receipts').remove(f.data.slice(i,i+100)); if(rm.error){ b.disabled=false; await uiAlert('領収書の写真を削除できませんでした：'+rm.error.message); return; } } }
+    const q=await sb.rpc('admin_purge',{p_store:st,p_kind:x[0]});
     if(q.error){ b.disabled=false; await uiAlert(q.error.message); return; }
     toast(`${x[1]}を削除しました`); PAGES.o_purge(); }); };
