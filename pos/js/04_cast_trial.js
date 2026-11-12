@@ -24,12 +24,7 @@ function trialPayHtml(d,rc,sig){
 }
 /* 体験の報酬の受け取りのサイン（書く・書き直す・保存） */
 function trialPaySign(o,s,d){
-  const cv=o.querySelector('[data-tp=cv]'), W=cv.clientWidth, H=cv.clientHeight, dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1)); cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); const g=cv.getContext('2d'); g.scale(dpr,dpr); let drawn=false, down=false;
-  const clear=()=>{ g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.strokeStyle='#111'; g.lineWidth=2.6; g.lineCap='round'; g.lineJoin='round'; drawn=false; }; clear();
-  const pos=e=>{ const r=cv.getBoundingClientRect(); return [(e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height]; };
-  cv.onpointerdown=e=>{ e.preventDefault(); down=true; try{ cv.setPointerCapture(e.pointerId); }catch(_){} const [x,y]=pos(e); g.beginPath(); g.moveTo(x,y); g.lineTo(x+0.1,y+0.1); g.stroke(); drawn=true; };
-  cv.onpointermove=e=>{ if(!down) return; e.preventDefault(); const [x,y]=pos(e); g.lineTo(x,y); g.stroke(); };
-  cv.onpointerup=cv.onpointercancel=()=>{ down=false; };
-  o.querySelector('[data-tp=redo]').onclick=clear;
-  const ok=o.querySelector('[data-tp=ok]'); ok.onclick=guard(ok,async()=>{ if(!drawn) return; const r=await sb.rpc('pos_trial_receipt_add',{p_store:store.id,p_staff:s.id,p_bd:businessDate(),p_amount:d.pay,p_calc:d,p_signature:cv.toDataURL('image/png')}); if(r.error){ await uiConfirm(r.error.message); return; } await logOp('体験の報酬の受領（サイン）',{name:s.display_name,amount:d.pay,calc:d.note},null,true); o.remove(); toast('保存しました'); renderCasts(); });
+  const cv=o.querySelector('[data-tp=cv]'), pad=signPad(cv);
+  o.querySelector('[data-tp=redo]').onclick=pad.clear;
+  const ok=o.querySelector('[data-tp=ok]'); ok.onclick=guard(ok,async()=>{ if(!pad.drawn()) return; const r=await sb.rpc('pos_trial_receipt_add',{p_store:store.id,p_staff:s.id,p_bd:businessDate(),p_amount:d.pay,p_calc:d,p_signature:cv.toDataURL('image/png')}); if(r.error){ await uiConfirm(r.error.message); return; } await logOp('体験の報酬の受領（サイン）',{name:s.display_name,amount:d.pay,calc:d.note},null,true); o.remove(); toast('保存しました'); renderCasts(); });
 }
