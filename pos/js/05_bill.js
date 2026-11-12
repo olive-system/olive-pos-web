@@ -55,7 +55,7 @@ function billPeopleChips(b,gr,editable){ const cs=b.bill_casts||[]; const ch=(tx
   return `<span style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:flex-end;margin:0 14px 0 auto;max-width:45%">${parts.join('')}${editable?`<button class="ghost sm" data-bpe="${b.id}" style="font-size:12px;padding:2px 10px;min-height:0">編集</button>`:''}</span>`; }
 async function billPeopleEdit(id){ let box=$('uiDlgList'); if(!box){ box=document.createElement('div'); box.id='uiDlgList'; box.style.cssText='max-height:60vh;overflow:auto;margin:10px 0;font-size:15px'; $('uiDlgMsg').after(box); } if(!staffAll.length) await loadStaffAll();
   let b=null; const hc=()=>syncHcBack(id); /* 今開いている伝票（cur）を差し替えずに、この伝票を振り分ける */
-  const L=async(action,d)=>{ const keep=cur; cur=b; try{ await logOp(action,d); } finally { cur=keep; } };
+  const L=(action,d)=>logOp(action,d,undefined,false,b); /* 今開いている伝票（cur）を差し替えずに、この伝票の操作として残す */
   const draw=async()=>{ const r=await sb.from('bills').select('id,status,table_id,table_name,guest_count,opened_at,business_date,bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)').eq('id',id).single(); if(r.error){ box.innerHTML=`<div class="muted">${esc(r.error.message)}</div>`; return; } b=r.data;
     const ok=b.status==='closed'&&billDay(b)===businessDate(); const g=await sb.from('good_reactions').select('id,staff_id').eq('bill_id',id); const gl=g.data||[]; const cs=b.bill_casts||[]; const att=await attendedOn(b.business_date);
     box.innerHTML=billPeopleHtml(ok,cs,gl,att);
