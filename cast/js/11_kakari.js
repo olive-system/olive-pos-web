@@ -60,13 +60,21 @@ async function resvForm(ed){
 }
 function resvFormHtml(ed, today, opts, NK){
   const fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
+  return rvHtmlHead(ed, today, opts, NK, fld) + rvHtmlTail(ed, NK, fld);
+}
+// 上の半分：来店日・時刻・お客様・人数・係
+function rvHtmlHead(ed, today, opts, NK, fld){
   return `<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label><div id="rvOff" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div><div id="rvNoS" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div>
       <label class="f" style="margin-top:8px">来店時刻<select id="rvT" style="${fld}">${RV_TIMES.map(t => `<option${t === (ed && RV_TIMES.includes(ed.time) ? ed.time : '21:00') ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
       <div style="display:flex;gap:8px;margin-top:8px"><label class="f" style="flex:1;min-width:0;margin:0">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
         <label class="f" style="width:64px;flex:none;margin:0">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label></div>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
       ${NK?'':`<label class="f" id="rvKW" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>`}
-      ${/* v1.30・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
+`;
+}
+// 下の半分：VIP・同伴・黒ドレス・出勤希望・メモ・申請のボタン
+function rvHtmlTail(ed, NK, fld){
+  return `      ${/* v1.30・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
       <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end"><label class="f hide" id="rvVW" style="flex:1;min-width:0;margin:0">VIPルーム<select id="rvV" style="${fld}"><option value="">なし</option></select></label>
         <div style="flex:none"><div class="f">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 14px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 14px">あり</button></div></div></div>
       <div id="rvBW" class="hide" style="display:flex;gap:8px;margin-top:8px;align-items:flex-start"><label class="f" style="width:110px;flex:none;margin:0">黒ドレス<select id="rvB" style="${fld};padding:0 6px"></select></label>
