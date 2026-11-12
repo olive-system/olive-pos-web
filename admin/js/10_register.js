@@ -150,12 +150,12 @@ async function regMonthPage(){
 
 /* 月の表の行（日ごとの釣銭・売上・入出金・理論値。精算の無い日は前の日から続けて計算） */
 function regMonthRows(mo,last,today,byD,sum,pv){
-  let carry=Number((pv.data||[])[0]?.next_float)||0; const rows=[]; const C=v=>`<td>${v}</td>`; const CS=v=>`<td style="text-align:left;font-size:12px;line-height:1.3">${v}</td>`;
+  const rows=[]; const C=v=>`<td>${v}</td>`; const CS=v=>`<td style="text-align:left;font-size:12px;line-height:1.3">${v}</td>`;
   const tot={sales:0,cin:0,cout:0,diff:0,deposit:0};
-  for(let i=1;i<=last;i++){ const dd=`${mo}-${String(i).padStart(2,'0')}`; const dl=`${dd.slice(5).replace('-','/')}（${WD[new Date(dd+'T00:00:00').getDay()]}）`; const x=byD[dd];
+  for(const {dd,x,future,t,exp,idle,carry} of regDays(mo,last,today,byD,sum,Number((pv.data||[])[0]?.next_float)||0)){ const dl=`${dd.slice(5).replace('-','/')}（${WD[new Date(dd+'T00:00:00').getDay()]}）`;
     if(x){ rows.push(`<tr data-rd="${dd}">${C(dl)}${C(yen(x.opening_float))}${C(yen(x.cash_sales))}${C(yen(x.cash_in))}${C(yen(x.cash_out))}${C(yen(x.expected))}${C(yen(x.counted))}<td style="${x.diff?'color:var(--warn)':''}">${sgnYen(x.diff)}</td>${C(yen(x.deposit))}${CS('精算済')}</tr>`);
-      tot.sales+=x.cash_sales; tot.cin+=x.cash_in; tot.cout+=x.cash_out; tot.diff+=x.diff; tot.deposit+=x.deposit; carry=Number(x.next_float??(x.counted-x.deposit))||0; continue; }
-    if(dd>today){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
-    const t=sum[dd]||{sales:0,cin:0,cout:0}; const exp=carry+t.sales+t.cin-t.cout; const idle=!t.sales&&!t.cin&&!t.cout; tot.sales+=t.sales; tot.cin+=t.cin; tot.cout+=t.cout;
-    rows.push(`<tr data-rd="${dd}" style="color:var(--muted)">${C(dl)}${C(yen(carry))}${C(yen(t.sales))}${C(yen(t.cin))}${C(yen(t.cout))}${C(yen(exp))}${idle?C(yen(exp))+C(yen(0))+C(yen(0))+CS(dd<today?'（変動なし自動繰越）':''):C('')+C('')+C('')+CS('<span style="color:var(--warn)">未精算</span>')}</tr>`); carry=exp; }
+      tot.sales+=x.cash_sales; tot.cin+=x.cash_in; tot.cout+=x.cash_out; tot.diff+=x.diff; tot.deposit+=x.deposit; continue; }
+    if(future){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
+    tot.sales+=t.sales; tot.cin+=t.cin; tot.cout+=t.cout;
+    rows.push(`<tr data-rd="${dd}" style="color:var(--muted)">${C(dl)}${C(yen(carry))}${C(yen(t.sales))}${C(yen(t.cin))}${C(yen(t.cout))}${C(yen(exp))}${idle?C(yen(exp))+C(yen(0))+C(yen(0))+CS(dd<today?'（変動なし自動繰越）':''):C('')+C('')+C('')+CS('<span style="color:var(--warn)">未精算</span>')}</tr>`); }
   return {rows,tot}; }

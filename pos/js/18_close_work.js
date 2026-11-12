@@ -212,12 +212,11 @@ async function clRenderMonth(){ const el=$('clMonthBox'); if(!el) return; const 
   el.querySelectorAll('[data-cld]').forEach(t=>t.onclick=()=>{ clDate=t.dataset.cld; clCounts={}; clDeposit=0; renderClosing(); }); }
 /* 閉店作業の月の表の行（精算の無い日は前の日から続けて計算） */
 function clMonthRows(last,today,byD,sum,pv,C,CS){
-  let carry=Number((pv.data||[])[0]?.next_float)||0; const rows=[];
-  for(let i=1;i<=last;i++){ const dd=`${clMonth}-${String(i).padStart(2,'0')}`; const dl=`${dd.slice(5).replace('-','/')}（${WD[new Date(dd+'T00:00:00').getDay()]}）`; const x=byD[dd];
-    if(x){ rows.push(`<tr data-cld="${dd}" style="cursor:pointer">${C(dl)}${C(yen(x.opening_float))}${C(yen(x.cash_sales))}${C(yen(x.cash_in))}${C(yen(x.cash_out))}${C(yen(x.expected))}${C(yen(x.counted))}${C((x.diff>0?'+':'')+yen(x.diff))}${C(yen(x.deposit))}${CS('精算済')}</tr>`); carry=Number(x.next_float??(x.counted-x.deposit))||0; continue; }
-    if(dd>today){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
-    const t=sum[dd]||{sales:0,cin:0,cout:0}; const exp=carry+t.sales+t.cin-t.cout; const idle=!t.sales&&!t.cin&&!t.cout;
-    rows.push(`<tr data-cld="${dd}" style="cursor:pointer;color:var(--muted)">${C(dl)}${C(yen(carry))}${C(yen(t.sales))}${C(yen(t.cin))}${C(yen(t.cout))}${C(yen(exp))}${idle?C(yen(exp))+C(yen(0))+C(yen(0))+CS(dd<today?'精算済<br>（変動なし自動繰越）':''):C('')+C('')+C('')+CS('<span style="color:var(--warn)">未精算</span>')}</tr>`); carry=exp; }
+  const rows=[];
+  for(const {dd,x,future,t,exp,idle,carry} of regDays(clMonth,last,today,byD,sum,Number((pv.data||[])[0]?.next_float)||0)){ const dl=`${dd.slice(5).replace('-','/')}（${WD[new Date(dd+'T00:00:00').getDay()]}）`;
+    if(x){ rows.push(`<tr data-cld="${dd}" style="cursor:pointer">${C(dl)}${C(yen(x.opening_float))}${C(yen(x.cash_sales))}${C(yen(x.cash_in))}${C(yen(x.cash_out))}${C(yen(x.expected))}${C(yen(x.counted))}${C((x.diff>0?'+':'')+yen(x.diff))}${C(yen(x.deposit))}${CS('精算済')}</tr>`); continue; }
+    if(future){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
+    rows.push(`<tr data-cld="${dd}" style="cursor:pointer;color:var(--muted)">${C(dl)}${C(yen(carry))}${C(yen(t.sales))}${C(yen(t.cin))}${C(yen(t.cout))}${C(yen(exp))}${idle?C(yen(exp))+C(yen(0))+C(yen(0))+CS(dd<today?'精算済<br>（変動なし自動繰越）':''):C('')+C('')+C('')+CS('<span style="color:var(--warn)">未精算</span>')}</tr>`); }
   return rows; }
 // 精算の前に、閉店作業の全部の項目が完了しているかを1か所で見る（オーナー 2026-11-10「すべてのタスクを完了させないと精算できないように」）。完了していない項目を全部返す
 async function clUndone(d,mp){ const ok=r=>{ if(r.error) throw r.error; return r; };
