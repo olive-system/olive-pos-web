@@ -147,14 +147,7 @@ async function shiftDayEdit(iso, store){
   const tin = (v, a, st) => `<select ${a} style="${st || 'width:auto;font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)'}">${(SH_EDIT_T.includes(v) ? SH_EDIT_T : [v, ...SH_EDIT_T]).map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   const IVd = D.iv || [], HTd = D.hall_trial || []; /* v1.18・SQL 347 */
-  show(`<div class="ttl">${mdWD(d)}　出勤 ${L.length}人</div>${L.some(x => x.trial) || HTd.length ? `<div class="muted sm" style="margin:-4px 0 8px 6px">${apLegend()}</div>` : ''}<div class="card">
-    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${x.trial ? `${apRing(x.name, x.ap)} <small class="muted">${esc(x.pay || '')}</small>` : esc(x.name) + (x.black ? DRESS : '')}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
-      : `${tin(x.time, `data-sdt="${i}"`)}<button class="xb" data-sdx="${i}" aria-label="消す">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
-    ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
-    ${off.length ? `<div class="card"><div class="gh">黒服の休み</div><div>${esc(off.join('・'))}</div></div>` : ''}
-    ${R.length ? `<div class="card"><div class="gh">予約 ${R.length}件</div>${R.map((x, i) => D.edit && x.douhan ? `<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0">${rvRow(x, shWho(x), i)}</div><button class="btn g" data-dcx="${i}" style="width:auto;padding:6px 12px;color:var(--warn)">取消</button></div>` : rvRow(x, shWho(x), i)).join('')}</div>` : ''}
-    ${HTd.length ? `<div class="card"><div class="gh">黒服の体験</div><div>${HTd.map(x => apRing(x.name, x.ap)).join('・')}</div></div>` : ''}
-    ${IVd.length ? `<div class="card"><div class="gh">面接 ${IVd.length}件</div>${IVd.map((x, i) => `<div data-ap="${x.id}" style="display:grid;grid-template-columns:3.2em minmax(0,1fr);gap:6px;padding:4px 0;cursor:pointer;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(x.time)}</b><span>${esc(x.name)}</span></div>`).join('')}</div>` : ''}`);
+  show(sdDayHtml(D, d, L, off, R, IVd, HTd, tin));
   $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => apOpen(b.dataset.ap, store, again)); /* v1.18・v1.43 */ /* v0.79：しるしは右の列・同伴の子。v0.89・SQL 285：シフトを直せる人（黒服・ママ）は同伴を取消 */
   $('main').querySelectorAll('[data-dcx]').forEach(b => b.onclick = async () => { const x = R[+b.dataset.dcx]; if(!await uiConfirm(`${x.name} 様の同伴を取り消しますか？`, '取消')) return; b.disabled = true;
     const q = await sb.rpc('cast_douhan_cancel', { p_token: TOKEN, p_store: store || null, p_id: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
@@ -162,11 +155,28 @@ async function shiftDayEdit(iso, store){
     await uiAlert(!ng ? '取り消しました。申請した子と同伴の子に LINE で知らせました' : n ? '取り消しました。\n一部の LINE は届いていません。本人にご連絡ください' : '取り消しました。\nLINE は届いていません。本人にご連絡ください'); shiftAll(store); }); /* 予約の一覧は全員のシフトと一緒に読み直す */
   $('main').querySelectorAll('[data-sdt]').forEach(el => el.onchange = async () => { const x = L[+el.dataset.sdt]; if(!el.value){ el.value = x.time; return; } if(await set(x.staff_id, el.value)) again(); });
   $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return; b.disabled = true; /* v0.94：2回押し（LINE が2通）にならないように */ if(await set(x.staff_id, null)) again(); });
-  if($('sdAdd')) $('sdAdd').onclick = () => { const C = D.casts || [], w = document.createElement('div'); w.className = 'dlg';
+  if($('sdAdd')) $('sdAdd').onclick = () => shiftDayAdd(D, d, iso, store, tin, set, again);
+}
+/* 1日のシフトの画面（出勤・黒服の休み・予約・体験・面接） */
+function sdDayHtml(D, d, L, off, R, IVd, HTd, tin){ return `<div class="ttl">${mdWD(d)}　出勤 ${L.length}人</div>${L.some(x => x.trial) || HTd.length ? `<div class="muted sm" style="margin:-4px 0 8px 6px">${apLegend()}</div>` : ''}<div class="card">
+    ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${x.trial ? `${apRing(x.name, x.ap)} <small class="muted">${esc(x.pay || '')}</small>` : esc(x.name) + (x.black ? DRESS : '')}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
+      : `${tin(x.time, `data-sdt="${i}"`)}<button class="xb" data-sdx="${i}" aria-label="消す">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
+    ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
+    ${off.length ? `<div class="card"><div class="gh">黒服の休み</div><div>${esc(off.join('・'))}</div></div>` : ''}
+    ${R.length ? `<div class="card"><div class="gh">予約 ${R.length}件</div>${R.map((x, i) => D.edit && x.douhan ? `<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0">${rvRow(x, shWho(x), i)}</div><button class="btn g" data-dcx="${i}" style="width:auto;padding:6px 12px;color:var(--warn)">取消</button></div>` : rvRow(x, shWho(x), i)).join('')}</div>` : ''}
+    ${HTd.length ? `<div class="card"><div class="gh">黒服の体験</div><div>${HTd.map(x => apRing(x.name, x.ap)).join('・')}</div></div>` : ''}
+    ${IVd.length ? `<div class="card"><div class="gh">面接 ${IVd.length}件</div>${IVd.map((x, i) => `<div data-ap="${x.id}" style="display:grid;grid-template-columns:3.2em minmax(0,1fr);gap:6px;padding:4px 0;cursor:pointer;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(x.time)}</b><span>${esc(x.name)}</span></div>`).join('')}</div>` : ''}`; }
+/* 出勤の追加の小窓（キャスト・体験・面接を選ぶ） */
+function shiftDayAdd(D, d, iso, store, tin, set, again){ const C = D.casts || [], w = document.createElement('div'); w.className = 'dlg';
     const close = () => w.remove(), pick = () => { w.innerHTML = `<div class="box"><div style="max-height:60vh;overflow:auto"><button class="lkb" data-sdtr style="display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:700;border-color:var(--head)">体験</button><button class="lkb" data-sdiv style="display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:700;border-color:var(--head)">面接</button><div style="border-top:1px solid var(--line);margin:8px 0"></div>${C.map((c, i) => `<button class="lkb" data-sdc="${i}" ${c.ng ? 'disabled' : ''} style="display:block;width:100%;text-align:left;margin-bottom:6px">${esc(c.name)}${c.ng ? ' <small class="muted">出勤不可</small>' : ''}</button>`).join('') || '<div class="muted">なし</div>'}</div><div class="bt" style="margin-top:8px"><button class="btn g" data-k="no">キャンセル</button></div></div>`;
       w.querySelector('[data-k=no]').onclick = close; w.querySelector('[data-sdtr]').onclick = trial; w.querySelector('[data-sdiv]').onclick = () => apIvAddDlg(w, iso, store, pick, () => { close(); again(); }); /* v1.18 */ w.querySelectorAll('[data-sdc]').forEach(b => b.onclick = () => time(C[+b.dataset.sdc])); };
     /* v0.84・SQL 273：体験の人の登録（オーナー 2026-10-27「1番上に体験と言う項目を作って体験を押したら体験の子の情報を入力する画面」「報酬額は先方には見えないように」） */
-    const trial = () => { const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)', lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`; let pt = 'hourly';
+    const trial = () => shiftDayTrial(w, d, iso, store, tin, pick, close, again);
+    const time = c => { w.innerHTML = `<div class="box"><p style="margin-bottom:10px">${esc(c.name)}</p>${tin('20:30', 'id="sdTm"', 'width:100%;font:inherit;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--card)')}<div class="bt"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
+      w.querySelector('[data-k=no]').onclick = pick; w.querySelector('[data-k=ok]').onclick = async e => { const v = w.querySelector('#sdTm').value; if(!v) return; e.target.disabled = true; close(); if(await set(c.id, v)) again(); }; };
+    pick(); document.body.appendChild(w); }
+/* 体験の人を出勤に足す小窓 */
+function shiftDayTrial(w, d, iso, store, tin, pick, close, again){ const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)', lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`; let pt = 'hourly';
       w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">体験　${mdWD(d)}</p>
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><div>${lb('源氏名')}<input id="trN" maxlength="30" placeholder="例）サヤ・ハル" style="${fs}"></div><div>${lb('本名')}<input id="trR" maxlength="60" style="${fs}"></div></div>
         ${lb('時刻')}${tin('20:00', 'id="trT"', fs)}
@@ -178,8 +188,4 @@ async function shiftDayEdit(iso, store){
       w.querySelector('[data-k=ok]').onclick = async e => { const n = kanaKey(w.querySelector('#trN').value), a = parseInt(w.querySelector('#trA').value || '0', 10) || 0;
         if(!n){ await uiAlert('源氏名を入力してください'); return; } if(a <= 0){ await uiAlert('金額を入力してください'); return; }
         e.target.disabled = true; const q = await sb.rpc('cast_shift_trial_add', { p_token: TOKEN, p_store: store || null, p_day: iso, p_name: n, p_real: w.querySelector('#trR').value.trim(), p_time: w.querySelector('#trT').value, p_pay_type: pt, p_amount: a });
-        if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } close(); again(); }; };
-    const time = c => { w.innerHTML = `<div class="box"><p style="margin-bottom:10px">${esc(c.name)}</p>${tin('20:30', 'id="sdTm"', 'width:100%;font:inherit;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--card)')}<div class="bt"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
-      w.querySelector('[data-k=no]').onclick = pick; w.querySelector('[data-k=ok]').onclick = async e => { const v = w.querySelector('#sdTm').value; if(!v) return; e.target.disabled = true; close(); if(await set(c.id, v)) again(); }; };
-    pick(); document.body.appendChild(w); };
-}
+        if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } close(); again(); }; }
