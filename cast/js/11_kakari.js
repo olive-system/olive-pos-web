@@ -43,21 +43,38 @@ async function resvCancel(x, b){
 }
 // v1.53・SQL 423：来店時刻は 20:00〜0:30 の15分ごとから選ぶ（type=time は iPhone で午前・午後が出て、午後10時のつもりが 10:00 で入った。オーナー 2026-11-09「24時表記がいい」「20:00〜0:30」）
 const RV_TIMES = Array.from({ length: 19 }, (_, i) => { const m = (20 * 60 + i * 15) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); });
+// 予約の画面は、入力中の状態 R（同伴・顧客・VIP・出勤希望など）を1つの入れ物にして、働きごとの関数に分けた。R はこの画面を開くたびに作るので、前に開いた画面の読み込みが後から返っても混ざらない
 async function resvForm(ed){
   setBack(resvList); show('<div class="card c muted">読み込み中…</div>');
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
   if(st.error){ fail(st.error.message); return; }
-  const today = new Date(Date.now() + 9*3600e3).toISOString().slice(0,10), fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
+  const today = new Date(Date.now() + 9*3600e3).toISOString().slice(0,10);
   const me = (st.data||[]).find(s => s.name === ME.name), kk = ed ? ed.kakari : me?.id, NK = RV_NOKK();
   const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('');
-  let dh = ed ? !!ed.douhan : false, cid = ed ? ed.customer_id || null : null, cTimer = null;
-  show(`<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label><div id="rvOff" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div><div id="rvNoS" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div>
+  const R = { ed, me, NK, dh: ed ? !!ed.douhan : false, cid: ed ? ed.customer_id || null : null, cTimer: null, sr: false,
+    ST: (st.data || []).slice().sort((a, b) => (b.id === me?.id) - (a.id === me?.id)) /* 小窓は「自分」を一番上に */,
+    dhIds: ed && ed.douhan && ed.dh && ed.dh.length ? [...ed.dh] : (me ? [me.id] : []), DAY: { rooms: [], busy: [], shifts: {} },
+    blk: ed ? ed.black_id || null : null, kkPrev: null, offs: new Set(), dft: null };
+  show(rvFormHtml(ed, today, opts, NK));
+  resvWire(R);
+}
+function rvFormHtml(ed, today, opts, NK){
+  const fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
+  return rvHtmlHead(ed, today, opts, NK, fld) + rvHtmlTail(ed, NK, fld);
+}
+// 上の半分：来店日・時刻・お客様・人数・係
+function rvHtmlHead(ed, today, opts, NK, fld){
+  return `<div class="ttl">${ed?'予約の変更':'予約／同伴申請'}</div><div class="card"><label class="f">来店日<input type="date" id="rvD" min="${today}" value="${ed?ed.date:today}" style="${fld}"></label><div id="rvOff" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div><div id="rvNoS" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:4px"></div>
       <label class="f" style="margin-top:8px">来店時刻<select id="rvT" style="${fld}">${RV_TIMES.map(t => `<option${t === (ed && RV_TIMES.includes(ed.time) ? ed.time : '21:00') ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
       <div style="display:flex;gap:8px;margin-top:8px"><label class="f" style="flex:1;min-width:0;margin:0">お客様（フルネーム）<input id="rvC" maxlength="30" placeholder="例：孫 正義" value="${ed?esc(ed.name):''}" style="${fld}"></label>
         <label class="f" style="width:64px;flex:none;margin:0">人数<input type="number" id="rvN" inputmode="numeric" min="1" value="${ed?ed.guests:1}" style="${fld};text-align:right"></label></div>
       <div class="muted" style="margin-top:4px;white-space:nowrap;font-size:min(12px,calc((100vw - 58px)/29))">ニックネームではなく、お客様のフルネームを入力してください</div><div id="rvCands"></div>
       ${NK?'':`<label class="f" id="rvKW" style="margin-top:8px">${esc(KL)}<select id="rvK" style="${fld}"><option value="">選んでください</option>${opts}</select></label>`}
-      ${/* v1.30・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
+`;
+}
+// 下の半分：VIP・同伴・黒ドレス・出勤希望・メモ・申請のボタン
+function rvHtmlTail(ed, NK, fld){
+  return `      ${/* v1.30・SQL 368：お客様｜人数、VIPルーム｜同伴、同伴「あり」の時だけ 黒ドレス｜同伴キャスト（オーナー 2026-11-05 見本 黒ドレス・領収書_案「同伴がない場合すっきりする」） */''}
       <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end"><label class="f hide" id="rvVW" style="flex:1;min-width:0;margin:0">VIPルーム<select id="rvV" style="${fld}"><option value="">なし</option></select></label>
         <div style="flex:none"><div class="f">同伴</div><div style="display:flex;gap:8px"><button class="btn g" id="rvDh0" style="width:auto;padding:8px 14px">なし</button><button class="btn g" id="rvDh1" style="width:auto;padding:8px 14px">あり</button></div></div></div>
       <div id="rvBW" class="hide" style="display:flex;gap:8px;margin-top:8px;align-items:flex-start"><label class="f" style="width:110px;flex:none;margin:0">黒ドレス<select id="rvB" style="${fld};padding:0 6px"></select></label>
@@ -66,91 +83,101 @@ async function resvForm(ed){
         <label class="f hide" id="rvSTW" style="flex:1;min-width:0;margin:0">出勤時刻<select id="rvST" style="${fld}"></select></label></div></div>
       <div id="rvVB" class="sm hide" style="color:var(--warn);font-weight:700;margin-top:6px"></div>
       <label class="f" style="margin-top:8px">メモ（任意）<textarea id="rvMemo" maxlength="300" style="min-height:60px">${ed&&ed.memo?esc(ed.memo):''}</textarea></label></div>
-    <button class="btn" id="rvGo">${ed?'変更':'予約／同伴申請'}</button><p class="muted sm" style="margin:10px 2px">${ed?'変更':'申請'}すると、お店と${NK?'':KL+'・'}同伴のキャストに LINE が届きます<span id="rvSN" class="hide"><br>出勤希望は、承認されるとシフトに入ります</span></p>`);
-  const setDh = v => { dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; };
-  // 同伴ありは来店時刻 20:30、なしは 21:00（オーナー 2026-10-15。自分で時刻を変えていたら、そのまま）
-  const setDhT = v => { const t = $('rvT'); if(t.value === (v ? '21:00' : '20:30')) t.value = v ? '20:30' : '21:00'; setDh(v); };
-  // v1.06・SQL 321：シフトの無い日・同伴なしの時だけ「出勤希望」（オーナー 2026-11-02「出勤承認か出勤却下（予約は受ける）は、私が指定した権限者＋私に来たラインで決定」「本人が出勤要請をしたらね」）
-  //   出勤時刻は 19:50 か 20:00〜来店時刻の15分ごと（はじめは来店時刻。オーナー「来店時間にもよるよね」）。申請の後に cast_shift_request で承認者に LINE
-  let sr = false; const srOn = () => !$('rvSW').classList.contains('hide') && sr;
-  const srTimes = () => { const v0 = $('rvT').value || '23:00', v = v0 < '12:00' ? '23:00' : v0 /* v1.53：0時台の来店は 23:00 まで全部 */, L = ['19:50']; for(let m = 20*60; m <= 23*60; m += 15) /* 2026-11-04：23:00 まで */{ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
-  const srPaint = () => { const d = $('rvD')?.value; if(!d) return; const no = !dh && !(DAY.shifts || {})[me?.id] && !offs.has(d) && DAY.date === d;
-    $('rvSW').classList.toggle('hide', !no); $('rvNoS').classList.toggle('hide', !no); $('rvNoS').textContent = no ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はシフトがありません。出勤する時は「出勤希望 あり」` : '';
-    [['rvSr1', sr], ['rvSr0', !sr]].forEach(([id, on]) => { $(id).style.background = on ? 'var(--ink)' : ''; $(id).style.color = on ? '#fff' : ''; });
-    $('rvSTW').classList.toggle('hide', !(no && sr)); $('rvSN').classList.toggle('hide', !(no && sr));
-    const L = srTimes(), cur = $('rvST').value; $('rvST').innerHTML = L.map(t => `<option>${t}</option>`).join(''); $('rvST').value = L.includes(cur) ? cur : L[L.length - 1]; };
-  // v0.79・SQL 265：同伴の子（お客様の人数まで・自分も外せる。オーナー 2026-10-27）と VIPルーム（POS の卓の名前に VIP。最初は「なし」）
-  const ST = (st.data || []).slice().sort((a, b) => (b.id === me?.id) - (a.id === me?.id)) /* 小窓は「自分」を一番上に */, nmOf = id => id === me?.id ? '自分' : (ST.find(s => s.id === id)?.name || ''), guests = () => parseInt($('rvN').value, 10) || 1;
-  let dhIds = ed && ed.douhan && ed.dh && ed.dh.length ? [...ed.dh] : (me ? [me.id] : []), DAY = { rooms: [], busy: [], shifts: {} };
-  // v1.30・SQL 368：黒ドレス（同伴キャストから1名・店ごとに1日1名の先着。決定済みの日は「受付終了」で、着用者は出さない）
-  let blk = ed ? ed.black_id || null : null;
-  const bkPaint = () => { const x = $('rvB'); if(!x) return; if(blk && !dhIds.includes(blk)) blk = null; if(DAY.black_taken){ blk = null; x.disabled = true; x.style.color = 'var(--muted)'; x.innerHTML = '<option value="">受付終了</option>'; return; }
-    x.disabled = false; x.style.color = ''; x.innerHTML = `<option value="">なし</option>${dhIds.map(id => `<option value="${id}"${id === blk ? ' selected' : ''}>${esc(nmOf(id))}</option>`).join('')}`; x.value = blk || ''; };
-  const chipPaint = () => { const b = $('rvDhC'); if(!b) return; const on = dh; /* v1.30：同伴キャストは「あり」の時はいつも（黒ドレスのとなり） */
-    $('rvBW').classList.toggle('hide', !dh); bkPaint();
-    b.innerHTML = on ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:48px">${dhIds.map((id, i) => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:16px;padding:5px 10px;background:var(--card);font-size:15px">${esc(nmOf(id))}<button class="xb" data-dhx="${i}" aria-label="外す">×</button></span>`).join('')}${dhIds.length < guests() ? '<button class="btn g" id="rvDhAdd" style="width:auto;padding:6px 16px">追加</button>' : ''}</div>` : '';
-    b.querySelectorAll('[data-dhx]').forEach(x => x.onclick = () => { dhIds.splice(+x.dataset.dhx, 1); chipPaint(); });
-    if($('rvDhAdd')) $('rvDhAdd').onclick = () => dhPick(); };
-  // 小窓：お客様の人数まで。人数を減らした時は、残す子を選ぶ（キャンセルは人数を戻す）
-  const dhPick = (shrink) => { if(document.querySelector('.dlg[data-dh]')) return; const n = guests(), w = document.createElement('div'); w.className = 'dlg'; w.dataset.dh = '1'; let sel = [...dhIds]; /* 人数の欄の change が続けて来ても小窓は1つ */
-    const paint = () => { w.innerHTML = `<div class="box"><b style="font-size:17px">同伴（${n}人まで）</b><div style="max-height:65vh;overflow:auto;margin:8px 0 12px;display:grid;grid-template-columns:1fr 1fr;column-gap:12px">${ST.map(c => { const on = sel.includes(c.id); /* v0.82：2列・出勤の時刻は出さない（オーナー 2026-10-27「ここ見えないように。2列にして1画面で全員」） */
-        return `<label style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);min-width:0"><input type="checkbox" data-dc="${c.id}" ${on ? 'checked' : ''} ${!on && sel.length >= n ? 'disabled' : ''} style="width:20px;height:20px;flex:none"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nmOf(c.id))}</span></label>`; }).join('')}</div>
-        <div class="bt"><button class="btn g" data-k="no">キャンセル</button><button class="btn" data-k="ok">選択</button></div></div>`;
-      w.querySelectorAll('[data-dc]').forEach(x => x.onchange = () => { sel = x.checked ? [...sel, x.dataset.dc] : sel.filter(id => id !== x.dataset.dc); paint(); });
-      w.querySelector('[data-k=no]').onclick = () => { if(shrink) $('rvN').value = dhIds.length; w.remove(); chipPaint(); };
-      w.querySelector('[data-k=ok]').onclick = async () => { if(!sel.length){ await uiAlert('同伴のキャストを選んでください'); return; } dhIds = sel; w.remove(); chipPaint(); }; };
-    paint(); document.body.appendChild(w); };
-  $('rvN').addEventListener('change', () => { if(dh && dhIds.length > guests()) dhPick(true); else chipPaint(); });
-  const vipPaint = () => { const v = $('rvV').value, b = $('rvVB'), r = DAY.rooms.find(x => x.id === v), T = DAY.busy.filter(x => x.vip === v).map(x => x.time);
-    b.classList.toggle('hide', !(r && T.length)); b.textContent = r && T.length ? `${r.name}：${T.join('・')} 予約あり` : ''; };
-  const dayLoad = async () => { const d = $('rvD').value; if(!d) return; const q = await sb.rpc('cast_resv_day', { p_token: TOKEN, p_date: d, p_id: ed ? ed.id : null }); if(q.error || $('rvD')?.value !== d) return;
-    DAY = q.data; DAY.date = d; const v = $('rvV').value || (ed && !DAY.loaded ? ed.vip_id || '' : ''); $('rvV').innerHTML = `<option value="">なし</option>${(DAY.rooms || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}`; $('rvV').value = v; DAY.loaded = true;
-    $('rvVW').classList.toggle('hide', !(DAY.rooms || []).length); vipPaint(); srPaint(); bkPaint(); };
-  $('rvB').onchange = () => { blk = $('rvB').value || null; };
-  $('rvV').onchange = vipPaint; $('rvD').addEventListener('change', dayLoad); dayLoad();
-  setDh(dh); $('rvDh0').onclick = () => { setDhT(false); chipPaint(); srPaint(); }; $('rvDh1').onclick = () => { setDhT(true); chipPaint(); srPaint(); }; chipPaint();
-  $('rvSr0').onclick = () => { sr = false; srPaint(); }; $('rvSr1').onclick = () => { sr = true; $('rvST').value = ''; srPaint(); }; $('rvT').addEventListener('change', srPaint);
-  // v0.31・SQL 129：顧客から選ぶ（お店の朝礼で、そのお客様のメモを確認するため）。候補に無い時は名前だけ
-  const candPaint = L => { const b = $('rvCands'); if(!b) return;
-    if(cid){ b.innerHTML = `<div class="sm" style="margin-top:6px;color:var(--ok);font-weight:700">✓ 顧客から選択</div>`; return; }
-    b.innerHTML = L && L.length ? `<div class="muted sm" style="margin-top:8px">顧客の候補</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${L.map(x => `<button class="btn g" data-cu="${x.id}" data-nm="${esc(x.name)}" data-kk="${esc(x.kakari_id||'')}" style="width:auto;padding:8px 12px">${esc(x.name)}${x.kakari&&!NK?`<small class="muted">（${KL} ${esc(x.kakari)}）</small>`:''}</button>`).join('')}</div>` : '';
-    b.querySelectorAll('[data-cu]').forEach(x => x.onclick = () => { cid = x.dataset.cu; $('rvC').value = x.dataset.nm; kkSet(x.dataset.kk); candPaint(); }); };
-  // SQL 449：台帳に係のあるお客様は、予約の係が台帳の係にそろうので係の欄を出さない。係の無いお客様・新しいお客様だけ選ぶ
-  let kkPrev = null; const kkSet = id => { const k = $('rvK'); if(!k) return; const on = !!id && [...k.options].some(o => o.value === id);
-    if(on){ if(kkPrev === null) kkPrev = k.value; k.value = id; k.dispatchEvent(new Event('change')); } else if(kkPrev !== null){ k.value = kkPrev; kkPrev = null; }
-    $('rvKW').classList.toggle('hide', on); };
-  if(ed && cid && !NK) sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: ed.name }).then(q => { const x = (q.data || []).find(v => v.id === cid); if(x && cid === ed.customer_id) kkSet(x.kakari_id); });
-  $('rvC').oninput = () => { cid = null; kkSet(null); clearTimeout(cTimer); const v = $('rvC').value.trim(); if(!v){ candPaint([]); return; }
-    cTimer = setTimeout(async () => { const q = await sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: v }); if($('rvC').value.trim() === v) candPaint(q.error ? [] : q.data); }, 300); };
-  candPaint([]);
-  // v0.50・SQL 173：来店日を選んだ時に、お店の休みならすぐ出す（ゲネプロ マイページ #5。前は申請を押した後にわかった）
-  let offs = new Set(); const offPaint = () => { const d = $('rvD')?.value, b = $('rvOff'); if(!b) return; srPaint(); const on = !!d && offs.has(d); b.classList.toggle('hide', !on); b.textContent = on ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください` : ''; };
-  const dft = ed ? null : draftBind('resv', ['rvD','rvT','rvC','rvK','rvN','rvMemo']); if(dft?.had){ const n = document.createElement('div'); n.className = 'muted sm'; n.style.margin = '0 2px 8px'; n.textContent = '途中の入力を戻しました'; $('rvD').closest('.card').before(n); dayLoad(); } /* 点検 2026-11-02：戻した来店日で VIP ルームを読み直す（前は今日の分で読み、VIP の欄が出なかった） */
-  $('rvD').addEventListener('change', offPaint); sb.rpc('cast_off_days', { p_token: TOKEN }).then(r => { if(!r.error){ offs = new Set(r.data || []); offPaint(); } });
-  $('rvGo').onclick = async () => {
-    const d = $('rvD').value, t = $('rvT').value, c = $('rvC').value.trim().replace(/[\s　]+/g, ' '), k = NK ? me?.id || '' : $('rvK').value, n = parseInt($('rvN').value, 10), memo = $('rvMemo').value.trim();
-    if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return; }
-    if(offs.has(d)){ await uiAlert(`${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください`); return; }
-    if(!c){ await uiAlert('お客様のフルネームを入力してください'); return; }
-    if(!NK && !cid){ const w = await sb.rpc('cast_customer_same_name', { p_token: TOKEN, p_name: c }); /* SQL 449：同じ名前の顧客がいる時は候補から選ぶ（係を台帳の係にするため。広島は今まで通り） */
-      if(w.data === true){ await uiAlert('同じ名前の顧客がいます。\n顧客の候補から選択してください'); $('rvC').dispatchEvent(new Event('input')); return; } }
-    if(!k){ await uiAlert(KL + 'を選んでください'); return; }
-    if(!(n >= 1)){ await uiAlert('人数を入力してください'); return; }
-    if(dh && !dhIds.length){ await uiAlert('同伴のキャストを選んでください'); return; }
-    if(dh && dhIds.length > n){ dhPick(true); return; }
-    const vip = $('rvV').value || null, vn = vip ? (DAY.rooms.find(r => r.id === vip) || {}).name : null;
-    const kn = NK ? '自分' : $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, guests:n, douhan:dh, meet:null, memo:memo || null, vip:vn, dh_names: dh ? dhIds.map(id => id === me?.id ? ME.name : nmOf(id)) : [] };
-    if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${srOn()?`\n出勤希望 ${$('rvST').value}`:''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
-    $('rvGo').disabled = true;
-    const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: cid, p_vip: vip, p_dh: dh ? dhIds : null, p_black: dh && blk && !DAY.black_taken ? blk : null });
-    if(q.error){ if($('rvGo')) $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
-    dft?.clear();
-    let lineOk = true;
-    try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){ lineOk = false; }
-    let srMsg = ''; if(srOn()){ const w = await sb.rpc('cast_shift_request', { p_token: TOKEN, p_resv: q.data.id, p_time: $('rvST').value }); /* v1.06・SQL 321 */
-      srMsg = w.error ? `\n出勤希望：${w.error.message}` : w.data?.auto ? '\n出勤のシフトが入りました' /* v1.36・SQL 372：シフトが未確定の月は承認なしで出勤 */ : w.data?.sent ? '\n出勤希望は、承認者に LINE で送りました' : '\n出勤希望の LINE が承認者に届いていません。お店にご連絡ください'; }
-    await uiAlert(`${ed?'予約を変更しました':'予約／同伴申請を受付しました'}${q.data.notified?`\n${NK?'':KL+'・'}同伴のキャストにも LINE で送りました`:''}${srMsg}`);
-    resvListNg(lineOk);
-  };
+    <button class="btn" id="rvGo">${ed?'変更':'予約／同伴申請'}</button><p class="muted sm" style="margin:10px 2px">${ed?'変更':'申請'}すると、お店と${NK?'':KL+'・'}同伴のキャストに LINE が届きます<span id="rvSN" class="hide"><br>出勤希望は、承認されるとシフトに入ります</span></p>`;
 }
-
+// 画面のボタンと欄に、働きをつなぐ（つなぐ順は前と同じ。来店日の change は VIP の読み直し → 休みの表示の順）
+function resvWire(R){
+  const { ed, NK } = R;
+  $('rvN').addEventListener('change', () => { if(R.dh && R.dhIds.length > rvGuests()) rvDhPick(R, true); else rvChipPaint(R); });
+  $('rvB').onchange = () => { R.blk = $('rvB').value || null; };
+  $('rvV').onchange = () => rvVipPaint(R); $('rvD').addEventListener('change', () => rvDayLoad(R)); rvDayLoad(R);
+  rvSetDh(R, R.dh); $('rvDh0').onclick = () => { rvSetDhT(R, false); rvChipPaint(R); rvSrPaint(R); }; $('rvDh1').onclick = () => { rvSetDhT(R, true); rvChipPaint(R); rvSrPaint(R); }; rvChipPaint(R);
+  $('rvSr0').onclick = () => { R.sr = false; rvSrPaint(R); }; $('rvSr1').onclick = () => { R.sr = true; $('rvST').value = ''; rvSrPaint(R); }; $('rvT').addEventListener('change', () => rvSrPaint(R));
+  if(ed && R.cid && !NK) sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: ed.name }).then(q => { const x = (q.data || []).find(v => v.id === R.cid); if(x && R.cid === ed.customer_id) rvKkSet(R, x.kakari_id); });
+  $('rvC').oninput = () => { R.cid = null; rvKkSet(R, null); clearTimeout(R.cTimer); const v = $('rvC').value.trim(); if(!v){ rvCandPaint(R, []); return; }
+    R.cTimer = setTimeout(async () => { const q = await sb.rpc('cast_customer_search', { p_token: TOKEN, p_q: v }); if($('rvC').value.trim() === v) rvCandPaint(R, q.error ? [] : q.data); }, 300); };
+  rvCandPaint(R, []);
+  R.dft = ed ? null : draftBind('resv', ['rvD','rvT','rvC','rvK','rvN','rvMemo']); if(R.dft?.had){ const n = document.createElement('div'); n.className = 'muted sm'; n.style.margin = '0 2px 8px'; n.textContent = '途中の入力を戻しました'; $('rvD').closest('.card').before(n); rvDayLoad(R); } /* 点検 2026-11-02：戻した来店日で VIP ルームを読み直す（前は今日の分で読み、VIP の欄が出なかった） */
+  $('rvD').addEventListener('change', () => rvOffPaint(R)); sb.rpc('cast_off_days', { p_token: TOKEN }).then(r => { if(!r.error){ R.offs = new Set(r.data || []); rvOffPaint(R); } });
+  $('rvGo').onclick = () => rvSubmit(R);
+}
+const rvGuests = () => parseInt($('rvN').value, 10) || 1;
+const rvNmOf = (R, id) => id === R.me?.id ? '自分' : (R.ST.find(s => s.id === id)?.name || '');
+const rvSetDh = (R, v) => { R.dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; };
+// 同伴ありは来店時刻 20:30、なしは 21:00（オーナー 2026-10-15。自分で時刻を変えていたら、そのまま）
+const rvSetDhT = (R, v) => { const t = $('rvT'); if(t.value === (v ? '21:00' : '20:30')) t.value = v ? '20:30' : '21:00'; rvSetDh(R, v); };
+// v1.06・SQL 321：シフトの無い日・同伴なしの時だけ「出勤希望」（オーナー 2026-11-02「出勤承認か出勤却下（予約は受ける）は、私が指定した権限者＋私に来たラインで決定」「本人が出勤要請をしたらね」）
+//   出勤時刻は 19:50 か 20:00〜来店時刻の15分ごと（はじめは来店時刻。オーナー「来店時間にもよるよね」）。申請の後に cast_shift_request で承認者に LINE
+const rvSrOn = R => !$('rvSW').classList.contains('hide') && R.sr;
+const rvSrTimes = () => { const v0 = $('rvT').value || '23:00', v = v0 < '12:00' ? '23:00' : v0 /* v1.53：0時台の来店は 23:00 まで全部 */, L = ['19:50']; for(let m = 20*60; m <= 23*60; m += 15) /* 2026-11-04：23:00 まで */{ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
+const rvSrPaint = R => { const d = $('rvD')?.value; if(!d) return; const DAY = R.DAY, sr = R.sr, no = !R.dh && !(DAY.shifts || {})[R.me?.id] && !R.offs.has(d) && DAY.date === d;
+  $('rvSW').classList.toggle('hide', !no); $('rvNoS').classList.toggle('hide', !no); $('rvNoS').textContent = no ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はシフトがありません。出勤する時は「出勤希望 あり」` : '';
+  [['rvSr1', sr], ['rvSr0', !sr]].forEach(([id, on]) => { $(id).style.background = on ? 'var(--ink)' : ''; $(id).style.color = on ? '#fff' : ''; });
+  $('rvSTW').classList.toggle('hide', !(no && sr)); $('rvSN').classList.toggle('hide', !(no && sr));
+  const L = rvSrTimes(), cur = $('rvST').value; $('rvST').innerHTML = L.map(t => `<option>${t}</option>`).join(''); $('rvST').value = L.includes(cur) ? cur : L[L.length - 1]; };
+// v1.30・SQL 368：黒ドレス（同伴キャストから1名・店ごとに1日1名の先着。決定済みの日は「受付終了」で、着用者は出さない）
+const rvBkPaint = R => { const x = $('rvB'); if(!x) return; if(R.blk && !R.dhIds.includes(R.blk)) R.blk = null; if(R.DAY.black_taken){ R.blk = null; x.disabled = true; x.style.color = 'var(--muted)'; x.innerHTML = '<option value="">受付終了</option>'; return; }
+  x.disabled = false; x.style.color = ''; x.innerHTML = `<option value="">なし</option>${R.dhIds.map(id => `<option value="${id}"${id === R.blk ? ' selected' : ''}>${esc(rvNmOf(R, id))}</option>`).join('')}`; x.value = R.blk || ''; };
+// v0.79・SQL 265：同伴の子（お客様の人数まで・自分も外せる。オーナー 2026-10-27）と VIPルーム（POS の卓の名前に VIP。最初は「なし」）
+const rvChipPaint = R => { const b = $('rvDhC'); if(!b) return; const on = R.dh; /* v1.30：同伴キャストは「あり」の時はいつも（黒ドレスのとなり） */
+  $('rvBW').classList.toggle('hide', !R.dh); rvBkPaint(R);
+  b.innerHTML = on ? `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:48px">${R.dhIds.map((id, i) => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:16px;padding:5px 10px;background:var(--card);font-size:15px">${esc(rvNmOf(R, id))}<button class="xb" data-dhx="${i}" aria-label="外す">×</button></span>`).join('')}${R.dhIds.length < rvGuests() ? '<button class="btn g" id="rvDhAdd" style="width:auto;padding:6px 16px">追加</button>' : ''}</div>` : '';
+  b.querySelectorAll('[data-dhx]').forEach(x => x.onclick = () => { R.dhIds.splice(+x.dataset.dhx, 1); rvChipPaint(R); });
+  if($('rvDhAdd')) $('rvDhAdd').onclick = () => rvDhPick(R); };
+// 小窓：お客様の人数まで。人数を減らした時は、残す子を選ぶ（キャンセルは人数を戻す）
+const rvDhPick = (R, shrink) => { if(document.querySelector('.dlg[data-dh]')) return; const n = rvGuests(), w = document.createElement('div'); w.className = 'dlg'; w.dataset.dh = '1'; let sel = [...R.dhIds]; /* 人数の欄の change が続けて来ても小窓は1つ */
+  const paint = () => { w.innerHTML = `<div class="box"><b style="font-size:17px">同伴（${n}人まで）</b><div style="max-height:65vh;overflow:auto;margin:8px 0 12px;display:grid;grid-template-columns:1fr 1fr;column-gap:12px">${R.ST.map(c => { const on = sel.includes(c.id); /* v0.82：2列・出勤の時刻は出さない（オーナー 2026-10-27「ここ見えないように。2列にして1画面で全員」） */
+      return `<label style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);min-width:0"><input type="checkbox" data-dc="${c.id}" ${on ? 'checked' : ''} ${!on && sel.length >= n ? 'disabled' : ''} style="width:20px;height:20px;flex:none"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(rvNmOf(R, c.id))}</span></label>`; }).join('')}</div>
+        <div class="bt"><button class="btn g" data-k="no">キャンセル</button><button class="btn" data-k="ok">選択</button></div></div>`;
+    w.querySelectorAll('[data-dc]').forEach(x => x.onchange = () => { sel = x.checked ? [...sel, x.dataset.dc] : sel.filter(id => id !== x.dataset.dc); paint(); });
+    w.querySelector('[data-k=no]').onclick = () => { if(shrink) $('rvN').value = R.dhIds.length; w.remove(); rvChipPaint(R); };
+    w.querySelector('[data-k=ok]').onclick = async () => { if(!sel.length){ await uiAlert('同伴のキャストを選んでください'); return; } R.dhIds = sel; w.remove(); rvChipPaint(R); }; };
+  paint(); document.body.appendChild(w); };
+const rvVipPaint = R => { const v = $('rvV').value, b = $('rvVB'), r = R.DAY.rooms.find(x => x.id === v), T = R.DAY.busy.filter(x => x.vip === v).map(x => x.time);
+  b.classList.toggle('hide', !(r && T.length)); b.textContent = r && T.length ? `${r.name}：${T.join('・')} 予約あり` : ''; };
+const rvDayLoad = async R => { const ed = R.ed, d = $('rvD').value; if(!d) return; const q = await sb.rpc('cast_resv_day', { p_token: TOKEN, p_date: d, p_id: ed ? ed.id : null }); if(q.error || $('rvD')?.value !== d) return;
+  const DAY = R.DAY = q.data; DAY.date = d; const v = $('rvV').value || (ed && !DAY.loaded ? ed.vip_id || '' : ''); $('rvV').innerHTML = `<option value="">なし</option>${(DAY.rooms || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}`; $('rvV').value = v; DAY.loaded = true;
+  $('rvVW').classList.toggle('hide', !(DAY.rooms || []).length); rvVipPaint(R); rvSrPaint(R); rvBkPaint(R); };
+// v0.31・SQL 129：顧客から選ぶ（お店の朝礼で、そのお客様のメモを確認するため）。候補に無い時は名前だけ
+const rvCandPaint = (R, L) => { const b = $('rvCands'); if(!b) return;
+  if(R.cid){ b.innerHTML = `<div class="sm" style="margin-top:6px;color:var(--ok);font-weight:700">✓ 顧客から選択</div>`; return; }
+  b.innerHTML = L && L.length ? `<div class="muted sm" style="margin-top:8px">顧客の候補</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${L.map(x => `<button class="btn g" data-cu="${x.id}" data-nm="${esc(x.name)}" data-kk="${esc(x.kakari_id||'')}" style="width:auto;padding:8px 12px">${esc(x.name)}${x.kakari&&!R.NK?`<small class="muted">（${KL} ${esc(x.kakari)}）</small>`:''}</button>`).join('')}</div>` : '';
+  b.querySelectorAll('[data-cu]').forEach(x => x.onclick = () => { R.cid = x.dataset.cu; $('rvC').value = x.dataset.nm; rvKkSet(R, x.dataset.kk); rvCandPaint(R); }); };
+// SQL 449：台帳に係のあるお客様は、予約の係が台帳の係にそろうので係の欄を出さない。係の無いお客様・新しいお客様だけ選ぶ
+const rvKkSet = (R, id) => { const k = $('rvK'); if(!k) return; const on = !!id && [...k.options].some(o => o.value === id);
+  if(on){ if(R.kkPrev === null) R.kkPrev = k.value; k.value = id; k.dispatchEvent(new Event('change')); } else if(R.kkPrev !== null){ k.value = R.kkPrev; R.kkPrev = null; }
+  $('rvKW').classList.toggle('hide', on); };
+// v0.50・SQL 173：来店日を選んだ時に、お店の休みならすぐ出す（ゲネプロ マイページ #5。前は申請を押した後にわかった）
+const rvOffPaint = R => { const d = $('rvD')?.value, b = $('rvOff'); if(!b) return; rvSrPaint(R); const on = !!d && R.offs.has(d); b.classList.toggle('hide', !on); b.textContent = on ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください` : ''; };
+// 申請の前の確かめ。足りない所があれば知らせて null を返す
+async function rvCheck(R){
+  const { NK, me } = R;
+  const d = $('rvD').value, t = $('rvT').value, c = $('rvC').value.trim().replace(/[\s　]+/g, ' '), k = NK ? me?.id || '' : $('rvK').value, n = parseInt($('rvN').value, 10), memo = $('rvMemo').value.trim();
+  if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return null; }
+  if(R.offs.has(d)){ await uiAlert(`${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください`); return null; }
+  if(!c){ await uiAlert('お客様のフルネームを入力してください'); return null; }
+  if(!NK && !R.cid){ const w = await sb.rpc('cast_customer_same_name', { p_token: TOKEN, p_name: c }); /* SQL 449：同じ名前の顧客がいる時は候補から選ぶ（係を台帳の係にするため。広島は今まで通り） */
+    if(w.data === true){ await uiAlert('同じ名前の顧客がいます。\n顧客の候補から選択してください'); $('rvC').dispatchEvent(new Event('input')); return null; } }
+  if(!k){ await uiAlert(KL + 'を選んでください'); return null; }
+  if(!(n >= 1)){ await uiAlert('人数を入力してください'); return null; }
+  if(R.dh && !R.dhIds.length){ await uiAlert('同伴のキャストを選んでください'); return null; }
+  if(R.dh && R.dhIds.length > n){ rvDhPick(R, true); return null; }
+  return { d, t, c, k, n, memo };
+}
+async function rvSubmit(R){
+  const v = await rvCheck(R); if(!v) return;
+  const { ed, NK, me, dh, dhIds, blk, DAY } = R, { d, t, c, k, n, memo } = v, nmOf = id => rvNmOf(R, id);
+  const vip = $('rvV').value || null, vn = vip ? (DAY.rooms.find(r => r.id === vip) || {}).name : null;
+  const kn = NK ? '自分' : $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, guests:n, douhan:dh, meet:null, memo:memo || null, vip:vn, dh_names: dh ? dhIds.map(id => id === me?.id ? ME.name : nmOf(id)) : [] };
+  if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${rvSrOn(R)?`\n出勤希望 ${$('rvST').value}`:''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
+  $('rvGo').disabled = true;
+  const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: R.cid, p_vip: vip, p_dh: R.dh ? R.dhIds : null, p_black: R.dh && R.blk && !R.DAY.black_taken ? R.blk : null });
+  if(q.error){ if($('rvGo')) $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
+  R.dft?.clear();
+  let lineOk = true;
+  try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){ lineOk = false; }
+  let srMsg = ''; if(rvSrOn(R)){ const w = await sb.rpc('cast_shift_request', { p_token: TOKEN, p_resv: q.data.id, p_time: $('rvST').value }); /* v1.06・SQL 321 */
+    srMsg = w.error ? `\n出勤希望：${w.error.message}` : w.data?.auto ? '\n出勤のシフトが入りました' /* v1.36・SQL 372：シフトが未確定の月は承認なしで出勤 */ : w.data?.sent ? '\n出勤希望は、承認者に LINE で送りました' : '\n出勤希望の LINE が承認者に届いていません。お店にご連絡ください'; }
+  await uiAlert(`${ed?'予約を変更しました':'予約／同伴申請を受付しました'}${q.data.notified?`\n${NK?'':KL+'・'}同伴のキャストにも LINE で送りました`:''}${srMsg}`);
+  resvListNg(lineOk);
+}
