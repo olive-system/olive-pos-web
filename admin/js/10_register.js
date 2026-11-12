@@ -140,6 +140,16 @@ async function regMonthPage(){
   if(page!=='register'||regTab!=='month'||regMonth!==mo||storeId!==st) return;
   const er=r.error||pv.error||g.error; if(er){ $('rmBox').innerHTML=`<div class="err">${esc(er.message)}</div>`; return; }
   const byD={}; (r.data||[]).forEach(x=>byD[x.business_date]=x); const sum=g.sum||{};
+  const {rows,tot}=regMonthRows(mo,last,today,byD,sum,pv);
+  $('rmBox').innerHTML=`<div style="overflow-x:auto"><table class="reg"><tr>${['日付','本日釣銭','現金売上','入金合計','出金合計','理論値','レジ内現金','過不足','預金','状態'].map(h=>`<th${h==='状態'?' style="text-align:left"':''}>${h}</th>`).join('')}</tr>${rows.join('')}
+    <tr style="font-weight:700"><td>合計</td><td></td><td>${yen(tot.sales)}</td><td>${yen(tot.cin)}</td><td>${yen(tot.cout)}</td><td></td><td></td><td style="${tot.diff?'color:var(--warn)':''}">${sgnYen(tot.diff)}</td><td>${yen(tot.deposit)}</td><td></td></tr></table></div>
+    <div class="muted" style="font-size:13px;margin-top:8px">行を押すと、その日の日次を開きます</div>`;
+  $('rmBox').querySelectorAll('[data-rd]').forEach(t=>t.onclick=()=>{ regDate=t.dataset.rd; regTab='day'; PAGES.register(); });
+}
+
+
+/* 月の表の行（日ごとの釣銭・売上・入出金・理論値。精算の無い日は前の日から続けて計算） */
+function regMonthRows(mo,last,today,byD,sum,pv){
   let carry=Number((pv.data||[])[0]?.next_float)||0; const rows=[]; const C=v=>`<td>${v}</td>`; const CS=v=>`<td style="text-align:left;font-size:12px;line-height:1.3">${v}</td>`;
   const tot={sales:0,cin:0,cout:0,diff:0,deposit:0};
   for(let i=1;i<=last;i++){ const dd=`${mo}-${String(i).padStart(2,'0')}`; const dl=`${dd.slice(5).replace('-','/')}（${WD[new Date(dd+'T00:00:00').getDay()]}）`; const x=byD[dd];
@@ -148,9 +158,4 @@ async function regMonthPage(){
     if(dd>today){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
     const t=sum[dd]||{sales:0,cin:0,cout:0}; const exp=carry+t.sales+t.cin-t.cout; const idle=!t.sales&&!t.cin&&!t.cout; tot.sales+=t.sales; tot.cin+=t.cin; tot.cout+=t.cout;
     rows.push(`<tr data-rd="${dd}" style="color:var(--muted)">${C(dl)}${C(yen(carry))}${C(yen(t.sales))}${C(yen(t.cin))}${C(yen(t.cout))}${C(yen(exp))}${idle?C(yen(exp))+C(yen(0))+C(yen(0))+CS(dd<today?'（変動なし自動繰越）':''):C('')+C('')+C('')+CS('<span style="color:var(--warn)">未精算</span>')}</tr>`); carry=exp; }
-  $('rmBox').innerHTML=`<div style="overflow-x:auto"><table class="reg"><tr>${['日付','本日釣銭','現金売上','入金合計','出金合計','理論値','レジ内現金','過不足','預金','状態'].map(h=>`<th${h==='状態'?' style="text-align:left"':''}>${h}</th>`).join('')}</tr>${rows.join('')}
-    <tr style="font-weight:700"><td>合計</td><td></td><td>${yen(tot.sales)}</td><td>${yen(tot.cin)}</td><td>${yen(tot.cout)}</td><td></td><td></td><td style="${tot.diff?'color:var(--warn)':''}">${sgnYen(tot.diff)}</td><td>${yen(tot.deposit)}</td><td></td></tr></table></div>
-    <div class="muted" style="font-size:13px;margin-top:8px">行を押すと、その日の日次を開きます</div>`;
-  $('rmBox').querySelectorAll('[data-rd]').forEach(t=>t.onclick=()=>{ regDate=t.dataset.rd; regTab='day'; PAGES.register(); });
-}
-
+  return {rows,tot}; }
