@@ -1,6 +1,8 @@
 // ---------- bill ----------
 const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), bill_extensions(id,minutes,unit_price,qty,is_auto), bill_items(id,product_id,category_id,name,qty,unit_price,cast_subtotal_price,back_amount,back_points,is_service_target,is_keep,added_at,is_void,bill_item_splits(id,staff_id,sales_amount,back_amount,back_points)), bill_customers(customer_id), bill_adjustments(id,kind,amount,reason), payments(*), bill_tags(id,kind,tag_no,memo,returned_at)';
-async function openBill(id){ if(!cur||cur.id!==id) extOpen=false;
+/* 伝票を続けて開いた時（2回押す・すぐ別の卓）、先に始めた方が後の伝票（金額がまだ無い）を描いて止まった。最後に開いた方だけが描く */
+let openBillSeq=0;
+async function openBill(id){ const my=++openBillSeq; if(!cur||cur.id!==id) extOpen=false;
   const { data, error } = await sb.from('bills').select(BILL_SEL).eq('id',id).single();
   if (error) { toast(error.message);
     return;
@@ -25,6 +27,7 @@ async function openBill(id){ if(!cur||cur.id!==id) extOpen=false;
     if(cur.status==='open') hallPut(id,r.data);
     /* v12.30：ホールの金額も最新に */ /* 通しチェック3：読めない時に0円と出て、置きの残額を消すことがあった */ present=await updateCastBadge();
     if(!staffAll.length) await loadStaffAll();
+    if(my!==openBillSeq||!cur||!cur.totals) return;
     renderBill();
     show('v-bill');
     }
