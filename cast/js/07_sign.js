@@ -19,7 +19,7 @@ async function payslip(){
   const rc = Q.receipt ? `<div class="big" style="margin-top:6px">受取確認済</div><div class="muted sm">${at(Q.receipt.signed_at)}</div>`
     : Q.can_sign ? `<div class="gh">受取確認（報酬を受け取ったらサイン）</div><canvas class="sign" id="sg"></canvas><div class="row" style="margin-top:8px;gap:8px"><button class="btn g" id="sgClr" style="width:auto;padding:10px 16px">再入力</button><button class="btn" id="sgOk" style="flex:1">受取確認</button></div>`
     : `<div class="muted sm">受取確認は15日からです</div>`;
-  show(`${now}${pdf || Q.receipt || Q.can_sign || Q.made ? `<div class="card"><div class="gh">${pmo}月分</div>${pdf}${rc}</div>` : ''}`);
+  show(`${now}${pdf || Q.receipt || Q.can_sign || Q.made || P.leaving ? `<div class="card"><div class="gh">${pmo}月分</div>${pdf}${rc}</div>` : ''}`);
   if(Q.receipt || !Q.can_sign) return;
   const cv = $('sg'), pad = signPad(cv);
   $('sgClr').onclick = pad.clear;
