@@ -50,7 +50,12 @@ function stSection(tbls,rows,terms,ed,act){ const cur=csNowMonth(), by={}, fut={
   return `<div id="stGrid">${tbls.map(t=>stCard(t,rows.filter(r=>r.table_id===t.id),users(t.id),ed)).join('')||'<div class="card muted">スライド表がありません</div>'}</div>
     <div class="row" style="margin:2px 0 10px">${ed?'<button class="ghost sm" id="stAdd">＋ スライド表を追加</button>':''}<div class="muted hint" style="font-size:13px;line-height:1.6">キャストごとに使う表は「スタッフ設定」で選びます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">その人が選んだ表と保証時給のうち、一番高い金額になります<br>時給の人は時給の表、日給の人は日給の表だけ選べます<br>表の行は「○○以上 → 金額」。今月の数字が、その行の数字以上になっている行のうち一番下の行を使います</div></div></div>`; }
 function stWire(st){ const grid=$('stGrid'); if(!grid) return;
-  const wire=card=>{ const q=k=>card.querySelector(`[data-k=${k}]`); let unit=card.querySelector('[data-k=unit] button.on')?.dataset.v||'hourly';
+  const wire=card=>stWireCard(st,card);
+  grid.querySelectorAll('[data-st]').forEach(wire);
+  const ad=$('stAdd'); if(ad) ad.onclick=()=>{ if(grid.querySelector('[data-st=""]')){ grid.querySelector('[data-st=""] [data-k=name]').focus(); return; } grid.querySelector(':scope > .card.muted')?.remove(); grid.insertAdjacentHTML('beforeend',stCard({},[],0,true)); const c=grid.querySelector('[data-st=""]'); c.classList.add('open'); foldWire(grid); wire(c); c.querySelector('[data-k=name]').focus(); }; }
+/* スライド表の1枚（単位・行の追加と削除・保存・表の削除） */
+function stWireCard(st,card){
+  const q=k=>card.querySelector(`[data-k=${k}]`); let unit=card.querySelector('[data-k=unit] button.on')?.dataset.v||'hourly';
     const setAll=(k,v)=>card.querySelectorAll(`[data-k=${k}]`).forEach(x=>x.textContent=v); slFlow(card);
     const bs=()=>q('basis').dataset.v||q('basis').value; if(q('basis').tagName==='SELECT') q('basis').onchange=()=>setAll('thl',stB(bs())[2]);
     card.querySelectorAll('[data-k=unit] button').forEach(b=>b.onclick=()=>{ unit=b.dataset.v; card.querySelectorAll('[data-k=unit] button').forEach(x=>x.classList.toggle('on',x===b)); setAll('aml',(unit==='daily'?'日給':'時給')+'（円）'); });
@@ -64,6 +69,5 @@ function stWire(st){ const grid=$('stGrid'); if(!grid) return;
       if(!await uiConfirm(`スライド表「${name}」を保存しますか？（${out.length}行）\nPOS の時給の表示も変わります`)) return;
       const r=await rpc('admin_save_slide_table',{p_store:st,p_id:card.dataset.st||null,p_name:name,p_basis:basis,p_unit:unit,p_rows:out}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); });
     const dl=card.querySelector('[data-delt]'); if(dl) dl.onclick=guard(dl,async()=>{ if(!await uiConfirm(`スライド表「${q('name').value.trim()}」を削除しますか？\nこの表を選んでいたキャストからは外れます（ほかに表がなければ「未選択」になります）`,'削除','danger')) return;
-      const r=await rpc('admin_delete_slide_table',{p_id:card.dataset.st}); if(!r.ok) return; toast('削除しました'); PAGES.set_pay(); }); };
-  grid.querySelectorAll('[data-st]').forEach(wire);
-  const ad=$('stAdd'); if(ad) ad.onclick=()=>{ if(grid.querySelector('[data-st=""]')){ grid.querySelector('[data-st=""] [data-k=name]').focus(); return; } grid.querySelector(':scope > .card.muted')?.remove(); grid.insertAdjacentHTML('beforeend',stCard({},[],0,true)); const c=grid.querySelector('[data-st=""]'); c.classList.add('open'); foldWire(grid); wire(c); c.querySelector('[data-k=name]').focus(); }; }
+      const r=await rpc('admin_delete_slide_table',{p_id:card.dataset.st}); if(!r.ok) return; toast('削除しました'); PAGES.set_pay(); });
+}

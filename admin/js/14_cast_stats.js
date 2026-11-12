@@ -153,14 +153,8 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
 /* 黒服の報酬の修正の小窓（遅刻・早退の減算額・ボーナス・連絡なし） */
 async function hallPayFix(x,m){ const N=v=>Number(v||0);
     // v1.70・SQL 281：月給の人は遅刻日ごとに「連絡なし」を選ぶ（15分ごとに 2,000円・連絡なし 4,000円）。理由の入力と操作ログはなし（オーナー 2026-10-28）
-    const ld=x.pay_type==='monthly'?(x.late_days||[]):[], md2=d=>{ const t=String(d).slice(5).split('-'); return t[0]+'/'+t[1]; };
-    const ldBox=ld.length?`<div style="margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden"><div style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--soft);font-weight:700"><span>遅刻日</span><span class="muted" style="font-weight:400;font-size:13px">15分ごと 2,000円・無断遅刻 4,000円</span></div>
-      ${ld.map(z=>`<div style="display:grid;grid-template-columns:60px 56px 1fr auto;align-items:center;gap:6px;padding:7px 12px;border-top:1px solid var(--line)"><span>${md2(z.d)}</span><span>${N(z.min)}分</span><label style="display:inline-flex;align-items:center;gap:5px;margin:0"><input type="checkbox" data-nc="${esc(z.d)}"${z.nocontact?' checked':''}>無断遅刻</label><b data-ncamt="${esc(z.d)}" data-min="${N(z.min)}">${yen(N(z.amount))}</b></div>`).join('')}</div>`:'';
-    const md=mkModal(null,`<h2 style="margin:0">${esc(x.name)}　${csMLabel(m)}の報酬の修正</h2><div class="muted" style="font-size:14px">空にすると自動の計算に戻ります（自動：ボーナス ${yen(N(x.bonus_auto))}）</div>
-      ${ldBox}
-      <label>遅刻・早退の減算額<input id="hfL" inputmode="numeric" value="${x.late_fixed?N(x.late_deduct):''}" placeholder="自動（${yen(N(x.late_deduct))}）"></label>
-      <label>ボーナス<input id="hfB" inputmode="numeric" value="${x.bonus_fixed!=null?N(x.bonus_fixed):''}" placeholder="自動（${yen(N(x.bonus_auto))}）"></label>
-      <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`);
+    const ld=x.pay_type==='monthly'?(x.late_days||[]):[];
+    const md=mkModal(null,hallPayFixHtml(x,m,ld));
     /* v1.80（点検 2026-11-02 C5）：「連絡なし」を変更したら、手入力の減算額を空にして決まりどおりの額で計算し直す（前は手入力があると額が変わらなかった）。早退の分＝自動の減算額−遅刻日の額の合計 */
     const ldAmt=c=>N(md.querySelector(`[data-ncamt="${c.dataset.nc}"]`).dataset.min)/15*2000*(c.checked?2:1), early=x.late_fixed?null:N(x.late_deduct)-ld.reduce((a,z)=>a+N(z.amount),0);
     md.querySelectorAll('[data-nc]').forEach(c=>c.onchange=()=>{ const b=md.querySelector(`[data-ncamt="${c.dataset.nc}"]`); b.textContent=yen(ldAmt(c)); const L=md.querySelector('#hfL'); L.value='';
@@ -169,5 +163,16 @@ async function hallPayFix(x,m){ const N=v=>Number(v||0);
     if(!v) return; const num=t=>t===''?null:slNum(t); const l=num(v.l), bb=num(v.b);
     if((l!=null&&!(Number.isInteger(l)&&l>=0))||(bb!=null&&!(Number.isInteger(bb)&&bb>=0))){ await uiAlert('金額は0以上の整数で入力してください'); return; }
     const z=await rpc('admin_save_hall_adjust',{p_staff:x.id,p_month:m,p_late:l,p_bonus:bb,p_nocontact:v.nc}); if(!z.ok) return; toast('修正しました'); PAGES.cast_sales();
+}
+/* 黒服の報酬の修正の小窓の文 */
+function hallPayFixHtml(x,m,ld){ const N=v=>Number(v||0);
+  const md2=d=>{ const t=String(d).slice(5).split('-'); return t[0]+'/'+t[1]; };
+  const ldBox=ld.length?`<div style="margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden"><div style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--soft);font-weight:700"><span>遅刻日</span><span class="muted" style="font-weight:400;font-size:13px">15分ごと 2,000円・無断遅刻 4,000円</span></div>
+      ${ld.map(z=>`<div style="display:grid;grid-template-columns:60px 56px 1fr auto;align-items:center;gap:6px;padding:7px 12px;border-top:1px solid var(--line)"><span>${md2(z.d)}</span><span>${N(z.min)}分</span><label style="display:inline-flex;align-items:center;gap:5px;margin:0"><input type="checkbox" data-nc="${esc(z.d)}"${z.nocontact?' checked':''}>無断遅刻</label><b data-ncamt="${esc(z.d)}" data-min="${N(z.min)}">${yen(N(z.amount))}</b></div>`).join('')}</div>`:'';
+  return `<h2 style="margin:0">${esc(x.name)}　${csMLabel(m)}の報酬の修正</h2><div class="muted" style="font-size:14px">空にすると自動の計算に戻ります（自動：ボーナス ${yen(N(x.bonus_auto))}）</div>
+      ${ldBox}
+      <label>遅刻・早退の減算額<input id="hfL" inputmode="numeric" value="${x.late_fixed?N(x.late_deduct):''}" placeholder="自動（${yen(N(x.late_deduct))}）"></label>
+      <label>ボーナス<input id="hfB" inputmode="numeric" value="${x.bonus_fixed!=null?N(x.bonus_fixed):''}" placeholder="自動（${yen(N(x.bonus_auto))}）"></label>
+      <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`;
 }
 

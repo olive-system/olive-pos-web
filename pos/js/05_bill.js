@@ -61,12 +61,15 @@ async function billPeopleEdit(id){ let box=$('uiDlgList'); if(!box){ box=documen
     box.innerHTML=billPeopleHtml(ok,cs,gl,att);
     box.querySelectorAll('[data-bprm]').forEach(x=>x.onclick=async()=>{ const c=cs.find(z=>z.id===x.dataset.bprm); const d=await sb.rpc('pos_rows_del',{p_table:'bill_casts',p_where:{id:(c.id)??null}}); if(d.error){ toast(d.error.message); return; } await L('キャストを伝票から外す（会計後）',{name:snm2(c.staff_id)}); if(c.is_kakari) await hc(); draw(); });
     box.querySelectorAll('[data-bpg]').forEach(x=>x.onclick=async()=>{ const gg=gl.find(z=>z.id===x.dataset.bpg); const d=await sb.rpc('pos_good_del',{p_id:gg.id}); if(d.error){ toast(d.error.message); return; } await L('反応◎を取り消し',{name:snm2(gg.staff_id)}); draw(); });
-    box.querySelectorAll('[data-bp]').forEach(s=>s.onchange=async()=>{ const sid=s.value; if(!sid) return; s.disabled=true; const k=s.dataset.bp; const ex=cs.find(c=>c.staff_id===sid); let e=null, kak=false;
-      if(k==='g'){ e=(await sb.rpc('pos_good_add',{p_store:store.id,p_bill:id,p_staff:sid})).error; if(!e) await L('反応◎',{name:snm2(sid)}); }
-      else if(k==='k'){ kak=true; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:{is_kakari:true}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role:'none',is_kakari:true}})).error; if(!e) await L('係を追加（会計後）',{name:snm2(sid)}); }
-      else { if(cs.filter(c=>isDouhan(c.role)).length>=b.guest_count){ toast(`同伴は客数（${b.guest_count}名）までです`); draw(); return; } const role=douhanRole(b.opened_at); kak=!!settings.douhan_is_kakari; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:kak?{role,is_kakari:true}:{role}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role,is_kakari:kak}})).error; if(!e) await L('同伴を追加（会計後）',{name:snm2(sid),kind:ROLE[role]}); }
-      if(e){ toast(e.message); } else if(kak) await hc(); draw(); }); };
+    box.querySelectorAll('[data-bp]').forEach(s=>s.onchange=()=>billPeopleAdd(s,id,b,cs,L,hc,draw)); };
   await draw(); const tn=billTable(b); try{ await uiAlert(`${tn}　${b?hm5(b.opened_at):''}〜　${KL}・同伴・反応◎`); } finally { box.remove(); } }
+/* 会計後の伝票に係・同伴・反応◎を足す（選んだ時） */
+async function billPeopleAdd(s,id,b,cs,L,hc,draw){
+  const sid=s.value; if(!sid) return; s.disabled=true; const k=s.dataset.bp; const ex=cs.find(c=>c.staff_id===sid); let e=null, kak=false;
+  if(k==='g'){ e=(await sb.rpc('pos_good_add',{p_store:store.id,p_bill:id,p_staff:sid})).error; if(!e) await L('反応◎',{name:snm2(sid)}); }
+  else if(k==='k'){ kak=true; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:{is_kakari:true}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role:'none',is_kakari:true}})).error; if(!e) await L('係を追加（会計後）',{name:snm2(sid)}); }
+  else { if(cs.filter(c=>isDouhan(c.role)).length>=b.guest_count){ toast(`同伴は客数（${b.guest_count}名）までです`); draw(); return; } const role=douhanRole(b.opened_at); kak=!!settings.douhan_is_kakari; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:kak?{role,is_kakari:true}:{role}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role,is_kakari:kak}})).error; if(!e) await L('同伴を追加（会計後）',{name:snm2(sid),kind:ROLE[role]}); }
+  if(e){ toast(e.message); } else if(kak) await hc(); draw(); }
 /* 会計後の伝票の係・同伴・反応◎の小窓の文 */
 function billPeopleHtml(ok,cs,gl,att){
   const act=staffAll.filter(s=>s.is_active&&(s.kind==='cast'||s.kakari_only)); const opt=(list,ph)=>`<option value="">${ph}</option>`+list.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('');
