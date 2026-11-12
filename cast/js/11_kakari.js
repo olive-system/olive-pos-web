@@ -55,10 +55,10 @@ async function resvForm(ed){
     ST: (st.data || []).slice().sort((a, b) => (b.id === me?.id) - (a.id === me?.id)) /* 小窓は「自分」を一番上に */,
     dhIds: ed && ed.douhan && ed.dh && ed.dh.length ? [...ed.dh] : (me ? [me.id] : []), DAY: { rooms: [], busy: [], shifts: {} },
     blk: ed ? ed.black_id || null : null, kkPrev: null, offs: new Set(), dft: null };
-  show(resvFormHtml(ed, today, opts, NK));
+  show(rvFormHtml(ed, today, opts, NK));
   resvWire(R);
 }
-function resvFormHtml(ed, today, opts, NK){
+function rvFormHtml(ed, today, opts, NK){
   const fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
   return rvHtmlHead(ed, today, opts, NK, fld) + rvHtmlTail(ed, NK, fld);
 }

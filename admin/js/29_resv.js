@@ -19,17 +19,32 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
     // v1.63・SQL 265：VIPルームのしるしと、同伴の子（お客様の人数まで）
   const dhN=x=>(x.dh_names&&x.dh_names.length?x.dh_names:[x.by_name||'']);
-  const row=(x,i)=>`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;font-size:14px"><b style="min-width:3em">${esc(x.time||'未定')}</b>${x.douhan?'<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>':''}${x.vip?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">${esc(x.vip)}</b>`:''}
+  const row=(x,i)=>rvDayRow(x,i,ed,dhN);
+  const wireRows=(box,L,day,close)=>rvWireRows(box,L,day,close,ed,st,S);
+  // 本日
+  const todayCard=rvTodayCard(today,RT,ed,row);
+  // 月
+  const cal=rvCal(nd,first,iso,byDay,OFF);
+  $('main').innerHTML=head+todayCard+rvMonthCard(m,mOpts,R,cal);
+  wireRows($('rvToday'),RT,today,null);
+  if(ed) $('rvAddT').onclick=()=>resvForm(st,S,today,null);
+  $('rvM0').onchange=()=>{ rvMonth=$('rvM0').value; PAGES.resv(); };
+  $('main').querySelectorAll('[data-rvd]').forEach(c=>c.onclick=()=>rvDayOpen(c.dataset.rvd,byDay,OFF,row,wireRows,ed,st,S));
+};
+// 予約の1行（時刻・同伴・VIP・お客様・誘客と係・メモ・直す／取消）
+const rvDayRow=(x,i,ed,dhN)=>`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;font-size:14px"><b style="min-width:3em">${esc(x.time||'未定')}</b>${x.douhan?'<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>':''}${x.vip?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">${esc(x.vip)}</b>`:''}
     <span style="flex:1 1 200px">${esc(x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${resvWho({douhan:x.douhan,dh:dhN(x),by:x.by_name,kakari:x.kakari_name,black:x.black},{noKK:rvNoKK(),mark:FX('dress',15)})}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
     ${ed?`<button class="ghost sm" data-rve="${i}">修正</button><button class="ghost sm" data-rvx="${i}">取消</button>`:''}</div>`;
-  const wireRows=(box,L,day,close)=>{ if(!ed) return;
+// 1行の［修正］［取消］
+const rvWireRows=(box,L,day,close,ed,st,S)=>{ if(!ed) return;
     box.querySelectorAll('[data-rve]').forEach(b=>b.onclick=()=>{ close&&close(); resvForm(st,S,day,L[+b.dataset.rve]); });
     box.querySelectorAll('[data-rvx]').forEach(b=>b.onclick=guard(b,async()=>{ const x=L[+b.dataset.rvx]; if(!await uiConfirm(`${x.name} 様の${x.douhan?'同伴':'予約'}を取り消しますか？`,'取消','danger')) return;
       const z=await rpc('admin_resv_cancel',{p_store:st,p_id:x.id}); if(!z.ok) return; close&&close(); toast('取り消しました'); PAGES.resv(); })); };
-  // 本日
-  const todayCard=`<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><div><b>本日 ${mdW(today)}</b>　<small class="muted">予約 ${RT.filter(x=>!x.douhan).length}・同伴 ${RT.filter(x=>x.douhan).length}</small></div>${ed?'<button class="ghost sm" id="rvAddT">＋ 予約を追加</button>':''}</div>
+// 本日の箱
+const rvTodayCard=(today,RT,ed,row)=>`<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><div><b>本日 ${mdW(today)}</b>　<small class="muted">予約 ${RT.filter(x=>!x.douhan).length}・同伴 ${RT.filter(x=>x.douhan).length}</small></div>${ed?'<button class="ghost sm" id="rvAddT">＋ 予約を追加</button>':''}</div>
     <div id="rvToday">${RT.map(row).join('')||'<div class="muted" style="margin-top:6px">本日の予約はありません</div>'}</div></div>`;
-  // 月
+// 月のカレンダー
+function rvCal(nd,first,iso,byDay,OFF){
   let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){ const k=iso(d), L=byDay[k]||[], dh=L.filter(x=>x.douhan).length;
     cal+=`<div data-rvd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:78px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${OFF.has(k)?'background:var(--soft);color:var(--muted)':''}">
@@ -37,20 +52,21 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
       ${L.length?`<div style="font-size:11px;white-space:nowrap">${L.length-dh?`予約${L.length-dh}`:''}${L.length-dh&&dh?'・':''}${dh?`同伴${dh}`:''}</div>`:''}
       <div style="font-size:11px;word-break:keep-all">${L.slice(0,3).map(x=>x.douhan?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(x.by_name||'')}</b>`:esc(x.name)).join('・')}${L.length>3?`<span class="muted">　他${L.length-3}</span>`:''}</div></div>`; }
   cal+='</div>';
-  $('main').innerHTML=head+todayCard+`<div class="card"><div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="rvM0" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
+  return cal;
+}
+// 月の箱（月を選ぶ・数・カレンダー）
+const rvMonthCard=(m,mOpts,R,cal)=>`<div class="card"><div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="rvM0" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
       <span class="muted" style="font-size:13px">予約 ${R.filter(x=>!x.douhan).length}・同伴 ${R.filter(x=>x.douhan).length}</span><span style="flex:1"></span>
       <span style="font-size:12px;color:var(--muted)"><b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>　名前は予約のお客様</span></div>${cal}
       <div class="muted" style="font-size:12px;margin-top:6px">タップで詳細表示</div></div>`;
-  wireRows($('rvToday'),RT,today,null);
-  if(ed) $('rvAddT').onclick=()=>resvForm(st,S,today,null);
-  $('rvM0').onchange=()=>{ rvMonth=$('rvM0').value; PAGES.resv(); };
-  $('main').querySelectorAll('[data-rvd]').forEach(c=>c.onclick=()=>{ const day=c.dataset.rvd, L=byDay[day]||[];
+// 日を押した時の小窓（その日の一覧・直す・取消・足す）
+function rvDayOpen(day,byDay,OFF,row,wireRows,ed,st,S){ const L=byDay[day]||[];
     const box=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><div class="row" style="justify-content:space-between;align-items:baseline;gap:10px"><h2 style="margin:0">${mdW(day)}</h2><small class="muted">${OFF.has(day)?'休　':''}予約 ${L.filter(x=>!x.douhan).length}・同伴 ${L.filter(x=>x.douhan).length}</small></div>
       ${L.map(row).join('')||'<div class="muted" style="margin-top:6px">この日の予約はありません</div>'}
       ${ed?'<div class="bar"><button class="ghost" data-k="add" style="margin-right:auto">＋ 予約を追加</button></div>':''}`);
     const close=()=>box.remove(); box.querySelector('[data-k=ok]').onclick=close; const ad=box.querySelector('[data-k=add]'); if(ad) ad.onclick=()=>{ close(); resvForm(st,S,day,null); };
-    wireRows(box,L,day,close); });
-};
+    wireRows(box,L,day,close);
+}
 /* 予約の小窓の中身（日付・時刻・お客様・誘客・同伴・VIPルーム・メモ） */
 function resvFormHtml(S,day,x,opt){ return `<h2 style="margin:0">${x.id?'予約修正':'予約追加'}</h2>
     <div class="grid2" style="margin-top:8px"><label>日付<input type="date" id="rvD" value="${esc(x.day||day)}"></label><label>時刻（空なら未定・同伴は 20:30）<input id="rvT" inputmode="numeric" placeholder="21:00" value="${esc(x.time||'')}"></label>
