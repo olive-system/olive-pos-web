@@ -15,22 +15,24 @@ const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), 
   const td = shToday();
   for(let d = 1; d <= n; d++){ const iso = `${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; let c = cell(iso, d); if(iso === td) c = c.replace('<div ', '<div class="tdy" '); h += c; }
   return h + '</div>'; };
+const shEvTag = (EV, iso, off) => EV.has(iso) && !off ? '<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">イベント</small>' : ''; /* シフト設定のイベント日（シフトの上で分かるように） */
+const shEvLoad = store => Promise.resolve(sb.rpc('cast_shift_events', { p_token: TOKEN, p_store: store || null })).then(q => new Set(q && !q.error ? q.data || [] : [])).catch(() => new Set()); /* 読めない時はしるしを出さないだけ */
 async function shiftHome(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const pG = Promise.resolve(sb.rpc('cast_meeting_get', { p_token: TOKEN })).catch(() => null); /* v0.94：シフトとミーティングを同時に読む（前は順番に待っていた） */
-  const r = await sb.rpc('cast_shift_info', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
-  SHIFT = r.data; await mtShiftMarks(SHIFT, pG); /* v0.93・SQL 287：自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
+  const pE = shEvLoad(); const r = await sb.rpc('cast_shift_info', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
+  SHIFT = r.data; SHIFT.ev = await pE; await mtShiftMarks(SHIFT, pG); /* v0.93・SQL 287：自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
 }
 function shiftPaint(ng){
-  const S = SHIFT, OFF = new Set(S.off || []), OK = !!S.ok_only, full = new Set(OK ? [] : S.full || []), mo = Number(String(S.month).slice(5,7)), dueD = mdDay(S.due);
+  const S = SHIFT, EV = S.ev || new Set(), OFF = new Set(S.off || []), OK = !!S.ok_only, full = new Set(OK ? [] : S.full || []), mo = Number(String(S.month).slice(5,7)), dueD = mdDay(S.due);
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   const fixed = (S.fixed || []).map(F => { const D = {}; (F.days||[]).forEach(x => D[x.day] = x.time); const M = {}; (F.marks||[]).forEach(x => (M[x.day] = M[x.day] || []).push(x));
     return `<div class="card"><div class="gh">${Number(String(F.month).slice(5,7))}月の出勤（確定）${(F.days||[]).length}日</div>${calGrid(F.month, (iso, d) => { const t = D[iso], k = M[iso];
-      return `<div data-sd="${iso}" style="${box};cursor:pointer;${t?'background:var(--gold-soft);font-weight:700':''}">${d}${t?`<small style="display:block;font-size:10px;color:var(--pri)">${t}</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':(k?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">出勤なし</small>':'')}${['同伴','予約','係予約','ミーティング'].map(n => { const c = (k||[]).filter(x => x.kind === n).length; return c ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">${n.replace('係', KL)}${n === 'ミーティング' ? '' : c}</small>` : ''; }).join('')}</div>`; })}</div>`; }).join('');
+      return `<div data-sd="${iso}" style="${box};cursor:pointer;${t?'background:var(--gold-soft);font-weight:700':''}">${d}${t?`<small style="display:block;font-size:10px;color:var(--pri)">${t}</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':(k?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">出勤なし</small>':'')}${shEvTag(EV, iso, OFF.has(iso))}${['同伴','予約','係予約','ミーティング'].map(n => { const c = (k||[]).filter(x => x.kind === n).length; return c ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">${n.replace('係', KL)}${n === 'ミーティング' ? '' : c}</small>` : ''; }).join('')}</div>`; })}</div>`; }).join('');
   show(`<div style="display:flex;justify-content:flex-end;margin-bottom:-28px"><button class="lkb" id="shAtt">打刻一覧</button></div><div class="ttl">シフト</div>${mtShiftBox()}${fixed}
     <div class="card"><div class="sm" style="font-weight:700;margin-bottom:8px">${mo}月分${OK?'出勤希望':'休み希望'}　提出期限 ${dueD}</div>
     ${calGrid(S.month, (iso, d) => { const on = ng.has(iso), of = OFF.has(iso), fu = (full.has(iso) && !on) || of;
-      return `<div ${S.closed||fu?'':`data-ng="${iso}"`} style="${box};${S.closed||fu?'':'cursor:pointer;'}${on?'background:var(--soft)':''}${fu?';color:var(--muted);background:var(--bg)':''}">${d}${on?(OK?'<small style="display:block;color:var(--ok);font-size:12px">○</small>':'<small style="display:block;color:var(--warn);font-size:12px">×</small>'):fu?`<small style="display:block;font-size:10px">${of?'休':'満'}</small>`:''}</div>`; })}
+      return `<div ${S.closed||fu?'':`data-ng="${iso}"`} style="${box};${S.closed||fu?'':'cursor:pointer;'}${on?'background:var(--soft)':''}${fu?';color:var(--muted);background:var(--bg)':''}">${d}${on?(OK?'<small style="display:block;color:var(--ok);font-size:12px">○</small>':'<small style="display:block;color:var(--warn);font-size:12px">×</small>'):fu?`<small style="display:block;font-size:10px">${of?'休':'満'}</small>`:''}${shEvTag(EV, iso, of)}</div>`; })}
     <div class="muted sm" style="margin-top:6px">${OK?'○ 出勤できる日':'× 出勤できない日（1日5人まで）・満 5人に達した日'}${OFF.size?'・休 お店の休み':''}</div>
     ${S.closed?'<div class="sm" style="margin-top:6px">提出期限を過ぎました。変更は黒服にご連絡ください</div>':''}</div>
     ${S.closed?'':`<button class="btn" id="shGo">${S.submitted?'再提出':'提出'}</button>`}<button class="btn g" id="shChg" style="margin-top:10px">シフト変更（メッセージにてご相談ください）</button>`);
@@ -57,7 +59,7 @@ async function shiftDay(iso){
   const t = (F.days||[]).find(x => x.day === iso), k = (F.marks||[]).filter(x => x.day === iso), d = new Date(iso+'T00:00:00+09:00');
   // v1.65・SQL 442：その日の出勤キャストの名前（オーナー 2026-11-11 見本 シフト_ほかの出勤_案 の案ア「人数は表示させない」）。出勤時刻・誰と同伴かは出さない。読めない時は自分の分だけ
   const q = await Promise.resolve(sb.rpc('cast_shift_mates', { p_token: TOKEN, p_day: iso })).catch(() => null), L = q && !q.error ? q.data || [] : [];
-  await uiView(`${mdWD(d)}\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`
+  await uiView(`${mdWD(d)}${(SHIFT.ev || new Set()).has(iso) ? '　イベント' : ''}\n${t?`出勤 ${t.time}`:'出勤なし'}${k.length?'\n'+k.map(x => x.kind === 'ミーティング' ? `ミーティング　${x.time}` : `${String(x.kind).replace('係', KL)}　${x.time}　${x.name} 様 ${x.guests}名`).join('\n'):''}`
     + (L.length ? `\n\n出勤キャスト\n${L.map(x => x.name + (x.douhan ? '（同伴）' : '')).join('・')}` : ''));
 }
 
@@ -79,9 +81,9 @@ async function shiftAll(store){
   if(SHALL && store && store !== SHALL.store) SHQ = '';
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const pMt = ME && ME.hall ? Promise.resolve(sb.rpc('hall_meeting_get', { p_token: TOKEN })).catch(() => null) : null; /* v1.17：黒服は一番上にミーティング（ボタンはシフトに。見本 共有メモ_案3） */
-  const r = await sb.rpc('cast_shift_all', { p_token: TOKEN, p_store: store || null }); if(r.error){ fail(r.error.message); return; }
+  const pE = shEvLoad(store); const r = await sb.rpc('cast_shift_all', { p_token: TOKEN, p_store: store || null }); if(r.error){ fail(r.error.message); return; }
   const mt = pMt ? await pMt : null, mtBox = mt && !mt.error ? mtHallBox(mt.data) : '';
-  const A = SHALL = r.data, td = new Date(A.today+'T00:00:00+09:00'), KLs = A.kakari_label || '係';
+  const A = SHALL = r.data; A.ev = await pE; const td = new Date(A.today+'T00:00:00+09:00'), KLs = A.kakari_label || '係';
   const S = saKitB(saKitA({ store, mtBox, A, td, KLs })); S.cal = M => saCal(S, M);
   show(`${S.sw}${S.shHead}${S.mtBox}<div class="card"><div class="gh">本日 ${mdWD(S.td)} 出勤 ${S.tL.length}人${S.tL.some(x => x.trial) || (!SHQ && S.tHt.length) ? apLegend() : ''}</div>${S.rows(S.tL) || '<div class="muted sm">シフトなし</div>'}${S.todayExtra}</div>${(S.A.months || []).map(S.cal).join('')}`);
   saBind(S); }
@@ -115,7 +117,7 @@ function saKitB(S){ const { store, mtBox, A, td, KLs, box, groups, rows, all, hi
 function saCal(S, M){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hallOff,resvOf,rvHead,ivOf,htOf,ivRows,cur,tL,tOff,tR,tIv,tHt,sep,todayExtra,sw,shHead } = S; const OFF = new Set(M.off || []), D = {}, RV = {}; (M.shifts || []).forEach(x => (D[x.day] = D[x.day] || []).push(x)); (M.resv || []).forEach(x => RV[x.day] = (RV[x.day] || 0) + 1); const IV = {}; (M.iv || []).forEach(x => IV[x.day] = (IV[x.day] || 0) + 1); /* v1.18 */ const RVD = {}; (M.resv || []).forEach(x => { if(x.douhan) RVD[x.day] = (RVD[x.day] || 0) + 1; }); /* v0.74：同伴と、同伴でない予約を分けて出す（足すと合計。オーナー 2026-10-26「予約が2件と別に同伴が2件で合計4件あるみたい」→ 見本でウ「予約0 と表示したい」）。v0.75：同伴・予約の行は場所を固定して、0 も出す（オーナー「予約の場所、同伴の列、固定して」「同伴も0ならゼロで表示する」） */
     return `<div class="card"><div class="gh">${Number(String(M.month).slice(5,7))}月の出勤（確定）</div>${M.fixed ? calGrid(M.month, (iso, d) => { const LA = D[iso] || [], L = LA.filter(hit), dh = L.reduce((a, x) => a + Number(x.douhan || 0), 0), rv = RV[iso] || 0;
       const iv = IV[iso] || 0;
-        return `<div ${LA.length||rv||iv||(iso>=A.today&&!OFF.has(iso))?`data-sa="${iso}"`:''} style="${box};${L.length?'cursor:pointer;background:var(--gold-soft);font-weight:700':''}">${d}${SHQ ? (L.length ? `<small style="display:block;font-size:10px;color:var(--pri);white-space:nowrap">${L.length > 1 ? L.length + '人' : esc(shT(L[0]))}</small>` : OFF.has(iso) ? '<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>' : '') : L.length?`<small style="display:block;font-size:10px;color:var(--pri)">${L.length}人</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':''}${!SHQ && (L.length || rv || iv) ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">同伴${RVD[iso] || 0}</small>`+
+        return `<div ${LA.length||rv||iv||(iso>=A.today&&!OFF.has(iso))?`data-sa="${iso}"`:''} style="${box};${L.length?'cursor:pointer;background:var(--gold-soft);font-weight:700':''}">${d}${SHQ ? (L.length ? `<small style="display:block;font-size:10px;color:var(--pri);white-space:nowrap">${L.length > 1 ? L.length + '人' : esc(shT(L[0]))}</small>` : OFF.has(iso) ? '<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>' : '') : L.length?`<small style="display:block;font-size:10px;color:var(--pri)">${L.length}人</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':''}${shEvTag(A.ev, iso, OFF.has(iso))}${!SHQ && (L.length || rv || iv) ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">同伴${RVD[iso] || 0}</small>`+
     `<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">予約${rv - (RVD[iso] || 0)}</small><small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">面接${iv}</small>` : ''}</div>`;
         })
       + '<div class="muted sm" style="margin-top:6px">タップで詳細表示</div>' : '<div class="muted sm">まだ確定していません</div>'}</div>`;
@@ -129,7 +131,7 @@ function saBind(S){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hal
   $('main').querySelectorAll('[data-shst]').forEach(b => b.onclick = () => { if(b.dataset.shst !== A.store) shiftAll(b.dataset.shst); });
   $('main').querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { if(b.dataset.sa >= A.today && !(A.months || []).some(M => (M.off || []).includes(b.dataset.sa))){ shiftDayEdit(b.dataset.sa, A.store); return; } const iso = b.dataset.sa, d = new Date(iso+'T00:00:00+09:00'), L = all('shifts').filter(x => x.day === iso), off = hallOff(iso), R = resvOf(iso);
     /* v1.31・SQL 368：過去の日の小窓にも黒ドレスのしるし（オーナー 2026-11-05「付ける」）。文字はエスケープして HTML で出す */
-    uiViewH(`${mdWD(d)}　出勤 ${L.length}人\n${groups(L).map(([t, n, h]) => `${esc(t)}　${h}`).join('\n')}`
+    uiViewH(`${mdWD(d)}${A.ev.has(iso) ? '　イベント' : ''}　出勤 ${L.length}人\n${groups(L).map(([t, n, h]) => `${esc(t)}　${h}`).join('\n')}`
       + (off.length ? `\n\n黒服の休み　${off.map(esc).join('・')}` : '')
       + (R.length ? `\n\n${esc(rvHead(R))}\n${R.map(x => `${esc(x.time)}　${esc(x.name)} 様 ${Number(x.guests)||0}名（${[shWho(x), esc(x.vip || '')].filter(Boolean).join('・')}）`).join('\n')}` : '')
       + (ivOf(iso).length ? `\n\n面接 ${ivOf(iso).length}件\n${ivOf(iso).map(x => `${esc(x.time)}　${esc(x.name)}`).join('\n')}` : '')); });
@@ -143,7 +145,7 @@ const SH_EDIT_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math
 async function shiftDayEdit(iso, store){
   setBack(() => shiftAll(store)); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_shift_day', { p_token: TOKEN, p_store: store || null, p_day: iso }); if(r.error){ fail(r.error.message); return; }
-  const D = r.data, d = new Date(iso+'T00:00:00+09:00'), again = () => shiftDayEdit(iso, store), L = D.shifts || [];
+  const D = r.data, d = new Date(iso+'T00:00:00+09:00'), again = () => shiftDayEdit(iso, store), L = D.shifts || []; D.ev = !!(SHALL && SHALL.ev && SHALL.ev.has(iso));
   const all = k => ((SHALL && SHALL.months) || []).flatMap(M => M[k] || []), off = all('hall_off').filter(x => x.day === iso).map(x => x.name), R = all('resv').filter(x => x.day === iso);
   const tin = (v, a, st) => `<select ${a} style="${st || 'width:auto;font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)'}">${(SH_EDIT_T.includes(v) ? SH_EDIT_T : [v, ...SH_EDIT_T]).map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
@@ -159,7 +161,7 @@ async function shiftDayEdit(iso, store){
   if($('sdAdd')) $('sdAdd').onclick = () => shiftDayAdd(D, d, iso, store, tin, set, again);
 }
 /* 1日のシフトの画面（出勤・黒服の休み・予約・体験・面接） */
-function sdDayHtml(D, d, L, off, R, IVd, HTd, tin){ return `<div class="ttl">${mdWD(d)}　出勤 ${L.length}人</div>${L.some(x => x.trial) || HTd.length ? `<div class="muted sm" style="margin:-4px 0 8px 6px">${apLegend()}</div>` : ''}<div class="card">
+function sdDayHtml(D, d, L, off, R, IVd, HTd, tin){ return `<div class="ttl">${mdWD(d)}${D.ev ? '　イベント' : ''}　出勤 ${L.length}人</div>${L.some(x => x.trial) || HTd.length ? `<div class="muted sm" style="margin:-4px 0 8px 6px">${apLegend()}</div>` : ''}<div class="card">
     ${L.map((x, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:1">${x.trial ? `${apRing(x.name, x.ap)} <small class="muted">${esc(x.pay || '')}</small>` : esc(x.name) + (x.black ? DRESS : '')}</span>${x.douhan || !D.edit ? `<span class="muted sm">${x.douhan ? (x.time && x.time !== '同伴' ? `同伴 ${esc(x.time)}` : '同伴') : esc(x.time)}</span>`
       : `${tin(x.time, `data-sdt="${i}"`)}<button class="xb" data-sdx="${i}" aria-label="消す">×</button>`}</div>`).join('') || '<div class="muted sm">なし</div>'}
     ${D.edit ? '<button class="btn" id="sdAdd" style="margin-top:10px">追加</button>' : ''}</div>
