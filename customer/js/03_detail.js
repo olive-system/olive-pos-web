@@ -1,14 +1,14 @@
 // ---------- 詳細 ----------
 /* v1.25：並び順を POS とそろえる（名前・卓名は日本語順、数字は数の順） */
 async function openDetail(id){ curId=id; cur=null; const c=custs.find(x=>x.id===id); $('dName').textContent=c?c.name+' 様':''; $('detail').innerHTML='<div class="loading">読み込み中…</div>'; show('vDetail'); paintEdit();
-  try{ const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id) return; cur=d; renderDetail(); }catch(e){ if(curId===id){ $('detail').innerHTML=''; } await fail(e); if(e.code==='CS_NOTFOUND'){ show('vList'); loadList(); } } }
-async function reloadDetail(){ if(!curId) return; try{ const d=await rpc('cs_detail',{p_token:token,p_id:curId}); cur=d; renderDetail(); }catch(e){ await fail(e); } }
+  try{ const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id) return; cur=d; renderDetail(); }catch(e){ if(curId===id){ $('detail').innerHTML=''; } await csFail(e); if(e.code==='CS_NOTFOUND'){ show('vList'); loadList(); } } }
+async function reloadDetail(){ if(!curId) return; try{ const d=await rpc('cs_detail',{p_token:token,p_id:curId}); cur=d; renderDetail(); }catch(e){ await csFail(e); } }
 
 // v1.43・SQL 117：連絡先交換（LINEマイページからキャストが提出）。交換したキャストの名前。顧客は自動では選ばないので、編集中に黒服がわかる時だけ「未選択の連絡先交換」から選択（POS と同じ。オーナー 2026-10-16）
 async function cxLoad(c){ let d; try{ d=await rpc('cs_contacts',{p_token:token,p_customer:c.id}); }catch(e){ const x=$('dCx'); if(x) x.textContent='—'; return; } const box=$('dCx'); if(!box||!cur||cur.customer.id!==c.id) return;
   const key=x=>String(x||'').replace(/[\s　]/g,''), un=((d&&d.unlinked)||[]).slice().sort((a,b)=>(key(b.name)===key(c.name))-(key(a.name)===key(c.name)));
   box.innerHTML=`${((d&&d.casts)||[]).length?d.casts.map(esc).join('・'):'<span class="muted">なし</span>'}`+(editing()&&un.length?`<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><select id="cxSel" style="flex:1;min-width:0;padding:8px 6px"><option value="">未選択の連絡先交換</option>${un.map(x=>`<option value="${x.id}">${esc(x.name)} 様（${esc(x.cast)} ${cuMd(x.date)}）</option>`).join('')}</select><button class="ghost sm" id="cxGo" style="flex:none">選択</button></div>`:'');
-  const go=$('cxGo'); if(go) go.onclick=async()=>{ const id=$('cxSel').value; if(!id){ await uiAlert('連絡先交換を選んでください'); return; } const x=un.find(z=>z.id===id); if(!await uiConfirm(`${x.name} 様（${x.cast}）の連絡先交換を\n${c.name} 様にしますか？`)) return; if(!await needEdit()) return; go.disabled=true; try{ await rpc('cs_contact_link',{p_token:token,p_edit_token:editTok,p_id:id,p_customer:c.id}); toast('顧客を選択しました'); cxLoad(c); }catch(e){ go.disabled=false; await fail(e); } }; }
+  const go=$('cxGo'); if(go) go.onclick=async()=>{ const id=$('cxSel').value; if(!id){ await uiAlert('連絡先交換を選んでください'); return; } const x=un.find(z=>z.id===id); if(!await uiConfirm(`${x.name} 様（${x.cast}）の連絡先交換を\n${c.name} 様にしますか？`)) return; if(!await needEdit()) return; go.disabled=true; try{ await rpc('cs_contact_link',{p_token:token,p_edit_token:editTok,p_id:id,p_customer:c.id}); toast('顧客を選択しました'); cxLoad(c); }catch(e){ go.disabled=false; await csFail(e); } }; }
 function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モードが無いので、編集のボタンはいつも同じ形（閲覧だけの人には出さない） */ $('dName').textContent=c.name+' 様';
   const bts=(cur.bottles||[]).slice().sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); /* v1.25：開けた日の新しい順（POS と同じ） */ const open=bts.filter(b=>!b.is_finished&&!b.expired_on), fin=bts.filter(b=>b.is_finished&&!b.expired_on), exp=bts.filter(b=>b.expired_on);
   const kakari=c.kakari_staff_id?sname(c.kakari_staff_id):'';
@@ -56,7 +56,7 @@ function rdHtmlRest(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; retu
 function rdBindTop(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
   const D=$('detail'); fitLine(D); cxLoad(c); btcLoad(c); $('btcAdd').onclick=async()=>{ if(await needEdit()) btcForm(c,null); };
   $('cuDel').onclick=async()=>{ if(!await needEdit()) return; if(!await uiConfirm(`${c.name} 様を削除しますか？`,'削除','danger')) return;
-    try{ await rpc('cs_customer_delete',{p_token:token,p_edit_token:editTok,p_id:c.id}); toast('削除しました'); curId=null; cur=null; show('vList'); renderList(); await loadList(); }catch(e){ await fail(e); } };
+    try{ await rpc('cs_customer_delete',{p_token:token,p_edit_token:editTok,p_id:c.id}); toast('削除しました'); curId=null; cur=null; show('vList'); renderList(); await loadList(); }catch(e){ await csFail(e); } };
   $('editInfo').onclick=async()=>{ if(await needEdit()) editForm(false); };
   $('editMemo').onclick=async()=>{ if(await needEdit()) editForm(true); };
   $('reqBtn').onclick=()=>reqForm();
@@ -64,7 +64,7 @@ function rdBindTop(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
 /* 押した時の動き：ボトルの残量・飲み切り・期限切れ・移動・共同・キープ名 */
 function rdBindBottles(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; const D=$('detail');
   D.querySelectorAll('[data-rem]').forEach(x=>x.onchange=async()=>{ const b=bts.find(z=>z.id===x.dataset.rem); const v=x.value; x.disabled=true;
-    try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:'remaining',p_value:v}); b.remaining=Number(v); toast(`${b.name} を 残り ${v}/10 にしました`); }catch(e){ x.value=String(b.remaining); await fail(e); } finally{ x.disabled=false; } });
+    try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:'remaining',p_value:v}); b.remaining=Number(v); toast(`${b.name} を 残り ${v}/10 にしました`); }catch(e){ x.value=String(b.remaining); await csFail(e); } finally{ x.disabled=false; } });
   D.querySelectorAll('[data-fin]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.fin); if(!await uiConfirm(`${b.name} を飲み切りにしますか？`,'飲み切り')) return; await bottleAct(b,'finish','飲み切りにしました'); });
   D.querySelectorAll('[data-exp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.exp); if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`,'期限切れ','danger')) return; await bottleAct(b,'expire','期限切れにしました'); });
   D.querySelectorAll('[data-mv]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.mv); const v=await mvForm(b,c); if(v) await bottleAct(b,'move','ボトル移動にしました',JSON.stringify(v)); }); /* v1.55・SQL 306：移動先・係を記録（オーナー 2026-11-01「移籍先のお店に持っていける。一応記録しておきたい」） */
@@ -83,8 +83,8 @@ function rdBindAdd(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
     let o=cur0; if(!o){ o=document.createElement('option'); sel.insertBefore(o,sel.querySelector('option[value="__free"]')); }
     o.value='__name'; o.dataset.free=v; o.textContent=v; sel.value='__name'; btPrev='__name'; };
   $('btAdd').onclick=async()=>{ const pid=$('btSel').value; const fo=$('btSel').querySelector('option[data-free]'); const freeName=pid==='__name'&&fo?fo.dataset.free:''; const p=freeName?{name:freeName}:keep.find(z=>z.id===pid); if(!p){ toast('銘柄を選んでください'); return; } const rem=Number($('btRem').value); if(!await uiConfirm(`${c.name} 様に ${p.name}（残り ${rem}/10）を登録しますか？${freeName?'\n（リストに無い銘柄として登録します）':''}`,'登録')) return;
-    if(freeName){ try{ await rpc('cs_bottle_add_named',{p_token:token,p_customer:c.id,p_name:freeName,p_remaining:rem}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ if(e.code==='SQL') await uiAlert('準備中です（SQL 044 が未実行）'); else { await fail(e); await reloadDetail(); } } return; }
-    try{ const bid=await rpc('cs_bottle_add',{p_token:token,p_customer:c.id,p_product:p.id}); if(rem!==10) await rpc('cs_bottle',{p_token:token,p_bottle:bid,p_action:'remaining',p_value:String(rem)}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ await fail(e); await reloadDetail(); } };
+    if(freeName){ try{ await rpc('cs_bottle_add_named',{p_token:token,p_customer:c.id,p_name:freeName,p_remaining:rem}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ if(e.code==='SQL') await uiAlert('準備中です（SQL 044 が未実行）'); else { await csFail(e); await reloadDetail(); } } return; }
+    try{ const bid=await rpc('cs_bottle_add',{p_token:token,p_customer:c.id,p_product:p.id}); if(rem!==10) await rpc('cs_bottle',{p_token:token,p_bottle:bid,p_action:'remaining',p_value:String(rem)}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ await csFail(e); await reloadDetail(); } };
 }
 window.addEventListener('resize',()=>fitLine());
 // v1.55・SQL 306：ボトル移動の移動先・係（係は今の係を最初に選ぶ）
@@ -97,7 +97,7 @@ function shForm(b,c){ return sheet(`<h3>${esc(b.name)}　共同ボトル</h3><la
     const draw=()=>{ const q=s.querySelector('#shQ').value.trim(); const hit=custs.filter(x=>x.id!==c.id&&(!q||(x.name||'').includes(q)||(x.company||'').includes(q)||kanaHit(x,q))).slice(0,30); s.querySelector('#shL').innerHTML=hit.map((x,i)=>`<div data-pk="${x.id}" style="padding:8px 10px;cursor:pointer;${i?'border-top:1px solid var(--line);':''}${x.id===pick?'background:var(--soft);font-weight:700':''}">${esc(x.name)} 様${x.company?`　<span class="muted">${esc(x.company)}</span>`:''}</div>`).join('')||'<div class="muted" style="padding:8px 10px">見つかりません</div>'; s.querySelectorAll('[data-pk]').forEach(d=>d.onclick=()=>{ pick=d.dataset.pk; draw(); }); };
     s.querySelector('#shQ').oninput=draw; draw(); s.querySelector('[data-x]').onclick=()=>done(null); const off=s.querySelector('[data-off]'); if(off) off.onclick=()=>done('');
     s.querySelector('[data-ok]').onclick=()=>{ if(!pick){ toast('共同のお客様を選んでください'); return; } done(pick); }; }); }
-async function bottleAct(b,action,msg,value,withEdit){ try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:action,p_value:value==null?null:String(value),p_edit_token:withEdit?editTok:null}); toast(msg); }catch(e){ await fail(e); } await reloadDetail(); }
+async function bottleAct(b,action,msg,value,withEdit){ try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:action,p_value:value==null?null:String(value),p_edit_token:withEdit?editTok:null}); toast(msg); }catch(e){ await csFail(e); } await reloadDetail(); }
 
 // 気づきの申請（書いた人はこのスマホで前回選んだ人を初期表示）
 function reqForm(){ const c=cur.customer; const ppl=(boot.staff||[]).filter(s=>s.active&&s.kind==='hall'); /* 顧客サイトは黒服だけが使う */ const last=LS.get('olive_cs_author');
@@ -105,7 +105,7 @@ function reqForm(){ const c=cur.customer; const ppl=(boot.staff||[]).filter(s=>s
   return sheet(`<h3>${esc(c.name)} 様　気づきを申請</h3><label class="f">書いた人<select id="rqWho"><option value="">選んでください</option>${opt()}</select></label><label class="f">気づき<textarea id="rqBody" rows="6" maxlength="1000" placeholder="例）お連れ様は赤ワイン派。次回は…"></textarea></label><div class="muted" style="font-size:12px">申請はメモに直接は入りません。お店で確認してからメモに追記されます。</div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="ok" data-ok>申請</button></div>`,(s,done)=>{
     s.querySelector('[data-x]').onclick=()=>done(false);
     s.querySelector('[data-ok]').onclick=async e=>{ const who=s.querySelector('#rqWho').value, body=s.querySelector('#rqBody').value.trim(); if(!who){ toast('書いた人を選んでください'); return; } if(!body){ toast('気づきを入力してください'); return; }
-      e.target.disabled=true; try{ await rpc('cs_request',{p_token:token,p_customer:c.id,p_author:who,p_body:body}); LS.set('olive_cs_author',who); done(true); toast('申請しました'); await reloadDetail(); }catch(err){ e.target.disabled=false; await fail(err); } }; }); }
+      e.target.disabled=true; try{ await rpc('cs_request',{p_token:token,p_customer:c.id,p_author:who,p_body:body}); LS.set('olive_cs_author',who); done(true); toast('申請しました'); await reloadDetail(); }catch(err){ e.target.disabled=false; await csFail(err); } }; }); }
 
 // v1.46・SQL 171：請求先（オーナー 2026-10-19「顧客サイトにも登録」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」）
 // POS で「請求書」にした時に選んだ・入れた請求先が並ぶ。ここで足す・直す・消すと、POS の請求先に出る。直しても消しても、もう会計した分の請求先は変わらない
@@ -117,7 +117,7 @@ async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* v1.54：説明�
     :'<span class="muted">なし</span>';
   box().querySelectorAll('[data-bte]').forEach(b=>b.onclick=async()=>{ if(await needEdit()) btcForm(c,rows[+b.dataset.bte]); });
   box().querySelectorAll('[data-btd]').forEach(b=>b.onclick=async()=>{ const x=rows[+b.dataset.btd]; if(!await needEdit()) return; if(!await uiConfirm(`請求先「${x.company}」を削除しますか？\n会計済の伝票の請求先は変わりません`,'削除','danger')) return;
-    try{ await rpc('cs_bill_to_delete',{p_token:token,p_edit_token:editTok,p_customer:c.id,p_id:x.id}); toast('削除しました'); btcLoad(c); }catch(e){ await fail(e); } }); }
+    try{ await rpc('cs_bill_to_delete',{p_token:token,p_edit_token:editTok,p_customer:c.id,p_id:x.id}); toast('削除しました'); btcLoad(c); }catch(e){ await csFail(e); } }); }
 function btcForm(c,x){ return sheet(`<h3>${esc(c.name)} 様　${x?'請求先を修正':'請求先を追加'}</h3>
   <label class="f">会社名（部署も書ける）<input id="bfCo" maxlength="100" value="${esc(x?.company||'')}"></label>
   <label class="f">住所（〒から）<textarea id="bfAd" rows="3" maxlength="200">${esc(x?.address||'')}</textarea></label>
@@ -126,4 +126,4 @@ function btcForm(c,x){ return sheet(`<h3>${esc(c.name)} 様　${x?'請求先を�
     s.querySelector('[data-x]').onclick=()=>done(false);
     s.querySelector('[data-ok]').onclick=async e=>{ const co=s.querySelector('#bfCo').value.trim(); if(!co){ toast('会社名を入力してください'); return; }
       e.target.disabled=true; try{ await rpc('cs_bill_to_save',{p_token:token,p_edit_token:editTok,p_customer:c.id,p_id:x?.id||null,p_company:co,p_address:s.querySelector('#bfAd').value.trim(),p_attn:s.querySelector('#bfAt').value.trim()}); done(true); toast('保存しました'); btcLoad(c); }
-      catch(err){ e.target.disabled=false; if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); return; } await fail(err); } }; }); }
+      catch(err){ e.target.disabled=false; if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); return; } await csFail(err); } }; }); }

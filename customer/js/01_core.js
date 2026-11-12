@@ -42,7 +42,7 @@ function sheet(html,onOpen){ return new Promise(res=>{ const m=$('modal'), s=$('
 UI.input=true; UI.box=o=>o.input?sheet(`<h3>${esc(o.msg)}</h3><input id="pIn" ${o.pw?'type="password" autocomplete="off"':''} value="${esc(o.def)}" placeholder="${esc(o.ph||'')}"><div class="err" id="pErr"></div><div class="btns"><button class="ghost" data-x>キャンセル</button><button class="primary" data-ok>${esc(o.ok)}</button></div>`,(s,done)=>{ const i=s.querySelector('#pIn'); setTimeout(()=>i.focus(),50); const go=()=>done(i.value); s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=go; i.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } }; })
   :sheet(`<div class="msg">${esc(o.msg)}</div><div class="btns">${o.cancel?'<button class="ghost" data-x>キャンセル</button>':''}<button class="${o.cancel?o.cls:'primary'}" data-ok>${esc(o.ok)}</button></div>`,(s,done)=>{ const x=s.querySelector('[data-x]'); if(x) x.onclick=()=>done(false); s.querySelector('[data-ok]').onclick=()=>done(true); }); /* 知らせの箱の見た目（顧客サイトの下から出る箱）。uiAlert・uiConfirm・uiPrompt は lib/olive/core.js */
 TOAST.ms=2200;
-async function fail(e){ if(e&&e.code==='CS_AUTH'){ showLogin(e.message); return; } await uiAlert(e&&e.message||String(e)); }
+async function csFail(e){ if(e&&e.code==='CS_AUTH'){ showLogin(e.message); return; } await uiAlert(e&&e.message||String(e)); }
 
 // ---------- 画面切り替え ----------
 function show(v){ ['vLogin','vList','vDetail'].forEach(x=>$(x).classList.toggle('hide',x!==v)); window.scrollTo(0,0); }
