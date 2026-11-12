@@ -2,8 +2,7 @@
 // 朝礼は黒服だけ。お客様を押すとメモが開き、読んだら「確認」（説明の文は v12.34：オーナー 2026-10-30「未確認をタップで顧客メモを確認してください。」）。天気は Open-Meteo（20時〜翌1時。降水確率50%以上で傘の準備）
 let chOpen=new Set();
 /* v11.73：天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー 2026-10-18「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
-const WXT=c=>c==null?['—',null]:c<=1?['晴れ','clear-night']:c===2?['晴れ時々くもり','partly-cloudy-night']:c===3?['くもり','overcast-night']:c<=48?['霧','fog-night']:c<=57?['霧雨','drizzle']:c<=67?['雨','rain']:c<=77?['雪','snow']:c<=82?['にわか雨','partly-cloudy-night-rain']:c<=86?['にわか雪','partly-cloudy-night-snow']:['雷雨','thunderstorms-night-rain'];
-const WX=c=>WXT(c)[0], WXI=(c,px)=>{ const [t,n]=WXT(c); return n?`<img src="https://cdn.jsdelivr.net/npm/@bybas/weather-icons@2.0.0/production/fill/all/${n}.svg" alt="${t}" style="width:${px}px;height:${px}px;display:block;margin:0 auto">`:'—'; };
+const WX=c=>WXT(c)[0];
 async function chWeather(C){ if(C.lat==null||C.lon==null) return '<div class="muted">店の場所が未設定です</div>';
   try{ const u=`https://api.open-meteo.com/v1/forecast?latitude=${C.lat}&longitude=${C.lon}&hourly=weather_code,precipitation_probability,temperature_2m&timezone=Asia%2FTokyo&forecast_days=3`;
     const j=await (await fetch(u)).json(); const H=j.hourly; const nx=(()=>{ /* 端末の時刻で1日足してから toISOString にすると UTC で前の日に戻り、24時・1時が当日の 0時・1時になっていた */ const [y,m,dd]=C.date.split('-').map(Number); return new Date(Date.UTC(y,m-1,dd+1)).toISOString().slice(0,10); })();
