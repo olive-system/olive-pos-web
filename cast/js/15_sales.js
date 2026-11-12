@@ -15,18 +15,22 @@ async function salesHome(){
     <button class="btn" id="slNext">次へ（連絡済リスト共有）</button>`);
   $('slNext').onclick = salesPick;
 }
+// 連絡済リストの画面の文（選んだお客様・一覧にないお客様・検索）
+function slPickHtml(on, extra, q){
+  return `<div class="ttl">連絡済リスト</div><div class="card"><div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${on.size + extra.length}名</span></div>
+      ${SALES.contacts.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${SALES.contacts.map(c => `<button class="btn g" data-sc="${c.id}" data-kn="${esc(kanaKey(c.kana))}" style="padding:9px 6px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${on.has(c.id)?'background:var(--ink);color:#fff;border-color:var(--ink)':''}">${esc(c.name)}</button>`).join('')}</div>`:'<div class="muted sm">連絡先交換の提出がありません</div>'}
+      <div class="gh" style="margin-top:12px">一覧にないお客様</div>
+      ${extra.length?`<div style="${g2};margin-bottom:6px">${extra.map((n, i) => `<button class="btn g" data-sx="${i}" style="padding:9px 6px;font-size:14px;background:var(--ink);color:#fff;border-color:var(--ink)">${esc(n)}</button>`).join('')}</div>`:''}
+      <div style="display:flex;gap:8px"><input id="slX" maxlength="30" placeholder="フルネーム" style="flex:1;min-width:0;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)"><button class="btn g" id="slAdd" style="width:auto;padding:0 16px">追加</button></div></div>
+      <button class="btn" id="slGo">連絡済リスト共有</button>`;
+}
 function salesPick(){
   setBack(salesHome);
   const on = new Set(), extra = []; let q = ''; // v0.66：名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」2026-10-24。読みが無いので、あいうえお順ではなく文字で絞り込む）
   const nz = v => String(v||'').replace(/[\s　]+/g, '');
   const filt = () => { const k = nz(q); let n = 0; $('main').querySelectorAll('[data-sc]').forEach(b => { const hit = !k || nz(b.textContent).includes(k) || (!!kanaKey(q) && (b.dataset.kn || '').includes(kanaKey(q))); b.style.display = hit ? '' : 'none'; if(hit) n++; }); const z = $('slNone'); if(z) z.style.display = n ? 'none' : ''; };
   const paint = () => {
-    show(`<div class="ttl">連絡済リスト</div><div class="card"><div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${on.size + extra.length}名</span></div>
-      ${SALES.contacts.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${SALES.contacts.map(c => `<button class="btn g" data-sc="${c.id}" data-kn="${esc(kanaKey(c.kana))}" style="padding:9px 6px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${on.has(c.id)?'background:var(--ink);color:#fff;border-color:var(--ink)':''}">${esc(c.name)}</button>`).join('')}</div>`:'<div class="muted sm">連絡先交換の提出がありません</div>'}
-      <div class="gh" style="margin-top:12px">一覧にないお客様</div>
-      ${extra.length?`<div style="${g2};margin-bottom:6px">${extra.map((n, i) => `<button class="btn g" data-sx="${i}" style="padding:9px 6px;font-size:14px;background:var(--ink);color:#fff;border-color:var(--ink)">${esc(n)}</button>`).join('')}</div>`:''}
-      <div style="display:flex;gap:8px"><input id="slX" maxlength="30" placeholder="フルネーム" style="flex:1;min-width:0;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)"><button class="btn g" id="slAdd" style="width:auto;padding:0 16px">追加</button></div></div>
-      <button class="btn" id="slGo">連絡済リスト共有</button>`);
+    show(slPickHtml(on, extra, q));
     $('main').querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { const id = b.dataset.sc; on.has(id) ? on.delete(id) : on.add(id); /* v0.94：押したボタンと数だけ直す（前は一覧を全部作り直していた） */
       const v = on.has(id); b.style.background = v ? 'var(--ink)' : ''; b.style.color = v ? '#fff' : ''; b.style.borderColor = v ? 'var(--ink)' : ''; $('slCnt').textContent = `選択 ${on.size + extra.length}名`; });
     const qi = $('slQ'); if(qi) qi.oninput = () => { q = qi.value; filt(); }; filt();

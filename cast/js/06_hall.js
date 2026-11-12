@@ -105,8 +105,7 @@ async function hallCasts(){
 }
 let hcOpen = new Set();
 /* v0.38：天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー 2026-10-18「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
-const WXT=c=>c==null?['—',null]:c<=1?['晴れ','clear-night']:c===2?['晴れ時々くもり','partly-cloudy-night']:c===3?['くもり','overcast-night']:c<=48?['霧','fog-night']:c<=57?['霧雨','drizzle']:c<=67?['雨','rain']:c<=77?['雪','snow']:c<=82?['にわか雨','partly-cloudy-night-rain']:c<=86?['にわか雪','partly-cloudy-night-snow']:['雷雨','thunderstorms-night-rain'];
-const WXN=c=>WXT(c)[0], WXI=(c,px)=>{ const [t,n]=WXT(c); return n?`<img src="https://cdn.jsdelivr.net/npm/@bybas/weather-icons@2.0.0/production/fill/all/${n}.svg" alt="${t}" style="width:${px}px;height:${px}px;display:block;margin:0 auto">`:'—'; };
+const WXN=c=>WXT(c)[0];
 /* v1.16・SQL 344：売上予測（目標・現在・予測。昨日まで。POS の朝礼と同じ。2026-11-04 オーナー・見本 作業場/売上予測_案7.png） */
 function hcFc(F){ const no = '<span class="muted">—</span>', g = n => n==null ? no : `${n}組`, y = n => n==null ? no : yen(n);
   const th = 'color:var(--muted);font-weight:700;font-size:12px;text-align:right;padding:4px 0 4px 6px;border-top:1px solid var(--line)', td = 'padding:4px 0 4px 6px;border-top:1px solid var(--line);font-weight:700;text-align:right;white-space:nowrap', tl = 'padding:4px 0;border-top:1px solid var(--line);font-weight:700';
