@@ -1,7 +1,7 @@
 // v0.03・SQL 098：当日欠勤。理由は自由入力。罰金のルールは本人の報酬（時給／日給）の分だけ出し、今の時刻に当たる行を赤くする
 const dTxt = d => { const x = jd(d); return `${x.getMonth()+1}月${x.getDate()}日（${WD[x.getDay()]}）`; };
 const tTxt = t => new Date(t).toLocaleTimeString('ja-JP', { timeZone:'Asia/Tokyo', hour:'2-digit', minute:'2-digit', hour12:false });
-const fineTxt = (f, pt) => !f ? '—' : f.calc === 'hourly_pct' ? `時給の${f.value}%` : f.calc === 'daily_pct' ? `日給の${f.value}%` : f.calc === 'yen' ? yen(f.value) : '—';
+const absentFineTxt = (f, pt) => !f ? '—' : f.calc === 'hourly_pct' ? `時給の${f.value}%` : f.calc === 'daily_pct' ? `日給の${f.value}%` : f.calc === 'yen' ? yen(f.value) : '—';
 async function absent(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_absence_info', { p_token: TOKEN });
@@ -10,7 +10,7 @@ async function absent(){
   /* v1.05・点検 2026-11-02 C2・SQL 316：罰金を免除されている子（A.exempt）には、罰金の表も罰金の行も出さない。免除の種類は types から外して届く */
   if(A.sent){ absentDone(A.date, A.sent.at, A.sent.fine_name, true, true, A.exempt); return; }
   const t = A.types || {}, rows = [['13時までの連絡', t.early, false], ['13時以降・金曜日・イベント日', t.late, true]].filter(x => x[1]), nowRow = rows.some(x => x[2] === !!A.is_late);
-  const rule = rows.length ? `<div class="warnbox"><b class="t">当日欠勤の罰金</b><table>${rows.map(x => `<tr class="${x[2]===!!A.is_late?'hi':''}"><td>${x[0]}</td><td>${esc(fineTxt(x[1], t.pay_type))}</td></tr>`).join('')}</table>
+  const rule = rows.length ? `<div class="warnbox"><b class="t">当日欠勤の罰金</b><table>${rows.map(x => `<tr class="${x[2]===!!A.is_late?'hi':''}"><td>${x[0]}</td><td>${esc(absentFineTxt(x[1], t.pay_type))}</td></tr>`).join('')}</table>
     ${nowRow ? `<div class="now">現在の連絡は「${A.is_late ? '13時以降・金曜日・イベント日' : '13時までの連絡'}」に該当します</div>` : ''}</div>` : '';
   show(`${segHtml('absent')}<div class="subh">${dTxt(A.date)} ${tTxt(A.now)}</div>
     <div class="card"><label class="f" for="abR">理由</label><textarea id="abR" maxlength="300"></textarea></div>${rule}

@@ -31,7 +31,7 @@ function blPaint(){
   $('main').querySelectorAll('[data-bl]').forEach(e => e.onclick = () => { const k = e.dataset.bl; billOpen.has(k) ? billOpen.delete(k) : billOpen.add(k); const y = window.scrollY; blPaint(); window.scrollTo(0, y); }); /* v0.94：読み直さない */
 }
 // ---------- 黒服マイページ v0.33・SQL 133（オーナー 2026-10-17）：日報（今の Google フォーム）・報酬明細（キャストと同じ形・受取確認）・担当キャスト・朝礼
-async function hallLoad(pre){ /* v0.73：hall_me は loadMe で先に読み始めている */
+async function hallLoad(pre){ /* v0.73：hall_me は castLoadMe で先に読み始めている */
   const r = await (pre || sb.rpc('hall_me', { p_token: TOKEN })); if(r.error){ fail(r.error.message); return; }
   ME = { ...r.data, hall: true }; KL = ME.kakari_label || '係'; $('tStore').textContent = ME.store_name || 'OLIVE'; hallHome();
   hallGo(goParam());

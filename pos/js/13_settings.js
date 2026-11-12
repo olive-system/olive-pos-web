@@ -16,10 +16,10 @@ $('navSettings').onclick=()=>{ renderSettings(setCur); show('v-settings'); };
 // v11.66：保存忘れのお知らせ（オーナー 2026-10-17。管理サイト v1.22 と同じ）。設定の「詳細」と閉店作業「⑧ その日のメモ」で、入力して保存を押さずに、設定のタブ・一覧・下のボタンで移ろうとした時
 // 保存して画面が描き直されるとボタンが消える＝保存済み。精算の数（金種）は画面を移っても残るので数えない
 let unsavedBtn=null, unsavedPass=false;
-function unsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')) return; const id=t.closest('#setForm')?'setSave':null; /* v11.72：その日のメモは自動で保存 */ if(id&&$(id)) unsavedBtn=$(id); }
-$('v-settings').addEventListener('input',unsavedMark,true); $('v-settings').addEventListener('change',unsavedMark,true);
+function setUnsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')) return; const id=t.closest('#setForm')?'setSave':null; /* v11.72：その日のメモは自動で保存 */ if(id&&$(id)) unsavedBtn=$(id); }
+$('v-settings').addEventListener('input',setUnsavedMark,true); $('v-settings').addEventListener('change',setUnsavedMark,true);
 const unsavedNow=()=>!!(unsavedBtn&&unsavedBtn.isConnected&&!unsavedBtn.disabled);
-async function leaveOk(){ if(!unsavedNow()) return true;
+async function setLeaveOk(){ if(!unsavedNow()) return true;
   const ans=await new Promise(res=>{ const m=mkModal(60);
     m.innerHTML=`<div class="box" style="width:min(420px,94vw)"><div style="font-size:18px;font-weight:700;margin-bottom:12px">保存していない変更があります</div><div style="display:flex;flex-direction:column;gap:8px"><button class="primary" data-v="save">保存して進む</button><button class="ghost" data-v="go">保存せずに進む</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">戻る</button></div></div>`;
     document.body.appendChild(m); m.querySelectorAll('button').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); });
@@ -30,6 +30,6 @@ async function leaveOk(){ if(!unsavedNow()) return true;
   return false; }
 /* 移る操作を先に止めて、小窓の後でもう一度押す */
 document.addEventListener('click',async e=>{ if(unsavedPass||!unsavedNow()) return; const t=e.target.closest?.('#setMenu button,#setList .row,#setAdd,nav button,#navHall,#navOrder,#navCasts,#navCust,#navSettings,#storeName'); if(!t||t.closest('.modal')) return;
-  e.preventDefault(); e.stopPropagation(); if(!await leaveOk()) return; unsavedPass=true; try{ t.click(); } finally{ unsavedPass=false; } },true);
+  e.preventDefault(); e.stopPropagation(); if(!await setLeaveOk()) return; unsavedPass=true; try{ t.click(); } finally{ unsavedPass=false; } },true);
 window.addEventListener('beforeunload',e=>{ if(unsavedNow()){ e.preventDefault(); e.returnValue=''; } });
 

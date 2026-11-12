@@ -30,7 +30,7 @@ async function login(){
   if(r.data.status === 'link'){ showLink(r.data); return; }
   if(r.data.status === 'store'){ /* SQL 222：ほかの店で連携している人（開いたトークに欠勤・予約の LINE が届くため開かない） */
     show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(r.data.store_name)} の公式 LINE のメニューから再度開いてください</p></div>`); return; }
-  TOKEN = r.data.token; clearTimeout(pollT); await loadMe(r.data.kind ? r.data : null); /* v0.94・SQL 292：cast_login が kind・shift_all も返す（cast_who を待たない） */
+  TOKEN = r.data.token; clearTimeout(pollT); await castLoadMe(r.data.kind ? r.data : null); /* v0.94・SQL 292：cast_login が kind・shift_all も返す（cast_who を待たない） */
 }
 
 // 未連携：番号を表示し、黒服が POS で入力するのを待つ（5秒ごとに確認）
@@ -55,7 +55,7 @@ async function linkCheck(){
 }
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && linkWait && !pollT && Date.now() - linkT0 <= 30 * 60000) linkCheck(); });
 
-async function loadMe(w0){
+async function castLoadMe(w0){
   // v0.73：誰か・成績・ホームの残りを、順番に待たずに同時に読む。リッチメニューのボタン（?go=）から開いた時は、ホームの残りを待たずにその画面を出す
   //   （オーナー 2026-10-26「シフト、予約、成績など読み込みまでに時間がかかる」。データベースはどれも 0.1秒以下で、待ちは通信を1つずつ順番に待っていたこと）
   // v0.94・SQL 292：cast_login から黒服かキャストかがわかる時は、黒服は hall_me だけ・キャストはキャストの分だけを同時に読む（前は黒服でもキャストの分を全部読んでいた）。わからない時（SQL 292 の前）は今までどおり
