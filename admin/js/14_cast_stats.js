@@ -84,6 +84,18 @@ async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2
   const SG={}; (rc.data||[]).forEach(r=>{ if(r.slip) SG[r.staff_id]=r.slip; }); const sgd=x=>SG[x.id]?{...SG[x.id],name:x.name}:x;
   const rows=[...(d.rows||[]).map(sgd),...(h?.rows||[]).map(x=>({...sgd(x),hall:true}))], fn=ksFineNames(rows.filter(x=>!x.hall)), sn=curStore()?.name||'', v=n=>ksN(n)?ksN(n).toLocaleString('ja-JP'):'--';
   const now=new Date(), pt=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const slip=ksSlips(y,mo,sn,fn,v,nmT);
+  const per=6, pages=[]; for(let i=0;i<rows.length;i+=per) pages.push(rows.slice(i,i+per));
+  const {dPages,dPage,total}=ksDenom(rows,pages,pt,sn,y,mo);
+  const box=document.createElement('div'); box.style.cssText='position:fixed;left:-20000px;top:0;z-index:-1'; document.body.appendChild(box);
+  box.innerHTML=KS_PDF_CSS
+    +pages.map((pg,i)=>`<div class="kp"><div class="pt">print: ${pt}</div><div class="ss">${pg.map(slip).join('')}</div><div class="pg">- ${i+1} / ${total} -</div></div>`).join('')+dPages.map(dPage).join('');
+  try{ const { jsPDF }=window.jspdf; const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'}); const els=box.querySelectorAll('.kp');
+    for(let i=0;i<els.length;i++){ const c=await html2canvas(els[i],{scale:2,backgroundColor:'#ffffff'}); if(i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,297,210); }
+    pdf.save(`${y}${String(mo).padStart(2,'0')}${ksCode()}-salarylist.pdf`); toast('ダウンロードしました'); }
+  catch(e){ await uiAlert('PDF を作れませんでした：'+e.message); } finally{ box.remove(); } }
+/* 報酬明細の PDF：1人分の明細（キャスト・黒服） */
+function ksSlips(y,mo,sn,fn,v,nmT){
   // 列は3つ（縦の見出し・項目・金額）。見出しの無い行は最初の2つをまとめる。縦書きは1文字ずつ改行（PDF にする時に縦書きが崩れないように）
   const L=(l,val,c='')=>`<tr class="${c}"><td class="lb" colspan="2">${esc(l)}</td><td class="vl">${val}</td></tr>`, grp=(name,trs)=>trs.map((t,i)=>t.replace('<td class="lb" colspan="2">',(i===0?`<td class="gl" rowspan="${trs.length}">${[...name].join('<br>')}</td>`:'')+'<td class="gi">')).join('');
   const slip=x=>{ if(x.hall) return hallSlip(x); const pay=[L(x.pay_type==='daily'?'報酬（日給）':'報酬（時給）',v(x.time_pay)),L('小計バック',v(x.kakari_back)),...(x.seppan?[L(`折半（${ksN(x.seppan_pct)}%）`,v(x.seppan_pay))]:[]),L('HC',v(ksB(x,'hc','amount'))),L('ボトルバック',v(ksB(x,'bottle','amount'))),L('商品バック',v(ksB(x,'other','amount'))),L('手当など、その他',v(ksN(x.allowance)+ksN(x.special_pay))),L('合計',v(x.taxable),'sum')];
@@ -95,7 +107,9 @@ async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2
     const ded=[L('消費税',v(x.ctax)),L('罰金',v(x.fines)),L('厚生費',v(x.welfare)),L('個別控除',v(x.special_deduct)),L('合計',v(ksDed(x)),'sum')];
     return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${nmT(x)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L('遅刻・早退',`${ksN(x.late_min)+ksN(x.early_min)}分`)}
       ${grp('支給対象',pay)}${grp('控除対象',ded)}${L('総支給額',ksN(x.taxable-ksDed(x)).toLocaleString('ja-JP'))}${L('課税対象額',v(x.taxable))}${L('源泉徴収',v(x.withholding))}${L('日払（立替）',v(x.advance))}${ksN(x.prev_adjust)?L('前月精算',(ksN(x.prev_adjust)<0?'−':'')+Math.abs(ksN(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額',(ksN(x.net)<0?'−':'')+'¥'+Math.abs(ksN(x.net)).toLocaleString('ja-JP'),'net')}</table></div>`; };
-  const per=6, pages=[]; for(let i=0;i<rows.length;i+=per) pages.push(rows.slice(i,i+per));
+  return slip; }
+/* 報酬明細の PDF：最後のページの支払報酬金種一覧 */
+function ksDenom(rows,pages,pt,sn,y,mo){
   // 最後のページ：支払報酬金種一覧（残り支給額を、大きいお札・硬貨から順に何枚ずつ用意するか。マイナスの人は0円）
   const DN=[[10000,'1万円札'],[5000,'5千円札'],[1000,'千円札'],[500,'500円玉'],[100,'100円玉'],[50,'50円玉'],[10,'10円玉'],[5,'5円玉'],[1,'1円玉']];
   const cnt=a=>{ let r=Math.max(0,Math.floor(ksN(a))); return DN.map(([u])=>{ const c=Math.floor(r/u); r-=c*u; return c; }); };
@@ -104,8 +118,9 @@ async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2
   const dPage=(pg,k)=>`<div class="kp"><div class="pt">print: ${pt}</div><div class="dk"><div class="dh">${esc(sn)} 令和${y-2018}年${mo}月度 支払報酬金種一覧 (${k+1})</div><table class="dt"><tr><th>No</th><th class="l">名前</th><th>支給額</th>${DN.map(([,l])=>`<th>${l}</th>`).join('')}</tr>
     ${pg.map(r=>`<tr><td>${r.no}</td><td class="l">${esc(r.name)}</td><td>¥${r.pay.toLocaleString('ja-JP')}</td>${r.c.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}
     ${k===dPages.length-1?`<tr class="tt"><td colspan="2" class="r">合計</td><td>¥${dSum.toLocaleString('ja-JP')}</td>${dTot.map(c=>`<td>${c}</td>`).join('')}</tr>`:''}</table></div><div class="pg">- ${pages.length+k+1} / ${total} -</div></div>`;
-  const box=document.createElement('div'); box.style.cssText='position:fixed;left:-20000px;top:0;z-index:-1'; document.body.appendChild(box);
-  box.innerHTML=`<style>.kp{width:1123px;height:794px;background:#fff;color:#222;font-family:"Zen Kaku Gothic New",system-ui,"Hiragino Sans","Noto Sans JP",sans-serif;padding:14px 40px;box-sizing:border-box;position:relative}
+  return {dPages,dPage,total}; }
+/* 報酬明細の PDF の見た目 */
+const KS_PDF_CSS=`<style>.kp{width:1123px;height:794px;background:#fff;color:#222;font-family:"Zen Kaku Gothic New",system-ui,"Hiragino Sans","Noto Sans JP",sans-serif;padding:14px 40px;box-sizing:border-box;position:relative}
     .kp .pt{text-align:right;font-size:11px;border-bottom:1px solid #222;padding-bottom:2px}.kp .pg{position:absolute;left:40px;right:40px;bottom:22px;border-top:1px solid #222;text-align:center;font-size:11px;padding-top:2px}
     .kp .ss{display:flex;gap:8px;margin-top:16px;align-items:flex-start}.kp .sl{width:165px;flex:none;box-shadow:0 1px 3px rgba(0,0,0,.25);border-radius:4px;overflow:hidden}
     .kp .sh{background:linear-gradient(#fafafa,#e9e9e9);text-align:center;padding:12px 4px 10px;font-size:12px;line-height:1.7}.kp .sh .t1{font-size:15px}.kp .sh .nm{font-size:15px;margin-top:2px}
@@ -114,12 +129,7 @@ async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2
     .kp tr.sum td.gi,.kp tr.sum td.vl{font-weight:600}.kp tr.net td{background:#f3f3f3}
     .kp .dk{margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.25);border-radius:4px;overflow:hidden}.kp .dh{background:linear-gradient(#fafafa,#e9e9e9);padding:14px 14px 12px;font-size:14px}
     .kp table.dt{table-layout:auto;font-size:11px}.kp table.dt th{background:#f3f3f3;font-weight:400;text-align:right;padding:4px 6px;border-bottom:1px solid #ddd}.kp table.dt td{text-align:right;padding:4px 6px;height:auto;border-left:1px solid #ddd}
-    .kp table.dt .l{text-align:left}.kp table.dt td.r{text-align:right}.kp table.dt tr.tt td{background:#f3f3f3;border-top:1px solid #bbb}</style>`
-    +pages.map((pg,i)=>`<div class="kp"><div class="pt">print: ${pt}</div><div class="ss">${pg.map(slip).join('')}</div><div class="pg">- ${i+1} / ${total} -</div></div>`).join('')+dPages.map(dPage).join('');
-  try{ const { jsPDF }=window.jspdf; const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'}); const els=box.querySelectorAll('.kp');
-    for(let i=0;i<els.length;i++){ const c=await html2canvas(els[i],{scale:2,backgroundColor:'#ffffff'}); if(i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,297,210); }
-    pdf.save(`${y}${String(mo).padStart(2,'0')}${ksCode()}-salarylist.pdf`); toast('ダウンロードしました'); }
-  catch(e){ await uiAlert('PDF を作れませんでした：'+e.message); } finally{ box.remove(); } }
+    .kp table.dt .l{text-align:left}.kp table.dt td.r{text-align:right}.kp table.dt tr.tt td{background:#f3f3f3;border-top:1px solid #bbb}</style>`;
 
 // v1.70・SQL 281：月給の人の遅刻は15分ごとに 2,000円（連絡なしは2倍）。v1.51・SQL 215：月給の時給は営業日数で割る・レジ精算より後の退勤は早退にしない。v0.34・SQL 074（v0.35：集計「スタッフ」のキャストの下に移動）：黒服の報酬（その月）。基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額。直せるのはオーナーだけ（遅刻・早退の減算額とボーナス。操作ログに残る）
 function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
@@ -139,7 +149,9 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
       <td>${y0(x.bonus)}${x.bonus_fixed!=null?' <span class="badge">修正済</span>':''}</td><td>${y0(x.allowance)}</td><td>${y0(x.special_pay)}</td><td>${y0(x.taxable)}</td><td>${neg(x.fines)}</td><td>${neg(x.ctax)}</td><td>${neg(x.welfare)}</td><td>${neg(x.special_deduct)}</td><td>${neg(x.advance)}</td><td>${neg(x.withholding)}</td>${PA?`<td>${N(x.prev_adjust)<0?neg(-N(x.prev_adjust)):y0(x.prev_adjust)}</td>`:''}
       <td>${N(x.net)<0?`<b style="color:var(--warn)">${yen(N(x.net))}</b>`:`<b>${yen(N(x.net))}</b>`}</td>${own?`<td><button class="ghost sm" data-hpfix="${x.id}">修正</button></td>`:''}</tr>`).join('')||`<tr><td colspan="20" class="muted">この月の黒服はいません</td></tr>`}</tbody></table></div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに減算します。月給の人の遅刻は15分ごとに 2,000円（無断遅刻は 4,000円。［修正］で遅刻日ごとに選択）、早退は時給分です。日給の人は遅刻・早退とも時給分です。月給の人の時給＝月給÷（その月の営業日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。営業日数は、シフト設定の休の日を除いた日数です。レジ精算より後の退勤は、早退にしません（早仕舞いの日）。時給の人は稼働時間で支払うので減算しません。出勤・退勤の時刻が両方入力されていないと減算しません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（キャスト報酬＋キャスト日払い＋体験の報酬＋黒服の報酬〈ボーナスの前〉）÷売上計。係専用（店・ママ）は入りません<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーのみ。遅刻・早退の減算額とボーナスを修正できます（空にすると自動の計算に戻ります）</div></div>`;
-  box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return;
+  box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return; await hallPayFix(x,m); })); }
+/* 黒服の報酬の修正の小窓（遅刻・早退の減算額・ボーナス・連絡なし） */
+async function hallPayFix(x,m){ const N=v=>Number(v||0);
     // v1.70・SQL 281：月給の人は遅刻日ごとに「連絡なし」を選ぶ（15分ごとに 2,000円・連絡なし 4,000円）。理由の入力と操作ログはなし（オーナー 2026-10-28）
     const ld=x.pay_type==='monthly'?(x.late_days||[]):[], md2=d=>{ const t=String(d).slice(5).split('-'); return t[0]+'/'+t[1]; };
     const ldBox=ld.length?`<div style="margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden"><div style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--soft);font-weight:700"><span>遅刻日</span><span class="muted" style="font-weight:400;font-size:13px">15分ごと 2,000円・無断遅刻 4,000円</span></div>
@@ -156,5 +168,6 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
     const v=await new Promise(res=>{ md.querySelector('[data-k=no]').onclick=()=>{ md.remove(); res(null); }; md.querySelector('[data-k=ok]').onclick=()=>{ const g=id=>md.querySelector(id).value.trim(); const o={l:g('#hfL'),b:g('#hfB'),nc:[...md.querySelectorAll('[data-nc]:checked')].map(c=>c.dataset.nc)}; md.remove(); res(o); }; });
     if(!v) return; const num=t=>t===''?null:slNum(t); const l=num(v.l), bb=num(v.b);
     if((l!=null&&!(Number.isInteger(l)&&l>=0))||(bb!=null&&!(Number.isInteger(bb)&&bb>=0))){ await uiAlert('金額は0以上の整数で入力してください'); return; }
-    const z=await rpc('admin_save_hall_adjust',{p_staff:x.id,p_month:m,p_late:l,p_bonus:bb,p_nocontact:v.nc}); if(!z.ok) return; toast('修正しました'); PAGES.cast_sales(); })); }
+    const z=await rpc('admin_save_hall_adjust',{p_staff:x.id,p_month:m,p_late:l,p_bonus:bb,p_nocontact:v.nc}); if(!z.ok) return; toast('修正しました'); PAGES.cast_sales();
+}
 
