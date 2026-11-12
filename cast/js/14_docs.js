@@ -52,28 +52,8 @@ async function contractPdf(){
   const b = $('dcPdf'); b.disabled = true; b.textContent = '作成中…';
   try{
     const r = await sb.rpc('cast_contract_copy', { p_token: TOKEN }); if(r.error) throw new Error(r.error.message);
-    const C = r.data, at = new Date(C.at).toLocaleString('ja-JP', { timeZone:'Asia/Tokyo', year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
-    if(!pdfLib) pdfLib = Promise.all([loadJs('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'), loadJs('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js')]);
-    await pdfLib;
-    const box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:-10000px;top:0;width:720px;padding:36px 40px;background:#fff;color:#111;font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:13px;line-height:1.75'; /* .kp：印刷物（契約書の PDF・白と黒） */
-    box.innerHTML = `<div style="text-align:center;font-size:18px;font-weight:700;margin-bottom:14px">${esc(C.title)}</div><div style="white-space:pre-wrap">${esc(C.preamble)}</div>
-      ${(C.articles||[]).map(a => `<div style="margin-top:12px"><b>${esc(a.title)}</b><div style="white-space:pre-wrap">${esc(a.body)}</div><div>☑ 同意</div></div>`).join('')}
-      <div style="margin-top:14px">☑ ${esc(C.oath)}</div>
-      <table style="margin-top:18px;border-collapse:collapse;width:100%">${[['店舗',C.store],['氏名',C.name],['住所',C.address],['電話番号',C.phone],['メールアドレス',C.email],['同意日時',at]].map(([k,v]) => `<tr><td style="border:1px solid #999;padding:6px 10px;width:130px">${k}</td><td style="border:1px solid #999;padding:6px 10px">${esc(v)}</td></tr>`).join('')}<!-- .kp：印刷物（契約書の PDF・白と黒） -->
-      <tr><td style="border:1px solid #999;padding:6px 10px">署名</td><td style="border:1px solid #999;padding:6px 10px"><img src="${C.signature}" style="height:90px"></td></tr></table>`; /* .kp：印刷物（契約書の PDF・白と黒） */
-    document.body.appendChild(box);
-    try{
-      await new Promise(ok => { const im = box.querySelector('img'); if(im.complete) ok(); else { im.onload = ok; im.onerror = ok; } });
-      const c = await html2canvas(box, { scale: 2, backgroundColor: '#ffffff' });
-      const pdf = new window.jspdf.jsPDF({ unit:'mm', format:'a4' }), pw = 190, ph = 277, k = pw / c.width, pageH = Math.floor(ph / k);
-      for(let y = 0, i = 0; y < c.height; y += pageH, i++){
-        const h = Math.min(pageH, c.height - y), p = document.createElement('canvas'); p.width = c.width; p.height = h;
-        p.getContext('2d').drawImage(c, 0, y, c.width, h, 0, 0, c.width, h);
-        if(i) pdf.addPage(); pdf.addImage(p.toDataURL('image/jpeg', 0.92), 'JPEG', 10, 10, pw, h * k);
-      }
-      pdf.save(`契約書_${ME.name}.pdf`);
-    } finally { box.remove(); }
+    const C = r.data;
+    (await contractPdfMake(C)).save(`契約書_${ME.name}.pdf`); /* PDF の形は lib/olive/contract.js（POS・管理サイトの書類と同じ） */
   }catch(e){ await uiAlert('PDF を作成できませんでした：' + (e.message||e)); }
   finally{ b.disabled = false; b.textContent = 'PDF ダウンロード'; }
 }
