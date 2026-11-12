@@ -17,15 +17,19 @@ function clCorners(x,w,h){ const k=240/Math.max(w,h), sw=Math.max(8,Math.round(w
   return Q.map(([px,py])=>[(px+0.5)/k,(py+0.5)/k]); }
 /* 明るい灰色の台（石・白っぽい机）の上の紙：台も紙も色が無く、影で紙の一部が台より暗くなるので、明るさでは分けられない（2026-11-12 銀座の 1,870円の領収書が台ごと PDF になった「トリミングがされてない」）。
    紙のふちのまっすぐな線を探し、4本の線で囲んだ四角のうち、4辺とも線がふちに沿って続いている一番大きなものを紙とする（中の表の罫線は紙より小さい・台の手前の線は紙の横の辺が続かない）。見つからない時は null */
-function clEdgeQuad(x,w,h){ const k=400/Math.max(w,h), sw=Math.max(8,Math.round(w*k)), sh=Math.max(8,Math.round(h*k)), c=document.createElement('canvas'); c.width=sw; c.height=sh; const y=c.getContext('2d'); y.drawImage(x.canvas,0,0,sw,sh);
+// 紙のふちの線を探すための下ごしらえ：小さくした写真の明るさの変わり目（強さ E と向き A）
+function clEdgeMap(x,w,h){ const k=400/Math.max(w,h), sw=Math.max(8,Math.round(w*k)), sh=Math.max(8,Math.round(h*k)), c=document.createElement('canvas'); c.width=sw; c.height=sh; const y=c.getContext('2d'); y.drawImage(x.canvas,0,0,sw,sh);
   const d=y.getImageData(0,0,sw,sh).data, N=sw*sh, G=new Float32Array(N), M=new Float32Array(N), A=new Float32Array(N); for(let i=0;i<N;i++) G[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
-  const at=(X,Y)=>G[Math.max(0,Math.min(sh-1,Y))*sw+Math.max(0,Math.min(sw-1,X))];
-  for(let Y=0;Y<sh;Y++) for(let X=0;X<sw;X++){ const gx=at(X+1,Y-1)+2*at(X+1,Y)+at(X+1,Y+1)-at(X-1,Y-1)-2*at(X-1,Y)-at(X-1,Y+1), gy=at(X-1,Y+1)+2*at(X,Y+1)+at(X+1,Y+1)-at(X-1,Y-1)-2*at(X,Y-1)-at(X+1,Y-1), i=Y*sw+X; M[i]=Math.hypot(gx,gy); A[i]=Math.atan2(gy,gx); }
+  const gv=(X,Y)=>G[Math.max(0,Math.min(sh-1,Y))*sw+Math.max(0,Math.min(sw-1,X))];
+  for(let Y=0;Y<sh;Y++) for(let X=0;X<sw;X++){ const gx=gv(X+1,Y-1)+2*gv(X+1,Y)+gv(X+1,Y+1)-gv(X-1,Y-1)-2*gv(X-1,Y)-gv(X-1,Y+1), gy=gv(X-1,Y+1)+2*gv(X,Y+1)+gv(X+1,Y+1)-gv(X-1,Y-1)-2*gv(X,Y-1)-gv(X+1,Y-1), i=Y*sw+X; M[i]=Math.hypot(gx,gy); A[i]=Math.atan2(gy,gx); }
   const srt=Float32Array.from(M).sort(), thr=Math.max(40,srt[Math.floor(N*0.9)]), E=new Uint8Array(N); for(let i=0;i<N;i++) E[i]=M[i]>thr?1:0;
-  const NT=180, R=Math.ceil(Math.hypot(sw,sh)), acc=new Int32Array(NT*(2*R+1)), cs=[], sn=[]; for(let t=0;t<NT;t++){ cs.push(Math.cos(t*Math.PI/NT)); sn.push(Math.sin(t*Math.PI/NT)); }
+  return {k,sw,sh,N,E,A}; }
+// まっすぐな線を強い順に40本（向き t は 1度きざみ・r は原点からの距離）
+function clEdgeLines(m){ const {sw,sh,N,E,A}=m, NT=180, R=Math.ceil(Math.hypot(sw,sh)), acc=new Int32Array(NT*(2*R+1)), cs=[], sn=[]; for(let t=0;t<NT;t++){ cs.push(Math.cos(t*Math.PI/NT)); sn.push(Math.sin(t*Math.PI/NT)); }
   for(let i=0;i<N;i++){ if(!E[i]) continue; const X=i%sw, Y=(i-X)/sw; let a=A[i]; if(a<0) a+=Math.PI; const t0=Math.round(a*NT/Math.PI); for(let dt=-6;dt<=6;dt++){ const t=((t0+dt)%NT+NT)%NT; acc[t*(2*R+1)+Math.round(X*cs[t]+Y*sn[t])+R]++; } }
   const pk=[]; for(let t=0;t<NT;t++) for(let r=0;r<2*R+1;r++){ const v=acc[t*(2*R+1)+r]; if(v<Math.min(sw,sh)*0.15) continue; let mx=true; for(let dt=-3;dt<=3&&mx;dt++) for(let dr=-4;dr<=4;dr++){ if(!dt&&!dr) continue; const tt=t+dt, rr=r+dr; const T=(tt+NT)%NT, RR=tt<0||tt>=NT?2*R-rr:rr; if(RR<0||RR>2*R) continue; const u=acc[T*(2*R+1)+RR]; if(u>v||(u===v&&(dt<0||(!dt&&dr<0)))){ mx=false; break; } } if(mx) pk.push({t,r:r-R,v}); }
-  pk.sort((a,b)=>b.v-a.v); const Lk=pk.slice(0,40);
+  pk.sort((a,b)=>b.v-a.v); return {L:pk.slice(0,40),cs,sn,NT}; }
+function clEdgeQuad(x,w,h){ const m=clEdgeMap(x,w,h), {k,sw,sh,N,E}=m, {L:Lk,cs,sn,NT}=clEdgeLines(m);
   const ang=(a,b)=>{ const z=Math.abs(a.t-b.t)%NT; return Math.min(z,NT-z); }, meet=(a,b)=>{ const D=cs[a.t]*sn[b.t]-sn[a.t]*cs[b.t]; if(Math.abs(D)<1e-6) return null; return [(a.r*sn[b.t]-b.r*sn[a.t])/D,(cs[a.t]*b.r-cs[b.t]*a.r)/D]; };
   const P=[]; for(let i=0;i<Lk.length;i++) for(let j=i+1;j<Lk.length;j++){ const a=Lk[i], b=Lk[j]; if(ang(a,b)>8) continue; const dd=Math.abs(a.t===b.t?a.r-b.r:a.r+(Math.abs(a.t-b.t)>NT/2?b.r:-b.r)); if(dd<Math.min(sw,sh)*0.15) continue; P.push([a,b]); }
   const sup=(p,q)=>{ const L=Math.hypot(q[0]-p[0],q[1]-p[1]), n=Math.max(8,Math.round(L/2)); let hit=0,cnt=0,run=0,gap=0; for(let s=0;s<=n;s++){ const f=0.06+0.88*s/n, X=p[0]+(q[0]-p[0])*f, Y=p[1]+(q[1]-p[1])*f; if(X<1||Y<1||X>sw-2||Y>sh-2) return 0; cnt++; let ok=false; for(let dy=-2;dy<=2&&!ok;dy++) for(let dx=-2;dx<=2;dx++){ if(E[Math.round(Y+dy)*sw+Math.round(X+dx)]){ ok=true; break; } } if(ok){ hit++; run=0; } else if(++run>gap) gap=run; } return !cnt||gap>Math.max(3,n*0.05)?0:hit/cnt; }; /* 辺の途中で線が長く切れている（紙の横の辺を台の手前まで伸ばした所など）四角は取らない */
