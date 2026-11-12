@@ -6,12 +6,15 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
   <div class="row" style="margin-bottom:12px"><button class="ghost" id="pcPrev">◀</button><input type="date" id="pcDate" value="${d}" style="width:auto"><button class="ghost" id="pcNext">▶</button><button class="ghost" id="pcToday">今日</button></div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const wire=()=>{ $('pcDate').onchange=()=>{ if($('pcDate').value){ pcDate=$('pcDate').value; PAGES.punches(); } }; $('pcPrev').onclick=()=>{ pcDate=dayAdd(d,-1); PAGES.punches(); }; $('pcNext').onclick=()=>{ pcDate=dayAdd(d,1); PAGES.punches(); }; $('pcToday').onclick=()=>{ pcDate=businessDate(); PAGES.punches(); }; };
-  const [ev,sf]=await Promise.all([ sb.from('attendance_events').select('id,staff_id,event_type,event_at,rounded_at,photo_path,is_corrected,orig_at,fixed_by,fixed_at').eq('store_id',st).eq('business_date',d).order('event_at'),
-    sb.from('staff').select('id,display_name,kind,sort_order').eq('store_id',st).order('sort_order').order('id') ]);
+  const [ev,sf,cx]=await Promise.all([ sb.from('attendance_events').select('id,staff_id,event_type,event_at,rounded_at,photo_path,is_corrected,orig_at,fixed_by,fixed_at').eq('store_id',st).eq('business_date',d).order('event_at'),
+    sb.from('staff').select('id,display_name,kind,sort_order').eq('store_id',st).order('sort_order').order('id'),
+    /* POS の「退勤を取り消す」は打刻の行を写真ごと消すので、取り消した退勤は操作ログから出す */
+    sb.from('pos_audit_log').select('detail,created_at').eq('store_id',st).eq('action','退勤の取消').gte('created_at',d+'T08:00:00+09:00').lt('created_at',dayAdd(d,1)+'T08:00:00+09:00').order('created_at') ]);
   if(page!=='punches'||storeId!==st||pcDate!==d) return;
   const er=ev.error||sf.error; if(er){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(er.message)}</div>`; wire(); return; }
   const by={}; (ev.data||[]).forEach(e=>{ const o=by[e.staff_id]||(by[e.staff_id]={}); o[e.event_type]=e; });
-  const people=(sf.data||[]).filter(x=>by[x.id]);
+  const cxBy={}; (cx.data||[]).forEach(c=>{ const p=(sf.data||[]).find(x=>x.display_name===c.detail?.name); if(p) (cxBy[p.id]||(cxBy[p.id]=[])).push(c); });
+  const people=(sf.data||[]).filter(x=>by[x.id]||cxBy[x.id]); people.forEach(p=>{ by[p.id]=by[p.id]||{}; });
   const paths=(ev.data||[]).map(e=>e.photo_path).filter(Boolean); let urls={};
   if(paths.length){ const r=await sb.storage.from('selfies').createSignedUrls(paths,3600); (r.data||[]).forEach(x=>{ if(x.signedUrl) urls[x.path]=x.signedUrl; }); if(page!=='punches'||pcDate!==d) return; }
   const hm=t=>{ const x=new Date(t); return `${x.getHours()}:${String(x.getMinutes()).padStart(2,'0')}`; }; const md=t=>{ const x=new Date(t); return `${x.getMonth()+1}/${x.getDate()} ${hm(t)}`; };
@@ -20,8 +23,9 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
   /* v1.49・SQL 206：出勤を押し忘れて退勤だけの人は、出勤の所に赤で「出勤なし」（黒服が「追加」で時刻を入れる） */
   /* v1.71・SQL 282：修正した打刻は「最初の打刻→今の時刻」（オーナー 2026-10-28）。最初の打刻が無い修正（今までの POS の修正・追加）は「修正済」のまま */
   /* v1.43：詰めた形（オーナー 2026-10-22「もう少し無駄なく」）。写真は小さく時刻の横・「追加」「修正」は小さい文字 */
-  const cell=(e,pid,k)=>!e?((k==='clock_in'&&(by[pid]?.clock_out||by[pid]?.after)&&!by[pid]?.douhan? /* 2026-11-08：アフターも退勤の扱い（オーナー） */'<b style="color:var(--warn);font-size:13px;margin-right:6px">出勤なし</b>':'')+(ed?`<button class="pc-l" data-pcadd="${pid}" data-k="${k}">追加</button>`:'<span class="muted">—</span>')):`<div class="pc-c">${e.photo_path?(urls[e.photo_path]?`<img src="${esc(urls[e.photo_path])}" data-big="${esc(urls[e.photo_path])}" alt="">`:'<small class="muted">写真を出せません</small>'):'<small class="muted">写真なし</small>'}<span class="pc-t"${e.is_corrected?' style="color:var(--warn)"':''}>${hm(e.rounded_at||e.event_at)}</span>`+
-    `<small class="pc-s">${hm(e.orig_at||e.event_at)}${e.orig_at?`<br>修正 ${hm(e.event_at)}${e.fixed_at?` ${esc(e.fixed_by||'')} ${md(e.fixed_at)}`:''}`:''}</small>${e.is_corrected&&!e.orig_at?'<small class="badge warnb">修正済</small>':''}${ed?`<button class="pc-l" data-pcfix="${e.id}" data-k="${e.event_type}" data-t="${hm(e.event_at)}" data-n="${pid}">修正</button>`:''}</div>`;
+  const cxl=(pid,k)=>k!=='clock_out'||!cxBy[pid]?'':cxBy[pid].map(c=>`<span style="color:var(--warn)">取消 ${esc(String(c.detail.out||'').replace(/^0(?=\d)/,''))} ${esc(c.detail.by||'')} ${md(c.created_at)}</span>`).join('<br>');
+  const cell=(e,pid,k)=>!e?((k==='clock_in'&&(by[pid]?.clock_out||by[pid]?.after)&&!by[pid]?.douhan? /* 2026-11-08：アフターも退勤の扱い（オーナー） */'<b style="color:var(--warn);font-size:13px;margin-right:6px">出勤なし</b>':'')+(ed?`<button class="pc-l" data-pcadd="${pid}" data-k="${k}">追加</button>`:'<span class="muted">—</span>')+(cxl(pid,k)?`<small class="pc-s" style="margin-left:6px">${cxl(pid,k)}</small>`:'')):`<div class="pc-c">${e.photo_path?(urls[e.photo_path]?`<img src="${esc(urls[e.photo_path])}" data-big="${esc(urls[e.photo_path])}" alt="">`:'<small class="muted">写真を出せません</small>'):'<small class="muted">写真なし</small>'}<span class="pc-t"${e.is_corrected?' style="color:var(--warn)"':''}>${hm(e.rounded_at||e.event_at)}</span>`+
+    `<small class="pc-s">${hm(e.orig_at||e.event_at)}${e.orig_at?`<br>修正 ${hm(e.event_at)}${e.fixed_at?` ${esc(e.fixed_by||'')} ${md(e.fixed_at)}`:''}`:''}${cxl(pid,k)?'<br>'+cxl(pid,k):''}</small>${e.is_corrected&&!e.orig_at?'<small class="badge warnb">修正済</small>':''}${ed?`<button class="pc-l" data-pcfix="${e.id}" data-k="${e.event_type}" data-t="${hm(e.event_at)}" data-n="${pid}">修正</button>`:''}</div>`;
   $('main').innerHTML=head+(people.length?`<div class="cs-w"><table class="reg pc"><tr><th class="nm">名前</th>${PC_TYPES.map(([,n])=>`<th>${n}</th>`).join('')}</tr>
     ${people.map(p=>`<tr><td class="nm">${esc(p.display_name)}${p.kind==='hall'?' <small class="muted">黒服</small>':''}</td>${PC_TYPES.map(([k])=>`<td>${cell(by[p.id][k],p.id,k)}</td>`).join('')}</tr>`).join('')}</table></div>`
     :'<div class="card muted">この日の打刻はありません</div>')+`<div class="muted" style="font-size:13px;margin-top:10px">写真を押すと大きく出ます</div>`;
