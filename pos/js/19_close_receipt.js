@@ -9,11 +9,38 @@ function clLoadPdf(){ if(window.jspdf) return Promise.resolve(); if(!clJsPdf) cl
 function clCorners(x,w,h){ const k=240/Math.max(w,h), sw=Math.max(8,Math.round(w*k)), sh=Math.max(8,Math.round(h*k)); const c=document.createElement('canvas'); c.width=sw; c.height=sh; const y=c.getContext('2d'); y.drawImage(x.canvas,0,0,sw,sh);
   const d=y.getImageData(0,0,sw,sh).data, N=sw*sh, L=new Uint8Array(N), hist=new Array(256).fill(0); for(let i=0;i<N;i++){ const r=d[i*4],g=d[i*4+1],b=d[i*4+2], mx=Math.max(r,g,b), l=Math.max(0,Math.min(255,Math.round(mx*(1-4*(mx-Math.min(r,g,b))/Math.max(1,mx))))); L[i]=l; hist[l]++; } /* 明るさだけで分けると、照明が当たった木目の机も紙に入って角がずれる → 色の無さ（明るさに対する色の割合）で分ける。影になった紙も色は無いので残る */
   let sum=0; for(let t=0;t<256;t++) sum+=t*hist[t]; let sB=0,wB=0,best=0,th=128; for(let t=0;t<256;t++){ wB+=hist[t]; if(!wB) continue; const wF=N-wB; if(!wF) break; sB+=t*hist[t]; const mB=sB/wB, mF=(sum-sB)/wF, v=wB*wF*(mB-mF)*(mB-mF); if(v>best){ best=v; th=t; } }
-  const lab=new Int32Array(N).fill(-1), q=new Int32Array(N); let big=-1, bigN=0;
-  for(let i=0;i<N;i++){ if(L[i]<=th||lab[i]>=0) continue; let hd=0,tl=0; q[tl++]=i; lab[i]=i; while(hd<tl){ const j=q[hd++], jx=j%sw; for(const n of [j-sw,j+sw,jx>0?j-1:-1,jx<sw-1?j+1:-1]){ if(n<0||n>=N||lab[n]>=0||L[n]<=th) continue; lab[n]=i; q[tl++]=n; } } if(tl>bigN){ bigN=tl; big=i; } }
+  const lab=new Int32Array(N).fill(-1), q=new Int32Array(N); let big=-1, bigN=0, bigE=0;
+  for(let i=0;i<N;i++){ if(L[i]<=th||lab[i]>=0) continue; let hd=0,tl=0,e=0; q[tl++]=i; lab[i]=i; while(hd<tl){ const j=q[hd++], jx=j%sw, jy=(j-jx)/sw; if(!jx||!jy||jx===sw-1||jy===sh-1) e++; for(const n of [j-sw,j+sw,jx>0?j-1:-1,jx<sw-1?j+1:-1]){ if(n<0||n>=N||lab[n]>=0||L[n]<=th) continue; lab[n]=i; q[tl++]=n; } } if(tl>bigN){ bigN=tl; big=i; bigE=e; } }
+  if(big>=0&&(bigE>=(sw+sh)*0.5||bigN>N*0.97)){ const E=clEdgeQuad(x,w,h); if(E) return E; } /* 明るい台：台と紙が1つのかたまりになり、写真のふちに広く付く → 紙のふちの線で探す */
   if(big<0||bigN<N*0.12||bigN>N*0.97) return null;
   let Q=clSides(lab,big,sw,sh,bigN); if(!Q){ let tl=null,tr=null,br=null,bl=null; for(let i=0;i<N;i++){ if(lab[i]!==big) continue; const px=i%sw, py=(i-px)/sw; if(!tl||px+py<tl[0]+tl[1]) tl=[px,py]; if(!br||px+py>br[0]+br[1]) br=[px,py]; if(!tr||px-py>tr[0]-tr[1]) tr=[px,py]; if(!bl||px-py<bl[0]-bl[1]) bl=[px,py]; } Q=[tl,tr,br,bl]; }
   return Q.map(([px,py])=>[(px+0.5)/k,(py+0.5)/k]); }
+/* 明るい灰色の台（石・白っぽい机）の上の紙：台も紙も色が無く、影で紙の一部が台より暗くなるので、明るさでは分けられない（2026-11-12 銀座の 1,870円の領収書が台ごと PDF になった「トリミングがされてない」）。
+   紙のふちのまっすぐな線を探し、4本の線で囲んだ四角のうち、4辺とも線がふちに沿って続いている一番大きなものを紙とする（中の表の罫線は紙より小さい・台の手前の線は紙の横の辺が続かない）。見つからない時は null */
+// 紙のふちの線を探すための下ごしらえ：小さくした写真の明るさの変わり目（強さ E と向き A）
+function clEdgeMap(x,w,h){ const k=400/Math.max(w,h), sw=Math.max(8,Math.round(w*k)), sh=Math.max(8,Math.round(h*k)), c=document.createElement('canvas'); c.width=sw; c.height=sh; const y=c.getContext('2d'); y.drawImage(x.canvas,0,0,sw,sh);
+  const d=y.getImageData(0,0,sw,sh).data, N=sw*sh, G=new Float32Array(N), M=new Float32Array(N), A=new Float32Array(N); for(let i=0;i<N;i++) G[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
+  const gv=(X,Y)=>G[Math.max(0,Math.min(sh-1,Y))*sw+Math.max(0,Math.min(sw-1,X))];
+  for(let Y=0;Y<sh;Y++) for(let X=0;X<sw;X++){ const gx=gv(X+1,Y-1)+2*gv(X+1,Y)+gv(X+1,Y+1)-gv(X-1,Y-1)-2*gv(X-1,Y)-gv(X-1,Y+1), gy=gv(X-1,Y+1)+2*gv(X,Y+1)+gv(X+1,Y+1)-gv(X-1,Y-1)-2*gv(X,Y-1)-gv(X+1,Y-1), i=Y*sw+X; M[i]=Math.hypot(gx,gy); A[i]=Math.atan2(gy,gx); }
+  const srt=Float32Array.from(M).sort(), thr=Math.max(40,srt[Math.floor(N*0.9)]), E=new Uint8Array(N); for(let i=0;i<N;i++) E[i]=M[i]>thr?1:0;
+  return {k,sw,sh,N,E,A}; }
+// まっすぐな線を強い順に40本（向き t は 1度きざみ・r は原点からの距離）
+function clEdgeLines(m){ const {sw,sh,N,E,A}=m, NT=180, R=Math.ceil(Math.hypot(sw,sh)), acc=new Int32Array(NT*(2*R+1)), cs=[], sn=[]; for(let t=0;t<NT;t++){ cs.push(Math.cos(t*Math.PI/NT)); sn.push(Math.sin(t*Math.PI/NT)); }
+  for(let i=0;i<N;i++){ if(!E[i]) continue; const X=i%sw, Y=(i-X)/sw; let a=A[i]; if(a<0) a+=Math.PI; const t0=Math.round(a*NT/Math.PI); for(let dt=-6;dt<=6;dt++){ const t=((t0+dt)%NT+NT)%NT; acc[t*(2*R+1)+Math.round(X*cs[t]+Y*sn[t])+R]++; } }
+  const pk=[]; for(let t=0;t<NT;t++) for(let r=0;r<2*R+1;r++){ const v=acc[t*(2*R+1)+r]; if(v<Math.min(sw,sh)*0.15) continue; let mx=true; for(let dt=-3;dt<=3&&mx;dt++) for(let dr=-4;dr<=4;dr++){ if(!dt&&!dr) continue; const tt=t+dt, rr=r+dr; const T=(tt+NT)%NT, RR=tt<0||tt>=NT?2*R-rr:rr; if(RR<0||RR>2*R) continue; const u=acc[T*(2*R+1)+RR]; if(u>v||(u===v&&(dt<0||(!dt&&dr<0)))){ mx=false; break; } } if(mx) pk.push({t,r:r-R,v}); }
+  pk.sort((a,b)=>b.v-a.v); return {L:pk.slice(0,40),cs,sn,NT}; }
+function clEdgeQuad(x,w,h){ const m=clEdgeMap(x,w,h), {k,sw,sh,N,E}=m, {L:Lk,cs,sn,NT}=clEdgeLines(m);
+  const ang=(a,b)=>{ const z=Math.abs(a.t-b.t)%NT; return Math.min(z,NT-z); }, meet=(a,b)=>{ const D=cs[a.t]*sn[b.t]-sn[a.t]*cs[b.t]; if(Math.abs(D)<1e-6) return null; return [(a.r*sn[b.t]-b.r*sn[a.t])/D,(cs[a.t]*b.r-cs[b.t]*a.r)/D]; };
+  const P=[]; for(let i=0;i<Lk.length;i++) for(let j=i+1;j<Lk.length;j++){ const a=Lk[i], b=Lk[j]; if(ang(a,b)>8) continue; const dd=Math.abs(a.t===b.t?a.r-b.r:a.r+(Math.abs(a.t-b.t)>NT/2?b.r:-b.r)); if(dd<Math.min(sw,sh)*0.15) continue; P.push([a,b]); }
+  const sup=(p,q)=>{ const L=Math.hypot(q[0]-p[0],q[1]-p[1]), n=Math.max(8,Math.round(L/2)); let hit=0,cnt=0,run=0,gap=0; for(let s=0;s<=n;s++){ const f=0.06+0.88*s/n, X=p[0]+(q[0]-p[0])*f, Y=p[1]+(q[1]-p[1])*f; if(X<1||Y<1||X>sw-2||Y>sh-2) return 0; cnt++; let ok=false; for(let dy=-2;dy<=2&&!ok;dy++) for(let dx=-2;dx<=2;dx++){ if(E[Math.round(Y+dy)*sw+Math.round(X+dx)]){ ok=true; break; } } if(ok){ hit++; run=0; } else if(++run>gap) gap=run; } return !cnt||gap>Math.max(3,n*0.05)?0:hit/cnt; }; /* 辺の途中で線が長く切れている（紙の横の辺を台の手前まで伸ばした所など）四角は取らない */
+  let best=null; for(let i=0;i<P.length;i++) for(let j=i+1;j<P.length;j++){ const [a,b]=P[i], [c2,d2]=P[j]; const g=ang(a,c2); if(Math.abs(g-NT/2)>12) continue;
+    const Q=[meet(a,c2),meet(a,d2),meet(b,d2),meet(b,c2)]; if(Q.some(p=>!p||p[0]<-2||p[1]<-2||p[0]>sw+1||p[1]>sh+1)) continue;
+    const ar=Math.abs(Q.reduce((z,p,m)=>{ const q=Q[(m+1)%4]; return z+p[0]*q[1]-q[0]*p[1]; },0))/2; if(ar<N*0.08||ar>N*0.95) continue;
+    const s=Math.min(...Q.map((p,m)=>sup(p,Q[(m+1)%4]))); if(s<0.7) continue; if(!best||ar>best.ar) best={Q,ar}; }
+  if(!best) return null;
+  const Q=best.Q, cx=Q.reduce((z,p)=>z+p[0],0)/4, cy=Q.reduce((z,p)=>z+p[1],0)/4; Q.sort((p,q)=>Math.atan2(p[1]-cy,p[0]-cx)-Math.atan2(q[1]-cy,q[0]-cx)); /* 左上から時計回り */
+  let s0=0; for(let m=1;m<4;m++) if(Q[m][0]+Q[m][1]<Q[s0][0]+Q[s0][1]) s0=m; const O=[0,1,2,3].map(m=>Q[(s0+m)%4]);
+  return O.map(([px,py])=>[Math.max(0,Math.min(w-1,px/k)),Math.max(0,Math.min(h-1,py/k))]); }
 // 紙の4辺に線を引き、となりの線の交わる所を角にする。指で角が隠れても、見えている辺から隠れた角を補える（一番端の点を角にすると、隠れた所で四角がゆがむ）。辺が見つからない・形がおかしい時は null（一番端の点で切る）
 function clSides(lab,big,sw,sh,n){ const P=[]; for(let i=0;i<lab.length;i++){ if(lab[i]!==big) continue; const x=i%sw, y=(i-x)/sw; if(!x||!y||x===sw-1||y===sh-1||lab[i-1]!==big||lab[i+1]!==big||lab[i-sw]!==big||lab[i+sw]!==big) P.push([x,y]); }
   P.sort((a,b)=>a[0]-b[0]||a[1]-b[1]); const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]), hull=L=>{ const H=[]; for(const p of L){ while(H.length>1&&cr(H[H.length-2],H[H.length-1],p)<=0) H.pop(); H.push(p); } H.pop(); return H; }, C=hull(P).concat(hull(P.slice().reverse())); if(C.length<4) return null;
@@ -111,21 +138,22 @@ async function clRcptView(mv){ if(!mv?.receipt_path) return; const s=await sb.st
   const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(620px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(mv.memo||'')}　${yen(mv.amount)}</div><iframe src="${esc(s.data.signedUrl)}" style="width:100%;height:70vh;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe></div>`;
   document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
 // ③ 領収書メール（v12.75・オーナー 2026-11-07「入出金の登録と領収書のメールを分ける」「何件あるのかだけ、1行とか2行で」）
-// 確認者を選んで［メール送信］→ iPad の共有の画面 → ショートカット「領収書メール」が 宛先・件名・PDF の入ったメールアプリを開く
-// 共有するのは mail.txt（1行目＝宛先〔管理サイト「領収書メールの宛先」〕・2行目＝件名。最後に改行を付けない＝ショートカットは「最初の項目」「最後の項目」で取り出す）と PDF。ショートカットが mail.txt から宛先と件名を取り出す（共有の文はショートカットで種類を分けにくいので、ファイルにする）。送信の後は ① と同じ形で「確認者 時刻 送信」（メールアプリで送信まで済んだかは POS ではわからないので、共有した記録）
+// 確認者を選んで［メール送信］→ ショートカット「領収書メール」が直接動き、宛先・件名・PDF の入ったメールの画面を開く → 送信を押すだけ（オーナー 2026-11-12「ボタンを押すとメールアプリが立ち上がり、タイトルと PDF が自動で添付されて、送信ボタンを押すだけ」）
+// 前は iPad の共有の画面からショートカットを選ぶ形で、スタッフが「メール」を選ぶと件名が空・mail.txt が付いたまま届いた（2026-11-12 銀座）。共有の画面を出さないよう、shortcuts:// でショートカットを名前で呼ぶ。渡す文は 1行目＝宛先〔管理サイト「領収書メールの宛先」〕・2行目＝件名・3行目＝PDF の期限つきリンク（空白で区切る）。ショートカットがリンクから PDF を読み込んで付ける（iPad ごとに最初の1回だけ「送ってよいか」が出るので「常に許可」）
+// 送信の後は ① と同じ形で「確認者 時刻 送信」（メールアプリで送信まで済んだかは POS ではわからないので、ショートカットを開いた記録）
+function clGo(u){ location.href=u; } // テストで差しかえる
 async function clRcptRender(d,moves){ const el=$('clRcpt'); if(!el) return; const R=(moves||[]).filter(m=>m.receipt_path);
   if(!R.length){ el.innerHTML='<div class="muted">領収書なし</div>'; return; }
   const lg=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',store.id).eq('action',CL_RMAIL).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clRcpt')||clDate!==d) return; if(lg.error){ el.innerHTML=RDERR; return; }
   const last=(lg.data||[])[0], sent=new Set(last?.detail?.ids||[]), done=last&&R.every(m=>sent.has(m.id)), N=`<span style="width:96px;flex:none">領収書 ${R.length}件</span>`;
-  const files=Promise.all(R.map(async m=>{ const f=await sb.storage.from('receipts').download(m.receipt_path); if(f.error||!f.data) throw new Error(f.error?.message||'領収書を読み込めません'); return new File([f.data],`${d}_${CL_RCPT}_${m.amount.toLocaleString()}円.pdf`,{type:'application/pdf'}); })); files.catch(()=>{}); /* 押した時にすぐ共有できるよう先に読む（共有はタップの直後でないと断られる） */
+  const links=Promise.all(R.map(async m=>{ const u=await sb.storage.from('receipts').createSignedUrl(m.receipt_path,86400,{download:`${d}_${CL_RCPT}_${m.amount}円.pdf`}); if(u.error||!u.data?.signedUrl) throw new Error(u.error?.message||'領収書を読み込めません'); return u.data.signedUrl; })); links.catch(()=>{}); /* 押した時にすぐ開けるよう先に作る（待ってから開くと端末に止められることがある） */
   const who=staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
   el.innerHTML=done?`<div style="display:flex;gap:10px;align-items:center;font-size:16px;font-variant-numeric:tabular-nums">${N}${esc(last.detail?.by||'')}　<small class="muted">${hmJst(last.created_at)}</small>　送信<button class="ghost sm" id="clRcptAgain" style="margin-left:8px">再送信</button></div>`
     :`<div style="display:flex;gap:10px;align-items:center;font-size:16px">${N}<select id="clRcptWho" style="width:auto;min-width:0"><option value="">確認者</option>${who.map(s=>`<option value="${esc(s.display_name)}">${esc(s.display_name)}</option>`).join('')}</select><button class="primary sm" id="clRcptSend" disabled>メール送信</button></div>`;
   const send=async by=>{ const to=String(settings?.receipt_mail_to||'').trim(); if(!to){ await uiAlert('領収書メールの宛先がありません\n管理サイトの POS設定「店の情報」で入力してください'); return; }
-    let F; try{ F=await files; }catch(e){ await uiAlert('領収書を読み込めません：'+(e.message||'')); return; }
-    const subject=`【${store?.name||''}】現金払い（名前→${by}）`, S=[new File([`${to}\n${subject}`],'mail.txt',{type:'text/plain'}),...F], data={files:S,title:subject};
-    if(!navigator.canShare||!navigator.canShare({files:S})){ await uiAlert('この端末では共有できません'); return; }
-    try{ await navigator.share(data); }catch(e){ if(e?.name!=='AbortError') await uiAlert('共有できません：'+(e?.message||'')); return; }
+    let U; try{ U=await links; }catch(e){ await uiAlert('領収書を読み込めません：'+(e.message||'')); return; }
+    const subject=`【${store?.name||''}】現金払い（名前→${by}）`;
+    clGo('shortcuts://run-shortcut?name='+encodeURIComponent('領収書メール')+'&input=text&text='+encodeURIComponent(`${to}\n${subject}\n${U.join(' ')}`));
     await logOp(CL_RMAIL,{business_date:d,by,count:R.length,ids:R.map(m=>m.id)},null,true); clRcptRender(d,moves); };
   if($('clRcptWho')){ $('clRcptWho').onchange=()=>{ $('clRcptSend').disabled=!$('clRcptWho').value; }; $('clRcptSend').onclick=()=>send($('clRcptWho').value); }
   if($('clRcptAgain')) $('clRcptAgain').onclick=()=>send(last.detail?.by||''); }
