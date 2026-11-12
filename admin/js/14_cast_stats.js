@@ -139,7 +139,9 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
       <td>${y0(x.bonus)}${x.bonus_fixed!=null?' <span class="badge">修正済</span>':''}</td><td>${y0(x.allowance)}</td><td>${y0(x.special_pay)}</td><td>${y0(x.taxable)}</td><td>${neg(x.fines)}</td><td>${neg(x.ctax)}</td><td>${neg(x.welfare)}</td><td>${neg(x.special_deduct)}</td><td>${neg(x.advance)}</td><td>${neg(x.withholding)}</td>${PA?`<td>${N(x.prev_adjust)<0?neg(-N(x.prev_adjust)):y0(x.prev_adjust)}</td>`:''}
       <td>${N(x.net)<0?`<b style="color:var(--warn)">${yen(N(x.net))}</b>`:`<b>${yen(N(x.net))}</b>`}</td>${own?`<td><button class="ghost sm" data-hpfix="${x.id}">修正</button></td>`:''}</tr>`).join('')||`<tr><td colspan="20" class="muted">この月の黒服はいません</td></tr>`}</tbody></table></div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに減算します。月給の人の遅刻は15分ごとに 2,000円（無断遅刻は 4,000円。［修正］で遅刻日ごとに選択）、早退は時給分です。日給の人は遅刻・早退とも時給分です。月給の人の時給＝月給÷（その月の営業日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。営業日数は、シフト設定の休の日を除いた日数です。レジ精算より後の退勤は、早退にしません（早仕舞いの日）。時給の人は稼働時間で支払うので減算しません。出勤・退勤の時刻が両方入力されていないと減算しません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（キャスト報酬＋キャスト日払い＋体験の報酬＋黒服の報酬〈ボーナスの前〉）÷売上計。係専用（店・ママ）は入りません<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーのみ。遅刻・早退の減算額とボーナスを修正できます（空にすると自動の計算に戻ります）</div></div>`;
-  box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return;
+  box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return; await hallPayFix(x,m); })); }
+/* 黒服の報酬の修正の小窓（遅刻・早退の減算額・ボーナス・連絡なし） */
+async function hallPayFix(x,m){ const N=v=>Number(v||0);
     // v1.70・SQL 281：月給の人は遅刻日ごとに「連絡なし」を選ぶ（15分ごとに 2,000円・連絡なし 4,000円）。理由の入力と操作ログはなし（オーナー 2026-10-28）
     const ld=x.pay_type==='monthly'?(x.late_days||[]):[], md2=d=>{ const t=String(d).slice(5).split('-'); return t[0]+'/'+t[1]; };
     const ldBox=ld.length?`<div style="margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden"><div style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--soft);font-weight:700"><span>遅刻日</span><span class="muted" style="font-weight:400;font-size:13px">15分ごと 2,000円・無断遅刻 4,000円</span></div>
@@ -156,5 +158,6 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
     const v=await new Promise(res=>{ md.querySelector('[data-k=no]').onclick=()=>{ md.remove(); res(null); }; md.querySelector('[data-k=ok]').onclick=()=>{ const g=id=>md.querySelector(id).value.trim(); const o={l:g('#hfL'),b:g('#hfB'),nc:[...md.querySelectorAll('[data-nc]:checked')].map(c=>c.dataset.nc)}; md.remove(); res(o); }; });
     if(!v) return; const num=t=>t===''?null:slNum(t); const l=num(v.l), bb=num(v.b);
     if((l!=null&&!(Number.isInteger(l)&&l>=0))||(bb!=null&&!(Number.isInteger(bb)&&bb>=0))){ await uiAlert('金額は0以上の整数で入力してください'); return; }
-    const z=await rpc('admin_save_hall_adjust',{p_staff:x.id,p_month:m,p_late:l,p_bonus:bb,p_nocontact:v.nc}); if(!z.ok) return; toast('修正しました'); PAGES.cast_sales(); })); }
+    const z=await rpc('admin_save_hall_adjust',{p_staff:x.id,p_month:m,p_late:l,p_bonus:bb,p_nocontact:v.nc}); if(!z.ok) return; toast('修正しました'); PAGES.cast_sales();
+}
 
