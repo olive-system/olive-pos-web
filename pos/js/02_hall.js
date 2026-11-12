@@ -14,8 +14,8 @@ async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false)
   if(seq!==hallSeq){ if(full) hallFullAt=0; return; } /* v12.78：1分ごと・知らせ・画面に戻った時の読み直しが重なった時は、後から頼んだ方だけ使う（古い返事が後に着くと、新しい卓が出なかった） */
   if (error) { toast(error.message); return; }
   if(full){ hallFullAt=Date.now(); hallDropAll(); checkPwAlert(); attDrop(); } else if(cur) hallDrop(cur.id); /* この端末で触った伝票は計算し直す */
-  openBills = data||[]; await autoExtend(); if(side){ await loadOki(); await loadHand(); }
-  await hallTotals(); renderHall(hallTot);
+  openBills = data||[]; await autoExtend(); await Promise.all([side?loadOki():null, side?loadHand():null, hallTotals()]); /* 置き・お預かり品・金額は互いに使わないので同時に読む（前は1つずつ待ち、開くのが遅かった） */
+  renderHall(hallTot);
 }
 /* 1分ごと：画面を開いている時だけ。開いている伝票の一覧は今までどおり1分ごとに読む（知らせが届かない時も、ほかの端末の新しい卓が1分で出る）。金額は変わった伝票だけ。5分ごとに全部読み直す */
 async function hallTick(){ if(!store||document.visibilityState!=='visible') return; if(await posTermLost()) return; /* 点検 2026-11-02：1分ごとに端末のログインと合鍵を確かめる */ if(Date.now()-hallFullAt>=5*60000){ await loadHall(true); return; }
