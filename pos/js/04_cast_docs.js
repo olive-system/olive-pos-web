@@ -33,7 +33,7 @@ function posDocsWire(box, s, D){
 // 小窓：写真（追加・削除）／ヒアリングシートの入力内容／契約書の署名
 function posDocsOpen(s, D, k){ const n = SD_KINDS.find(x => x[0] === k)[1], P = sdPhotos(D, k);
   if(sdHear(D, k)){ sdModal(sdHearHtml(s.display_name, D, store?.code === 'hiroshima')); return; }
-  if(sdSign(D, k) && !P.length){ sdContract(s.display_name, D, () => sb.rpc('pos_staff_contract', { p_staff: s.id })); return; }
+  if(sdSign(D, k) && !P.length){ contractPdfOpen(() => sb.rpc('pos_staff_contract', { p_staff: s.id })); return; } /* 署名入りの契約書を PDF で（オーナー 2026-11-12） */
   const m = sdModal(`<h3 style="margin:0 0 10px">${esc(s.display_name)}　${n}</h3><div style="display:flex;gap:10px;flex-wrap:wrap">
     ${P.map(p => `<div style="position:relative"><img data-sdp="${p.id}" data-ap="${p.ap ? 1 : 0}" alt="" style="width:180px;height:240px;object-fit:cover;border-radius:8px;display:block;background:var(--soft);cursor:pointer">${p.ap ? '' : `<button type="button" class="xb" data-sddel="${p.id}" aria-label="削除" style="position:absolute;right:4px;top:4px;background:var(--card)!important;border-radius:50%">×</button>`}</div>`).join('')}
     ${k === 'contract' ? '' : `<label style="width:180px;height:240px;border:1px dashed var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);cursor:pointer;box-sizing:border-box">${SD_CAM}撮影<input type="file" accept="image/*" data-sdadd="${k}" style="display:none"></label>`}</div>

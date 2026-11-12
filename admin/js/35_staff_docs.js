@@ -12,6 +12,6 @@ async function csDocsTab(st, s){ const box = $('csDoc'), t = csTab;
       : '<span class="muted" style="font-size:13px">写真なし</span>';
     return `<div style="display:flex;gap:12px;padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="width:130px;flex:none"><b>${n}</b><div style="font-size:13px;margin-top:2px;display:flex;flex-direction:column">${sdStateHtml(sdState(D, k, f))}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">${body}</div></div>`; }).join('');
   const h = box.querySelector('[data-sdh]'); if(h) h.onclick = () => sdModal(sdHearHtml(s.display_name, D, hr));
-  const c = box.querySelector('[data-sdc]'); if(c) c.onclick = () => sdContract(s.display_name, D, () => sb.rpc('admin_staff_contract', { p_store: st, p_staff: s.id }));
+  const c = box.querySelector('[data-sdc]'); if(c) c.onclick = () => contractPdfOpen(() => sb.rpc('admin_staff_contract', { p_store: st, p_staff: s.id }));
   await sdFill(box, (id, ap) => sb.rpc('admin_staff_doc_photo', { p_store: st, p_id: id, p_ap: ap }));
 }
