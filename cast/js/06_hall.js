@@ -80,17 +80,6 @@ function hallTodoOne(x, keep){
       $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRGo')) $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
   };
 }
-function hallSlipHtml(P){
-  const x = P.slip, L = (k, v, c='') => `<div class="row ${c}"><span>${esc(k)}</span><b>${v}</b></div>`, PT = { monthly:'月給', hourly:'時給', daily:'日給' };
-  const ded = N(x.ctax) + N(x.fines) + N(x.welfare) + N(x.special_deduct);
-  const pay = [L(PT[x.pay_type]?`報酬（${PT[x.pay_type]}）`:'報酬', cm(x.base)), ...(N(x.late_deduct)?[L('遅刻・早退', '−'+cm(x.late_deduct))]:[]), L('ボーナス', cm(x.bonus)), L('手当など、その他', cm(N(x.allowance)+N(x.special_pay))), L('合計', cm(x.taxable), 's')];
-  const dd = [L('消費税', cm(x.ctax)), L('罰金', cm(x.fines)), L('厚生費', cm(x.welfare)), L('個別控除', cm(x.special_deduct)), L('合計', cm(ded), 's')];
-  const [y, mo] = String(P.month).split('-').map(Number), net = N(x.net);
-  return `<div class="card"><div class="ttl">報酬支払明細書</div><div class="muted sm" style="text-align:center;margin-bottom:6px">${y}年${mo}月分　${esc(P.store_name)}　${esc(P.name)}${P.real_name?'/'+esc(P.real_name):''}</div>
-      ${L('稼働日数', `${N(x.days)}日`)}${L('稼働時間', HM(x.hours))}${L(PT[x.pay_type]||'報酬', x.amount?yen(x.amount):'--')}</div>
-    <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
-    <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${N(x.prev_adjust)?L('前月精算', (N(x.prev_adjust)<0?'−':'')+Math.abs(N(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
-}
 async function hallCasts(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('hall_casts', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
