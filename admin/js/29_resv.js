@@ -3,7 +3,7 @@
 const shSwitch=cur=>`<div class="seg" style="margin-bottom:14px">${[['shift','シフト'],['resv','予約']].map(([k,n])=>`<button data-shsw="${k}" class="${k===cur?'on':''}">${n}</button>`).join('')}</div>`;
 document.addEventListener('click',async e=>{ const b=e.target.closest&&e.target.closest('[data-shsw]'); if(!b||b.dataset.shsw===page) return; if(!await leaveOk()) return; go(b.dataset.shsw); });
 // 広島はお店のお客様で、女の子に担当は無い（担当は誘客した子を報酬に付ける印だけ）→ 担当を出さず、誘客がキャストならその子を担当に入れる（マイページ v0.86 と同じ。 オーナー）
-const rvNoKK=()=>curStore()?.code==='hiroshima';
+const rvNoKK=()=>curStore()?.customer_mode==='yukyaku';
 let rvMonth=null, rvRooms=[]; // VIPルーム（POS の卓の名前に VIP）
 // 並びはシフトと同じ（オーナー「シフトのように予約も上に本日置いてよ」）＝ 本日の箱 → 月のカレンダー → 日を押すと小窓（直す・取消・足す）。同伴は来店 20:30（2026-10-15 の決まり）
 PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth(); if(!rvMonth) rvMonth=now; const m=rvMonth, today=businessDate();

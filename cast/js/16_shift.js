@@ -67,7 +67,7 @@ async function shiftDay(iso){
 // 並びは管理サイトのシフトと同じ 本日 → 月のカレンダー → 日を押すとその日の出勤。確定した月だけ。ママは上で銀座｜広島を切り替え
 let SHALL = null;
 /* 予約の行は朝礼と同じ「同伴 マリ・係 ○○・誘客 ○○」（オーナー「朝礼と同じにする」。前は申請した子が1人で同伴すると名前が出なかった）。広島は係を出さない */
-const shWho = x => resvWho(x, { noKK: (SHALL && SHALL.store) === 'hiroshima', kl: (SHALL && SHALL.kakari_label) || '係', mark: DRESS });
+const shWho = x => resvWho(x, { noKK: (SHALL && SHALL.customer_mode) === 'yukyaku', kl: (SHALL && SHALL.kakari_label) || '係', mark: DRESS });
 // 名前で検索（オーナー「女の子のシフトも名前で検索」「名前の入力はポップアップ」「カレンダーでその名前のシフトのみ表示」見本 作業場/シフト_名前で検索_案.png）。
 // 名前の一部で当てる。本日の箱もその子のみ（予約・面接・黒服の休みは出さない）。マスはその子の出勤時刻（2人以上の日は人数）。店舗を切り替えると解除
 let SHQ = '';
