@@ -8,17 +8,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE 顧客</title><!-- customer v1.83 -->
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
+<title>OLIVE 顧客</title><!-- customer v1.84 -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="../lib/olive/olive.css">
+<style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <style>
-  :root{--bg:#f6f5f0;--card:#fff;--ink:#1a1a1a;--muted:#7a7a7a;--line:#e3e1dc;--soft:#f1f0e8;--head:#4b5320;--head2:#6b7436;--brand:#c9b37a;--brand-d:#a08a4f;--pri:#4b5320;--ok:#b8973e;--warn:#c0392b;--warn-soft:#fbe9e7;--gold-soft:#f8f0d8;--acc:var(--ok);--gold:var(--ok);--blue:var(--pri);--edit:var(--pri)}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  
+  
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px}
   body{padding-bottom:env(safe-area-inset-bottom)}
-  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 14px;background:var(--soft);color:var(--ink)}
+  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 14px;min-height:44px;background:var(--soft);color:var(--ink)}
   button.primary{background:var(--blue);color:#fff}button.ok{background:var(--acc);color:#fff}button.danger{background:var(--warn);color:#fff}
   button.edit{background:var(--edit);color:#fff}
-  button.ghost{background:transparent;border:1px solid var(--line)}button.sm{padding:6px 10px;font-size:14px}
+  button.ghost{background:transparent;border:1px solid var(--line)}button.sm{min-height:0;padding:6px 10px;font-size:14px}
   button.chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px}button.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   button:disabled{opacity:.4}
   input,select,textarea{font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
@@ -30,7 +31,7 @@
   #vLogin{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
   #vLogin .box{width:100%;max-width:360px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px}
   #vLogin h1{margin:0 0 4px;font-size:22px}#vLogin p{margin:0 0 18px}
-  #vLogin button{width:100%;margin-top:12px;padding:12px}
+  #vLogin button{min-height:0;width:100%;margin-top:12px;padding:12px}
   .err{color:var(--warn);font-size:14px;min-height:20px;margin-top:8px}
 
   /* 共通の上部バー */
@@ -49,7 +50,7 @@
   .badge.gray{background:var(--muted)}.badge.k{background:var(--ink)}.badge.warnb{background:var(--warn)}
 
   /* 詳細 */
-  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
   .card h2{margin:0 0 10px;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:8px}
   .card h2 button{margin-left:auto}
   .kv{display:grid;grid-template-columns:6.5em 1fr;gap:6px 10px;font-size:15px}
@@ -79,21 +80,21 @@
   #toast.on{display:block}
   .loading{padding:30px 0;text-align:center;color:var(--muted)}
 /* v1.9：ボトル欄の枠の高さをそろえる */
-.bt .ops select,.bt .ops button{height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}
+.bt .ops select,.bt .ops button{min-height:0;height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}
 /* v1.10：ボトル欄を POS の顧客画面と同じ2段に（銘柄・日付・残量／キープ名・飲切・期限切・ボトル移動）。枠の高さは36pxでそろえる */
 .bt .b1{display:flex;align-items:center;gap:8px;margin-bottom:6px}.bt .b1 .nm{flex:1 1 0;min-width:0;overflow-wrap:anywhere;line-height:1.35}.bt .b1 .nm small{font-size:12px;font-weight:400;margin-left:6px;white-space:nowrap;color:var(--muted)}
 .bt .b2{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.bt .b2 .kn{flex:1 1 90px;min-width:0;display:flex;align-items:center;gap:4px}.bt .b2 .kn span{white-space:nowrap;font-size:11px}/* v1.12：キープ名の文字を小さく・ボタンは「移動」 */.bt .b2 .kn input{flex:1 1 0;min-width:0;width:0}.bt .b2 .kn{position:relative}.bt .b2 .kn span{position:absolute;left:7px;top:2px;font-size:9px;line-height:1;pointer-events:none;z-index:1}.bt .b2 .kn input{padding-top:11px}/* v1.65：「キープ名」は欄の左上に小さく（POS と同じ。オーナー 2026-11-06） */.bt .b3{display:flex;gap:6px;flex:none;margin-left:auto}.bt .b3 button{white-space:nowrap}
 .bt .b1 select{flex:none;width:auto;padding-left:8px;padding-right:4px}
 .bt .b3{gap:4px}.bt .b3 button{padding-left:5px;padding-right:5px;font-size:13px} /* v1.55：ボタンが4つ（共同）でもキープ名の枠を狭くしない */
 /* v1.58：銘柄が長い時は銘柄を「…」で短くして、開けた日と「共同 ○○ 様」は必ず出す（2026-11-01 成田様のマッカランで共同が切れていた） */
-.bt .b1 select,.bt .b2 input,.bt .b3 button{height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}.bt .b2 input{padding-left:8px;padding-right:8px;font-size:15px}
+.bt .b1 select,.bt .b2 input,.bt .b3 button{min-height:0;height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}.bt .b2 input{padding-left:8px;padding-right:8px;font-size:15px}
 /* v1.11：期限切れ・ボトル移動の行は1行に収まるまで文字を小さくする（fitLine） */
 /* v1.14：v1.13 の枠・［戻す］をやめ、期限切れ・移動は飲み切り済と同じ小さな文字で1本1行（［戻す］なし） */
 .vis .fit1{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #btSel,#btRem,#btAdd{height:40px;box-sizing:border-box;padding-top:0;padding-bottom:0}
   /* 15番：入力欄の高さは全部 44px */
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
-  .bt .ops button,.bt .b3 button,#btAdd{height:44px!important;box-sizing:border-box;padding-top:0;padding-bottom:0} /* 入力欄の横のボタンも 44px */
+  .bt .ops button,.bt .b3 button,#btAdd{min-height:0;height:44px!important;box-sizing:border-box;padding-top:0;padding-bottom:0} /* 入力欄の横のボタンも 44px */
 /* v1.50：管理サイト・黒服マイページの中で編集の券が無い人（閲覧のみ・限定項目が不可）には、編集につながるボタンを出さない（オーナー 2026-10-24「不可の人には編集ボタンを表示させなければいいだけ」） */
 html.ro #editInfo,html.ro #editMemo,html.ro #cuDel,html.ro #btcAdd,html.ro [data-sh],html.ro [data-bte],html.ro [data-btd],html.ro [data-unexp]{display:none!important}
 html.ro [data-kn]{pointer-events:none;border-color:transparent}
