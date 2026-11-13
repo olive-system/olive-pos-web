@@ -18,18 +18,18 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
 
 
 // 店の情報の画面の文
-function siHtml(d,lr,ed,dis){ const f=(id,label,v,o={})=>`<label>${label}<input id="${id}" value="${esc(v||'')}" ${o.type?`type="${o.type}"`:''} ${o.ph?`placeholder="${esc(o.ph)}"`:''} ${o.im?`inputmode="${o.im}"`:''} ${o.ml?`maxlength="${o.ml}"`:''} ${dis}></label>`;
+function siHtml(d,lr,ed,dis){ const siFld=(id,label,v,o={})=>`<label>${label}<input id="${id}" value="${esc(v||'')}" ${o.type?`type="${o.type}"`:''} ${o.ph?`placeholder="${esc(o.ph)}"`:''} ${o.im?`inputmode="${o.im}"`:''} ${o.ml?`maxlength="${o.ml}"`:''} ${dis}></label>`;
   return `<div class="card"><h2>店の情報</h2><div class="sif">
-    ${f('siName','店名',d.name,{ml:40})}
+    ${siFld('siName','店名',d.name,{ml:40})}
     <label>営業時間<span class="sit"><input type="time" id="siOpen" value="${esc(d.open||'')}" ${dis}><span>〜</span><input type="time" id="siClose" value="${esc(d.close||'')}" ${dis}></span></label>
-    ${f('siAddr','住所',d.address)}
-    ${f('siTel','電話番号',d.phone,{type:'tel',ph:'03-0000-0000'})}
-    ${f('siMail','メールアドレス',d.email,{type:'email',ph:'info@example.com'})}
-    ${f('siInv','インボイス番号',d.invoice,{ph:'T1234567890123',ml:20})}
+    ${siFld('siAddr','住所',d.address)}
+    ${siFld('siTel','電話番号',d.phone,{type:'tel',ph:'03-0000-0000'})}
+    ${siFld('siMail','メールアドレス',d.email,{type:'email',ph:'info@example.com'})}
+    ${siFld('siInv','インボイス番号',d.invoice,{ph:'T1234567890123',ml:20})}
     <div><label>領収書ロゴ</label><div class="sit"><span id="siLogo" style="flex:1;min-width:0;height:var(--h);border:1px solid var(--line);border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;padding:4px 8px;overflow:hidden">${lr.error?`<span class="muted" style="font-size:13px">${esc(/admin_get_receipt_logo/.test(lr.error.message)?'SQL 410 が未実行です':lr.error.message)}</span>`:lr.data?`<img src="${esc(lr.data)}" alt="領収書ロゴ" style="max-width:100%;max-height:100%">`:'<span class="muted" style="font-size:13px">なし</span>'}</span>${ed&&!lr.error?`<button type="button" class="ghost sm" id="siLogoPick">選択</button><input type="file" id="siLogoF" accept="image/png,image/jpeg" style="display:none">${lr.data?'<button type="button" class="xb" id="siLogoX" aria-label="削除">×</button>':''}`:''}</div></div>
     <label>振込先（請求書に出る）<textarea id="siBank" rows="3" maxlength="200" placeholder="振込銀行　◯◯銀行　◯◯支店&#10;口座番号　（普通）0000000&#10;口座名　　株式会社OLIVE" style="width:100%;font:inherit;font-size:16px;line-height:1.5;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" ${dis}>${esc(d.bank||'')}</textarea></label>
-    ${f('siRcpt','領収書メールの宛先',d.receipt_mail,{type:'email'})}
-    ${f('siKL','係/担当/指名',curStore()?.kakari_label,{ph:'係',ml:6})}
+    ${siFld('siRcpt','領収書メールの宛先',d.receipt_mail,{type:'email'})}
+    ${siFld('siKL','係/担当/指名',curStore()?.kakari_label,{ph:'係',ml:6})}
   </div>
   ${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="siSave">保存</button></div>':''}
   <div class="muted hint" style="font-size:13px;margin-top:10px;line-height:1.6">店名は POS・顧客サイト・タイムカード・管理サイトに出ます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">係/担当/指名：この店での「係」の呼び方です（例：担当）。空にすると「係」のままです。POS・顧客サイト・管理サイトの画面と、Excel・PDF・印刷に出ます（「係小計」は「担当小計」のように変わります）<br>住所・電話番号・インボイス番号・領収書ロゴは POS の領収書に出ます。領収書ロゴは PNG か JPEG の画像を選択すると、その場で保存します（白い余白は自動で切り取ります。印刷は白黒）。住所・電話番号・インボイス番号・振込先は、収支の Excel（ZIP）に入る請求書にも出ます（住所は「〒000-0000 」から書くと、〒の行が分かれます）。領収書メールの宛先は POS の閉店作業「領収書をメールで送る」で使います。開店時間は登録だけです<br>閉店時間：タイムカードの退勤・アフターの打刻は、閉店より後になりません（時給は閉店まで）<br>0:00〜6:00 は日付が変わった後として扱います（例：1:00 ＝ 翌1:00、23:00 ＝ その日の23:00）<br>アフターの延長（報酬・罰金項目）も、この閉店時間から数えます。変更しても、前の打刻はそのまま</div></div></div>`;
