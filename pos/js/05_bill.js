@@ -176,8 +176,7 @@ function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card');
   const L=(l,r,cls)=>`<div class="ln ${cls||''}"><span>${l}</span><span style="white-space:nowrap">${r}</span></div>`;
   const items=stItems(b,L,sn);
   const pays=stPays(b,md); const adjs=(b.bill_adjustments||[]);
-  st.innerHTML=`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(billTable(b))}</b><span>${bd}　${b.closed_at?hm5(b.opened_at)+'〜'+hmJst(b.closed_at):esc($('bTime').textContent)}　${b.guest_count}名</span><span class="badge gray" style="margin-left:auto;font-size:15px">${b.status==='void'?'削除済':'会計済'}</span></div>
-  <div class="sm" style="margin-top:6px">お客様：${custs.length?esc(custs.map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}</div><hr>
+  st.innerHTML=`${stHead(b,bd,custs,ks,ds)}
   ${(T.set||0)?L(`セット <small>× ${T.set_guests??b.guest_count}</small>`,yen(T.set)):''}${(T.vip_set||0)?L('VIPルーム料金',yen(T.vip_set)):''}${(T.extension||0)?L(`延長 <small>計${extMin}分</small>`,yen(T.extension)):''}${(T.vip_ext||0)?L('VIPルーム延長',yen(T.vip_ext)):''}${items}<hr>
   ${L('小計',yen(T.subtotal),'sm')}${L('サービス料'+(T.service_rate!=null?' '+T.service_rate+'%':''),yen(T.service),'sm')}${L('消費税',yen(T.tax),'sm')}${adjs.map(a=>L((a.kind==='discount'?'値引':'値増')+(a.reason?` <small>${esc(a.reason)}</small>`:''),(a.kind==='discount'?'−':'')+yen(a.amount),'sm')).join('')}
   <div class="ln" style="font-size:26px;font-weight:800;padding-top:10px"><span>請求額</span><span>${yen(T.amount_due)}</span></div>
@@ -185,6 +184,9 @@ function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card');
   <div class="ln"><span>お支払い</span><span style="white-space:normal;text-align:right">${stPayText(pays,md)}</span></div>
   <div class="bar" style="margin-top:14px;display:flex;justify-content:space-between"><button class="ghost" id="stBack">${billFrom==='bills'?'伝票一覧へ':'ホールへ'}</button>${b.status==='closed'&&hasReceived(b)?'<button class="ghost" id="stReceipt">領収書印刷</button>':''}</div>`;
   st.querySelectorAll('button').forEach(x=>{ x.disabled=false; x.style.display=''; }); $('stBack').onclick=()=>$('bBack').onclick(); if($('stReceipt')) $('stReceipt').onclick=()=>$('prReceipt').onclick(); }
+// 明細書の上の段（卓・日付と時刻・人数・会計済／削除済・お客様・係・同伴）
+function stHead(b,bd,custs,ks,ds){ return `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(billTable(b))}</b><span>${bd}　${b.closed_at?hm5(b.opened_at)+'〜'+hmJst(b.closed_at):esc($('bTime').textContent)}　${b.guest_count}名</span><span class="badge gray" style="margin-left:auto;font-size:15px">${b.status==='void'?'削除済':'会計済'}</span></div>
+  <div class="sm" style="margin-top:6px">お客様：${custs.length?esc(custs.map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}</div><hr>`; }
 // 明細書の見た目（1回だけ入れる）
 function stCssOnce(){if(!$('stCss')){ const c=document.createElement('style'); c.id='stCss'; c.textContent='#bStatement{display:none}.card.st-mode>*{display:none !important}.card.st-mode>#bStatement{display:block !important}#bStatement .ln{display:flex;justify-content:space-between;gap:12px;padding:7px 2px;font-size:17px}#bStatement .ln small{color:var(--muted);font-size:13px}#bStatement hr{border:0;border-top:1px solid var(--line);margin:8px 0}#bStatement .sm{font-size:14px;color:var(--muted)}'; document.head.appendChild(c); } }
 // 明細書の注文の行（バックの付いた人も）
