@@ -1,5 +1,6 @@
 // ---------- キャスト設定 一人ずつの報酬条件（月ごと。その月以降／その月のみ）・その人だけの条件・メモ ----------
 // 担当・報酬（時給／日給）・日給・日払い・契約書は staff に入れる（月で変わらない。POS と同じ欄）
+// 日給の人の「保証日給」（daily_wage）にも保証の期限（guarantee_until。SQL 489・オーナー 11/13）。期限の無い日給の人は無期限。日給の人の保証時給は計算に使わないので入れない
 // 保証時給・期限・同伴ノルマ・バック・源泉徴収・消費税・厚生費・罰金の免除は cast_terms に月ごとに入れる（その月の行があればそれ、なければ前の月の「以降」の行）
 const CS_PUNCH='打刻の手入力'; // POS で打刻を手で入れた時に自動で付く罰金
 const CS_FOREVER='9999-12-31', CS_CATS=['性格','体調','お客様','勤怠','良かったこと','その他'];
@@ -61,7 +62,7 @@ function csCastPrep(K){ const {box,st,ed,m,sf,tm,ft,nt,stb}=K;
   const inp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
   const yn=v=>v==null?'—':v;
   const PT={hourly:'時給',daily:'日給',seppan:'折半'};
-  const HD=['担当黒服','報酬','スライド表','日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払（立替）','契約書','メモ'];
+  const HD=['担当黒服','報酬','スライド表','保証日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払（立替）','契約書','メモ'];
   return {...K,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD}; }
 /* 1人の行（見る時と編集する時） */
 function csCastCell(K,{s,t}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const sp=t.pay_type==='seppan', daily=t.pay_type==='daily';
@@ -70,17 +71,17 @@ function csCastCell(K,{s,t}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts
     if(!E) return csCastView(K,s,t,{sp,daily,back,wf});
     return csCastEditRow(K,s,t,{sp,daily,back,wf}); }
 function csCastView(K,s,t,{sp,daily,back,wf}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K;
-    return [hallName(s.manager_staff_id), PT[t.pay_type]||'時給', slTxt(s,t), daily&&t.daily_wage!=null?yen(t.daily_wage):'—', !sp&&t.guaranteed_wage!=null?yen(t.guaranteed_wage):'—',
-      !sp&&t.guaranteed_wage!=null?csDate(t.guarantee_until):'—', !sp&&t.douhan_quota!=null?t.douhan_quota+'回':'—', back, t.withhold==null?'—':t.withhold?'する':'しない',
+    return [hallName(s.manager_staff_id), PT[t.pay_type]||'時給', slTxt(s,t), daily&&t.daily_wage!=null?yen(t.daily_wage):'—', !sp&&!daily&&t.guaranteed_wage!=null?yen(t.guaranteed_wage):'—',
+      daily&&t.daily_wage!=null?csDate(t.guarantee_until||CS_FOREVER):!sp&&!daily&&t.guaranteed_wage!=null?csDate(t.guarantee_until):'—', !sp&&t.douhan_quota!=null?t.douhan_quota+'回':'—', back, t.withhold==null?'—':t.withhold?'する':'しない',
       t.ctax_pct==null?(m>=CS_CTAX_FROM?'3%':'—'):Number(t.ctax_pct)+'%', wf, t.exempt_fines.length?esc(t.exempt_fines.join('・')):'—', s.day_pay_ok==null?'—':s.day_pay_ok?'可':'不可',
       s.contract_done==null?'—':s.contract_done?'<span class="badge k">提出済</span>':'<span class="badge warnb">未提出</span>'];
 }
 function csCastEditRow(K,s,t,{sp,daily,back,wf}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K;
-    const fe=t.guarantee_until===CS_FOREVER;
+    const fe=t.guarantee_until===CS_FOREVER||(daily&&!t.guarantee_until), ng=sp||daily; /* 日給の人の期限が空＝無期限 */
     return [sel('mgr',s.manager_staff_id||'',[['','未選択'],...halls.map(h=>[h.id,h.display_name])]),
       sel('pt',t.pay_type,[['hourly','時給'],['daily','日給'],['seppan','折半']]),
       `<button class="ghost sm" data-k="sl" data-v="${esc(JSON.stringify(slOk(t.slide_ids,unitOf(s,t))))}" ${sp?'disabled':''}>${slTxt(s,t)}</button>`, inp('dw',daily?t.daily_wage:'',80,!daily),
-      inp('g',sp?'':t.guaranteed_wage,80,sp), `<span class="cs-gu"><input type="date" data-k="gu" value="${fe||sp?'':esc(t.guarantee_until||'')}" ${fe||sp?'disabled':''}><label><input type="checkbox" data-k="gf" ${fe&&!sp?'checked':''} ${sp?'disabled':''}>無期限</label></span>`,
+      inp('g',ng?'':t.guaranteed_wage,80,ng), `<span class="cs-gu"><input type="date" data-k="gu" value="${fe||sp?'':esc(t.guarantee_until||'')}" ${fe||sp?'disabled':''}><label><input type="checkbox" data-k="gf" ${fe&&!sp?'checked':''} ${sp?'disabled':''}>無期限</label></span>`,
       inp('q',sp?'':t.douhan_quota,50,sp)+' 回', inp('bk',t.back_pct==null?'':Number(t.back_pct),50)+' %',
       sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct==null?'':Number(t.ctax_pct),50).replace('<input',`<input placeholder="${m>=CS_CTAX_FROM?3:''}"`)+' %',
       sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'),
@@ -105,7 +106,8 @@ function csCastBind(K){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tb
 function csCastRowBind(K,tr){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const q=k=>tr.querySelector(`[data-k=${k}]`);
     if(q('pt')) q('pt').onchange=()=>{ const v=q('pt').value, sp=v==='seppan'; q('dw').disabled=v!=='daily'; if(q('dw').disabled) q('dw').value='';
       if(q('sl')){ q('sl').dataset.v='[]'; q('sl').disabled=sp; q('sl').innerHTML=sp?'—':'<span class="badge warnb">未選択</span>'; }
-      ['g','q','gf'].forEach(k=>{ q(k).disabled=sp; if(sp){ if(k==='gf') q(k).checked=false; else q(k).value=''; } }); q('gu').disabled=sp||q('gf').checked; if(sp) q('gu').value=''; };
+      ['g','q','gf'].forEach(k=>{ q(k).disabled=sp; if(sp){ if(k==='gf') q(k).checked=false; else q(k).value=''; } }); q('gu').disabled=sp||q('gf').checked; if(sp) q('gu').value='';
+      q('g').disabled=sp||v==='daily'; if(v==='daily') q('g').value=''; };
     if(q('sl')) q('sl').onclick=()=>csCastSlPick(K,q,tr);
     q('wm').onchange=()=>{ q('wa').disabled=q('wm').value!=='amount'; };
     q('gf').onchange=()=>{ q('gu').disabled=q('gf').checked||q('pt').value==='seppan'; };
@@ -127,28 +129,32 @@ function csCastExPick(K,q,tr){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,cast
       md.querySelector('[data-k=no]').onclick=()=>md.remove();
       md.querySelector('[data-k=ok]').onclick=()=>{ const v=[...md.querySelectorAll('input:checked')].map(x=>x.value); q('ex').dataset.v=JSON.stringify(v); q('ex').textContent=v.length?v.join('・'):'—'; md.remove(); };
 }
+/* 保存の前の値（変わったかどうかを比べるため。画面の値と同じ形） */
+function csCastOld(K,s,t){ const {slOk,unitOf}=K;
+      const so0={manager_staff_id:s.manager_staff_id||null,day_pay_ok:s.day_pay_ok??null,contract_done:s.contract_done??null};
+      const dl0=t.pay_type==='daily', to0={guaranteed_wage:dl0?null:t.guaranteed_wage??null,guarantee_until:dl0?(t.guarantee_until||CS_FOREVER):t.guaranteed_wage==null?null:(t.guarantee_until??null),douhan_quota:t.douhan_quota??null,back_pct:t.back_pct==null?null:Number(t.back_pct),back_mode:'add',
+        withhold:t.withhold??null,ctax_pct:t.ctax_pct==null?null:Number(t.ctax_pct),welfare_mode:t.welfare_mode||'std',welfare_amount:t.welfare_mode==='amount'?(t.welfare_amount??null):null,exempt_fines:t.exempt_fines||[],
+        slide_ids:(v=>v.length?v.sort():null)(slOk(t.slide_ids,unitOf(s,t))),pay_type:t.pay_type,daily_wage:t.daily_wage==null?null:Number(t.daily_wage),seppan_pct:null};
+      return {so0,to0}; }
 /* 保存：画面の値を集める（まちがいは知らせて null） */
 async function csCastCollect(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const out=[]; let needP=false;
     for(const {s,t} of rows){ const tr=tb.querySelector(`tr[data-sid="${s.id}"]`), q=k=>tr.querySelector(`[data-k=${k}]`), nm=s.display_name;
       const int=(k,l,max)=>{ const v=slNum(q(k).value); if(v==null) return null; if(!Number.isFinite(v)||v<0||(max!=null&&v>max)) throw `${nm}：${l}が正しくありません`; return v; };
       let so, to;
       try{ const pt=q('pt').value, dw=pt==='daily'?int('dw','日給'):null, sep=pt==='seppan';
-        if(pt==='daily'&&!dw) throw `${nm}：日給を入力してください`;
+        if(pt==='daily'&&!dw) throw `${nm}：保証日給を入力してください`;
         const b=v=>v===''?null:v==='true';
         so={manager_staff_id:q('mgr').value||null,day_pay_ok:b(q('dp').value),contract_done:b(q('ct2').value)};
-        const g=sep?null:int('g','保証時給'), gf=q('gf').checked, gu=gf?CS_FOREVER:(q('gu').value||null), wm=q('wm').value, wa=wm==='amount'?int('wa','厚生費'):null, bk=int('bk','小計バック',100);
+        const g=sep||pt==='daily'?null:int('g','保証時給'), gf=q('gf').checked, gu=gf?CS_FOREVER:(q('gu').value||null), wm=q('wm').value, wa=wm==='amount'?int('wa','厚生費'):null, bk=int('bk','小計バック',100);
         if(wm==='amount'&&wa==null) throw `${nm}：厚生費の金額を入力してください`;
         if(sep&&bk==null) throw `${nm}：折半の人は、小計バックの％を入力してください`;
-        to={guaranteed_wage:g==null?null:Math.round(g),guarantee_until:g==null?null:gu,douhan_quota:sep?null:(v=>v==null?null:Math.round(v))(int('q','同伴ノルマ')),back_pct:bk,back_mode:'add',
+        to={guaranteed_wage:g==null?null:Math.round(g),guarantee_until:g==null&&pt!=='daily'?null:gu,douhan_quota:sep?null:(v=>v==null?null:Math.round(v))(int('q','同伴ノルマ')),back_pct:bk,back_mode:'add',
           withhold:b(q('wh').value),ctax_pct:int('ct','消費税',100),welfare_mode:wm,welfare_amount:wa==null?null:Math.round(wa),exempt_fines:JSON.parse(q('ex').dataset.v||'[]'),
           slide_ids:sep?null:(v=>v.length?v.sort():null)(q('sl')?JSON.parse(q('sl').dataset.v||'[]'):[]),pay_type:pt,daily_wage:dw==null?null:Math.round(dw),seppan_pct:null};
       }catch(e){ if(typeof e==='string'){ await uiAlert(e); return; } throw e; }
-      const so0={manager_staff_id:s.manager_staff_id||null,day_pay_ok:s.day_pay_ok??null,contract_done:s.contract_done??null};
-      const to0={guaranteed_wage:t.guaranteed_wage??null,guarantee_until:t.guaranteed_wage==null?null:(t.guarantee_until??null),douhan_quota:t.douhan_quota??null,back_pct:t.back_pct==null?null:Number(t.back_pct),back_mode:'add',
-        withhold:t.withhold??null,ctax_pct:t.ctax_pct==null?null:Number(t.ctax_pct),welfare_mode:t.welfare_mode||'std',welfare_amount:t.welfare_mode==='amount'?(t.welfare_amount??null):null,exempt_fines:t.exempt_fines||[],
-        slide_ids:(v=>v.length?v.sort():null)(slOk(t.slide_ids,unitOf(s,t))),pay_type:t.pay_type,daily_wage:t.daily_wage==null?null:Number(t.daily_wage),seppan_pct:null};
+      const {so0,to0}=csCastOld(K,s,t);
       const r={staff_id:s.id}; if(JSON.stringify(so)!==JSON.stringify(so0)) r.staff=so; if(JSON.stringify(to)!==JSON.stringify(to0)){ r.terms=to; needP=true;
-        if(to.guaranteed_wage!=null&&!to.guarantee_until){ await uiAlert(`${nm}：保証の期限を入れるか、「無期限」を選んでください`); return; } } // 保証時給の期限は空欄にできない
+        if((to.guaranteed_wage!=null||to.pay_type==='daily')&&!to.guarantee_until){ await uiAlert(`${nm}：保証の期限を入れるか、「無期限」を選んでください`); return; } } // 保証時給の期限は空欄にできない
       if(r.staff||r.terms) out.push(r); }
   return {out,needP}; }
 async function csCastSave(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const c=await csCastCollect(K,tb); if(!c) return; const {out,needP}=c;
@@ -223,7 +229,7 @@ function staffEditHtml(s,isNew,kd,k0,KD,halls){
   return `<h2 style="margin:0">${isNew?(kd==='hall'?'黒服の追加':'キャストの追加'):esc(s.display_name)+'　基本情報'}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>源氏名<input id="seN" value="${esc(s?.display_name||'')}"></label><label>本名<input id="seR" value="${esc(s?.real_name||'')}"></label></div>
     <label>区分<select id="seK">${KD.map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
-    <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬${isNew?'<select id="seP"><option value="hourly">時給</option><option value="daily">日給</option></select>':`<input value="${s.is_seppan?'折半':s.pay_type==='daily'?'日給':'時給'}" disabled>`}</label><label id="seDwB">日給（円）<input id="seDw" inputmode="numeric"></label></div>
+    <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬${isNew?'<select id="seP"><option value="hourly">時給</option><option value="daily">日給</option></select>':`<input value="${s.is_seppan?'折半':s.pay_type==='daily'?'日給':'時給'}" disabled>`}</label><label id="seDwB">保証日給（円）<input id="seDw" inputmode="numeric"></label></div>
     <div id="seTr" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>体験の報酬<select id="seTp"><option value="hourly" ${s?.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s?.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input id="seTa" inputmode="numeric" value="${s?.trial_pay_amount||''}"></label></div>
     <label id="seMgB">担当黒服<select id="seMg"><option value="">未選択</option>${halls.filter(h=>h.is_active).map(h=>`<option value="${h.id}" ${s?.manager_staff_id===h.id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select></label>
     <label>インボイス番号<input id="seIv" value="${esc(s?.invoice_number||'')}" placeholder="T1234567890123" autocapitalize="characters"></label>
