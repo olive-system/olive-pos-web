@@ -1,5 +1,5 @@
   
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px}
   .top{position:sticky;top:0;z-index:5;background:var(--head);color:#fff;display:flex;align-items:center;gap:10px;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top))}
   .top b{font-size:18px}.top .sub{margin-left:auto;font-size:13px;color:var(--line)}

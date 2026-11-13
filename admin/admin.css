@@ -1,5 +1,5 @@
   :root{--h:44px}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px}
   button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:0 16px;height:var(--h);background:var(--soft);color:var(--ink);white-space:nowrap}
   button.primary{background:var(--blue);color:#fff}button.ok{background:var(--acc);color:#fff}button.danger{background:var(--warn);color:#fff}
