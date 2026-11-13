@@ -20,12 +20,18 @@ async function amFileOpen(id,p){ const w=window.open('','_blank');
   if(w) w.location.href=s.data.signedUrl; else location.href=s.data.signedUrl; }
 
 
-async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<div class="card muted">読み込み中…</div>`; hiMemoSwOn();
-  const [g,l]=await Promise.all([id?sb.rpc('admin_memo_get',{p_id:id}):{data:null},sb.rpc('admin_memo_list',{p_store:st})]);
-  if(page!=='hist_memo'||storeId!==st||hiMemoTab!=='share') return; if(g.error||l.error){ $('main').innerHTML=hiMemoSw()+`<div class="card err">読み込めません：${esc((g.error||l.error).message)}</div>`; hiMemoSwOn(); return; }
-  /* 黒服が作成して共有を設定していないメモは、members が店の黒服全員（今見られる人）。保存すると、印を付けた黒服だけに */
-  const M=g.data, mem=new Set(M?.members||[]); amFiles=(M?.files||[]).map(f=>({...f}));
-  $('main').innerHTML=hiMemoSw()+`<h1>${esc(M?M.title:'追加')} <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
+// 共有メモの［保存］［削除］［戻る］
+function amSaveWire(M,st){
+  $('amSv').onclick=guard($('amSv'),async()=>{
+    const q=await sb.rpc('admin_memo_save',{p_id:M?.id||null,p_store:st,p_title:$('amT').value,p_body:$('amB').value,p_link_name:$('amLn').value,p_link_url:$('amLu').value,
+      p_has_password:$('amPw').checked,p_files:amFiles,p_members:[...$('main').querySelectorAll('[data-amh]')].filter(x=>x.checked).map(x=>x.dataset.amh)});
+    if(q.error){ await uiAlert(q.error.message); return; } toast('保存しました'); amList(); });
+  if($('amDel')) $('amDel').onclick=async()=>{ if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`,'削除')) return;
+    const q=await sb.rpc('admin_memo_delete',{p_id:M.id}); if(q.error){ await uiAlert(q.error.message); return; } toast('削除しました'); amList(); };
+  $('amBk').onclick=()=>amList();
+}
+// 共有メモの追加・変更の画面の文
+function amHtml(M,l,mem){ return `<h1>${esc(M?M.title:'追加')} <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
     ${M?.needs_change?`<div class="card"><b style="color:var(--warn)">要変更</b>　${esc(M.change_note||'')}</div>`:''}
     <div class="card">${amLb('件名')}<input id="amT" maxlength="60" value="${esc(M?.title||'')}">
       ${amLb('本文')}<textarea id="amB" maxlength="5000" style="${amTa}">${esc(M?.body||'')}</textarea>
@@ -35,7 +41,13 @@ async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<di
       <label style="display:inline-flex;align-items:center;gap:6px;margin-top:16px;font-size:15px;color:var(--ink)"><input type="checkbox" id="amPw" ${M?.has_password?'checked':''} style="width:18px;height:18px;flex:none">パスワードあり</label>
       ${amLb('共有（黒服）')}<div>${(l.data.halls||[]).map(h=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:0 16px 6px 0;font-size:15px;color:var(--ink);white-space:nowrap"><input type="checkbox" data-amh="${h.id}" ${mem.has(h.id)?'checked':''} style="width:18px;height:18px;flex:none">${esc(h.name)}</label>`).join('')||'<span class="muted">黒服がいません</span>'}</div>
       ${M?`<div class="muted" style="font-size:13px;margin-top:10px">更新 ${esc(M.updated)}${M.updated_by?' '+esc(M.updated_by):''}</div>`:''}</div>
-    <div class="row" style="gap:8px"><button class="primary" id="amSv">保存</button>${M?'<button class="ghost" id="amDel">削除</button>':''}<button class="ghost" id="amBk">戻る</button></div>`;
+    <div class="row" style="gap:8px"><button class="primary" id="amSv">保存</button>${M?'<button class="ghost" id="amDel">削除</button>':''}<button class="ghost" id="amBk">戻る</button></div>`; }
+async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<div class="card muted">読み込み中…</div>`; hiMemoSwOn();
+  const [g,l]=await Promise.all([id?sb.rpc('admin_memo_get',{p_id:id}):{data:null},sb.rpc('admin_memo_list',{p_store:st})]);
+  if(page!=='hist_memo'||storeId!==st||hiMemoTab!=='share') return; if(g.error||l.error){ $('main').innerHTML=hiMemoSw()+`<div class="card err">読み込めません：${esc((g.error||l.error).message)}</div>`; hiMemoSwOn(); return; }
+  /* 黒服が作成して共有を設定していないメモは、members が店の黒服全員（今見られる人）。保存すると、印を付けた黒服だけに */
+  const M=g.data, mem=new Set(M?.members||[]); amFiles=(M?.files||[]).map(f=>({...f}));
+  $('main').innerHTML=hiMemoSw()+amHtml(M,l,mem);
   hiMemoSwOn();
   const paint=()=>{ $('amFs').innerHTML=amFiles.map((f,i)=>`<div class="row" style="gap:8px;margin-bottom:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.t==='pdf'?'PDF':'写真'}　${esc(f.n)}</span><button class="ghost sm" data-amo="${i}">表示</button><button class="xb" data-amx="${i}" aria-label="削除">×</button></div>`).join('')||'<span class="muted">なし</span>';
     $('amFs').querySelectorAll('[data-amo]').forEach(b=>b.onclick=()=>amFileOpen(M?.id||null,amFiles[Number(b.dataset.amo)].p));
@@ -52,10 +64,4 @@ async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<di
       amFiles.push({p:p.data,n:f.name||(pdf?'ファイル.pdf':'写真.jpg'),t:pdf?'pdf':'img'});
     }catch(err){ await uiAlert('アップロードできませんでした：'+err.message); }
     paint(); };
-  $('amSv').onclick=guard($('amSv'),async()=>{
-    const q=await sb.rpc('admin_memo_save',{p_id:M?.id||null,p_store:st,p_title:$('amT').value,p_body:$('amB').value,p_link_name:$('amLn').value,p_link_url:$('amLu').value,
-      p_has_password:$('amPw').checked,p_files:amFiles,p_members:[...$('main').querySelectorAll('[data-amh]')].filter(x=>x.checked).map(x=>x.dataset.amh)});
-    if(q.error){ await uiAlert(q.error.message); return; } toast('保存しました'); amList(); });
-  if($('amDel')) $('amDel').onclick=async()=>{ if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`,'削除')) return;
-    const q=await sb.rpc('admin_memo_delete',{p_id:M.id}); if(q.error){ await uiAlert(q.error.message); return; } toast('削除しました'); amList(); };
-  $('amBk').onclick=()=>amList(); }
+  amSaveWire(M,st); }
