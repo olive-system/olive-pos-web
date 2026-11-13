@@ -168,23 +168,33 @@ async function qtyChange(b,g){ if(!g) return; const v=await uiPrompt(`${g.name} 
   const now=n+left; if(now!==g.qty) await logOp('数量変更',{item:g.name,before:g.qty,after:now,amount:-g.unit_price*(g.qty-now)}); /* 途中で止まった時は、変わった所までを記録 */
   if(err){ await bad(err); if(isStale(err)) return; } await openBill(b.id); if((cur?.totals?.unpaid??0)<0) await uiAlert(`入金が請求額より ${yen(-cur.totals.unpaid)} 多くなりました。会計の画面で入金を取り消してください`); }
 // 会計済・取消済の伝票は、見返し用の明細書の形で表示する（編集用の枠やボタンは出さない）
-function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card'); if(!$('stCss')){ const c=document.createElement('style'); c.id='stCss'; c.textContent='#bStatement{display:none}.card.st-mode>*{display:none !important}.card.st-mode>#bStatement{display:block !important}#bStatement .ln{display:flex;justify-content:space-between;gap:12px;padding:7px 2px;font-size:17px}#bStatement .ln small{color:var(--muted);font-size:13px}#bStatement hr{border:0;border-top:1px solid var(--line);margin:8px 0}#bStatement .sm{font-size:14px;color:var(--muted)}'; document.head.appendChild(c); }
+function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card'); stCssOnce();
   let st=$('bStatement'); if(!st){ st=document.createElement('div'); st.id='bStatement'; st.style.cssText='max-width:720px;margin:0 auto'; card.appendChild(st); } card.classList.toggle('st-mode',!!on); if(!on){ st.innerHTML=''; return; }
   const cn=id=>customers.find(c=>c.id===id)?.name||''; const sn=id=>staffAll.find(x=>x.id===id)?.display_name||staff.find(x=>x.id===id)?.display_name||''; const md=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()}`; };
   const custs=(b.bill_customers||[]).map(x=>cn(x.customer_id)).filter(Boolean); const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>sn(c.staff_id)).filter(Boolean); const ds=(b.bill_casts||[]).filter(c=>isDouhan(c.role)).map(c=>sn(c.staff_id)).filter(Boolean);
   const bd=String(billDay(b)||'').replace(/^\d{4}-0?(\d+)-0?(\d+)$/,'$1/$2')+(billDay(b)!==b.business_date?`（ご来店日 ${jmd(b.business_date)}）`:''); const extMin=(b.bill_extensions||[]).reduce((a,e)=>a+e.minutes,0);
   const L=(l,r,cls)=>`<div class="ln ${cls||''}"><span>${l}</span><span style="white-space:nowrap">${r}</span></div>`;
-  const items=groupItems((b.bill_items||[]).filter(i=>!i.is_void)).map(i=>{ const bk=(i.bill_item_splits||[]).filter(sp=>(sp.back_amount||0)>0||Number(sp.back_points||0)>0).map(sp=>sn(sp.staff_id)).filter(Boolean); return L(`${esc(i.name)} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`, yen(i.unit_price*i.qty)); }).join('');
-  const pays=[]; (b.payments||[]).filter(p=>p.amount>0).forEach(p=>{ const k=p.method+'|'+(p.method==='oki'&&p.received_at?md(p.received_at):'')+(p.method==='invoice'?'|'+(p.invoice_paid_on||''):''); const e=pays.find(z=>z.k===k); if(e) e.amount+=p.amount; else pays.push({k,method:p.method,amount:p.amount,received_at:p.received_at,invoice_paid_on:p.invoice_paid_on}); }); const adjs=(b.bill_adjustments||[]);
+  const items=stItems(b,L,sn);
+  const pays=stPays(b,md); const adjs=(b.bill_adjustments||[]);
   st.innerHTML=`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(billTable(b))}</b><span>${bd}　${b.closed_at?hm5(b.opened_at)+'〜'+hmJst(b.closed_at):esc($('bTime').textContent)}　${b.guest_count}名</span><span class="badge gray" style="margin-left:auto;font-size:15px">${b.status==='void'?'削除済':'会計済'}</span></div>
   <div class="sm" style="margin-top:6px">お客様：${custs.length?esc(custs.map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}</div><hr>
   ${(T.set||0)?L(`セット <small>× ${T.set_guests??b.guest_count}</small>`,yen(T.set)):''}${(T.vip_set||0)?L('VIPルーム料金',yen(T.vip_set)):''}${(T.extension||0)?L(`延長 <small>計${extMin}分</small>`,yen(T.extension)):''}${(T.vip_ext||0)?L('VIPルーム延長',yen(T.vip_ext)):''}${items}<hr>
   ${L('小計',yen(T.subtotal),'sm')}${L('サービス料'+(T.service_rate!=null?' '+T.service_rate+'%':''),yen(T.service),'sm')}${L('消費税',yen(T.tax),'sm')}${adjs.map(a=>L((a.kind==='discount'?'値引':'値増')+(a.reason?` <small>${esc(a.reason)}</small>`:''),(a.kind==='discount'?'−':'')+yen(a.amount),'sm')).join('')}
   <div class="ln" style="font-size:26px;font-weight:800;padding-top:10px"><span>請求額</span><span>${yen(T.amount_due)}</span></div>
   <div class="sm" style="display:grid;grid-template-columns:1fr auto;gap:2px 12px;margin-top:2px">${kakariRows(b,T)}</div><hr>
-  <div class="ln"><span>お支払い</span><span style="white-space:normal;text-align:right">${pays.length?pays.map(p=>`${METHOD[p.method]} ${yen(p.amount)}${p.method==='oki'&&p.received_at?`<small>（${md(p.received_at)}入金）</small>`:''}${p.method==='invoice'?`<small>（${p.invoice_paid_on?invMd(p.invoice_paid_on)+'入金':'未入金'}）</small>`:''}`).join('／'):'入金の記録はありません'}</span></div>
+  <div class="ln"><span>お支払い</span><span style="white-space:normal;text-align:right">${stPayText(pays,md)}</span></div>
   <div class="bar" style="margin-top:14px;display:flex;justify-content:space-between"><button class="ghost" id="stBack">${billFrom==='bills'?'伝票一覧へ':'ホールへ'}</button>${b.status==='closed'&&hasReceived(b)?'<button class="ghost" id="stReceipt">領収書印刷</button>':''}</div>`;
   st.querySelectorAll('button').forEach(x=>{ x.disabled=false; x.style.display=''; }); $('stBack').onclick=()=>$('bBack').onclick(); if($('stReceipt')) $('stReceipt').onclick=()=>$('prReceipt').onclick(); }
+// 明細書の見た目（1回だけ入れる）
+function stCssOnce(){if(!$('stCss')){ const c=document.createElement('style'); c.id='stCss'; c.textContent='#bStatement{display:none}.card.st-mode>*{display:none !important}.card.st-mode>#bStatement{display:block !important}#bStatement .ln{display:flex;justify-content:space-between;gap:12px;padding:7px 2px;font-size:17px}#bStatement .ln small{color:var(--muted);font-size:13px}#bStatement hr{border:0;border-top:1px solid var(--line);margin:8px 0}#bStatement .sm{font-size:14px;color:var(--muted)}'; document.head.appendChild(c); } }
+// 明細書の注文の行（バックの付いた人も）
+function stItems(b,L,sn){
+  return groupItems((b.bill_items||[]).filter(i=>!i.is_void)).map(i=>{ const bk=(i.bill_item_splits||[]).filter(sp=>(sp.back_amount||0)>0||Number(sp.back_points||0)>0).map(sp=>sn(sp.staff_id)).filter(Boolean); return L(`${esc(i.name)} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`, yen(i.unit_price*i.qty)); }).join('');
+}
+// お支払いを方法ごとにまとめる（置きは入金日・請求書は入金日でも分ける）
+function stPays(b,md){ const pays=[]; (b.payments||[]).filter(p=>p.amount>0).forEach(p=>{ const k=p.method+'|'+(p.method==='oki'&&p.received_at?md(p.received_at):'')+(p.method==='invoice'?'|'+(p.invoice_paid_on||''):''); const e=pays.find(z=>z.k===k); if(e) e.amount+=p.amount; else pays.push({k,method:p.method,amount:p.amount,received_at:p.received_at,invoice_paid_on:p.invoice_paid_on}); }); return pays; }
+// 明細書のお支払いの文
+function stPayText(pays,md){ return pays.length?pays.map(p=>`${METHOD[p.method]} ${yen(p.amount)}${p.method==='oki'&&p.received_at?`<small>（${md(p.received_at)}入金）</small>`:''}${p.method==='invoice'?`<small>（${p.invoice_paid_on?invMd(p.invoice_paid_on)+'入金':'未入金'}）</small>`:''}`).join('／'):'入金の記録はありません'; }
 // 請求書は会計日の売上。入金されたかは管理サイト「請求書の未入金」で入れる（POS は見るだけ）
 const invMd=d=>{ const m=String(d||'').match(/^\d{4}-(\d{2})-(\d{2})/); return m?`${+m[1]}/${+m[2]}`:''; };
 function invTag(p){ return p.method!=='invoice'?'':p.invoice_paid_on?` <small>入金済 ${invMd(p.invoice_paid_on)}</small>`:' <small>未入金</small>'; }
