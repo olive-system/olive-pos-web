@@ -56,19 +56,31 @@ async function memoFileOpen(id, p){
 }
 
 // 作成・編集。M＝今のメモ（作成は null）、D＝memo_list（オーナーの時は黒服の一覧と店。黒服の作成は自分の店）
-function memoEdit(M, D){
-  const own = !!(D && D.owner), store = M ? M.store : D.store, mem = new Set((M && M.members) || []);
-  MEMO_FILES = ((M && M.files) || []).map(f => ({ ...f }));
-  setBack(() => M ? memoView(M.id) : memoList());
-  const fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink)';
-  show(`<div class="card"><label class="f" for="mmT">件名</label><input id="mmT" maxlength="60" value="${esc(M ? M.title : '')}" style="${fld};margin-bottom:12px">
+// 共有メモの追加・変更の画面の文
+function memoForm(M, D, own, mem, fld){ return `<div class="card"><label class="f" for="mmT">件名</label><input id="mmT" maxlength="60" value="${esc(M ? M.title : '')}" style="${fld};margin-bottom:12px">
       <label class="f" for="mmB">本文</label><textarea id="mmB" maxlength="5000" style="min-height:140px">${esc(M ? M.body : '')}</textarea>
       <label class="f" for="mmLn" style="margin-top:12px">リンク</label><input id="mmLn" maxlength="60" placeholder="名前" value="${esc((M && M.link_name) || '')}" style="${fld};margin-bottom:6px"><input id="mmLu" inputmode="url" placeholder="https://" value="${esc((M && M.link_url) || '')}" style="${fld};font-size:14px">
       <label class="f" style="margin-top:12px">ファイル（写真・PDF）</label><div id="mmFs"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px"><label class="btn g" style="width:auto;padding:8px 18px;margin:0">追加<input id="mmF" type="file" accept="image/jpeg,image/png,application/pdf" style="display:none"></label></div></div>
     <div class="card"><label style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="mmPw" ${M && M.has_password ? 'checked' : ''} ${!own && M && M.has_password ? 'disabled' : ''} style="width:20px;height:20px;accent-color:var(--pri)">パスワードあり</label></div>
     ${own ? `<div class="card"><div class="f" style="margin-bottom:0">共有</div>${(D.halls || []).map(h => `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)"><input type="checkbox" data-mh="${h.id}" ${mem.has(h.id) ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--pri)">${esc(h.name)}</label>`).join('') || '<div class="muted sm">黒服がいません</div>'}</div>` : ''}
-    <button class="btn" id="mmSv">保存</button>${own && M ? '<button class="btn g" id="mmDel" style="margin-top:8px">削除</button>' : ''}`);
+    <button class="btn" id="mmSv">保存</button>${own && M ? '<button class="btn g" id="mmDel" style="margin-top:8px">削除</button>' : ''}`; }
+// 共有メモの［保存］［削除］
+function memoSaveWire(M, own, store){
+  $('mmSv').onclick = async () => { const b = $('mmSv'); b.disabled = true;
+    const q = await sb.rpc('memo_save', { p_token: TOKEN, p_id: M ? M.id : null, p_store: store, p_title: $('mmT').value, p_body: $('mmB').value, p_link_name: $('mmLn').value, p_link_url: $('mmLu').value,
+      p_has_password: own ? $('mmPw').checked : ($('mmPw').checked || null), p_files: MEMO_FILES, p_members: own ? [...$('main').querySelectorAll('[data-mh]')].filter(x => x.checked).map(x => x.dataset.mh) : null });
+    if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
+    MEMO_ST = store; memoView(q.data.id); };
+  if($('mmDel')) $('mmDel').onclick = async () => { if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`, '削除')) return;
+    const q = await sb.rpc('memo_delete', { p_token: TOKEN, p_id: M.id }); if(q.error){ await uiAlert(q.error.message); return; } memoList(store); };
+}
+function memoEdit(M, D){
+  const own = !!(D && D.owner), store = M ? M.store : D.store, mem = new Set((M && M.members) || []);
+  MEMO_FILES = ((M && M.files) || []).map(f => ({ ...f }));
+  setBack(() => M ? memoView(M.id) : memoList());
+  const fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink)';
+  show(memoForm(M, D, own, mem, fld));
   const paintFs = () => { $('mmFs').innerHTML = MEMO_FILES.map((f, i) => `<div class="row" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px;align-items:center"><span class="sm" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.t === 'pdf' ? 'PDF' : '写真'}　${esc(f.n)}</span><button class="xb" data-mfx="${i}" aria-label="削除">×</button></div>`).join('') || '<div class="muted sm">なし</div>';
     $('mmFs').querySelectorAll('[data-mfx]').forEach(b => b.onclick = () => { MEMO_FILES.splice(Number(b.dataset.mfx), 1); paintFs(); }); };
   paintFs();
@@ -85,11 +97,5 @@ function memoEdit(M, D){
       MEMO_FILES.push({ p: p.data, n: f.name || (pdf ? 'ファイル.pdf' : '写真.jpg'), t: pdf ? 'pdf' : 'img' });
     }catch(err){ await uiAlert('アップロードできませんでした：' + err.message); }
     paintFs(); };
-  $('mmSv').onclick = async () => { const b = $('mmSv'); b.disabled = true;
-    const q = await sb.rpc('memo_save', { p_token: TOKEN, p_id: M ? M.id : null, p_store: store, p_title: $('mmT').value, p_body: $('mmB').value, p_link_name: $('mmLn').value, p_link_url: $('mmLu').value,
-      p_has_password: own ? $('mmPw').checked : ($('mmPw').checked || null), p_files: MEMO_FILES, p_members: own ? [...$('main').querySelectorAll('[data-mh]')].filter(x => x.checked).map(x => x.dataset.mh) : null });
-    if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
-    MEMO_ST = store; memoView(q.data.id); };
-  if($('mmDel')) $('mmDel').onclick = async () => { if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`, '削除')) return;
-    const q = await sb.rpc('memo_delete', { p_token: TOKEN, p_id: M.id }); if(q.error){ await uiAlert(q.error.message); return; } memoList(store); };
+  memoSaveWire(M, own, store);
 }

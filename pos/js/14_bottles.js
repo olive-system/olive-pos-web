@@ -18,24 +18,11 @@ function uiMoveForm(b,k0){ return new Promise(res=>{ const cs=staff.filter(x=>x.
 async function moveBottle(b,cname,k0){ if(!b) return false; const mf=await uiMoveForm(b,b.kakari_staff_id||k0||''); if(!mf) return false; const d=businessDate(); const { error } = await sb.rpc('pos_bottle_set',{p_id:b.id,p:{expired_on:d,moved:true,moved_to:mf.to,moved_staff_id:mf.staff}}); if(error){ toast(error.message.includes('moved')?'SQL 045 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル移動',{customer:cname,bottle:b.name,remaining:b.remaining,to:mf.to,staff:staff.find(x=>x.id===mf.staff)?.display_name||null},null,true); b.expired_on=d; b.moved=true; toast('ボトル移動にしました'); return true; }
 /* 期限切れ・移動を戻すボタンは v10.86 から出していないので unexpireBottle は消した */
 function btMonths(){ return Number(settings?.bottle_keep_months)||6; } /* お店の設定（ボトルのキープ期間）と同じ。顧客サイトと同じ */
-/* 1回に1000件までしか返らないので、1000件ずつ全部読む（お客様5000件以上に対応） */
-// 係は店舗ごと（SQL 048 の customer_kakari）。読み込んだお客様の kakari_staff_id を、この店舗の係に置き換える
-const CUSEL='*,customer_kakari(store_id,staff_id)';
 /* メモを行ごとに合わせる（3者マージ）。base＝書き始めた時のメモ、mine＝自分の入力、theirs＝ほかで変わった今のメモ。同じ所を両方が別々に直した時だけ conflicts に入る */
 /* conflicts の choice（'m'／'t'／'b'）で仕上げる */
 CU_SITE.clashBox=(mine,theirs)=>new Promise(res=>{ const m=mkModal(60); const bx=h=>`<div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:4px">${h}</div>`;
   m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><div style="font-size:18px;font-weight:700">同じ箇所をほかの人も修正していました</div><div class="muted" style="font-size:13px">どちらを残しますか？</div><div style="margin-top:10px">あなた${bx(mine)}</div><div style="margin-top:8px">ほかの人${bx(theirs)}</div><div class="bar" style="justify-content:flex-end;margin-top:12px"><button class="ghost" data-v="x">キャンセル</button><button class="ghost" data-v="b">両方残す</button><button class="ghost" data-v="t">ほかの人</button><button class="primary" data-v="m">あなた</button></div></div>`;
   document.body.appendChild(m); m.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); }); /* メモの食い違いを選ぶ箱の見た目（POS の小窓）。選ぶ決まりは lib/olive/customer.js の pickClash */
-function cuK(c){ if(!c||!('customer_kakari' in c)) return c; const k=(c.customer_kakari||[]).find(x=>x.store_id===store?.id); delete c.customer_kakari; c.kakari_staff_id=k?k.staff_id:null; return c; }
-async function cuLoadAll(){ let r=await sbAll(()=>sb.from('customers').select(CUSEL).order('name').order('id')); if(r.error&&/customer_kakari/.test(r.error.message)){ toast((/does not exist|schema cache/.test(r.error.message)?'SQL 048 が未実行です：':''+KL+'を読み込めません：')+r.error.message); r=await sbAll(()=>sb.from('customers').select('*').order('name').order('id')); } return r; }
-/* お客様は最初に全部読み、あとは更新・登録の時刻が前に読んだ一番新しい時刻（5分の余裕）より後の人だけ読む。消えた人に気づくため10分ごとに全部読む */
-let cuMax=0, cuFullAt=0; const cuStamp=c=>Math.max(Date.parse(c?.updated_at)||0,Date.parse(c?.created_at)||0);
-function cuMark(full,list){ if(full) cuFullAt=Date.now(); for(const c of (list||customers)) cuMax=Math.max(cuMax,cuStamp(c)); }
-async function cuPull(delta){ if(!cuMax||(!delta&&Date.now()-cuFullAt>=600000)){ const r=await cuLoadAll(); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMax=0; cuMark(true,r.data); return {data:r.data,error:null}; }
-  const since=new Date(cuMax-300000).toISOString(); const r=await sbAll(()=>sb.from('customers').select(CUSEL).or(`updated_at.gte."${since}",created_at.gte."${since}"`).order('id')); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMark(false,r.data);
-  const up=new Map(r.data.map(c=>[c.id,c])); const out=customers.map(c=>up.get(c.id)||c); const have=new Set(customers.map(c=>c.id)); r.data.forEach(c=>{ if(!have.has(c.id)) out.push(c); }); return {data:out,error:null}; }
-/* ほかの iPad で登録・変更したお客様を、変わった分だけ読む（お客様を追加・伝票を開く時。前は顧客の画面を開くまで届かず、同業の料金が戻る・同じ人を二重に登録することがあった） */
-async function cuFresh(){ const r=await cuPull(true); if(r&&r.data) customers=r.data; }
 /* 並び順を顧客サイトとそろえる（名前・卓名は日本語順、数字は数の順） */
 function btSort(list){ return list.sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); }
 function btCutoff(n){ const [y,m,d]=businessDate().split('-').map(Number); const x=new Date(y,m-1-(n||btMonths()),1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* 月末のずれを直す（8/31 の6か月前は 2/28。前は 3/3 になった） */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }

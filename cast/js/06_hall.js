@@ -35,25 +35,38 @@ function tdAbHtml(x, done){
   return G.map((g, gi) => `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">${esc(g.title)}</b><span class="muted sm" data-abn="${gi}">${tdAbCnt(g.products)}</span></div>
     ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px">`)).join('')}</div>`).join('');
 }
-function hallTodoOne(x, keep){
-  setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; }
-  const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
-  const done = x.status === 'done', ph = (x.photos && x.photos.length) ? x.photos : (x.photo ? [x.photo] : []);
-  const grid = L => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${L}</div>`;
-  show(`<div class="ttl">${esc(x.name)}</div><div class="card">${TODO_SLOT[x.slot]?`<div class="muted" style="font-size:13px;margin-bottom:6px">${TODO_SLOT[x.slot]}</div>`:''}<div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps||'手順なし')}</div></div>
+/* 数える品の入力：打つたびに、その仲間の入れた数を出し直す */
+function tdAbWire(){ $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); }); }
+/* TODO の1件の画面の文（済・できない・数える品・内容・写真・ボタン） */
+function hallTodoHtml(x, keep, done, ph, grid, fld){ return `<div class="ttl">${esc(x.name)}</div><div class="card">${TODO_SLOT[x.slot]?`<div class="muted" style="font-size:13px;margin-bottom:6px">${TODO_SLOT[x.slot]}</div>`:''}<div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps||'手順なし')}</div></div>
     ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${ph.length?` <small class="muted">（写真 ${ph.length}枚）</small>`:''}${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${ph.length?grid(ph.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')):''}</div>${tdAbHtml(x, true)}
     <button class="btn g" id="tdRedo">やり直す</button><div class="muted sm" style="text-align:center;margin-top:4px">その日の精算を保存するまで修正できます</div>` : `
     ${x.status === 'skip' ? `<div class="card"><b class="muted">できない　${esc(x.by||'')}</b><div style="margin-top:4px">${esc(x.reason||'')}</div></div>` : ''}
     ${tdAbHtml(x)}
     ${x.need_note ? `<label class="f" style="display:block;margin-top:8px">${esc(x.note_hint||'内容')}<textarea id="tdN" maxlength="2000" style="${fld};min-height:120px">${esc(keep&&keep.note!=null?keep.note:(x.note||''))}</textarea></label>` : ''}
     ${x.need_photo ? `<div id="tdPs">${grid(tdShots.map((f,i)=>`<div style="position:relative"><img src="${f.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button class="xb img" data-tdx="${i}" aria-label="外す">×</button></div>`).join('') + (tdShots.length<40?`<label style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px dashed var(--line);border-radius:8px;cursor:pointer;color:var(--muted)">＋撮る<input type="file" id="tdP" accept="image/*" capture="environment" style="display:none"></label>`:''))}<div class="muted sm" style="text-align:center;margin-top:4px">${tdShots.length?`写真 ${tdShots.length}枚`:'写真を撮ってください'}${tdShots.length>=40?'（40枚まで）':''}</div></div>` : ''}
-    <button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`);
-  if(done){ $('tdRedo').onclick = async () => { if(!await uiConfirm('やり直しますか？\nこの TODO は「未」に戻ります。もう一度送ってください')) return;
+    <button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`; }
+/* 済の TODO の［やり直す］ */
+function hallTodoRedo(x){ $('tdRedo').onclick = async () => { if(!await uiConfirm('やり直しますか？\nこの TODO は「未」に戻ります。もう一度送ってください')) return;
       $('tdRedo').disabled = true; const q = await sb.rpc('hall_todo_redo', { p_token: TOKEN, p_item: x.id , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRedo')) $('tdRedo').disabled = false; await uiAlert(q.error.message); return; }
-      hallTodoOne({ ...x, status: 'open', photos: [], photo: null }); }; return; }
+      hallTodoOne({ ...x, status: 'open', photos: [], photo: null }); }; }
+/* ［できない］：理由を書く画面 */
+function hallTodoSkip(x, fld){
+    show(`<div class="ttl">${esc(x.name)}</div><label class="f" style="display:block">できない理由<textarea id="tdR" maxlength="500" style="${fld};min-height:100px">${esc(x.reason||'')}</textarea></label><button class="btn" id="tdRGo">送る</button>`);
+    setBack(() => hallTodoOne(x, {}));
+    $('tdRGo').onclick = async () => { const rs = $('tdR').value.trim(); if(!rs){ await uiAlert('理由を書いてください'); return; }
+      $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRGo')) $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
+}
+function hallTodoOne(x, keep){
+  setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; }
+  const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
+  const done = x.status === 'done', ph = (x.photos && x.photos.length) ? x.photos : (x.photo ? [x.photo] : []);
+  const grid = L => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${L}</div>`;
+  show(hallTodoHtml(x, keep, done, ph, grid, fld));
+  if(done){ hallTodoRedo(x); return; }
   const redraw = () => hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null });
   const abP = tdAB && tdAB.item === x.id ? tdAB.products || [] : [];
-  $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); });
+  tdAbWire();
   if($('tdP')) $('tdP').onchange = () => { const f = $('tdP').files[0]; if(!f) return; tdShots.push({ file: f, url: URL.createObjectURL(f) }); redraw(); };
   $('main').querySelectorAll('[data-tdx]').forEach(b => b.onclick = () => { const k = +b.dataset.tdx; URL.revokeObjectURL(tdShots[k].url); tdShots.splice(k, 1); redraw(); });
   $('tdGo').onclick = async () => {
@@ -73,12 +86,7 @@ function hallTodoOne(x, keep){
       await uiAlert('完了しました'); hallTodo();
     }catch(e){ if($('tdGo')) $('tdGo').disabled = false; if($('tdGo')) $('tdGo').textContent = x.need_photo ? '写真を送って完了' : '完了'; await uiAlert(e.message || String(e)); }
   };
-  $('tdNo').onclick = () => {
-    show(`<div class="ttl">${esc(x.name)}</div><label class="f" style="display:block">できない理由<textarea id="tdR" maxlength="500" style="${fld};min-height:100px">${esc(x.reason||'')}</textarea></label><button class="btn" id="tdRGo">送る</button>`);
-    setBack(() => hallTodoOne(x, {}));
-    $('tdRGo').onclick = async () => { const rs = $('tdR').value.trim(); if(!rs){ await uiAlert('理由を書いてください'); return; }
-      $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRGo')) $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
-  };
+  $('tdNo').onclick = () => hallTodoSkip(x, fld);
 }
 async function hallCasts(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
