@@ -129,6 +129,13 @@ function csCastExPick(K,q,tr){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,cast
       md.querySelector('[data-k=no]').onclick=()=>md.remove();
       md.querySelector('[data-k=ok]').onclick=()=>{ const v=[...md.querySelectorAll('input:checked')].map(x=>x.value); q('ex').dataset.v=JSON.stringify(v); q('ex').textContent=v.length?v.join('・'):'—'; md.remove(); };
 }
+/* 保存の前の値（変わったかどうかを比べるため。画面の値と同じ形） */
+function csCastOld(K,s,t){ const {slOk,unitOf}=K;
+      const so0={manager_staff_id:s.manager_staff_id||null,day_pay_ok:s.day_pay_ok??null,contract_done:s.contract_done??null};
+      const dl0=t.pay_type==='daily', to0={guaranteed_wage:dl0?null:t.guaranteed_wage??null,guarantee_until:dl0?(t.guarantee_until||CS_FOREVER):t.guaranteed_wage==null?null:(t.guarantee_until??null),douhan_quota:t.douhan_quota??null,back_pct:t.back_pct==null?null:Number(t.back_pct),back_mode:'add',
+        withhold:t.withhold??null,ctax_pct:t.ctax_pct==null?null:Number(t.ctax_pct),welfare_mode:t.welfare_mode||'std',welfare_amount:t.welfare_mode==='amount'?(t.welfare_amount??null):null,exempt_fines:t.exempt_fines||[],
+        slide_ids:(v=>v.length?v.sort():null)(slOk(t.slide_ids,unitOf(s,t))),pay_type:t.pay_type,daily_wage:t.daily_wage==null?null:Number(t.daily_wage),seppan_pct:null};
+      return {so0,to0}; }
 /* 保存：画面の値を集める（まちがいは知らせて null） */
 async function csCastCollect(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const out=[]; let needP=false;
     for(const {s,t} of rows){ const tr=tb.querySelector(`tr[data-sid="${s.id}"]`), q=k=>tr.querySelector(`[data-k=${k}]`), nm=s.display_name;
@@ -145,10 +152,7 @@ async function csCastCollect(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls
           withhold:b(q('wh').value),ctax_pct:int('ct','消費税',100),welfare_mode:wm,welfare_amount:wa==null?null:Math.round(wa),exempt_fines:JSON.parse(q('ex').dataset.v||'[]'),
           slide_ids:sep?null:(v=>v.length?v.sort():null)(q('sl')?JSON.parse(q('sl').dataset.v||'[]'):[]),pay_type:pt,daily_wage:dw==null?null:Math.round(dw),seppan_pct:null};
       }catch(e){ if(typeof e==='string'){ await uiAlert(e); return; } throw e; }
-      const so0={manager_staff_id:s.manager_staff_id||null,day_pay_ok:s.day_pay_ok??null,contract_done:s.contract_done??null};
-      const dl0=t.pay_type==='daily', to0={guaranteed_wage:dl0?null:t.guaranteed_wage??null,guarantee_until:dl0?(t.guarantee_until||CS_FOREVER):t.guaranteed_wage==null?null:(t.guarantee_until??null),douhan_quota:t.douhan_quota??null,back_pct:t.back_pct==null?null:Number(t.back_pct),back_mode:'add',
-        withhold:t.withhold??null,ctax_pct:t.ctax_pct==null?null:Number(t.ctax_pct),welfare_mode:t.welfare_mode||'std',welfare_amount:t.welfare_mode==='amount'?(t.welfare_amount??null):null,exempt_fines:t.exempt_fines||[],
-        slide_ids:(v=>v.length?v.sort():null)(slOk(t.slide_ids,unitOf(s,t))),pay_type:t.pay_type,daily_wage:t.daily_wage==null?null:Number(t.daily_wage),seppan_pct:null};
+      const {so0,to0}=csCastOld(K,s,t);
       const r={staff_id:s.id}; if(JSON.stringify(so)!==JSON.stringify(so0)) r.staff=so; if(JSON.stringify(to)!==JSON.stringify(to0)){ r.terms=to; needP=true;
         if((to.guaranteed_wage!=null||to.pay_type==='daily')&&!to.guarantee_until){ await uiAlert(`${nm}：保証の期限を入れるか、「無期限」を選んでください`); return; } } // 保証時給の期限は空欄にできない
       if(r.staff||r.terms) out.push(r); }

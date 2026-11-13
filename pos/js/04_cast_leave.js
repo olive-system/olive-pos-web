@@ -49,10 +49,14 @@ async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast'
 function pastForm(){ const f=$('cForm'); f.classList.add('empty'); f.innerHTML='<div class="muted">一覧の「詳細」を押してください</div>'; }
 const pastGrid=R=>R.map(([k,v,top])=>`<span class="muted" style="font-size:13px${top?';align-self:start;padding-top:7px':''}">${k}</span><span>${v}</span>`).join('');
 function pastClose(){ const m=$('pastBox'); if(m) m.remove(); pastSel=null; }
-async function pastOpen(s){ pastClose(); pastSel=s;
+/* ［詳細］の上の行（源氏名・区分・体験結果または入店日と退店日・担当黒服） */
+function pastRows(s){
   const mg=s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null;
   const kb=s.kind==='hall'?'黒服':s.ap_id?'キャスト':s.is_trial?'体験':s.kakari_only?KL+'専用':s.is_seppan?'折半':'キャスト';
-  const R=[['源氏名',esc(s.display_name)],['本名',esc(s.real_name||'')],['区分',kb],...(s.ap_id?[['面接日',pastDay(s.day)],['面接結果',PAST_RES[s.result]||'']]:s.is_trial?[['体験結果',PAST_RES[s.result]||'未入力']]:[['入店日',pastDay(s.joined_on)],['退店日',pastDay(s.day)]]),...(mg?[['担当黒服',esc(mg.display_name)]]:[])];
+  return [['源氏名',esc(s.display_name)],['本名',esc(s.real_name||'')],['区分',kb],...(s.ap_id?[['面接日',pastDay(s.day)],['面接結果',PAST_RES[s.result]||'']]:s.is_trial?[['体験結果',PAST_RES[s.result]||'未入力']]:[['入店日',pastDay(s.joined_on)],['退店日',pastDay(s.day)]]),...(mg?[['担当黒服',esc(mg.display_name)]]:[])];
+}
+async function pastOpen(s){ pastClose(); pastSel=s;
+  const R=pastRows(s);
   const m=mkModal(50); m.id='pastBox'; /* 受領のサインの画面（55）・書類の小窓（58）より下 */
   m.innerHTML=`<div class="box" style="width:min(760px,94vw)"><button type="button" class="xb dx" aria-label="閉じる">×</button><div id="pastGrid" style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 10px;align-items:center;font-size:15px">${pastGrid(R)}<span id="pastMore" style="display:contents"></span>${s.kakari_only||!s.id?'':'<span class="muted" style="font-size:13px;align-self:start;padding-top:4px">書類</span><span id="cDocs" style="display:flex;flex-wrap:wrap;gap:4px"></span>'}</div></div>`; /* 書類は在籍の［編集］と同じく係専用には出さない */
   m.querySelector('.dx').onclick=pastClose; m.onclick=e=>{ if(e.target===m) pastClose(); }; document.body.appendChild(m);

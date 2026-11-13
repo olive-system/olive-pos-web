@@ -12,6 +12,24 @@ async function joinOpen(s){
   if(s.kind==='hall'){ if(!await uiConfirm(`${s.display_name}　入店`,'入店')) return; return joinSend(s,{},null); }
   if(!joinInfo){ const r=await sb.rpc('pos_join_info'); if(r.error){ await uiAlert(/pos_join_info/.test(r.error.message)?'SQL 488 が未実行です':r.error.message); return; } joinInfo=r.data||{}; }
   const sl=await sb.from('slide_tables').select('id,name,unit').eq('store_id',store.id).eq('is_active',true).order('sort_order'), tbls=sl.error?[]:(sl.data||[]);
+  const m=joinBox(s,tbls);
+  document.body.appendChild(m); joinBind(s,m,tbls);
+}
+/* 小窓の動き（報酬の切り替え・無期限・スライド表・入店） */
+function joinBind(s,m,tbls){
+  const jv=id=>m.querySelector('#'+id), slTxt=ids=>ids.length?esc(ids.map(id=>tbls.find(x=>x.id===id)?.name||'').join('・')):'<span class="badge warnb">未選択</span>';
+  jv('jnPt').onchange=()=>{ jv('jnAmL').textContent=jv('jnPt').value==='daily'?'保証日給':'保証時給'; jv('jnSl').dataset.v='[]'; jv('jnSl').innerHTML=slTxt([]); }; /* スライド表は時給と日給で別の表 */
+  jv('jnGf').onchange=()=>{ jv('jnGu').disabled=jv('jnGf').checked; if(jv('jnGf').checked) jv('jnGu').value=''; };
+  jv('jnSl').onclick=()=>{ const u=jv('jnPt').value, cur=JSON.parse(jv('jnSl').dataset.v), opts=tbls.filter(x=>x.unit===u);
+    const md=mkModal(60,`<h2 style="margin:0">スライド表</h2><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${opts.map(o=>`<label style="display:flex;align-items:center;gap:8px;font-size:15px"><input type="checkbox" style="width:20px;height:20px" value="${o.id}" ${cur.includes(o.id)?'checked':''}>${esc(o.name)}</label>`).join('')||`<div class="muted">${u==='daily'?'日給':'時給'}のスライド表がありません</div>`}</div>
+      <div class="bar" style="margin-top:12px"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">決定</button></div>`);
+    md.querySelector('[data-k=no]').onclick=()=>md.remove();
+    md.querySelector('[data-k=ok]').onclick=()=>{ const ids=[...md.querySelectorAll('input:checked')].map(x=>x.value); jv('jnSl').dataset.v=JSON.stringify(ids); jv('jnSl').innerHTML=slTxt(ids); md.remove(); }; };
+  m.querySelector('[data-k=no]').onclick=()=>m.remove();
+  m.querySelector('[data-k=ok]').onclick=async()=>{ const set=await joinCollect(jv); if(set) joinSend(s,set,m); };
+}
+/* 小窓の中身（スタッフ設定の言葉と並び） */
+function joinBox(s,tbls){
   const halls=staff.filter(x=>x.kind==='hall'), bd=businessDate();
   const R=[['担当黒服',joinSel('jnMg',[['','未選択'],...halls.map(h=>[h.id,h.display_name])],s.manager_staff_id||'')],
     ['報酬',joinSel('jnPt',[['hourly','時給'],['daily','日給']],'hourly')],
@@ -28,30 +46,19 @@ async function joinOpen(s){
     <div style="display:flex;gap:28px;align-items:flex-start"><div style="flex:1.2;min-width:0"><div style="font-weight:600;margin:6px 0 8px">キャスト</div>${joinGrid(R)}</div>
     <div style="flex:1;min-width:0;border-left:1px solid var(--line);padding-left:24px"><div style="font-weight:600;margin:6px 0 8px">シフト</div>${joinGrid(R2)}</div></div>
     <div class="bar" style="margin-top:16px"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">入店</button></div></div>`;
-  document.body.appendChild(m);
-  const v=id=>m.querySelector('#'+id), slTxt=ids=>ids.length?esc(ids.map(id=>tbls.find(x=>x.id===id)?.name||'').join('・')):'<span class="badge warnb">未選択</span>';
-  v('jnPt').onchange=()=>{ v('jnAmL').textContent=v('jnPt').value==='daily'?'保証日給':'保証時給'; v('jnSl').dataset.v='[]'; v('jnSl').innerHTML=slTxt([]); }; /* スライド表は時給と日給で別の表 */
-  v('jnGf').onchange=()=>{ v('jnGu').disabled=v('jnGf').checked; if(v('jnGf').checked) v('jnGu').value=''; };
-  v('jnSl').onclick=()=>{ const u=v('jnPt').value, cur=JSON.parse(v('jnSl').dataset.v), opts=tbls.filter(x=>x.unit===u);
-    const md=mkModal(60,`<h2 style="margin:0">スライド表</h2><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${opts.map(o=>`<label style="display:flex;align-items:center;gap:8px;font-size:15px"><input type="checkbox" style="width:20px;height:20px" value="${o.id}" ${cur.includes(o.id)?'checked':''}>${esc(o.name)}</label>`).join('')||`<div class="muted">${u==='daily'?'日給':'時給'}のスライド表がありません</div>`}</div>
-      <div class="bar" style="margin-top:12px"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">決定</button></div>`);
-    md.querySelector('[data-k=no]').onclick=()=>md.remove();
-    md.querySelector('[data-k=ok]').onclick=()=>{ const ids=[...md.querySelectorAll('input:checked')].map(x=>x.value); v('jnSl').dataset.v=JSON.stringify(ids); v('jnSl').innerHTML=slTxt(ids); md.remove(); }; };
-  m.querySelector('[data-k=no]').onclick=()=>m.remove();
-  m.querySelector('[data-k=ok]').onclick=async()=>{ const set=await joinCollect(v); if(set) joinSend(s,set,m); };
-}
+  return m; }
 /* 入力を集める（まちがいは知らせて null）。保存の形は管理サイトのスタッフ設定と同じ */
-async function joinCollect(v){
-  const num=(id,l,max)=>{ const t=v(id).value.replace(/[,，円\s]/g,''); if(t==='') return null; const n=Number(t); if(!Number.isFinite(n)||n<0||(max!=null&&n>max)) throw `${l}が正しくありません`; return Math.round(n); };
-  try{ const pt=v('jnPt').value, daily=pt==='daily', am=num('jnAm',daily?'保証日給':'保証時給'), gu=v('jnGf').checked?'9999-12-31':(v('jnGu').value||null);
+async function joinCollect(jv){
+  const num=(id,l,max)=>{ const t=jv(id).value.replace(/[,，円\s]/g,''); if(t==='') return null; const n=Number(t); if(!Number.isFinite(n)||n<0||(max!=null&&n>max)) throw `${l}が正しくありません`; return Math.round(n); };
+  try{ const pt=jv('jnPt').value, daily=pt==='daily', am=num('jnAm',daily?'保証日給':'保証時給'), gu=jv('jnGf').checked?'9999-12-31':(jv('jnGu').value||null);
     if(daily&&!am) throw '保証日給を入力してください';
     if(am&&!gu) throw '保証の期限を入力するか、「無期限」を選んでください';
-    const ids=JSON.parse(v('jnSl').dataset.v);
-    return { manager_staff_id:v('jnMg').value||null,
+    const ids=JSON.parse(jv('jnSl').dataset.v);
+    return { manager_staff_id:jv('jnMg').value||null,
       terms:{pay_type:pt,daily_wage:daily?am:null,guaranteed_wage:daily?null:am,guarantee_until:am?gu:null,douhan_quota:num('jnQ','同伴ノルマ'),back_pct:num('jnBk','小計バック',100),back_mode:'add',
         withhold:null,ctax_pct:null,welfare_mode:'std',welfare_amount:null,exempt_fines:[],slide_ids:ids.length?ids.sort():null,seppan_pct:null},
-      shift:{week:v('jnW').value?Number(v('jnW').value):null,earliest:v('jnE').value||null,ok_only:v('jnO').value==='true',rank:Number(v('jnR').value),joined:v('jnJ').value||null},
-      note:{cat:v('jnNc').value,body:v('jnNb').value.trim()} };
+      shift:{week:jv('jnW').value?Number(jv('jnW').value):null,earliest:jv('jnE').value||null,ok_only:jv('jnO').value==='true',rank:Number(jv('jnR').value),joined:jv('jnJ').value||null},
+      note:{cat:jv('jnNc').value,body:jv('jnNb').value.trim()} };
   }catch(e){ if(typeof e==='string'){ await uiAlert(e); return null; } throw e; }
 }
 async function joinSend(s,set,m){
