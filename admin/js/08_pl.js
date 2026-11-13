@@ -66,7 +66,10 @@ async function plExcel(d){ /* 請求書がある月は、フォルダのいち�
   if(!await plInvoices(dir,d.month)) return;
   const sheet=(aoa,w,mg)=>{ const x=XLSX.utils.aoa_to_sheet(aoa); x['!cols']=w.map(n=>({wch:n})); if(mg) x['!merges']=mg; return x; };
   const last=new Date(y,mo,0).getDate();
-  for(let i=1;i<=last;i++){ const dd=`${ym}-${String(i).padStart(2,'0')}`, w=XLSX.utils.book_new();
+  for(let i=1;i<=last;i++){ const dd=`${ym}-${String(i).padStart(2,'0')}`; dir.file(`日次収支明細-${dd}.xlsx`,out(plDayBook(dd,E,sheet))); }
+  const blob=await zip.generateAsync({type:'blob'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${base}.zip`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); toast('ダウンロードしました'); }
+// 日次の Excel 1日分（タブは 出金・入金・伝票一覧・メモ）
+function plDayBook(dd,E,sheet){ const w=XLSX.utils.book_new();
     const mv=k=>(E.moves||[]).filter(x=>x.date===dd&&x.kind===k), mvs=(k,l)=>{ const r=mv(k); return sheet([['摘要',l,'備考'],...r.map(x=>[x.memo||'',Number(x.amount||0),'']),['合計',r.reduce((a,x)=>a+Number(x.amount||0),0),'']],[24,12,24]); };
     XLSX.utils.book_append_sheet(w,mvs('out','支払金額'),'出金'); XLSX.utils.book_append_sheet(w,mvs('in','収入金額'),'入金');
     const bs=(E.bills||[]).filter(b=>b.date===dd), N=k=>bs.reduce((a,b)=>a+Number(b[k]||0),0);
@@ -75,8 +78,7 @@ async function plExcel(d){ /* 請求書がある月は、フォルダのいち�
       ...bs.map((b,j)=>ord([j+1,beHm5(b.opened_at),b.closed_at?hmJst(b.closed_at):'来店中',durHM(b.opened_at,b.closed_at),b.receipt?'◯':'',b.table||'',Number(b.guests||0),b.customers||'',b.kakari||'',b.douhan||'',b.items||'',Number(b.sub||0),Number(b.cash||0),Number(b.card||0),Number(b.invoice||0),Number(b.oki||0),Number(b.due||0)])),
       ord(['計','','','',bs.filter(b=>b.receipt).length,'',N('guests'),'','','','',N('sub'),N('cash'),N('card'),N('invoice'),N('oki'),N('due')])],ord([5,7,7,7,7,9,6,16,14,14,40,10,10,10,10,10,10])),'伝票一覧');
     const memo=(E.memos||[]).find(x=>x.date===dd)?.memo||''; XLSX.utils.book_append_sheet(w,sheet([['メモ'],[memo]],[80]),'メモ');
-    dir.file(`日次収支明細-${dd}.xlsx`,out(w)); }
-  const blob=await zip.generateAsync({type:'blob'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${base}.zip`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); toast('ダウンロードしました'); }
+  return w; }
 // 請求書（オーナー「請求がある月は、収支のDLで、月次の上（最初）につけてほしい」「その月の分を、会社ごとに1枚」）
 // オーナーの今の請求書と同じ形。その月に「請求書」で会計した分を、売上日ごとに1行（ご飲食代）。宛先は POS で選んだ請求先（会社名・住所・宛名）。請求先ごとに1枚。請求先が無い前の会計は、お客様の会社名・会社住所
 // 画像（ロゴ）を入れるため、ここだけ ExcelJS で作る。ファイル名は 00_ で始めて、フォルダのいちばん上に並べる
@@ -89,10 +91,19 @@ async function plInvoices(dir,month){
   rows.forEach(x=>{ let g=groups.find(z=>z.k===who(x)); if(!g){ g={k:who(x),h:x,days:[]}; groups.push(g); } const dd=g.days.find(z=>z.date===x.date); if(dd) dd.amount+=Number(x.amount||0); else g.days.push({date:x.date,amount:Number(x.amount||0)}); });
   const zipSplit=a=>{ const m=String(a||'').match(/^(〒?\s*\d{3}-?\d{4})[\s　]+(.*)$/s); return (m?[m[1].replace(/\s/g,''),m[2]]:[String(a||'')]).flatMap(l=>l.split(/\n/)).map(l=>l.trim()).filter(Boolean); };
   const used={};
-  for(const g of groups){ const h=g.h, nm=(h.attn||String(h.receipt_name||'').split('\n')[0]||h.name||'').trim() /* 領収書名が2社以上の時は1社目 */, wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('請求書',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.5,right:0.5,top:0.6,bottom:0.6,header:0.3,footer:0.3}},views:[{showGridLines:false}]});
+  for(const g of groups) await plInvoiceBook(dir,g,I,logo,{G,LG,zipSplit,used});
+  return true; }
+// 請求先1つ分の請求書（1枚の Excel）
+async function plInvoiceBook(dir,g,I,logo,{G,LG,zipSplit,used}){ const h=g.h, nm=(h.attn||String(h.receipt_name||'').split('\n')[0]||h.name||'').trim() /* 領収書名が2社以上の時は1社目 */, wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('請求書',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.5,right:0.5,top:0.6,bottom:0.6,header:0.3,footer:0.3}},views:[{showGridLines:false}]});
     ws.columns=[{width:2},{width:30},{width:12},{width:10},{width:15},{width:2}];
     const font=(c,o={})=>{ c.font={size:10,...o}; }, bar=r=>{ ['B','C','D'].forEach(k=>{ ws.getCell(k+r).fill={type:'pattern',pattern:'solid',fgColor:{argb:G}}; }); ws.getRow(r).height=5; };
     bar(2);
+    const {top,n}=plInvoiceHead(ws,wb,h,nm,I,logo,{LG,zipSplit,font});
+    plInvoiceTable(ws,g,top+n+1,{G,font,bar});
+    const fn=`00_請求書_${[h.company,nm?nm.split(/[\s　]+/)[0]+'様':''].filter(Boolean).join('_')||'お名前なし'}`.replace(/[\\/:*?"<>|]/g,'_'); used[fn]=(used[fn]||0)+1;
+    dir.file(`${fn}${used[fn]>1?'_'+used[fn]:''}.xlsx`,await wb.xlsx.writeBuffer()); }
+// 請求書の上の段（左に宛先・右に請求書の文字とロゴと店の住所と振込先）
+function plInvoiceHead(ws,wb,h,nm,I,logo,{LG,zipSplit,font}){
     const L=[...(h.company?zipSplit(h.company_address).map(t=>({t})):[]),...(h.company?[{t:''},{t:h.company}]:[]),{t:nm?nm.replace(/\s+/,'　')+'　様':'',b:true}];
     const R=[{t:'請求書',big:true},{logo:true},{logo:true},{t:I.reg?'登録番号…'+I.reg:'',g:true},{t:''}];
     (I.stores||[]).forEach(st=>{ zipSplit(st.address).forEach(t=>R.push({t,g:true})); if(st.phone) R.push({t:st.phone,g:true}); R.push({t:''}); });
@@ -103,7 +114,10 @@ async function plInvoices(dir,month){
       if(rr&&!rr.logo){ const c=ws.getCell('C'+row); c.value=rr.t; font(c,rr.big?{size:16}:rr.g?{size:8,color:{argb:LG}}:{size:9}); if(rr.big) ws.getRow(row).height=24; }
       if(rr&&rr.logo) ws.getRow(row).height=18; }
     if(logo){ const id=wb.addImage({base64:logo,extension:'png'}); ws.addImage(id,{tl:{col:2,row:top},ext:{width:120,height:38}}); }
-    let r0=top+n+1; ['B','C','D','E'].forEach(k=>{ ws.getCell(k+r0).border={bottom:{style:'dotted',color:{argb:'FF888888'}}}; });
+    return {top,n}; }
+// 請求書の明細の表と合計・終わりのあいさつ
+function plInvoiceTable(ws,g,r0,{G,font,bar}){
+    ['B','C','D','E'].forEach(k=>{ ws.getCell(k+r0).border={bottom:{style:'dotted',color:{argb:'FF888888'}}}; });
     r0+=2; const hd=ws.getRow(r0); ['詳細','日付','単価','金額'].forEach((t,i)=>{ const c=hd.getCell(i+2); c.value=t; c.font={size:10,color:{argb:'FFFFFFFF'}}; c.alignment={horizontal:'center',vertical:'middle'}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:G}}; }); hd.height=18;
     const dl={style:'dotted',color:{argb:'FF999999'}}, lines=Math.max(8,g.days.length);
     g.days.sort((a,b)=>a.date<b.date?-1:1);
@@ -116,9 +130,7 @@ async function plInvoices(dir,month){
     ['いつもありがとうございます。','上記の通り、ご請求申し上げます。','今後ともよろしくお願い致しますm(__)m'].forEach((t,i)=>{ const c=ws.getCell('B'+(r0+3+lines+i)); c.value=t; font(c); });
     bar(r0+7+lines);
     ws.pageSetup.printArea=`A1:F${r0+8+lines}`;
-    const fn=`00_請求書_${[h.company,nm?nm.split(/[\s　]+/)[0]+'様':''].filter(Boolean).join('_')||'お名前なし'}`.replace(/[\\/:*?"<>|]/g,'_'); used[fn]=(used[fn]||0)+1;
-    dir.file(`${fn}${used[fn]>1?'_'+used[fn]:''}.xlsx`,await wb.xlsx.writeBuffer()); }
-  return true; }
+  }
 async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', m=d.slice(0,7)+'-01';
   const jd=x=>{ const t=new Date(x+'T00:00:00'); return `${t.getFullYear()}年${t.getMonth()+1}月${t.getDate()}日(${WD[t.getDay()]})`; };
   const head=`<h1>収支 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px"><button class="ghost" id="plBack">◀ 月次へ</button><button class="ghost" id="plPrev">前の日</button><input type="date" id="plDate" value="${d}" style="width:auto"><button class="ghost" id="plNext">次の日</button>${ed?'':'<span class="muted" style="font-size:13px">閲覧のみ</span>'}</div>`;
