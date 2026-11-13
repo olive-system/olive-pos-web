@@ -29,10 +29,12 @@ async function leaveDone(s){
 }
 // ［退店・体験］の一覧。退店日・体験日が半年以内の人（受取待ちは今までどおり在籍リストの一番下）。在籍に戻す時は今までどおり［新規登録］で同じ名前
 // オーナー「退店した女の子や、体験入店した女の子、過去の女の子を、過去、半年分表示」。黒服の退店も出す
+// 体験の子と、面接で採用にした体験なしの子（しるし「面接」・ap_id＝応募者）に［入店］（04_cast_join.js）。退店の人は今までどおり［新規登録］
 // ［詳細］は右上の × で閉じる小窓（右の欄 300px には書類の写真と体験日の行が入らない。POS の見るだけの小窓と同じ形）。
 // 体験の報酬・体験日ごとの時刻と日払（立替）（記録を読むだけ。［受領済］は在籍リストと同じ受領のサインの画面）・書類（在籍の［編集］と同じ部品 posDocs。撮影・削除も同じ）
-const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',declined:'辞退',rejected:'不採用'}; /* 検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
+const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',hired:'採用',declined:'辞退',rejected:'不採用'}; /* 検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
 let pastSel=null;
+const pastKind=s=>s.ap_id?'面接':s.is_trial?'体験':'退店';
 const pastDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
 async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast').classList.add('on'); $('cSort').textContent='並べ替え';
   const r=await sb.rpc('pos_staff_past',{p_day:businessDate()});
@@ -40,19 +42,21 @@ async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast'
   const q=$('cSearch').value.trim(), L=(r.data||[]).filter(s=>!q||(s.display_name+(s.real_name||'')).includes(q));
   /* しるし・日付・体験結果は幅を決めた枠に入れて、名前の長さで縦の位置がずれないようにする */
   const col='flex:none;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap';
-  $('cList').innerHTML=L.map(s=>`<div class="rrow" data-id="${s.id}"><span class="nm">${esc(s.display_name)}${s.kind==='hall'?' <span class="badge gray">黒服</span>':''}</span><span style="${col};width:48px"><span class="badge gray">${s.is_trial?'体験':'退店'}</span></span><span style="${col};width:96px">${pastDay(s.day)}</span><span style="${col};width:56px">${PAST_RES[s.result]||''}</span><button class="primary sm" data-pdt="${s.id}">詳細</button></div>`).join('')||'<div class="muted">該当なし</div>';
-  $('cList').querySelectorAll('[data-pdt]').forEach(b=>b.onclick=()=>{ const s=L.find(x=>x.id===b.dataset.pdt); if(s) pastOpen(s); });
+  $('cList').innerHTML=L.map((s,i)=>`<div class="rrow" data-id="${s.id||''}"><span class="nm">${esc(s.display_name)}${s.kind==='hall'?' <span class="badge gray">黒服</span>':''}</span><span style="${col};width:48px"><span class="badge gray">${pastKind(s)}</span></span><span style="${col};width:96px">${pastDay(s.day)}</span><span style="${col};width:72px">${PAST_RES[s.result]||''}</span><span style="flex:none;width:60px">${s.is_trial||s.ap_id?`<button class="ghost sm" data-pjn="${i}">入店</button>`:''}</span><button class="primary sm" data-pdt="${i}">詳細</button></div>`).join('')||'<div class="muted">該当なし</div>';
+  $('cList').querySelectorAll('[data-pdt]').forEach(b=>b.onclick=()=>pastOpen(L[b.dataset.pdt]));
+  $('cList').querySelectorAll('[data-pjn]').forEach(b=>b.onclick=()=>joinOpen(L[b.dataset.pjn]));
   pastForm(); }
 function pastForm(){ const f=$('cForm'); f.classList.add('empty'); f.innerHTML='<div class="muted">一覧の「詳細」を押してください</div>'; }
 const pastGrid=R=>R.map(([k,v,top])=>`<span class="muted" style="font-size:13px${top?';align-self:start;padding-top:7px':''}">${k}</span><span>${v}</span>`).join('');
 function pastClose(){ const m=$('pastBox'); if(m) m.remove(); pastSel=null; }
 async function pastOpen(s){ pastClose(); pastSel=s;
   const mg=s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null;
-  const kb=s.kind==='hall'?'黒服':s.is_trial?'体験':s.kakari_only?KL+'専用':s.is_seppan?'折半':'キャスト';
-  const R=[['源氏名',esc(s.display_name)],['本名',esc(s.real_name||'')],['区分',kb],...(s.is_trial?[['体験結果',PAST_RES[s.result]||'未入力']]:[['入店日',pastDay(s.joined_on)],['退店日',pastDay(s.day)]]),...(mg?[['担当黒服',esc(mg.display_name)]]:[])];
+  const kb=s.kind==='hall'?'黒服':s.ap_id?'キャスト':s.is_trial?'体験':s.kakari_only?KL+'専用':s.is_seppan?'折半':'キャスト';
+  const R=[['源氏名',esc(s.display_name)],['本名',esc(s.real_name||'')],['区分',kb],...(s.ap_id?[['面接日',pastDay(s.day)],['面接結果',PAST_RES[s.result]||'']]:s.is_trial?[['体験結果',PAST_RES[s.result]||'未入力']]:[['入店日',pastDay(s.joined_on)],['退店日',pastDay(s.day)]]),...(mg?[['担当黒服',esc(mg.display_name)]]:[])];
   const m=mkModal(50); m.id='pastBox'; /* 受領のサインの画面（55）・書類の小窓（58）より下 */
-  m.innerHTML=`<div class="box" style="width:min(760px,94vw)"><button type="button" class="xb dx" aria-label="閉じる">×</button><div id="pastGrid" style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 10px;align-items:center;font-size:15px">${pastGrid(R)}<span id="pastMore" style="display:contents"></span>${s.kakari_only?'':'<span class="muted" style="font-size:13px;align-self:start;padding-top:4px">書類</span><span id="cDocs" style="display:flex;flex-wrap:wrap;gap:4px"></span>'}</div></div>`; /* 書類は在籍の［編集］と同じく係専用には出さない */
+  m.innerHTML=`<div class="box" style="width:min(760px,94vw)"><button type="button" class="xb dx" aria-label="閉じる">×</button><div id="pastGrid" style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 10px;align-items:center;font-size:15px">${pastGrid(R)}<span id="pastMore" style="display:contents"></span>${s.kakari_only||!s.id?'':'<span class="muted" style="font-size:13px;align-self:start;padding-top:4px">書類</span><span id="cDocs" style="display:flex;flex-wrap:wrap;gap:4px"></span>'}</div></div>`; /* 書類は在籍の［編集］と同じく係専用には出さない */
   m.querySelector('.dx').onclick=pastClose; m.onclick=e=>{ if(e.target===m) pastClose(); }; document.body.appendChild(m);
+  if(!s.id) return; /* 面接で採用にした体験なしの子は、まだスタッフの記録が無い（書類・体験日なし） */
   if(!s.kakari_only) posDocs(s);
   const r=await sb.rpc('pos_staff_past_detail',{p_staff:s.id}); if(pastSel!==s) return;
   const more=$('pastMore'), D=r.data||{}, days=D.days||[], f=n=>Number(n||0).toLocaleString('ja-JP'), A=[];

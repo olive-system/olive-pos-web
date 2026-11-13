@@ -1,9 +1,10 @@
 // ---------- 応募者（集計） ----------
 // 応募者・応募の記録が無い体験の子・退店した人を、期間を切らずに全員（POS の［退店・体験］は半年分。オーナー「管理サイトでは、これまでのやつ全員並べてほしい」）
-// ［詳細］は右上の × で閉じる小窓。面接結果・体験結果・［入店］は、マイページの応募者ページと同じ中身（データベースの ap_iv_apply・ap_tr_apply・ap_re_apply）を、表示設定で「編集」の人だけ入力できる
+// 面接結果・体験結果は「採用」（店の評価だけ。オーナー 11/13「入店は POS から」）。入店は POS の［退店・体験］の［入店］
+// ［詳細］は右上の × で閉じる小窓。面接結果・体験結果は、マイページの応募者ページと同じ中身（データベースの ap_iv_apply・ap_tr_apply・ap_re_apply）を、表示設定で「編集」の人だけ入力できる
 // 写真の撮影・ヒアリングシートの編集・契約書の［開始］はマイページのまま（対面でする物）
-const APL_ST={applied:'応募',interview:'面接予約',trial:'体験',consider_self:'本人検討',consider_store:'店検討',joined:'入店',left:'退店',declined:'辞退',rejected:'不採用'};
-const APL_SEG=[['all','すべて'],['applied','応募'],['interview','面接予約'],['trial','体験'],['consider','検討中'],['joined','入店'],['left','退店'],['declined','辞退'],['rejected','不採用']];
+const APL_ST={applied:'応募',interview:'面接予約',trial:'体験',consider_self:'本人検討',consider_store:'店検討',hired:'採用',joined:'入店',left:'退店',declined:'辞退',rejected:'不採用'};
+const APL_SEG=[['all','すべて'],['applied','応募'],['interview','面接予約'],['trial','体験'],['consider','検討中'],['hired','採用'],['joined','入店'],['left','退店'],['declined','辞退'],['rejected','不採用']];
 const APL_SRC={line:'LINE 友だち追加',calendar:'面接予約',scout:'スカウト'};
 let aplSeg='all', aplQ='', aplSel=null;
 const aplHit=(r,k)=>k==='all'||(k==='consider'?/^consider_/.test(r.st):r.st===k);
@@ -64,8 +65,8 @@ function aplApBody(x,A){ const ed=!!A.can_edit, st=storeId;
   const bust=(A.photos||[]).filter(p=>p.kind==='bust'), sheet=(A.photos||[]).filter(p=>p.kind==='sheet');
   const img=(p,w,h)=>`<img data-aph="${p.id}" alt="" style="flex:none;width:${w}px;height:${h}px;object-fit:cover;border:1px solid var(--line);border-radius:8px;background:var(--soft);cursor:pointer">`;
   const blank=(t,w,h)=>`<span style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:${w}px;height:${h}px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font-size:12px">${t}</span>`;
-  const ivDone=!['applied','interview'].includes(A.status), ivOpen=['applied','interview','trial','declined','rejected'].includes(A.status)&&!A.joined;
-  const ivLabel={trial:'体験',considering:'体験',joined:'入店',declined:'辞退',rejected:'不採用'}[A.status]||'';
+  const ivDone=!['applied','interview'].includes(A.status), ivOpen=(['applied','interview','trial','declined','rejected'].includes(A.status)||(A.status==='hired'&&!A.trial_name))&&!A.joined;
+  const ivLabel={trial:'体験',considering:'体験',hired:A.trial_name?'体験':'採用',joined:'入店',declined:'辞退',rejected:'不採用'}[A.status]||'';
   const top=`<div style="display:flex;gap:16px;align-items:flex-start;margin-top:6px">${bust.length?img(bust[0],96,128):blank('バストアップ',96,128)}<div style="flex:1;min-width:0">${aplGrid([
     ['名前',`<b>${esc(A.name||A.line_name||'（名前なし）')}</b>`],['本名',esc(A.real_name||'')],['区分',A.kind==='hall'?'黒服':'キャスト'],A.phone?['電話',esc(A.phone)]:null,
     ['応募',`${aplDay(A.applied)}　${APL_SRC[A.source]||''}`],['担当黒服',esc(A.hall_name||'未定')],A.line?null:['LINE','未追加']])}</div></div>`;
@@ -73,7 +74,7 @@ function aplApBody(x,A){ const ed=!!A.can_edit, st=storeId;
   const info=aplSec(aplGrid([['面接',aplDtW(A.interview_at)],ivDone&&!(ed&&ivOpen)?['面接結果',ivLabel]:null,
     A.trial_name?['体験の報酬',aplPay(A.trial_pay_type,A.trial_pay_amount)]:null,
     A.trial_name?['体験日',aplDays(A.days)||aplDtW(A.trial_at),!!A.days?.length]:null,
-    A.trial_name&&!(ed&&!A.joined)&&['considering','joined','declined','rejected'].includes(A.status)?['体験結果',`<span class="badge ${A.joined?'':'gray'}">${esc(A.status_label||'')}</span>`]:null,
+    A.trial_name&&!(ed&&!A.joined)&&['considering','hired','joined','declined','rejected'].includes(A.status)?['体験結果',`<span class="badge ${A.joined?'':'gray'}">${esc(A.status_label||'')}</span>`]:null,
     A.trial_reason&&!(ed&&!A.joined)?['理由',esc(A.trial_reason)]:null,
     (A.good||[]).length&&!(ed&&A.trial_name&&!A.joined)?['よかった点',esc(A.good.join('・'))]:null,
     (A.concern||[]).length&&!(ed&&A.trial_name&&!A.joined)?['気になった点',esc(A.concern.join('・'))]:null,
@@ -92,9 +93,9 @@ const aplSelH=(id,opts,v)=>`<select id="${id}" style="width:auto">${opts.map(([o
 const aplIsoDay=iso=>iso?aplJst(iso).slice(0,10):'';
 const aplPayIn=(p,A)=>`<span style="display:flex;gap:8px">${aplSelH(p+'p',[['hourly','時給'],['daily','日給']],A.trial_pay_type||'daily')}<input id="${p}a" type="number" inputmode="numeric" min="1" placeholder="円" value="${A.trial_pay_amount||''}" style="width:140px"></span>`;
 /* 面接結果（マイページの「面接」の箱と同じ入力。写真が無いと面接完了を押せない。撮影はマイページ） */
-function aplIvForm(A,ivLabel,bust,sheet){ const v={trial:'trial',considering:'trial',joined:'joined',declined:'declined',rejected:'rejected'}[A.status]||'';
+function aplIvForm(A,ivLabel,bust,sheet){ const v={trial:'trial',considering:'trial',hired:'hired',declined:'declined',rejected:'rejected'}[A.status]||'';
   const need=[...(bust.length?[]:['バストアップ']),...(sheet.length||A.sheet_by_line?[]:['ヒアリングシート'])];
-  return aplSec(`<b>面接結果</b><div style="margin-top:8px">${aplGrid([['面接結果',aplSegH('iv',[['trial','体験'],['joined','入店'],['declined','辞退'],['rejected','不採用']],v)]])}</div>
+  return aplSec(`<b>面接結果</b><div style="margin-top:8px">${aplGrid([['面接結果',aplSegH('iv',[['trial','体験'],['hired','採用'],['declined','辞退'],['rejected','不採用']],v)]])}</div>
     <div id="aplTrIn" style="margin-top:8px;${v==='trial'?'':'display:none'}">${aplGrid([['体験日',`<span style="display:flex;gap:8px"><input id="aplTd" type="date" value="${aplIsoDay(A.trial_at)}" min="${A.today}" style="width:auto">${aplSelH('aplTt',SH_TIMES.map(t=>[t,t]),A.trial_at?aplJst(A.trial_at).slice(11,16):'20:00')}</span>`],
       ['体験の報酬',aplPayIn('aplT',A)],A.name?null:['名前','<input id="aplNm" maxlength="30">'],['本名',`<input id="aplRn" maxlength="60" value="${esc(A.real_name||'')}">`],
       ['希望源氏名',`<input id="aplGn" maxlength="30" placeholder="例）サヤ・ハル" value="${esc(A.trial_name&&A.trial_name!==A.name?A.trial_name:'')}">`]])}</div>
@@ -102,10 +103,10 @@ function aplIvForm(A,ivLabel,bust,sheet){ const v={trial:'trial',considering:'tr
     ${A.line?'':`<div style="margin-top:10px">${aplGrid([['LINE 未追加の理由',`<input id="aplNl" maxlength="200" value="${esc(A.no_line_reason||'')}">`]])}</div>`}
     <div class="fend" style="margin-top:12px"><span class="sp"></span><button class="primary sm" id="aplIvOk" ${need.length?'disabled':''}>面接完了</button></div>`); }
 /* 体験結果（マイページの「体験」の箱と同じ入力） */
-function aplTrForm(A){ const v={considering:{self:'consider_self',store:'consider_store'}[A.consider_by]||'',declined:'declined',rejected:'rejected'}[A.status]||(A.status==='trial'&&A.judge==='not'?'rejected':'');
+function aplTrForm(A){ const v={hired:'hired',considering:{self:'consider_self',store:'consider_store'}[A.consider_by]||'',declined:'declined',rejected:'rejected'}[A.status]||(A.status==='trial'&&A.judge==='not'?'rejected':'');
   const reOk=aplIsoDay(A.trial_at)<=A.today;
   const chk=(k,on)=>`<span style="display:grid;grid-template-columns:repeat(4,max-content);gap:4px 14px">${AP_PT.map(t=>`<label style="display:flex;align-items:center;gap:6px;margin:0;white-space:nowrap"><input type="checkbox" data-ap${k}="${esc(t)}" ${(on||[]).includes(t)?'checked':''} style="width:18px;height:18px;margin:0">${esc(t)}</label>`).join('')}</span>`;
-  return aplSec(`<b>体験結果</b><div style="margin-top:8px">${aplGrid([['体験結果',aplSegH('tr',[['joined','入店'],...(reOk?[['retrial','再体入']]:[]),['consider_self','本人検討'],['consider_store','店検討'],['declined','辞退'],['rejected','不採用']],v)]])}</div>
+  return aplSec(`<b>体験結果</b><div style="margin-top:8px">${aplGrid([['体験結果',aplSegH('tr',[['hired','採用'],...(reOk?[['retrial','再体入']]:[]),['consider_self','本人検討'],['consider_store','店検討'],['declined','辞退'],['rejected','不採用']],v)]])}</div>
     ${reOk?`<div id="aplReIn" style="margin-top:8px;display:none">${aplGrid([['体験日',`<span style="display:flex;gap:8px"><input id="aplRd" type="date" min="${A.today}" style="width:auto">${aplSelH('aplRt',SH_TIMES.map(t=>[t,t]),A.trial_at?aplJst(A.trial_at).slice(11,16):'20:00')}</span>`],['体験の報酬',aplPayIn('aplR',A)]])}</div>`:''}
     <div id="aplPtIn" style="margin-top:8px">${aplGrid([['よかった点',chk('g',A.good),true],['気になった点',chk('c',A.concern),true]])}</div>
     <div id="aplRsIn" style="margin-top:8px;${['declined','rejected'].includes(v)?'':'display:none'}">${aplGrid([['理由',`<textarea id="aplRs" maxlength="500" style="min-height:60px">${esc(A.trial_reason||'')}</textarea>`,true]])}</div>
@@ -121,13 +122,11 @@ function aplBind(x,A){ const B=$('aplIn'), st=storeId, segV=k=>B.querySelector(`
   const after=async q=>{ if(q.error){ await uiAlert(q.error.message); return false; } toast('保存しました'); aplClose(); if(page==='applicants') PAGES.applicants(); return true; };
   if($('aplIvOk')) $('aplIvOk').onclick=guard($('aplIvOk'),async()=>{ const v=segV('iv'); if(!v){ await uiAlert('面接結果を選んでください'); return; }
     if($('aplNm')&&v==='trial'&&!$('aplNm').value.trim()){ await uiAlert('名前を入力してください'); return; }
-    if(v==='joined'&&!await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します','入店')) return;
     if(v==='rejected'&&!await uiConfirm('不採用にしますか？','不採用')) return;
     const T=v==='trial';
     await after(await sb.rpc('admin_ap_interview',{p_store:st,p_id:A.id,p_result:v,p_day:T?$('aplTd').value||null:null,p_time:T?$('aplTt').value:null,p_pay_type:T?$('aplTp').value:null,
       p_amount:T?(parseInt($('aplTa').value||'0',10)||0):null,p_real:T?$('aplRn').value.trim():null,p_genji:T?kanaKey($('aplGn').value)||null:null,p_noline:$('aplNl')?$('aplNl').value.trim()||null:null,p_name:$('aplNm')?$('aplNm').value.trim()||null:null})); });
   if($('aplTrOk')) $('aplTrOk').onclick=guard($('aplTrOk'),async()=>{ const v=segV('tr'); if(!v){ await uiAlert('体験結果を選んでください'); return; }
-    if(v==='joined'&&!await uiConfirm('入店にしますか？\n在籍に追加して、LINE も連携します','入店')) return;
     if(v==='retrial'){ await after(await sb.rpc('admin_ap_retrial',{p_store:st,p_id:A.id,p_day:$('aplRd').value||null,p_time:$('aplRt').value,p_pay_type:$('aplRp').value,p_amount:parseInt($('aplRa').value||'0',10)||0})); return; }
     const pick=k=>[...B.querySelectorAll(`[data-ap${k}]`)].filter(c=>c.checked).map(c=>c.dataset['ap'+k]);
     const rs=['declined','rejected'].includes(v)?$('aplRs').value.trim():null; if(rs===''){ await uiAlert('理由を入力してください'); return; }
