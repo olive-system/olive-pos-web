@@ -174,7 +174,7 @@ function caBindA(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,
     punchFix(id,'clock_out'); });
 }
 /* 押した時の動き：体験の出勤・編集・退店・復元・体験の手当・日払・並べ替え */
-function caBindB(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
+function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pin,'clock_in')); $('cList').querySelectorAll('[data-pout]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pout,'clock_out')); $('cList').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{ const s=staffAll.find(x=>x.id===b.dataset.show); if(s) openTrialPay(s,tcalc[s.id],tev[s.id]||{},advX[s.id]||0,rcp[s.id]||null); });
   $('cList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ cSel=staffAll.find(s=>s.id===b.dataset.edit); renderCastForm(); castFormShow(); });
   $('cList').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>leaveDlg(staffAll.find(x=>x.id===b.dataset.del)));

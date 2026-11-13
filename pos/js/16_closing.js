@@ -118,13 +118,17 @@ async function clRegRender(d){ const el=$('clReg'); if(!el) return; if(!staffAll
   const late=(b,c)=>b.closed_at&&c.created_at&&c.created_at>b.closed_at;
   const who=staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
   el.innerHTML=clRegHtml(B,un,late,who,cnm,total);
+  clRegWire(el,d,B,total,cnm); }
+/* ① 来店のお客様の登録の画面のボタン（完了・お客様を足す・外す・メモ） */
+function clRegWire(el,d,B,total,cnm){
   $('clRegWho').onchange=()=>{ $('clRegDone').disabled=!$('clRegWho').value; };
   $('clRegDone').onclick=guard($('clRegDone'),async()=>{ if(total&&!await uiConfirm(`未登録が ${total}名います。完了しますか？`)) return; const r=await sb.rpc('pos_cust_reg_done',{p_day:d,p_by:$('clRegWho').value}); if(r.error){ toast(r.error.message); return; } toast(r.data?.sent?`完了しました（連絡先交換の LINE ${r.data.sent}名）`:'完了しました'); clRegRender(d); });
   el.querySelectorAll('[data-clradd]').forEach(x=>x.onclick=()=>{ const b=B.find(z=>z.id===x.dataset.clradd); const on=new Set((b.bill_customers||[]).map(c=>c.customer_id));
     custBill=b; custPick=async c=>{ custBill=null; if(!c) return; if(on.has(c.id)){ toast('この伝票に登録済です'); return; } const r=await sb.rpc('pos_rows_add',{p_table:'bill_customers',p:{bill_id:b.id,customer_id:c.id}}); if(r.error&&!r.error.message.includes('duplicate')){ toast(r.error.message); return; } if(!r.error) await logOp('お客様を伝票に追加',{customer:c.name,table:billTable(b),date:d}); clRegRender(d); };
     $('custCancel').textContent='キャンセル'; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); $('custSearch').focus(); });
   el.querySelectorAll('[data-clrx]').forEach(x=>x.onclick=async()=>{ const [bid,cid]=x.dataset.clrx.split('|'); if(!await uiConfirm(`${cnm(cid)} 様を伝票から削除しますか？`)) return; const r=await sb.rpc('pos_rows_del',{p_table:'bill_customers',p_where:{bill_id:(bid)??null,customer_id:(cid)??null}}); if(r.error){ toast(r.error.message); return; } await logOp('お客様を伝票から外す',{customer:cnm(cid),date:d}); clRegRender(d); });
-  el.querySelectorAll('[data-clrm]').forEach(x=>x.onclick=()=>clRegMemo(x.dataset.clrm)); }
+  el.querySelectorAll('[data-clrm]').forEach(x=>x.onclick=()=>clRegMemo(x.dataset.clrm));
+}
 /* ① 来店のお客様の登録の画面の文 */
 function clRegHtml(B,un,late,who,cnm,total){
   return `<div style="margin-bottom:4px">伝票ごとに、ご来店のお客様全員の名前を登録してください。<br>完了すると、出勤したキャストへ連絡先交換の LINE が届きます。</div><small class="muted">お名前を押すとメモを表示します</small>
