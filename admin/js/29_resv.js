@@ -1,11 +1,11 @@
-// ---------- 予約 v1.48・SQL 203（オーナー 2026-10-23「タブは シフト・予約 にして、開いたらシフトと予約に切り替え」「カレンダー表示」「同伴と予約の一覧」「ここからでも追加・表示も編集も（私以外の人も）」） ----------
+// ---------- 予約（オーナー「タブは シフト・予約 にして、開いたらシフトと予約に切り替え」「カレンダー表示」「同伴と予約の一覧」「ここからでも追加・表示も編集も（私以外の人も）」） ----------
 // 月のカレンダーに、その日の予約と同伴。日を押すと下にその日の一覧（直す・取消）と「予約を足す」。時刻が無い予約は「未定」。権限はシフトと同じ。ここで足した・直した予約は LINE の知らせを送らない
 const shSwitch=cur=>`<div class="seg" style="margin-bottom:14px">${[['shift','シフト'],['resv','予約']].map(([k,n])=>`<button data-shsw="${k}" class="${k===cur?'on':''}">${n}</button>`).join('')}</div>`;
 document.addEventListener('click',async e=>{ const b=e.target.closest&&e.target.closest('[data-shsw]'); if(!b||b.dataset.shsw===page) return; if(!await leaveOk()) return; go(b.dataset.shsw); });
-// v1.73：広島はお店のお客様で、女の子に担当は無い（担当は誘客した子を報酬に付ける印だけ）→ 担当を出さず、誘客がキャストならその子を担当に入れる（マイページ v0.86 と同じ。2026-10-29 オーナー）
+// 広島はお店のお客様で、女の子に担当は無い（担当は誘客した子を報酬に付ける印だけ）→ 担当を出さず、誘客がキャストならその子を担当に入れる（マイページ v0.86 と同じ。 オーナー）
 const rvNoKK=()=>curStore()?.code==='hiroshima';
-let rvMonth=null, rvRooms=[]; // v1.63・SQL 265：VIPルーム（POS の卓の名前に VIP）
-// v1.49：並びはシフトと同じ（オーナー 2026-10-23「シフトのように予約も上に本日置いてよ」）＝ 本日の箱 → 月のカレンダー → 日を押すと小窓（直す・取消・足す）。同伴は来店 20:30（2026-10-15 の決まり）
+let rvMonth=null, rvRooms=[]; // VIPルーム（POS の卓の名前に VIP）
+// 並びはシフトと同じ（オーナー「シフトのように予約も上に本日置いてよ」）＝ 本日の箱 → 月のカレンダー → 日を押すと小窓（直す・取消・足す）。同伴は来店 20:30（2026-10-15 の決まり）
 PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth(); if(!rvMonth) rvMonth=now; const m=rvMonth, today=businessDate();
   const head=shSwitch('resv')+`<h1>予約 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
@@ -17,7 +17,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)), first=new Date(y,mo-1,1).getDay(), nd=new Date(y,mo,0).getDate(), iso=d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}`;
   const byDay={}; R.forEach(x=>(byDay[x.day]=byDay[x.day]||[]).push(x));
   const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
-    // v1.63・SQL 265：VIPルームのしるしと、同伴の子（お客様の人数まで）
+    // VIPルームのしるしと、同伴の子（お客様の人数まで）
   const dhN=x=>(x.dh_names&&x.dh_names.length?x.dh_names:[x.by_name||'']);
   const row=(x,i)=>rvDayRow(x,i,ed,dhN);
   const wireRows=(box,L,day,close)=>rvWireRows(box,L,day,close,ed,st,S);
@@ -84,7 +84,7 @@ function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option valu
   m.querySelector('[data-k=no]').onclick=()=>m.remove();
   const sv=m.querySelector('[data-k=ok]'); sv.onclick=guard(sv,async()=>{ const q=id=>m.querySelector(id); const g=Number(toHan(q('#rvG').value));
     const dh=q('#rvDh').checked, t=q('#rvT').value.trim()||(dh?'20:30':'');
-    const z=await rpc('admin_resv_save',{p_store:st,p_id:x.id||null,p_day:q('#rvD').value,p_time:t,p_name:q('#rvN').value.trim(),p_guests:g,p_douhan:dh,p_by:q('#rvB').value,p_kakari:rvNoKK()?(S.find(s=>s.id===q('#rvB').value)?.kind==='cast'?q('#rvB').value:null):q('#rvK').value||null,p_meet:x.meet||'' /* v1.75：待ち合わせの時刻は小窓に無いので、今の値を送る（前は空にして消えていた。点検 2026-10-30） */,p_memo:q('#rvMm').value.trim(),
+    const z=await rpc('admin_resv_save',{p_store:st,p_id:x.id||null,p_day:q('#rvD').value,p_time:t,p_name:q('#rvN').value.trim(),p_guests:g,p_douhan:dh,p_by:q('#rvB').value,p_kakari:rvNoKK()?(S.find(s=>s.id===q('#rvB').value)?.kind==='cast'?q('#rvB').value:null):q('#rvK').value||null,p_meet:x.meet||'' /* 待ち合わせの時刻は小窓に無いので、今の値を送る（前は空にして消えていた。点検） */,p_memo:q('#rvMm').value.trim(),
       p_vip:q('#rvV')?.value||null,p_dh:dh?[...m.querySelectorAll('[data-dhc]:checked')].map(c=>c.dataset.dhc):null});
     if(!z.ok) return; m.remove(); rvMonth=q('#rvD').value.slice(0,8)+'01'; toast('保存しました'); PAGES.resv(); });
 }

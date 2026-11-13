@@ -1,15 +1,15 @@
-// v0.57・SQL 080：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
+// 店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
 // POS・タイムカードと同じサイト上にあるので、ログイン情報は別の場所にしまう（POSのログインを横取りしない）
-/* 2026-10-24（SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
+/* （SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
 const dualStore={ getItem:async k=>{ let v=null; try{ v=localStorage.getItem(k); }catch(e){} if(v!=null) return v; const b=await keyDb('readonly',s=>s.get(k)); if(b!=null){ try{ localStorage.setItem(k,b); }catch(e){} } return b; }, setItem:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} await keyDb('readwrite',s=>s.put(v,k)); }, removeItem:async k=>{ try{ localStorage.removeItem(k); }catch(e){} await keyDb('readwrite',s=>s.delete(k)); } };
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'olive-admin-auth',storage:dualStore}});
 const EMAIL_DOMAIN='@admin.olive.local';
 UI.box=o=>new Promise(res=>{ const m=mkModal(null,`<div style="white-space:pre-wrap">${esc(o.msg)}</div><div class="bar">${o.cancel?'<button class="ghost" data-k="no">キャンセル</button>':''}<button class="${o.cancel?o.cls:'primary'}" data-k="ok">${esc(o.ok)}</button></div>`); const n=m.querySelector('[data-k=no]'); if(n) n.onclick=()=>{ m.remove(); res(false); }; m.querySelector('[data-k=ok]').onclick=()=>{ m.remove(); res(true); }; }); /* 知らせの箱の見た目（管理サイトの小窓）。uiAlert・uiConfirm は lib/olive/core.js */
-/* v0.86：表を横に流しても、左の列（No・状態・営業日・お客様・係）は動かさない。どの伝票の行かがわかるように */
+/* 表を横に流しても、左の列（No・状態・営業日・お客様・係）は動かさない。どの伝票の行かがわかるように */
 function stickCols(tb,n){ if(!tb) return; const hr=tb.querySelector('tr'); if(!hr) return; const L=[]; let x=0; [...hr.children].slice(0,n).forEach(c=>{ L.push(x); x+=c.getBoundingClientRect().width; });
   tb.querySelectorAll('tr').forEach(tr=>[...tr.children].slice(0,n).forEach((c,i)=>{ c.style.position='sticky'; c.style.left=L[i]+'px'; c.style.zIndex='1'; c.style.background='var(--card)'; if(i===n-1) c.style.borderRight='1px solid var(--line)'; })); }
-/* v0.86：開いたままのタブでも、新しい版が出たら知らせる（古い版のままで見ていて、並びが違って見えたため） */
+/* 開いたままのタブでも、新しい版が出たら知らせる（古い版のままで見ていて、並びが違って見えたため） */
 const MY_VER=(document.head.innerHTML.match(/admin (v[\d.]+)/)||[])[1]||'';
 async function verCheck(){ try{ const h=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text()); const v=(h.match(/admin (v[\d.]+)/)||[])[1]; if(v&&MY_VER&&v!==MY_VER&&!document.getElementById('verBar')){
   const b=document.createElement('div'); b.id='verBar'; b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;background:var(--head);color:#fff;border-radius:12px;padding:10px 14px;display:flex;gap:12px;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,.25)';
@@ -19,12 +19,12 @@ async function rpc(fn,args){ rtOwn=Date.now(); const r=await sb.rpc(fn,args||{})
 function genPw(n=10){ const c='abcdefghjkmnpqrstuvwxyz23456789'; const a=crypto.getRandomValues(new Uint8Array(n)); return [...a].map(x=>c[x%c.length]).join(''); }
 const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 
-// 管理サイトの共通の部品（金額・営業日・日付）。前は 10_register.js（現金管理）にあり、17 のファイルがそこに頼っていた（2026-11-08 コード整理）
+// 管理サイトの共通の部品（金額・営業日・日付）。前は 10_register.js（現金管理）にあり、17 のファイルがそこに頼っていた（コード整理）
 const sgnYen=n=>(n>0?'+':'')+yen(n);
 const md=x=>`${+x.slice(5,7)}/${+x.slice(8,10)}`;
 const wdJ=x=>WD[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wdJ(x)}）`;
-// 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。2026-11-08 コード整理）
-// 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（2026-11-08 コード整理）
+// 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。 コード整理）
+// 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（コード整理）
 const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
 const csNowMonth=()=>businessDate().slice(0,7)+'-01';

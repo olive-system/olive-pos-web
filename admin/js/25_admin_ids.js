@@ -23,7 +23,7 @@ PAGES.o_ids=async()=>{
     <div class="muted hint" style="font-size:14px;margin-top:8px">黒服と連携すると、POSでその黒服を削除した時に、このIDも自動で使えなくなります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">店舗は上で選んでいる「${esc(curStore()?.name||'')}」になります</div></div>
   </div>`;
   $('nGen').onclick=()=>{ $('nPw').value=genPw(10); };
-  /* v0.89：黒服を選んだら、名前はその黒服の名前（名前の枠は「結びつけない」の時だけ。オーナー 2026-10-14） */
+  /* 黒服を選んだら、名前はその黒服の名前（名前の枠は「結びつけない」の時だけ。オーナー） */
   const nSync=()=>{ $('nNameBox').style.display=$('nStaff').value?'none':''; }; $('nStaff').onchange=nSync; nSync();
   $('nSave').onclick=guard($('nSave'),async()=>{
     const id=$('nId').value.trim().toLowerCase(), pw=$('nPw').value;

@@ -1,12 +1,12 @@
-// v2.10・SQL 364：棚卸し（オーナーのみ）。AB棚の品の追加・理論在庫の修正・× で外す・棚卸しの記録（オーナー 2026-11-05「AB棚のボトルを編集したり追加できるようにしたい、削除したり」「上下いらん。ボトルキープもいらん。2列」「削除じゃなくて×マーク」・見本 作業場/棚卸し_案2_AB棚の品.png）
+// 棚卸し（オーナーのみ）。AB棚の品の追加・理論在庫の修正・× で外す・棚卸しの記録（オーナー「AB棚のボトルを編集したり追加できるようにしたい、削除したり」「上下いらん。ボトルキープもいらん。2列」「削除じゃなくて×マーク」・見本 作業場/棚卸し_案2_AB棚の品.png）
 // 理論在庫＝修正した本数＋その後の仕入れ（開店作業）−販売（POS の伝票・取消は除く）。棚卸しでは変わらない（差は修正するまで毎回出る）
-PAGES.o_stock=async()=>{ const st=storeId, head=psHead('o_stock'); /* v2.13：集計「商品集計」のタブ */
+PAGES.o_stock=async()=>{ const st=storeId, head=psHead('o_stock'); /* 集計「商品集計」のタブ */
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_ab_get',{p_store:st}); if(page!=='o_stock'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_ab_get/.test(r.error.message)?'SQL 364 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const D=r.data, I=D.items||[], S=D.stock||[], M=D.menu||[], C=D.counts||[], cats=[...new Set(M.map(m=>m.cat))], all=[...I,...S.flatMap(g=>g.items||[])];
   const cell=(x,rm=true)=>`<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.name)}</span><input data-abq="${x.id}" inputmode="numeric" maxlength="3" value="${x.theory??''}" style="width:48px;text-align:right"><span class="muted">本</span>${rm?`<button class="xb" data-abx="${x.id}" aria-label="削除">×</button>`:''}</div>`;
-  /* v2.12・SQL 367：ワイン・シャンパンも理論在庫を修正できる（品はメニューから。価格だけの品は出ない。まだ数えていない品は空欄） */
+  /* ワイン・シャンパンも理論在庫を修正できる（品はメニューから。価格だけの品は出ない。まだ数えていない品は空欄） */
   const grid=L=>`<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px">${L.join('')}</div>`;
   const th=['品','前回','仕入れ','販売','理論在庫','実在庫','差'];
   const rec=c=>{ const R=c.rows||[], dv=x=>x.actual-x.theory, X=R.filter(x=>dv(x)!==0);

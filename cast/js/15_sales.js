@@ -1,5 +1,5 @@
-// v0.21・SQL 121：⑦アプローチ（オーナーにヒアリングして決めた形 2026-10-16）。提案はあくまで目安（連絡先交換のお客様から30名・最後の来店が古い順・名前だけ・敬称略）
-//   →「次へ（連絡済リスト共有）」→ 連絡したお客様を選ぶ（提案と同じ並び・提案以外も可・一覧にないお客様はフルネーム）→ ランダムで1名のスクショを送信 → 係（本人が係なら担当黒服）へ。スクショは次の日に消える
+// ⑦アプローチ（オーナーにヒアリングして決めた形）。提案はあくまで目安（連絡先交換のお客様から30名・最後の来店が古い順・名前だけ・敬称略）
+// →「次へ（連絡済リスト共有）」→ 連絡したお客様を選ぶ（提案と同じ並び・提案以外も可・一覧にないお客様はフルネーム）→ ランダムで1名のスクショを送信 → 係（本人が係なら担当黒服）へ。スクショは次の日に消える
 let SALES = null;
 const g2 = 'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px';
 async function salesLoad(){ const r = await sb.rpc('cast_sales_today', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return false; } SALES = r.data; return true; }
@@ -8,10 +8,10 @@ async function salesHome(){
   if(!await salesLoad()) return;
   const S = SALES, R = S.report;
   if(R){ salesShot(); return; }
-  if(S.store_off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日はお店の休みです</div>'); return; } /* v0.53・SQL 184：土日祝（広島は日祝）・休の日 */
-  if(S.off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日は出勤日ではありません</div>'); return; } /* v0.22・SQL 122：シフトが確定した月は出勤の日だけ */
+  if(S.store_off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日はお店の休みです</div>'); return; } /* 土日祝（広島は日祝）・休の日 */
+  if(S.off){ show('<div class="ttl">アプローチ</div><div class="card c muted">本日は出勤日ではありません</div>'); return; } /* シフトが確定した月は出勤の日だけ */
   show(`<div class="ttl">アプローチ</div><div class="card"><div class="gh">${mdW(S.date)}の提案 ${S.plan.length}名（敬称略）</div>
-    ${S.plan.length?`<div style="${g2}">${S.plan.map(n => `<div style="padding:6px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div>`).join('')}</div>`:((S.contacts||[]).length?'<div class="muted sm" style="padding:6px 0">今日の提案はありません。「次へ」の連絡済リストから選べます</div>':'<div class="muted sm" style="padding:6px 0">連絡先交換の提出がありません</div>') /* v0.47：連絡先があるのに「提出がありません」と出ていた（ゲネプロ マイページ #2） */}</div>
+    ${S.plan.length?`<div style="${g2}">${S.plan.map(n => `<div style="padding:6px 0;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</div>`).join('')}</div>`:((S.contacts||[]).length?'<div class="muted sm" style="padding:6px 0">今日の提案はありません。「次へ」の連絡済リストから選べます</div>':'<div class="muted sm" style="padding:6px 0">連絡先交換の提出がありません</div>') /* 連絡先があるのに「提出がありません」と出ていた（ゲネプロ マイページ #2） */}</div>
     <button class="btn" id="slNext">次へ（連絡済リスト共有）</button>`);
   $('slNext').onclick = salesPick;
 }
@@ -26,12 +26,12 @@ function slPickHtml(on, extra, q){
 }
 function salesPick(){
   setBack(salesHome);
-  const on = new Set(), extra = []; let q = ''; // v0.66：名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」2026-10-24。読みが無いので、あいうえお順ではなく文字で絞り込む）
+  const on = new Set(), extra = []; let q = ''; // 名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」。読みが無いので、あいうえお順ではなく文字で絞り込む）
   const nz = v => String(v||'').replace(/[\s　]+/g, '');
   const filt = () => { const k = nz(q); let n = 0; $('main').querySelectorAll('[data-sc]').forEach(b => { const hit = !k || nz(b.textContent).includes(k) || (!!kanaKey(q) && (b.dataset.kn || '').includes(kanaKey(q))); b.style.display = hit ? '' : 'none'; if(hit) n++; }); const z = $('slNone'); if(z) z.style.display = n ? 'none' : ''; };
   const paint = () => {
     show(slPickHtml(on, extra, q));
-    $('main').querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { const id = b.dataset.sc; on.has(id) ? on.delete(id) : on.add(id); /* v0.94：押したボタンと数だけ直す（前は一覧を全部作り直していた） */
+    $('main').querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { const id = b.dataset.sc; on.has(id) ? on.delete(id) : on.add(id); /* 押したボタンと数だけ直す（前は一覧を全部作り直していた） */
       const v = on.has(id); b.style.background = v ? 'var(--ink)' : ''; b.style.color = v ? '#fff' : ''; b.style.borderColor = v ? 'var(--ink)' : ''; $('slCnt').textContent = `選択 ${on.size + extra.length}名`; });
     const qi = $('slQ'); if(qi) qi.oninput = () => { q = qi.value; filt(); }; filt();
     $('main').querySelectorAll('[data-sx]').forEach(b => b.onclick = () => { extra.splice(+b.dataset.sx, 1); const y = window.scrollY; paint(); window.scrollTo(0, y); });
@@ -63,7 +63,7 @@ function salesShot(){
       const blob = await shrinkJpeg(file);
       const up = await sb.storage.from('sales-shots').upload(`${R.shot}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error;
       const q = await sb.rpc('cast_sales_shot', { p_token: TOKEN }); if(q.error) throw q.error;
-      /* v1.05・点検 2026-11-02 A1・SQL 316：届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
+      /*点検 A1・届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
       const ng = q.data.reason === 'no_to' ? '担当黒服 未選択のため、スクショは届いていません。黒服にご連絡ください'
         : q.data.reason === 'fail' ? 'スクショの送信に失敗しました。再度お試しください'
         : `送り先${q.data.to ? `（${q.data.to}）` : ''}が LINE 未連携のため、スクショは届いていません。黒服にご連絡ください`;

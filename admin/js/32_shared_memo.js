@@ -1,4 +1,4 @@
-// ---------- v2.09・SQL 363：メモ一覧の「共有メモ」（オーナー 2026-11-05「メモ一覧のタブのところに共有メモを足して、ここにくっつけてほしい」。見本 管理サイト_共有メモ_案1） ----------
+// ---------- メモ一覧の「共有メモ」（オーナー「メモ一覧のタブのところに共有メモを足して、ここにくっつけてほしい」。見本 管理サイト_共有メモ_案1） ----------
 // オーナーのみ（黒服の管理サイトには切り替えを出さない）。店舗はヘッダーで選んだ店。項目はマイページのオーナーの編集（cast/js/23_memo.js）と同じ
 let amFiles=[];
 const amTa='width:100%;min-height:140px;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)';
@@ -23,7 +23,7 @@ async function amFileOpen(id,p){ const w=window.open('','_blank');
 async function amEdit(id){ const st=storeId; $('main').innerHTML=hiMemoSw()+`<div class="card muted">読み込み中…</div>`; hiMemoSwOn();
   const [g,l]=await Promise.all([id?sb.rpc('admin_memo_get',{p_id:id}):{data:null},sb.rpc('admin_memo_list',{p_store:st})]);
   if(page!=='hist_memo'||storeId!==st||hiMemoTab!=='share') return; if(g.error||l.error){ $('main').innerHTML=hiMemoSw()+`<div class="card err">読み込めません：${esc((g.error||l.error).message)}</div>`; hiMemoSwOn(); return; }
-  /* v2.14・SQL 369：黒服が作成して共有を設定していないメモは、members が店の黒服全員（今見られる人）。保存すると、印を付けた黒服だけに */
+  /* 黒服が作成して共有を設定していないメモは、members が店の黒服全員（今見られる人）。保存すると、印を付けた黒服だけに */
   const M=g.data, mem=new Set(M?.members||[]); amFiles=(M?.files||[]).map(f=>({...f}));
   $('main').innerHTML=hiMemoSw()+`<h1>${esc(M?M.title:'追加')} <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
     ${M?.needs_change?`<div class="card"><b style="color:var(--warn)">要変更</b>　${esc(M.change_note||'')}</div>`:''}

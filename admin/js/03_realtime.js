@@ -1,26 +1,26 @@
-// ---------- リアルタイム v0.26・SQL 067：この店の設定・伝票がほかで変わったら、今の画面を読み直す ----------
+// ---------- リアルタイム この店の設定・伝票がほかで変わったら、今の画面を読み直す ----------
 // 入力の途中・確認の画面が出ている時は読み直さず、上に「最新にする」を出す。自分で保存した直後（5秒）は読み直さない。つながらない時も、これまでどおり使える
 let rtCh=null, rtSt=null, rtT=0, rtOwn=0, mainDirty=false, rtWait=false;
-const RT_SKIP=new Set(['o_perms','o_share','o_ids','pw','none','cust']); // v0.37：顧客サイトは中の画面が自分で読み直す
+const RT_SKIP=new Set(['o_perms','o_share','o_ids','pw','none','cust']); // 顧客サイトは中の画面が自分で読み直す
 function rtSub(){ if(rtCh&&rtSt===storeId) return; if(rtCh){ sb.removeChannel(rtCh); rtCh=null; } rtSt=storeId; if(!storeId) return;
   rtCh=rtJoin(sb,storeId,rtKick); }
 function rtKick(p){ if(!page||RT_SKIP.has(page)) return; clearTimeout(rtT); rtT=setTimeout(rtRefresh,p?.kind==='bill'?4000:1200); }
 function rtBar(on){ let b=$('rtBar'); if(!on){ if(b) b.remove(); return; } if(b) return; b=document.createElement('div'); b.id='rtBar'; b.className='alertbar'; b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:40;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.2)';
   b.innerHTML='<span>ほかで変更がありました</span><button class="primary sm">最新にする</button>'; document.body.appendChild(b); b.querySelector('button').onclick=()=>{ mainDirty=false; rtBar(false); rtRefresh(true); }; }
-const RT_HEAVY=new Set(['pl','cast_sales']); /* v1.75：「まとめ」の画面（07_summary.js）は使っていないので消した */ // v0.63：重い集計は自動で読み直さない（営業中に POS まで遅くなるため）。「最新にする」を出す
+const RT_HEAVY=new Set(['pl','cast_sales']); /* 「まとめ」の画面（07_summary.js）は使っていないので消した */ // 重い集計は自動で読み直さない（営業中に POS まで遅くなるため）。「最新にする」を出す
 function rtRefresh(force){ if(!page||RT_SKIP.has(page)||!PAGES[page]) return;
   if(!force&&RT_HEAVY.has(page)){ if(Date.now()-rtOwn>=5000) rtBar(true); return; }
   if(document.visibilityState!=='visible'){ rtWait=true; return; }
   if(!force&&Date.now()-rtOwn<5000){ rtT=setTimeout(rtRefresh,5000); return; }
-  /* v1.52：入力の途中・小窓が出ている時は知らせを出さず、終わるのを待ってから読み直す（オーナー 2026-10-23「最新のボタンを押すと元に戻る」→「入力中は知らせを出さない」。保存で画面が描き直されると mainDirty が消える） */
+  /* 入力の途中・小窓が出ている時は知らせを出さず、終わるのを待ってから読み直す（オーナー「最新のボタンを押すと元に戻る」→「入力中は知らせを出さない」。保存で画面が描き直されると mainDirty が消える） */
   if(!force&&(mainDirty||document.querySelector('.modal')||(page==='set_cast'&&csDetail))){ clearTimeout(rtT); rtT=setTimeout(rtRefresh,3000); return; }
   rtBar(false); $('siBox')?.removeAttribute('data-st'); const y=window.scrollY, my=$('main').scrollTop; if(page==='set_cast'&&csDetail) csDetail=null;
   Promise.resolve(PAGES[page](page)).then(()=>{ window.scrollTo(0,y); $('main').scrollTop=my; }).catch(e=>console.warn('refresh',e)); }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rtWait){ rtWait=false; rtRefresh(); } });
 $('main').addEventListener('input',()=>{ mainDirty=true; }); $('main').addEventListener('change',()=>{ mainDirty=true; });
-// v1.22：保存忘れのお知らせ（オーナー 2026-10-17「編集したのに保存を押し忘れて次に行こうとした時に、保存してないけど進みますか、すぐ保存できるポップアップ」）
+// 保存忘れのお知らせ（オーナー「編集したのに保存を押し忘れて次に行こうとした時に、保存してないけど進みますか、すぐ保存できるポップアップ」）
 // 入力を変えた所の近くに「保存」ボタンがあれば、それを覚える。保存して画面が描き直されるとボタンが消える＝保存済み。月や店の切り替えの選択は数えない
-let unsavedBtns=new Set(); /* v1.55：箱ごとの保存。変えた箱の保存ボタンを全部覚える（オーナー 2026-10-23） */
+let unsavedBtns=new Set(); /* 箱ごとの保存。変えた箱の保存ボタンを全部覚える（オーナー） */
 const UNSAVED_SKIP=/^(plM|shM|ssM|csM|smM|ntM|stM|cuM|plDate)$/;
 function unsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')||UNSAVED_SKIP.test(t.id||'')||t.dataset?.nodirty!=null) return; if(t.type==='search') return;
   let el=t.parentElement; while(el&&el!==$('main')){ const b=[...el.querySelectorAll('button')].find(x=>/^保存$/.test(x.textContent.trim())); if(b){ unsavedBtns.add(b); return; } el=el.parentElement; } }

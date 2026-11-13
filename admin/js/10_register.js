@@ -1,16 +1,16 @@
-// ---------- レジ精算（v0.07：月次・日次を1つの画面で切り替える）----------
+// ---------- レジ精算（月次・日次を1つの画面で切り替える）----------
 // POS の閉店作業と同じ計算。管理サイトでは見るだけ（精算の保存は POS で行う）
 const DENOMS=[[10000,'1万円札'],[5000,'5千円札'],[2000,'2千円札'],[1000,'千円札'],[500,'500円玉'],[100,'100円玉'],[50,'50円玉'],[10,'10円玉'],[5,'5円玉'],[1,'1円玉']];
 let regDate=null, regMonth=null, regTab='day';
-// v2.16：切り替えに「入出金履歴」（16_history.js の hist_cash。権限は表示設定の「入出金履歴」）。見られるものだけ出す
+// 切り替えに「入出金履歴」（16_history.js の hist_cash。権限は表示設定の「入出金履歴」）。見られるものだけ出す
 const regHead=(k='register')=>{ const on=k==='hist_cash'?'hist':regTab, tabs=[...(visible('register')?[['month','月次'],['day','日次']]:[]),...(visible('hist_cash')?[['hist','入出金履歴']]:[])];
   return `<h1>現金管理 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`+(tabs.length>1?`<div class="row" style="margin-bottom:14px"><span class="seg">${tabs.map(([v,n])=>`<button data-rt="${v}" class="${on===v?'on':''}">${n}</button>`).join('')}</span></div>`:''); };
 function regTabs(){ $('main').querySelectorAll('[data-rt]').forEach(b=>b.onclick=async()=>{ const v=b.dataset.rt; if(v==='hist'){ if(page!=='hist_cash'&&await leaveOk()) go('hist_cash'); return; }
   if(page==='hist_cash'){ regTab=v; go('register'); return; }
-  if(v==='month'&&regTab==='day'&&regDate) regMonth=regDate.slice(0,7); /* v0.08：日次で見ている日の月を開く */ regTab=v; PAGES.register(); }); }
+  if(v==='month'&&regTab==='day'&&regDate) regMonth=regDate.slice(0,7); /* 日次で見ている日の月を開く */ regTab=v; PAGES.register(); }); }
 PAGES.register=()=>regTab==='month'?regMonthPage():regDayPage();
 // 期間（from〈含まない〉〜to〈含まない〉）の日ごとの 現金売上・入金・出金（日払い含む）
-// v0.65：1000行で切れないように分けて読む（精算の間が空いた時に「未精算分」が少なく出た）
+// 1000行で切れないように分けて読む（精算の間が空いた時に「未精算分」が少なく出た）
 async function regMoves(fromEx,toEx){
   const [mv,adv,pay]=await Promise.all([
     sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx).order('id')),
@@ -22,7 +22,7 @@ async function regMoves(fromEx,toEx){
   (pay.data||[]).filter(p=>p.bills&&p.bills.status!=='void'&&p.amount).forEach(p=>add(businessDate(new Date(p.paid_at)),'sales',p.amount));
   return {sum}; }
 
-// v0.16・SQL 057：POS の閉店作業と同じように、入出金の登録・削除とレジ金合わせ（精算の保存）ができる。POS と同じ表・同じ操作ログに入る
+// POS の閉店作業と同じように、入出金の登録・削除とレジ金合わせ（精算の保存）ができる。POS と同じ表・同じ操作ログに入る
 let regCounts={}, regDeposit=0, regOpening=0;
 async function regDayPage(){
   const today=businessDate(); if(!regDate) regDate=today; if(!regMonth) regMonth=regDate.slice(0,7); const d=regDate; const st=storeId; const ed=perm('register')==='edit';
@@ -52,7 +52,7 @@ async function regPrep(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat}=K;
   const cashSales=(pay.data||[]).filter(p=>p.bills&&p.bills.status!=='void').reduce((a,p)=>a+(p.amount||0),0);
   const saved=cls.data||null, prevRow=(prev.data||[])[0]||null, future=d>today, later=(lat.data||[]).length>0;
   // 前回の精算から今日までに未精算の日があれば、その日の現金の動きも本日釣銭に含める（POS と同じ）
-  let gapNet=0, gapDays=[], gapRd=null; if(!saved&&prevRow){ const g=await regMoves(prevRow.business_date,d); if(page!=='register'||regDate!==d) return; const done=new Set(); const r2=await sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',prevRow.business_date).lt('business_date',d); gapRd=[g,r2]; /* v1.75：下の「未精算です」でも同じ期間なら読み直さずに使う */ (r2.data||[]).forEach(x=>done.add(x.business_date)); Object.entries(g.sum||{}).forEach(([k,v])=>{ if(done.has(k)) return; const n=v.sales+v.cin-v.cout; if(n){ gapNet+=n; gapDays.push(k); } }); gapDays.sort(); }
+  let gapNet=0, gapDays=[], gapRd=null; if(!saved&&prevRow){ const g=await regMoves(prevRow.business_date,d); if(page!=='register'||regDate!==d) return; const done=new Set(); const r2=await sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',prevRow.business_date).lt('business_date',d); gapRd=[g,r2]; /* 下の「未精算です」でも同じ期間なら読み直さずに使う */ (r2.data||[]).forEach(x=>done.add(x.business_date)); Object.entries(g.sum||{}).forEach(([k,v])=>{ if(done.has(k)) return; const n=v.sales+v.cin-v.cout; if(n){ gapNet+=n; gapDays.push(k); } }); gapDays.sort(); }
   const idle=!saved&&d<today&&!outSum&&!inSum&&!advSum&&!cashSales;
   const canMove=ed&&!saved&&!future, canSave=ed&&!saved&&!future&&!later;
   const cnt=saved?(saved.counts||{}):regCounts;

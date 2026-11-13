@@ -1,4 +1,4 @@
-// ---------- 報酬・罰金項目（v0.09：スライド表。店舗で全員同じ）----------
+// ---------- 報酬・罰金項目（スライド表。店舗で全員同じ）----------
 // キャストの時給＝小計（またはポイント）スライド・同伴スライド・保証時給のうち一番高いもの（POS と同じ）。黒服のボーナス総額＝人件費比率のボーナス＋売上ボーナス
 const SLIDE_DEF={
   sales:{t:'小計スライド',sub:''+KL+'小計で時給が決まる',cols:[{k:'threshold',l:''+KL+'小計（万円以上）',sc:10000},{k:'wage',l:'時給（円）'}]},
@@ -8,7 +8,7 @@ const SLIDE_DEF={
 };
 const slNum=v=>{ const t=toHan(v).replace(/[,，\s]/g,''); return t===''?null:Number(t); };
 const slShow=(v,sc)=>v==null?'':String(Math.round(Number(v)/(sc||1)*10000)/10000);
-// v0.90：報酬・罰金項目の箱は、タイトルだけ並べて押すと開く（payOpen：開いている箱。保存して描き直しても開いたまま）
+// 報酬・罰金項目の箱は、タイトルだけ並べて押すと開く（payOpen：開いている箱。保存して描き直しても開いたまま）
 const payOpen=new Set();
 const foldCard=(key,title,extra,sum,body,attr='')=>`<div class="card fold${payOpen.has(key)?' open':''}" data-fold="${esc(key)}" ${attr}><div class="fh"><span class="ar">▸</span><b>${title}</b>${extra||''}<span class="sm2">${sum||''}</span></div><div class="fb">${body}</div></div>`;
 const foldWire=root=>root.querySelectorAll('.fold>.fh').forEach(h=>{ if(h.dataset.w) return; h.dataset.w=1; h.onclick=()=>{ const f=h.parentElement, k=f.dataset.fold; f.classList.toggle('open'); f.classList.contains('open')?payOpen.add(k):payOpen.delete(k); }; });
@@ -23,8 +23,8 @@ function slideRead(card,kind){ const d=SLIDE_DEF[kind]; const out=[];
     if(empty) continue; if(r[d.cols[0].k]==null||r[d.cols[1].k]==null) return {err:`「${d.cols[0].l}」と「${d.cols[1].l}」は必ず入力してください`}; out.push(r); }
   const k0=d.cols[0].k; out.sort((a,b)=>a[k0]-b[k0]); for(let i=1;i<out.length;i++) if(out[i][k0]===out[i-1][k0]) return {err:`「${d.cols[0].l}」が同じ行が2つあります`};
   return {rows:out}; }
-// v0.18・SQL 058：スライド表（店ごとにいくつでも）。何で決まるか（係小計・ポイント・同伴数・稼働日数）と時給／日給を表ごとに決める。キャストごとに使う表は「キャスト設定」で選ぶ
-// v0.19・SQL 059：反応数（反応◎の回数）・組数（係の伝票の数）・人数（係の伝票の客数の合計）を追加。何で決まるかは作る時だけ選べて、作ったあとは変えられない
+// スライド表（店ごとにいくつでも）。何で決まるか（係小計・ポイント・同伴数・稼働日数）と時給／日給を表ごとに決める。キャストごとに使う表は「キャスト設定」で選ぶ
+// 反応数（反応◎の回数）・組数（係の伝票の数）・人数（係の伝票の客数の合計）を追加。何で決まるかは作る時だけ選べて、作ったあとは変えられない
 const ST_BASIS=[['sales',''+KL+'小計',''+KL+'小計（万円以上）',10000],['points','ポイント','ポイント（以上）',1],['douhan','同伴数','同伴（回以上）',1],['days','稼働日数','稼働日数（日以上）',1],['reactions','反応数','反応◎（回以上）',1],['groups','組数',''+KL+'の組数（組以上）',1],['guests','人数',''+KL+'の人数（名以上）',1]];
 const stB=k=>ST_BASIS.find(x=>x[0]===k)||ST_BASIS[0];
 const SL_COLS=()=>matchMedia('(max-width:640px)').matches?1:3;
@@ -44,7 +44,7 @@ function stCard(t,rows,users,ed){ const dis=ed?'':'disabled', b=stB(t.basis||'sa
     ${ed?`<div class="fend"><button class="ghost sm" data-add>＋ 行を追加</button><span class="sp"></span>${t.id?'<button class="ghost sm" data-delt>この表を削除</button>':''}<button class="primary sm" data-save>保存</button></div>`:''}`,`data-st="${t.id||''}"`); }
 function stSection(tbls,rows,terms,ed,act){ const cur=csNowMonth(), by={}, fut={};
   terms.forEach(x=>{ if(x.month<=cur&&(x.month===cur||!x.only_month)){ const p=by[x.staff_id]; if(!p||x.month>p.month) by[x.staff_id]=x; } else if(x.month>cur) (fut[x.staff_id]=fut[x.staff_id]||[]).push(x); });
-  /* v1.80・SQL 317（点検 C7）：在籍キャストの今月以降の条件で数える（前は退店した人・前の月の条件も数え、0人なのに時給／日給を変更できなかった） */
+  /* （点検 C7）：在籍キャストの今月以降の条件で数える（前は退店した人・前の月の条件も数え、0人なのに時給／日給を変更できなかった） */
   const ids=act||[...new Set([...Object.keys(by),...Object.keys(fut)])];
   const users=id=>ids.filter(sid=>(by[sid]?.slide_ids||[]).includes(id)||(fut[sid]||[]).some(x=>(x.slide_ids||[]).includes(id))).length;
   return `<div id="stGrid">${tbls.map(t=>stCard(t,rows.filter(r=>r.table_id===t.id),users(t.id),ed)).join('')||'<div class="card muted">スライド表がありません</div>'}</div>

@@ -1,9 +1,9 @@
-// ---------- 顧客サイト v0.37・SQL 076：顧客サイト（preview）をそのまま中に出す。顧客サイトのパスワードは聞かない（管理サイトのログインで入場券をもらう）。編集は「顧客サイト」を編集できる人だけ ----------
+// ---------- 顧客サイト 顧客サイト（preview）をそのまま中に出す。顧客サイトのパスワードは聞かない（管理サイトのログインで入場券をもらう）。編集は「顧客サイト」を編集できる人だけ ----------
 let csFrameMsg=null;
-// v0.62：お客様のデータ（Excel）。期間の会計済の伝票から、お客様ごとに 名前・係・来店回数・金額（伝票の合計）を金額の高い順に。1枚の伝票にお客様が2人以上いる時は、全員にその伝票の金額を付ける（オーナーの指示）。登録の無い伝票は入らない
+// お客様のデータ（Excel）。期間の会計済の伝票から、お客様ごとに 名前・係・来店回数・金額（伝票の合計）を金額の高い順に。1枚の伝票にお客様が2人以上いる時は、全員にその伝票の金額を付ける（オーナーの指示）。登録の無い伝票は入らない
 let cdFrom=null, cdTo=null;
 async function custDataExcel(st,f,t){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
-  // v0.63：係は店ごとの表（customer_kakari。POS と同じ）。読めない時だけ、前の列（customers.kakari_staff_id）
+  // 係は店ごとの表（customer_kakari。POS と同じ）。読めない時だけ、前の列（customers.kakari_staff_id）
   const bills=[]; let ck='customer_kakari(store_id,staff_id)'; for(let i=0;i<50;i++){ const q=await sb.from('bills').select(`id,business_date,bill_customers(customer_id,customers(name,${ck})),payments(amount)`).eq('store_id',st).eq('status','closed').gte('business_date',f).lte('business_date',t).order('business_date').order('id').range(i*1000,i*1000+999);
     if(q.error&&i===0&&ck!=='kakari_staff_id'&&/customer_kakari/.test(q.error.message)){ ck='kakari_staff_id'; i=-1; continue; }
     if(q.error){ await uiAlert('読み込めません：'+q.error.message); return; } bills.push(...(q.data||[])); if((q.data||[]).length<1000) break; }

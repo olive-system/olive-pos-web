@@ -1,6 +1,6 @@
-// ---------- POS設定の「店の情報」 v0.26・SQL 067：前の「店舗設定」を POS設定にまとめた（権限も POS設定）。v0.14・SQL 055：閉店時間（タイムカードの打ち止め。アフターの延長もここから数える） ----------
-// v1.38・SQL 171：振込先（請求書に出る）を足した
-// v0.20・SQL 060：店の情報（店名・営業時間・住所・電話・メール・インボイス番号・領収書メールの宛先）。書き換えはここだけ
+// ---------- POS設定の「店の情報」 前の「店舗設定」を POS設定にまとめた（権限も POS設定）。閉店時間（タイムカードの打ち止め。アフターの延長もここから数える） ----------
+// 振込先（請求書に出る）を足した
+// 店の情報（店名・営業時間・住所・電話・メール・インボイス番号・領収書メールの宛先）。書き換えはここだけ
 // 店名は全部のサイト（POS・顧客サイト・タイムカード）に出る。住所・電話・インボイス番号は POS の領収書に出る。領収書メールの宛先は POS の閉店作業で使う。開店時間は登録するだけ
 async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'':'disabled', box=()=>$('siBox');
   const [r,lr]=await Promise.all([sb.rpc('admin_get_store_info',{p_store:st}),sb.rpc('admin_get_receipt_logo',{p_store:st})]); if(page!=='set_pos'||storeId!==st||!box()) return;
@@ -21,7 +21,7 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
   ${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="siSave">保存</button></div>':''}
   <div class="muted hint" style="font-size:13px;margin-top:10px;line-height:1.6">店名は POS・顧客サイト・タイムカード・管理サイトに出ます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">係/担当/指名：この店での「係」の呼び方です（例：担当）。空にすると「係」のままです。POS・顧客サイト・管理サイトの画面と、Excel・PDF・印刷に出ます（「係小計」は「担当小計」のように変わります）<br>住所・電話番号・インボイス番号・領収書ロゴは POS の領収書に出ます。領収書ロゴは PNG か JPEG の画像を選択すると、その場で保存します（白い余白は自動で切り取ります。印刷は白黒）。住所・電話番号・インボイス番号・振込先は、収支の Excel（ZIP）に入る請求書にも出ます（住所は「〒000-0000 」から書くと、〒の行が分かれます）。領収書メールの宛先は POS の閉店作業「領収書をメールで送る」で使います。開店時間は登録だけです<br>閉店時間：タイムカードの退勤・アフターの打刻は、閉店より後になりません（時給は閉店まで）<br>0:00〜6:00 は日付が変わった後として扱います（例：1:00 ＝ 翌1:00、23:00 ＝ その日の23:00）<br>アフターの延長（報酬・罰金項目）も、この閉店時間から数えます。変更しても、前の打刻はそのまま</div></div></div>`;
   if(!ed) return;
-  if(!lr.error){ /* 領収書ロゴ（SQL 410）：選んだらその場で保存。白い余白を切り、印刷に足りる大きさ（横1000まで）の PNG にする */
+  if(!lr.error){ /* 領収書ロゴ：選んだらその場で保存。白い余白を切り、印刷に足りる大きさ（横1000まで）の PNG にする */
     $('siLogoPick').onclick=()=>$('siLogoF').click();
     $('siLogoF').onchange=async e=>{ const fl=e.target.files[0]; e.target.value=''; if(!fl) return; let url;
       try{ url=await siLogoPng(fl); }catch(err){ await uiAlert('画像を読み込めません：'+(err?.message||err)); return; }
@@ -29,7 +29,7 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     if($('siLogoX')) $('siLogoX').onclick=async()=>{ if(!await uiConfirm('領収書ロゴを削除しますか？','削除')) return; const x=await rpc('admin_save_receipt_logo',{p_store:st,p_logo:null}); if(!x.ok) return; toast('領収書ロゴを削除しました'); siRender(); }; }
   const sv=$('siSave'); sv.onclick=guard(sv,async()=>{ const v=id=>$(id).value.trim(), name=v('siName'), op=v('siOpen'), cl=v('siClose');
     if(!name){ await uiAlert('店名を入力してください'); return; } if(!cl){ await uiAlert('閉店時間を入力してください'); return; } if(cl>'06:00'&&cl<'18:00'){ await uiAlert('閉店時間は 18:00〜翌6:00 の間にしてください'); return; }
-    let iv=toHan(v('siInv')).replace(/[\s-]/g,'').toUpperCase(); /* v1.10・SQL 132：T の自動付与をやめた（T が無い・13桁でない時はエラー） */
+    let iv=toHan(v('siInv')).replace(/[\s-]/g,'').toUpperCase(); /* T の自動付与をやめた（T が無い・13桁でない時はエラー） */
     if(iv&&!/^T\d{13}$/.test(iv)){ await uiAlert('インボイス番号は T＋数字13桁 で入力してください'); return; }
     const em=/^[^@\s]+@[^@\s]+\.[^@\s]+$/; if(v('siMail')&&!em.test(v('siMail'))){ await uiAlert('メールアドレスの形が正しくありません'); return; } if(v('siRcpt')&&!em.test(v('siRcpt'))){ await uiAlert('領収書メールの宛先の形が正しくありません'); return; }
     const chg=[]; if(name!==(d.name||'')) chg.push('店名（全部のサイトの表示が変わります）'); if(cl!==(d.close||'')) chg.push(`閉店時間 ${closeTxt(cl)}（これから押す打刻から変わります）`);

@@ -1,16 +1,16 @@
-// v0.55・SQL 194：開店作業（オーナー 2026-10-22「毎日同じ作業の開店作業と、TODO とを一緒にしないで」「1タスクごとに完了ボタン、その人がやったことを記録」）
-// v0.57・SQL 209：閉店作業も同じ画面（オーナー 2026-10-23「閉店作業も黒服のマイページに」「保存した人がやったことに」「誰が作業中かの表示」）
-// v0.59・SQL 214：項目の中の確認（checks。名刺の Eight 登録＝登録済みの確認・変更の確認）。全部に印を付けると「完了」を押せる（オーナー 2026-10-23「登録済みか確認のチェックボタンを中に」）
-// v0.76・SQL 262：コメントが「要る」の項目は、作業中にコメントの欄（書くのは任意。オーナー 2026-10-26「相違があれば、コメントで報告」）。完了の後はコメントをほかの黒服にも出す
-// v0.83・SQL 272：決まった画面の項目（ボトル残量など）も、写真「要る」なら写真を撮って保存・コメント「要る」ならコメントの欄（オーナー 2026-10-27「全部編集できるようにして」）
+// 開店作業（オーナー「毎日同じ作業の開店作業と、TODO とを一緒にしないで」「1タスクごとに完了ボタン、その人がやったことを記録」）
+// 閉店作業も同じ画面（オーナー「閉店作業も黒服のマイページに」「保存した人がやったことに」「誰が作業中かの表示」）
+// 項目の中の確認（checks。名刺の Eight 登録＝登録済みの確認・変更の確認）。全部に印を付けると「完了」を押せる（オーナー「登録済みか確認のチェックボタンを中に」）
+// コメントが「要る」の項目は、作業中にコメントの欄（書くのは任意。オーナー「相違があれば、コメントで報告」）。完了の後はコメントをほかの黒服にも出す
+// 決まった画面の項目（ボトル残量など）も、写真「要る」なら写真を撮って保存・コメント「要る」ならコメントの欄（オーナー「全部編集できるようにして」）
 // 開始 → 作業中（ほかの黒服の画面にも出る）→ 完了（写真の項目は写真を撮って完了・決まった画面の項目は保存）。ほかの人が作業中の時は「交代」。対象が「限定」の項目は、限定項目「可」の黒服だけ
-let opShots = {}, opChecks = {}, opNotes = {}, opSwitch = false; /* v0.63：リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
+let opShots = {}, opChecks = {}, opNotes = {}, opSwitch = false; /* リッチメニューの「開店・閉店作業」から開いた時だけ、上に開店作業・閉店作業の切り替え */
 const TASK_TTL = { open:'開店作業', close:'閉店作業' };
 const tBtn = (k, i, t, g) => `<button class="btn${g ? ' g' : ''}" data-${k}="${i}" style="display:inline-block;width:auto;flex:none;padding:7px 14px;font-size:14px">${t}</button>`;
-const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);border-radius:6px;padding:2px 7px;font-size:13px;white-space:nowrap">${esc(n || '')} 作業中</b>`; // v1.00：「名前 時刻 完了」「名前 作業中」の順（POS と同じ。完了・作業中の位置をそろえる。オーナー 2026-10-30）
+const wipTag = n => `<b style="background:var(--gold-soft);color:var(--ink);border-radius:6px;padding:2px 7px;font-size:13px;white-space:nowrap">${esc(n || '')} 作業中</b>`; // 「名前 時刻 完了」「名前 作業中」の順（POS と同じ。完了・作業中の位置をそろえる。オーナー）
 const ckAll = x => (x.checks || []).every((c, j) => (opChecks[x.id] || []).includes(j));
 const opWip = x => `作業中（あなた）${x.need_photo ? `　写真${opShots[x.id] ? `${opShots[x.id].length}枚` : ''}` : ''}`;
-// v1.10：撮った写真を TODO と同じく3列で並べ、右上の［×］で1枚ずつ外す（オーナー 2026-11-03）
+// 撮った写真を TODO と同じく3列で並べ、右上の［×］で1枚ずつ外す（オーナー）
 const opUrls = new Map(), opUrl = f => { if(!opUrls.has(f)) opUrls.set(f, URL.createObjectURL(f)); return opUrls.get(f); };
 const opGrid = (x, key) => (opShots[x.id] || []).length ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${opShots[x.id].map((f, k) => `<div style="position:relative"><img src="${opUrl(f)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button class="xb img" data-opx="${key}:${k}" aria-label="外す">×</button></div>`).join('')}</div>` : '';
 const opDrop = (x, k) => { const f = (opShots[x.id] || [])[k]; if(!f) return; if(opUrls.has(f)){ URL.revokeObjectURL(opUrls.get(f)); opUrls.delete(f); } opShots[x.id].splice(k, 1); if(!opShots[x.id].length) delete opShots[x.id]; };
@@ -27,7 +27,7 @@ async function hallTasks(ph){
   show(`${sw}<div class="ttl">${TASK_TTL[ph]}　${mdWD(d)}</div><div id="opAhead"></div>
     <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${nAll}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
   swWire();
-  if(ph === 'close') sb.rpc('hall_todo_ahead', { p_token: TOKEN }).then(q => { const el = $('opAhead'); if(el && !q.error) el.innerHTML = aheadHtml(q.data); }); /* v0.69・SQL 234：連休前の日の閉店作業に、連休明けの休日分を知らせる（オーナー 2026-10-25） */
+  if(ph === 'close') sb.rpc('hall_todo_ahead', { p_token: TOKEN }).then(q => { const el = $('opAhead'); if(el && !q.error) el.innerHTML = aheadHtml(q.data); }); /* 連休前の日の閉店作業に、連休明けの休日分を知らせる（オーナー） */
   const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
   const K = { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, again, at }; htBindA(K); htBindB(K); }
 /* 作業の1行（右の欄：なし・完了・未完了・対象外・交代・開始・写真と完了・表示） */
@@ -58,16 +58,16 @@ function htBindA(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, agai
 }
 /* 押した時の動き：写真・完了・取消 */
 function htBindB(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, again, at } = K;
-  const opRow = i => { const x = L[+i], q = a => $('main').querySelector(`[${a}="${i}"]`), n = (opShots[x.id] || []).length; /* v0.94：その行だけ直す（前は全部読み直していた）・v1.10：写真の並びと［×］も */
+  const opRow = i => { const x = L[+i], q = a => $('main').querySelector(`[${a}="${i}"]`), n = (opShots[x.id] || []).length; /* その行だけ直す（前は全部読み直していた）・写真の並びと［×］も */
     if(!q('data-opn') || !q('data-opg')) return again(); q('data-opn').textContent = opWip(x); q('data-opg').innerHTML = opGrid(x, i); if(q('data-opl')) q('data-opl').style.display = n < 10 ? 'inline-block' : 'none';
     q('data-opg').querySelectorAll('[data-opx]').forEach(b => b.onclick = () => { opDrop(x, +b.dataset.opx.split(':')[1]); opRow(i); }); };
   $('main').querySelectorAll('[data-opg]').forEach(g => opRow(g.dataset.opg));
-  $('main').querySelectorAll('[data-opp]').forEach(inp => inp.onchange = () => { const x = at(inp); const f = inp.files[0]; inp.value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); opRow(inp.dataset.opp); }); /* v1.09：カメラで1枚ずつ撮って足す（10枚まで） */
+  $('main').querySelectorAll('[data-opp]').forEach(inp => inp.onchange = () => { const x = at(inp); const f = inp.files[0]; inp.value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); opRow(inp.dataset.opp); }); /* カメラで1枚ずつ撮って足す（10枚まで） */
   $('main').querySelectorAll('[data-opd]').forEach(b => b.onclick = async () => { const x = at(b); if(!ckAll(x)) return; b.disabled = true;
     try{
       if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ await uiAlert('写真を撮ってください'); b.disabled = false; return; }
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
-        await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* v0.94：3枚ずつ同時に送る */
+        await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* 3枚ずつ同時に送る */
       const q = await sb.rpc('hall_open_done', { p_token: TOKEN, p_task: x.id, ...(x.need_comment ? { p_comment: opNotes[x.id] || '' } : {}) }); if(q.error) throw q.error;
       delete opShots[x.id]; delete opChecks[x.id]; delete opNotes[x.id]; again();
     }catch(e){ b.disabled = false; await uiAlert(e.message || String(e)); again(); } });
@@ -75,12 +75,12 @@ function htBindB(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, agai
     const q = await sb.rpc('hall_open_undo', { p_token: TOKEN, p_task: x.id }); if(q.error){ await uiAlert(q.error.message); return; } again(); });
 }
 
-const shRows = {};   // v1.25：仕入れの入力中の行（追加・× で描き直しても残す）
-const drOut = {};   // v1.28：配達・買い出しの入力中の本数
-// v1.52・SQL 417：発注一覧の文（LINE・メールにそのまま貼る。発注が1以上の品だけ。オーナー 2026-11-09「挨拶の言葉も入れて」・見本 作業場/見本の画像/発注一覧のコピーと照合_案.png）
+const shRows = {};   // 仕入れの入力中の行（追加・× で描き直しても残す）
+const drOut = {};   // 配達・買い出しの入力中の本数
+// 発注一覧の文（LINE・メールにそのまま貼る。発注が1以上の品だけ。オーナー「挨拶の言葉も入れて」・見本 作業場/見本の画像/発注一覧のコピーと照合_案.png）
 const drText = (R, T, O) => { const L = T.map(a => [a.name, Math.max(0, a.qty - (+O[a.id] || 0))]).filter(([, n]) => n > 0).map(([m, n]) => `${m}　${n}`);
   return `お世話になっております。\n${R.store || ''} です。\n${R.day ? mdW(R.day) : ''}の発注をお願いいたします。\n\n${L.join('\n') || 'なし'}\n\nよろしくお願いいたします。`; };
-// v1.52・SQL 417：開店作業の仕入れの上に、前の日までの発注と、入力中の入荷のくらべ（合わない品は赤）
+// 開店作業の仕入れの上に、前の日までの発注と、入力中の入荷のくらべ（合わない品は赤）
 const shCheck = (D, R) => { const th = 'font-weight:400;color:var(--muted);padding:5px 4px;border-bottom:1px solid var(--line)', td = 'padding:6px 4px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums';
   const L = (D.orders || []).map(o => { const v = R.filter(r => !r.free && r.pid === o.id).reduce((s, r) => s + (+r.qty || 0), 0); return { name: o.name, o: o.ordered, v, d: v - o.ordered }; }), n = L.filter(a => a.d).length;
   return `<div style="margin-bottom:4px"><b>発注と入荷</b>　<span class="muted sm">${D.order_day ? mdW(D.order_day) + 'までの発注' : ''}</span></div>${n ? `<div style="color:var(--warn);font-weight:700;font-size:14px;margin-bottom:2px">差あり ${n}品</div>` : ''}
@@ -116,7 +116,7 @@ function hcBodyMemoReq(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', ge
       <div style="white-space:pre-wrap">${esc(q.body)}</div><div style="display:flex;gap:8px;margin-top:6px">${tBtn('rqa', i, '追記')}${tBtn('rqr', i, '却下', true)}</div></div>`).join('') || '<div class="muted">申請はありません</div>'}</div>
       ${sv('', D.length ? '全件「追記」か「却下」の後に保存します' : '')}`;
   return { body, getData }; }
-// v1.40・SQL 378：開店作業「お誕生日登録申請」（顧客メモの更新申請と同じ形。オーナー 2026-11-06・見本 作業場/お誕生日登録申請_案.png）
+// 開店作業「お誕生日登録申請」（顧客メモの更新申請と同じ形。オーナー見本 作業場/お誕生日登録申請_案.png）
 function hcBodyBdayReq(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     body = `<div class="card">${D.map((q, i) => `<div style="padding:9px 2px;line-height:1.5;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(q.customer || '')} 様</b> <span class="muted sm">${td(q.day)} ${esc(q.author || '')}</span>
       <div>お誕生日 ${esc(q.birthday)}</div><div style="display:flex;gap:8px;margin-top:6px">${tBtn('bqa', i, '登録')}${tBtn('bqr', i, '却下', true)}</div></div>`).join('') || '<div class="muted">申請はありません</div>'}</div>
@@ -133,7 +133,7 @@ function hcBodyKimono(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', get
     body = `<div class="card">${D.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${D.map((c, i) => `<button class="btn${c.kimono ? '' : ' g'}" data-km="${i}" ${c.done || c.other_day ? 'disabled' : ''} style="display:inline-block;width:auto;padding:8px 12px;font-size:14px">${esc(c.name)}${c.kimono ? '　着物' : ''}${c.done ? '<br><small>新調済</small>' : ''}${c.other_day ? `<br><small>着物 ${td(c.other_day)}</small>` : ''}</button>`).join('')}</div>` : '<div class="muted">今日出勤したキャストがいません</div>'}
       <div class="muted sm" style="margin-top:8px">着物で出勤したキャストを選んで保存します（いない日はそのまま保存）</div></div>${sv()}`;
   return { body, getData }; }
-// v1.28・SQL 367：ワイン・シャンパン・ボトルキープは配達・買い出しの本数を入力。発注＝販売−配達・買い出し（オーナー 2026-11-05・見本 作業場/発注の照合_案2.png）
+// ワイン・シャンパン・ボトルキープは配達・買い出しの本数を入力。発注＝販売−配達・買い出し（オーナー見本 作業場/発注の照合_案2.png）
 function hcBodyDrinks(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     const T = D.flatMap(g => g.items.filter(a => a.track)), cnt = 'width:36px;text-align:right;font-variant-numeric:tabular-nums';
     if(!drOut[x.id]) drOut[x.id] = Object.fromEntries(T.map(a => [a.id, a.out ? String(a.out) : '0']));
@@ -147,7 +147,7 @@ function hcBodyDrinks(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', get
         <div id="drTx" style="white-space:pre-wrap;line-height:1.7;background:var(--soft);border-radius:8px;padding:8px 10px;user-select:text;-webkit-user-select:text">${esc(drText(r.data, T, O))}</div></div>` : ''}${sv()}`;
     getData = () => ({ rows: T.map(a => ({ id: a.id, out: (O[a.id] ?? '0').trim() })) });
   return { body, getData }; }
-// v0.61・SQL 217：オールアップ確認（オーナー 2026-10-23「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須。v0.95・SQL 296：基準を 1:05 に（オーナー 2026-10-30「1時ではなく1時5分に。広島も銀座も」）
+// オールアップ確認（オーナー「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須。基準を 1:05 に（オーナー「1時ではなく1時5分に。広島も銀座も」）
 function hcBodyAllup(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     const R = D.rows || [], np = D.pending > 0;
     body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">退勤の遅い順（3名）</div>${R.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);font-size:15px${c.pending || c.over ? ';color:var(--warn)' : ''}"><div style="flex:1">${esc(c.name)}</div>
@@ -157,7 +157,7 @@ function hcBodyAllup(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getD
         : sv('', R.length ? '全員 1:05 以前に退勤しています' : '')}`;
     getData = () => ({ reason: $('clWhy') ? $('clWhy').value : '' });
   return { body, getData }; }
-// v0.68・SQL 232：開店作業「連絡先交換の係の確認」（前の営業日の連絡先交換の係を選び直す。提出したキャストへ LINE・正しい係へは次の朝のまとめで。オーナー 2026-10-24）
+// 開店作業「連絡先交換の係の確認」（前の営業日の連絡先交換の係を選び直す。提出したキャストへ LINE・正しい係へは次の朝のまとめで。オーナー）
 function hcBodyContactCheck(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     const R = D.rows || [], C = D.casts || [], dd = D.day ? new Date(D.day + 'T00:00:00+09:00') : null;
     const opt = r => `${r.mode === 'staff' && r.kakari && !C.some(c => c.id === r.kakari) ? `<option value="${r.kakari}" selected>（退店）</option>` : ''}${C.map(c => `<option value="${c.id}" ${r.mode === 'staff' && r.kakari === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="unknown" ${r.mode === 'unknown' ? 'selected' : ''}>わからない</option><option value="none" ${r.mode === 'none' ? 'selected' : ''}>なし</option>`;
@@ -166,7 +166,7 @@ function hcBodyContactCheck(H){ const {x, ph, r, k, D, td, sv} = H; let body = '
       ${sv('', R.length ? `${KL}を変更して保存すると、提出したキャストに LINE が届きます。正しい${KL}には次の朝のまとめで届きます` : '')}`;
     getData = () => ({ rows: R.map((r, i) => ({ id: r.id, kakari: $('main').querySelector(`[data-ck="${i}"]`).value })) });
   return { body, getData }; }
-// v1.15・SQL 343：閉店作業「連絡先交換の係の確認」（係確認中を黒服が入力。入力した係へは次の朝のまとめで。台帳に係が無いお客様は台帳にも。オーナー 2026-11-03）
+// 閉店作業「連絡先交換の係の確認」（係確認中を黒服が入力。入力した係へは次の朝のまとめで。台帳に係が無いお客様は台帳にも。オーナー）
 function hcBodyContactPending(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     const R = D.rows || [], C = D.casts || [];
     body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">${KL}確認中　${R.length}件</div>${R.map((r, i) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(r.customer)} 様<div class="muted sm">${mdW(r.day)}　交換 ${esc(r.by)}</div></div>
@@ -174,16 +174,16 @@ function hcBodyContactPending(H){ const {x, ph, r, k, D, td, sv} = H; let body =
       ${sv('', R.length ? `入力した${KL}には、次の朝のまとめで届きます` : '')}`;
     getData = () => ({ rows: R.map((r, i) => ({ id: r.id, kakari: $('main').querySelector(`[data-ck="${i}"]`).value })) });
   return { body, getData }; }
-// v1.23・SQL 355：閉店作業「体験のジャッジ」（体験の子が来た日だけ。出勤した黒服が全員押すまで完了にできない）
+// 閉店作業「体験のジャッジ」（体験の子が来た日だけ。出勤した黒服が全員押すまで完了にできない）
 function hcBodyTrialJudge(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     body = `${(D.items || []).map(it => judgeCard(it, true)).join('') || '<div class="card muted">本日の体験はありません</div>'}${sv()}`;
     getData = () => ({});
   return { body, getData }; }
-// v1.25・SQL 364：開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー 2026-11-05・見本 作業場/棚卸し_案2.png）
+// 開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー見本 作業場/棚卸し_案2.png）
 function hcBodyShiire(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     const P = D.products || [], cats = [...new Set(P.map(p => p.cat))], ab = id => (P.find(p => p.id === id) || {}).ab;
     if(!shRows[x.id]) shRows[x.id] = (D.rows || []).length ? D.rows.map(r => ({ pid: r.product_id || '', name: r.product_id ? '' : r.name, qty: String(r.qty), free: !r.product_id }))
-      : (D.orders || []).map(o => ({ pid: o.id, name: '', qty: '', free: false, ord: true }));   // v1.52・SQL 417：前の日までの発注を数は空欄で並べる
+      : (D.orders || []).map(o => ({ pid: o.id, name: '', qty: '', free: false, ord: true }));   // 前の日までの発注を数は空欄で並べる
     const R = shRows[x.id], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
     const opts = r => `<option value="">選択</option>${cats.map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!r.free && r.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${r.free ? 'selected' : ''}>品名入力</option>`;
     body = `${(D.orders || []).length ? `<div class="card" id="shCk">${shCheck(D, R)}</div>` : ''}<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">仕入れ</b><button class="btn g" id="shAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
@@ -228,7 +228,7 @@ function hcWireBdayReq(H, again){ const {x, ph, r, k, D, td, sv} = H;
 }
 function hcWireTrialJudge(H, again){ const {x, ph, r, k, D, td, sv} = H;
   judgeWire($('main'), async (id, v) => { const z = await sb.rpc('tj_vote_staff', { p_token: TOKEN, p_ap: id, p_vote: v }); if(z.error){ await uiAlert(z.error.message); } again(); });
-  $('main').querySelectorAll('[data-jtr]').forEach(b => b.onclick = () => apPage(b.dataset.jtr, null, again)); /* v1.42・SQL 388：その人のページの「体験」で体験結果 */
+  $('main').querySelectorAll('[data-jtr]').forEach(b => b.onclick = () => apPage(b.dataset.jtr, null, again)); /* その人のページの「体験」で体験結果 */
 }
 function hcWireKimono(H, again){ const {x, ph, r, k, D, td, sv} = H;
   $('main').querySelectorAll('[data-km]').forEach(b => b.onclick = async () => { const c = D[+b.dataset.km]; b.disabled = true;
@@ -239,9 +239,9 @@ const HC_WIRE = { drinks: hcWireDrinks, shiire: hcWireShiire, memo_req: hcWireMe
 function hcPhotoBox(x, s){
   if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" id="clPl" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label></div><div id="clPg"></div>` : ''}
     ${x.need_comment ? `<textarea id="clCm" rows="3" maxlength="500" placeholder="コメント（なければ空のまま）" style="display:block;width:100%;box-sizing:border-box;${x.need_photo ? 'margin-top:8px;' : ''}font:inherit;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(opNotes[x.id] || '')}</textarea>` : ''}</div>`);
-  const clShots = () => { const n = (opShots[x.id] || []).length; $('clPhN').textContent = `写真${n ? `　${n}枚` : ''}`; $('clPl').style.display = n < 10 ? 'inline-block' : 'none'; $('clPg').innerHTML = opGrid(x, 'c'); /* v1.10：写真の並びと［×］ */
+  const clShots = () => { const n = (opShots[x.id] || []).length; $('clPhN').textContent = `写真${n ? `　${n}枚` : ''}`; $('clPl').style.display = n < 10 ? 'inline-block' : 'none'; $('clPg').innerHTML = opGrid(x, 'c'); /* 写真の並びと［×］ */
     $('clPg').querySelectorAll('[data-opx]').forEach(b => b.onclick = () => { opDrop(x, +b.dataset.opx.split(':')[1]); clShots(); }); };
-  if($('clPh')){ clShots(); $('clPh').onchange = () => { const f = $('clPh').files[0]; $('clPh').value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); clShots(); }; } /* v1.09：カメラで1枚ずつ足す */
+  if($('clPh')){ clShots(); $('clPh').onchange = () => { const f = $('clPh').files[0]; $('clPh').value = ''; if(!f) return; opShots[x.id] = [...(opShots[x.id] || []), f].slice(0, 10); clShots(); }; } /* カメラで1枚ずつ足す */
   if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
 }
 /* 保存（写真を縮めて送ってから、作業の中身を保存） */
@@ -249,7 +249,7 @@ async function hcSave(x, ph, s, getData){ s.disabled = true;
     try{
       if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ s.disabled = false; await uiAlert('写真を撮ってください'); return; }
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
-        await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* v0.94：3枚ずつ同時に送る */
+        await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* 3枚ずつ同時に送る */
       const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
       delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; delete drOut[x.id]; hallTasks(ph);
     }catch(e){ s.disabled = false; await uiAlert(e.message || String(e)); }

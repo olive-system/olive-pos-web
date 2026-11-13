@@ -1,12 +1,12 @@
-// v0.37・SQL 145：黒服の TODO（オーナー 2026-10-18。TimeTree の「todoリスト写メ報告」の代わり）。その日の出勤の黒服がやる。写真が要る項目は撮らないと完了にならない。できない時は理由
+// 黒服の TODO（オーナー。TimeTree の「todoリスト写メ報告」の代わり）。その日の出勤の黒服がやる。写真が要る項目は撮らないと完了にならない。できない時は理由
 const TODO_SLOT = { open:'開店作業', close:'閉店作業', by17:'17時まで', none:'' };
 async function hallTodo(){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
   const [r, ab] = await Promise.all([sb.rpc('hall_todos', { p_token: TOKEN }), sb.rpc('hall_ab_items', { p_token: TOKEN })]); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
-  tdAB = ab.error ? null : ab.data; /* v1.25・SQL 364：AB棚の棚卸し */
+  tdAB = ab.error ? null : ab.data; /* AB棚の棚卸し */
   const D = r.data, L = D.items || [], d = new Date(D.day+'T00:00:00+09:00');
   const st = x => x.status === 'done' ? `<b style="color:var(--ok)">完了　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>${x.late?' <b style="color:var(--warn)">17:00 超過</b>':''}` : x.status === 'skip' ? `<b style="color:var(--muted)">できない　${esc(x.by||'')} ${x.at?new Date(x.at).toTimeString().slice(0,5):''}</b>` : `<b style="color:var(--warn)">未完了${x.late?'　17:00 超過':''}</b>`;
-  /* v0.69・SQL 234：休日分（休みの日の TODO を次の営業日に。オーナー 2026-10-25「営業日初日に全部やる」「長い連休は17時まで」）。言葉は用語集：休日分・本日分・期限 閉店・期限 17:00 */
+  /* 休日分（休みの日の TODO を次の営業日に。オーナー「営業日初日に全部やる」「長い連休は17時まで」）。言葉は用語集：休日分・本日分・期限 閉店・期限 17:00 */
   const md = s => `${mdDay(s)} ${WD[jd(s).getDay()]}`;
   const tag = t => `<small class="muted" style="border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap">${t}</small>`;
   const card = (x,i) => `<button class="card" data-td="${i}" style="display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer">
@@ -19,13 +19,13 @@ async function hallTodo(){
     ${T.map(([x,i]) => card(x,i)).join('') || '<div class="card muted">本日分の TODO はありません</div>'}`);
   $('main').querySelectorAll('[data-td]').forEach(b => b.onclick = () => hallTodoOne(L[+b.dataset.td]));
 }
-// v0.87・SQL 276：写真は40枚まで（広島の黒服の報告 2026-10-28「充電の写真は24枚上げる必要があるが10枚までしか送れない」）
-// v0.52：写真は10枚まで（並べて見て × で外せる）・完了の後も精算までは「やり直す」（黒服の報告 2026-10-22 → オーナー「この形でよい」「精算までは直せる」・SQL 176）
+// 写真は40枚まで（広島の黒服の報告「充電の写真は24枚上げる必要があるが10枚までしか送れない」）
+// 写真は10枚まで（並べて見て × で外せる）・完了の後も精算までは「やり直す」（黒服の報告 → オーナー「この形でよい」「精算までは直せる」）
 let tdShots = [];
-/* v1.25・SQL 364：AB棚の棚卸し（オーナー 2026-11-05「先入観なくできる棚卸しで」）。数える人には理論在庫も前回の数も出さない。空欄から入力 */
+/* AB棚の棚卸し（オーナー「先入観なくできる棚卸しで」）。数える人には理論在庫も前回の数も出さない。空欄から入力 */
 let tdAB = null, tdAbVals = {};
 const tdAbOk = v => /^\d{1,3}$/.test(String(v ?? '').trim());
-/* v1.28・SQL 367：AB棚の下にワイン・シャンパンも品ごと（オーナー 2026-11-05「ア 品ごと」・見本 作業場/棚卸し_ワイン・シャンパン_案.png） */
+/* AB棚の下にワイン・シャンパンも品ごと（オーナー「ア 品ごと」・見本 作業場/棚卸し_ワイン・シャンパン_案.png） */
 const tdAbGroups = () => (tdAB && tdAB.groups) || (tdAB ? [{ title: 'AB棚', products: tdAB.products || [] }] : []);
 const tdAbCnt = P => { const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length; return `入力済 ${n}品・未入力 ${P.length - n}品`; };
 function tdAbHtml(x, done){
@@ -65,7 +65,7 @@ function hallTodoOne(x, keep){
     try{
       if(abP.length){ const c = await sb.rpc('hall_ab_count', { p_token: TOKEN, p_item: x.id, p_rows: Object.fromEntries(abP.map(p => [p.id, tdAbVals[p.id]])), ...(x.carry ? { p_day: x.day } : {}) }); if(c.error) throw c.error; }
       if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length , ...(x.carry ? { p_day: x.day } : {}) }); if(p.error) throw p.error;
-        const n = tdShots.length; $('tdGo').textContent = `送っています（0/${n}）`; /* v0.94：3枚ずつ同時に送る。数は送り終わった枚数 */
+        const n = tdShots.length; $('tdGo').textContent = `送っています（0/${n}）`; /* 3枚ずつ同時に送る。数は送り終わった枚数 */
         await upPool(n, async i => { const blob = await shrinkJpeg(tdShots[i].file); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; },
           k => { $('tdGo').textContent = `送っています（${k}/${n}）`; }); }
       const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error) throw q.error;
@@ -86,16 +86,16 @@ async function hallCasts(){
   const C = r.data.casts || [];
   // 10人まで並ぶので、1人2行（1行目：名前・当日欠勤／2行目：成績・未提出）
   show(`<div class="ttl">担当キャスト ${C.length}人</div>${C.length ? `<div class="card" style="padding:4px 12px">${C.map((c, i) => { const st = c.stats || {};
-    const att = c.absent ? `<b class="err">当日欠勤</b>` : '';   // 出退勤の時刻は閉店作業で確かめる（オーナー 2026-10-17）
+    const att = c.absent ? `<b class="err">当日欠勤</b>` : '';   // 出退勤の時刻は閉店作業で確かめる（オーナー）
     const todo = [c.sales_left ? 'アプローチ' : '', c.docs ? esc(c.docs) : '', c.dress ? `ドレス ${mdDay(c.dress)}まで` : ''].filter(Boolean);
     return `<div style="padding:8px 0;${i?'border-top:1px solid var(--line)':''}"><div class="row" style="padding:0"><b>${esc(c.name)}</b><span class="sm">${att}</span></div>
       <div class="sm muted" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>${esc(KL)}小計 ${Math.round(N(st.sales)/10000).toLocaleString('ja-JP')}万・同伴${N(st.douhan)}・反応◎${N(st.reactions)}</span>${todo.length?`<span class="err">未提出：${todo.join('・')}</span>`:''}</div>
       ${c.absent?`<div class="sm err">${hmJst(c.absent.at)}・${esc(c.absent.reason||'')}</div>`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
 }
 let hcOpen = new Set();
-/* v0.38：天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー 2026-10-18「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
+/* 天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
 const WXN=c=>WXT(c)[0];
-/* v1.16・SQL 344：売上予測（目標・現在・予測。昨日まで。POS の朝礼と同じ。2026-11-04 オーナー・見本 作業場/売上予測_案7.png） */
+/* 売上予測（目標・現在・予測。昨日まで。POS の朝礼と同じ。 オーナー・見本 作業場/売上予測_案7.png） */
 function hcFc(F){ const no = '<span class="muted">—</span>', g = n => n==null ? no : `${n}組`, y = n => n==null ? no : yen(n);
   const th = 'color:var(--muted);font-weight:700;font-size:12px;text-align:right;padding:4px 0 4px 6px;border-top:1px solid var(--line)', td = 'padding:4px 0 4px 6px;border-top:1px solid var(--line);font-weight:700;text-align:right;white-space:nowrap', tl = 'padding:4px 0;border-top:1px solid var(--line);font-weight:700';
   return `<div class="gh" style="margin-top:8px">${F.month}月（${mdDay(F.from)}〜${mdDay(F.to)}）　営業日数 ${F.done} / ${F.days}日</div>
@@ -103,7 +103,7 @@ function hcFc(F){ const no = '<span class="muted">—</span>', g = n => n==null 
     <tr><td style="${tl}">売上</td><td style="${td}">${y(F.target)}</td><td style="${td}">${yen(F.sales)}</td><td style="${td}">${y(F.fc_sales)}</td></tr>
     <tr><td style="${tl}">組数</td><td style="${td}">${g(F.tgt_groups)}</td><td style="${td}">${F.groups}組</td><td style="${td}">${g(F.fc_groups)}</td></tr></table>
     <div class="row" style="font-size:14px"><span class="muted">1日平均売上</span><b>${y(F.avg)}</b></div><div class="row" style="font-size:14px"><span class="muted">1日必要組数</span><b>${g(F.need)}</b></div><div class="row" style="font-size:14px"><span class="muted">平均客単価</span><b>${y(F.unit)}</b></div>`; }
-/* v0.94：朝礼のデータと天気は覚えておき、お客様を開く・閉じる時は読み直さない（前は押すたびに hall_chorei と天気を読み直していた）。読み直すのは開いた時と「確認」「確認の取消」の後（天気はそのまま） */
+/* 朝礼のデータと天気は覚えておき、お客様を開く・閉じる時は読み直さない（前は押すたびに hall_chorei と天気を読み直していた）。読み直すのは開いた時と「確認」「確認の取消」の後（天気はそのまま） */
 let hcD = null, hcWx = null;
 async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
@@ -115,13 +115,13 @@ function hcPaint(){
   const C = hcD, G = C.guests || [], left = G.filter(g => g.customer && !g.ok_at).length;
   const tag = '<span style="display:inline-block;background:var(--pri);color:#fff;border-radius:4px;padding:0 5px;font-size:12px;font-weight:700">同伴</span> ';
   const V = { C, G, left, tag }; V.guest = g => hcGuest(V, g);
-  const SH = {}; (C.shifts||[]).forEach(x => { (SH[x.time] = SH[x.time] || []).push(esc(x.name) + (x.black?DRESS:'') + (x.douhan?'（同伴）':'')); }); /* v1.30・SQL 368：黒ドレスのしるし */
+  const SH = {}; (C.shifts||[]).forEach(x => { (SH[x.time] = SH[x.time] || []).push(esc(x.name) + (x.black?DRESS:'') + (x.douhan?'（同伴）':'')); }); /* 黒ドレスのしるし */
   const y = new Date(C.date+'T00:00:00+09:00'); y.setDate(y.getDate()-1);
   V.SH = SH; V.y = y; show(hcHtml(V)); hcBind(V); }
 /* 来店予定のお客様の1組（開くと誕生日・ボトル・前回・タバコ・メモ） */
 function hcGuest(V, g){ const { C, G, left, tag, guest, SH, y } = V; const cu = g.customer, op = hcOpen.has(g.id) && cu;
     const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済 ${hmJst(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
-    let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${g.time}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${resvWho(g,{noKK:STORE==='hiroshima',mark:DRESS})}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div></div>`; /* v0.91：広島は担当を出さない（2026-10-29 オーナー）。v0.98・SQL 298：卓（POS の朝礼と同じ。選ぶとすぐ保存） */
+    let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${g.time}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${resvWho(g,{noKK:STORE==='hiroshima',mark:DRESS})}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div></div>`; /* 広島は担当を出さない（オーナー）。卓（POS の朝礼と同じ。選ぶとすぐ保存） */
     if(!op) return h;
     const bd = cu.birthday ? `${esc(cu.birthday)}${cu.bday_in===0?'（本日）':cu.bday_in!=null&&cu.bday_in<=7?`（あと${cu.bday_in}日）`:''}` : '—';
     return h + `<div style="padding:0 0 10px"><div class="row"><span class="muted">誕生日</span><span>${bd}</span></div><div class="row"><span class="muted">反応◎</span><span>${esc(cu.good||'—')}</span></div>
@@ -137,16 +137,16 @@ function hcHtml(V){ const { C, G, left, tag, guest, SH, y } = V; return `<div id
     <div class="card"><div class="gh">天気</div><div id="hcWx" class="${hcWx ? hcWx.c : 'muted sm'}">${hcWx ? hcWx.h : '読み込み中…'}</div></div>
     <div class="card"><div class="gh">本日の出勤 ${(C.shifts||[]).length}人</div>${Object.keys(SH).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${SH[t].join('・')}</span></div>`).join('')||'<div class="muted sm">シフトなし</div>'}</div>
     <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdWD(y)}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
-    <div class="card"><div class="gh">お誕生日（前後1週間）</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; /* v1.24・SQL 361：前後1週間（キャストのトップと同じ） */ return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`; }
+    <div class="card"><div class="gh">お誕生日（前後1週間）</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; /* 前後1週間（キャストのトップと同じ） */ return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`; }
 /* 押した時の動き：お客様を開く・卓・確認 */
 function hcBind(V){ const { C, G, left, tag, guest, SH, y } = V;
-  $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* v0.94：読み直さない */
+  $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* 読み直さない */
   $('main').querySelectorAll('[data-hs]').forEach(x => { x.onclick = e => e.stopPropagation(); x.onchange = async () => { const id = x.dataset.hs, g = G.find(g => String(g.id) === id), was = g?.seat || ''; x.disabled = true;
     const q = await sb.rpc('hall_resv_seat', { p_token: TOKEN, p_id: id, p_table: x.value || null }); x.disabled = false; if(q.error){ x.value = was; await uiAlert(q.error.message); return; } if(g) g.seat = x.value || null; }; });
   $('main').querySelectorAll('[data-hk],[data-hu]').forEach(b => b.onclick = async () => { const ok = !!b.dataset.hk, id = b.dataset.hk || b.dataset.hu; b.disabled = true;
     const q = await sb.rpc('hall_chorei_ok', { p_token: TOKEN, p_resv: id, p_ok: ok }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; } if(ok) hcOpen.delete(id); const y0 = window.scrollY; await hallChorei(true); window.scrollTo(0, y0); });
 }
-// 天気（20時〜翌1時・降水確率50%以上で傘の準備）。v0.94：できた中身は hcWx に覚えておく
+// 天気（20時〜翌1時・降水確率50%以上で傘の準備）。できた中身は hcWx に覚えておく
 async function hcWeather(C){
   if(C.lat != null) try{ const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${C.lat}&longitude=${C.lon}&hourly=weather_code,precipitation_probability,temperature_2m&timezone=Asia%2FTokyo&forecast_days=3`)).json(), H = j.hourly;
     const nx = (() => { const d = new Date(C.date+'T00:00:00+09:00'); d.setDate(d.getDate()+1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();

@@ -1,6 +1,6 @@
 // ---------- settings（d-system風：一覧＋詳細、編集モードで長押し並び替え・削除） ----------
 const SET = [
-  { key:'chorei', name:'朝礼', chorei:true }, // v11.58・SQL 129：朝礼（オーナー 2026-10-16。並びもオーナー）
+  { key:'chorei', name:'朝礼', chorei:true }, // 朝礼（オーナー。並びもオーナー）
   { key:'closing', name:'閉店作業', closing:true },
   { key:'bills', name:'伝票一覧', bills:true },
   { key:'tables', name:'テーブル', table:'tables', label:r=>r.name, cols:[['name','テーブル名','text'],['is_visible','表示','bool']], newRow:()=>({store_id:store.id,name:'新しいテーブル',is_visible:true}) },
@@ -10,13 +10,13 @@ const SET = [
   { key:'print', name:'印刷設定', local:true, cols:[['print_method','印刷方法','select',[['tmpa','プリンター（TM Print Assistant）'],['browser','ブラウザ印刷（PDF）']]]] },
   { key:'audit', name:'操作ログ', audit:true },
 ];
-let RW={point_slide:false,types:[],points:[],auto:{}}, alwMode={}, afMode={}; /* v11.67・SQL 140／afMode v12.56 */
+let RW={point_slide:false,types:[],points:[],auto:{}}, alwMode={}, afMode={}; /* ／afMode */
 let setCur='chorei', setSel=null, setEditMode=false, setCatFilter=null, auDate=null;
 $('navSettings').onclick=()=>{ renderSettings(setCur); show('v-settings'); };
-// v11.66：保存忘れのお知らせ（オーナー 2026-10-17。管理サイト v1.22 と同じ）。設定の「詳細」と閉店作業「⑧ その日のメモ」で、入力して保存を押さずに、設定のタブ・一覧・下のボタンで移ろうとした時
+// 保存忘れのお知らせ（オーナー。管理サイト v1.22 と同じ）。設定の「詳細」と閉店作業「⑧ その日のメモ」で、入力して保存を押さずに、設定のタブ・一覧・下のボタンで移ろうとした時
 // 保存して画面が描き直されるとボタンが消える＝保存済み。精算の数（金種）は画面を移っても残るので数えない
 let unsavedBtn=null, unsavedPass=false;
-function setUnsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')) return; const id=t.closest('#setForm')?'setSave':null; /* v11.72：その日のメモは自動で保存 */ if(id&&$(id)) unsavedBtn=$(id); }
+function setUnsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')) return; const id=t.closest('#setForm')?'setSave':null; /* その日のメモは自動で保存 */ if(id&&$(id)) unsavedBtn=$(id); }
 $('v-settings').addEventListener('input',setUnsavedMark,true); $('v-settings').addEventListener('change',setUnsavedMark,true);
 const unsavedNow=()=>!!(unsavedBtn&&unsavedBtn.isConnected&&!unsavedBtn.disabled);
 async function setLeaveOk(){ if(!unsavedNow()) return true;

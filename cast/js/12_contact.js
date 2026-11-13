@@ -1,5 +1,5 @@
-// v0.17・SQL 117：④連絡先交換の提出。日付は今日だけ。お客様はフルネーム、係を選ぶ。提出すると係に LINE。閉店作業の時に黒服へその日のまとめ（2026-10-16 オーナー）
-// v0.54・SQL 185：まとめて書ける（何人でも）・「今日は交換なし」・1:00 の LINE から提出の画面を開く（?go=contact）（オーナー 2026-10-22）
+// ④連絡先交換の提出。日付は今日だけ。お客様はフルネーム、係を選ぶ。提出すると係に LINE。閉店作業の時に黒服へその日のまとめ（オーナー）
+// まとめて書ける（何人でも）・「今日は交換なし」・1:00 の LINE から提出の画面を開く（?go=contact）（オーナー）
 async function contactList(openForm){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_contact_list', { p_token: TOKEN });
@@ -8,13 +8,13 @@ async function contactList(openForm){
   if(openForm){ contactForm(r.data.today); return; }
   const tn = Number(r.data.today_n || 0), st = tn ? `<div class="sm" style="color:var(--ok);margin-bottom:8px">今日の提出 ${tn}人</div>` : r.data.today_none ? '<div class="sm" style="color:var(--ok);margin-bottom:8px">今日は交換なしで提出済</div>' : '';
   show(`<div class="ttl">連絡先交換</div>${st}<button class="btn" id="cxNew" style="margin-bottom:12px">提出</button><div class="card"><div class="gh">今月 ${rows.length}人</div>${rows.map(x => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div>${mdW(x.date)}${esc(x.name)} 様</div>
-    ${RV_NOKK() ? (x.memo ? `<div class="muted sm">${esc(x.memo)}</div>` : '') : `<div class="muted sm">${KL} ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div>`}</div>`).join('') /* v1.05・点検 2026-11-02 D2：広島は担当を出さない */||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
+    ${RV_NOKK() ? (x.memo ? `<div class="muted sm">${esc(x.memo)}</div>` : '') : `<div class="muted sm">${KL} ${esc(x.kakari)}${x.memo?`・${esc(x.memo)}`:''}</div>`}</div>`).join('') /*点検 D2：広島は担当を出さない */||'<div class="muted sm" style="padding:8px 0;border-top:1px solid var(--line)">今月の提出はありません</div>'}</div>`);
   $('cxNew').onclick = () => contactForm(r.data.today);
 }
 let cxRows = null;
 async function contactForm(today){
   setBack(() => contactList()); show('<div class="card c muted">読み込み中…</div>');
-  const T = await sb.rpc('cast_contact_today', { p_token: TOKEN }); /* v1.15・SQL 343：LINE で聞く店は、本日来店のお客様から選ぶ（SQL が未実行・しない の店は今までの画面） */
+  const T = await sb.rpc('cast_contact_today', { p_token: TOKEN }); /* LINE で聞く店は、本日来店のお客様から選ぶ（SQL が未実行・しない の店は今までの画面） */
   if(!T.error && T.data && T.data.ask !== 'off'){ contactPick(T.data); return; }
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
   if(st.error){ fail(st.error.message); return; }
@@ -22,7 +22,7 @@ async function contactForm(today){
   const me = (st.data||[]).find(s => s.name === ME.name);
   const d = new Date(today+'T00:00:00+09:00'), dl = `${mdWD(d)}`;
   const KEY = 'olive_cast_contact_rows';
-  const NK = RV_NOKK(); /* v1.05・点検 2026-11-02 D2：広島は担当（係）が無い（オーナー「広島は担当は無い。係じゃないんだから」）。担当の欄を出さず、「なし」で提出する（cast_contact_submit は「なし」を受け付ける） */
+  const NK = RV_NOKK(); /*点検 D2：広島は担当（係）が無い（オーナー「広島は担当は無い。係じゃないんだから」）。担当の欄を出さず、「なし」で提出する（cast_contact_submit は「なし」を受け付ける） */
   if(!cxRows){ try{ const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if(v && v.day === today && Array.isArray(v.rows) && v.rows.length) cxRows = v.rows; }catch(e){} }
   const restored = !!cxRows; if(!cxRows) cxRows = [{ n:'', k:'', m:'' }];
   const save = () => { try{ localStorage.setItem(KEY, JSON.stringify({ day: today, rows: cxRows })); }catch(e){} };
@@ -69,8 +69,8 @@ function cxFormBind(K){ const { today, st, fld, me, d, dl, KEY, NK, restored, sa
     };
 }
 
-// v1.15・SQL 343：連絡先交換を LINE で聞く（オーナー 2026-11-03）。本日来店のお客様から選ぶ。係はお客様の台帳から（無ければ係確認中。黒服が閉店作業で入力）。女の子は係を選ばない
-//   一覧にいないお客様は「その他」にフルネーム。広島は係が無いので出さない
+// 連絡先交換を LINE で聞く（オーナー）。本日来店のお客様から選ぶ。係はお客様の台帳から（無ければ係確認中。黒服が閉店作業で入力）。女の子は係を選ばない
+// 一覧にいないお客様は「その他」にフルネーム。広島は係が無いので出さない
 let cpState = null;
 function contactPick(T){
   setBack(() => contactList());

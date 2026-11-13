@@ -1,15 +1,15 @@
-// ---------- 伝票一覧 v0.49・SQL 078：期間（31日まで）の伝票。No で中身、オーナーは直す・まとめて削除。Excel ----------
+// ---------- 伝票一覧 期間（31日まで）の伝票。No で中身、オーナーは直す・まとめて削除。Excel ----------
 let blFrom=null, blTo=null, blFilt='all', blQ='';
 const BL_F=[['all','全部'],['discount','値引あり'],['invoice','請求あり'],['oki','置きあり'],['open','来店中'],['void','削除']];
-/* v0.84：重要な順（だれが・どの係で・いくら）。注文は最後。v0.85：状態は前（オーナー 2026-10-14）。収支の日次の伝票一覧も同じ並び */
+/* 重要な順（だれが・どの係で・いくら）。注文は最後。状態は前（オーナー）。収支の日次の伝票一覧も同じ並び */
 const BL_COLS=[['date','営業日'],['status','状態'],['customers','お客様'],['kakari',''+KL+''],['due','合計'],['cash','現金'],['card','カード'],['invoice','請求'],['oki','置き'],
   ['guests','客数'],['table','卓'],['service','サービス料'],['discount','値引'],['surcharge','値増'],['dur','時間'],['receipt','領収書'],['ext','延長'],['items','注文']];
-/* v0.87：オーナーが決めた並び（2026-10-14）。同伴・係小計・入店・退店は画面に出さず、Excel にだけ残す */
+/* オーナーが決めた並び。同伴・係小計・入店・退店は画面に出さず、Excel にだけ残す */
 const BL_XLS_COLS=[['date','営業日'],['status','状態'],['customers','お客様'],['kakari',''+KL+''],['due','合計'],['cash','現金'],['card','カード'],['invoice','請求'],['oki','置き'],
   ['guests','客数'],['table','卓'],['douhan','同伴'],['sub',''+KL+'小計'],['service','サービス料'],['discount','値引'],['surcharge','値増'],['in','入店'],['out','退店'],['dur','時間'],['receipt','領収書'],['ext','延長'],['items','注文']]; /* 入店・退店は注文の前（オーナー） */
 const BL_TXT=['customers','kakari','douhan'];
-// v0.51：延長の列は回数。見出しに POS設定の延長単位を出す（例：30分延長（回））。POS設定を読めない時は「延長（回）」
-let blExtL='延長'; /* v0.88：（回）はいらない（オーナー） */ const blLab=(k,l)=>k==='ext'?blExtL:l;
+// 延長の列は回数。見出しに POS設定の延長単位を出す（例：30分延長（回））。POS設定を読めない時は「延長（回）」
+let blExtL='延長'; /* （回）はいらない（オーナー） */ const blLab=(k,l)=>k==='ext'?blExtL:l;
 const BL_SUM=['guests','ext','sub','service','discount','surcharge','due','cash','card','invoice','oki'];
 const blSt=x=>x.status==='void'?'削除':x.status==='open'?'来店中':'会計済';
 const blVal=(k,x)=>k==='status'?blSt(x):k==='date'?x.date:k==='in'?beHm5(x.opened_at):k==='out'?(x.closed_at?hmJst(x.closed_at):''):k==='dur'?durHM(x.opened_at,x.closed_at):k==='receipt'?(x.receipt?'◯':''):BL_SUM.includes(k)?Number(x[k]||0):(x[k]??'');
@@ -25,13 +25,13 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
   const wire=()=>{ $('blGo').onclick=()=>{ const a=$('blF').value, b=$('blT').value; if(!a||!b){ uiAlert('期間を入力してください'); return; } if(b<a){ uiAlert('期間が逆になっています'); return; }
       if((new Date(b)-new Date(a))/864e5>30){ uiAlert('期間は31日までにしてください'); return; } blFrom=a; blTo=b; blFilt=$('blFl').value; PAGES.bills(); };
     $('blMon').onclick=()=>{ const a=($('blF').value||today).slice(0,8)+'01', d=new Date(a+'T00:00:00'); d.setMonth(d.getMonth()+1); d.setDate(0);
-      $('blF').value=a; $('blT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; $('blGo').click(); }; /* 点検 2026-11-02：日付を変えるだけで一覧と Excel が前の期間のままだった */
+      $('blF').value=a; $('blT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; $('blGo').click(); }; /* 点検 日付を変えるだけで一覧と Excel が前の期間のままだった */
     $('blFl').onchange=()=>{ blFilt=$('blFl').value; draw(); }; $('blQ').oninput=()=>{ blQ=$('blQ').value; draw(); }; };
   wire();
   const [r,ps]=await Promise.all([sb.rpc('admin_bill_list',{p_store:st,p_from:f,p_to:t}), sb.from('pos_settings').select('ext_minutes').eq('store_id',st).maybeSingle()]); if(page!=='bills'||storeId!==st||blFrom!==f||blTo!==t) return;
   const em=Number(ps?.data?.ext_minutes||0); blExtL=em>0?`${em}分延長`:'延長';
   if(r.error){ $('blBox').innerHTML=`<div class="card err">${esc(/admin_bill_list/.test(r.error.message)?'SQL 078 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
-  const all=(r.data||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.opened_at||'').localeCompare(String(a.opened_at||''))); let rows=[]; // v0.92：新しい順（オーナー 2026-10-15）
+  const all=(r.data||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.opened_at||'').localeCompare(String(a.opened_at||''))); let rows=[]; // 新しい順（オーナー）
   const pick=()=>{ const q=blQ.trim().toLowerCase(); return all.filter(x=>blFilt==='void'?x.status==='void':x.status!=='void'&&(blFilt==='all'||(blFilt==='open'?x.status==='open':Number(x[blFilt]||0)>0)))
     .filter(x=>!q||BL_XLS_COLS.some(([k])=>String(blVal(k,x)).toLowerCase().includes(q))); };
   const cell=(k,x)=>{ const v=blVal(k,x); if(k==='status') return x.status==='closed'?'<span class="muted">会計済</span>':`<span class="badge ${x.status==='open'?'':'warnb'}">${v}</span>`;
@@ -45,7 +45,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
       $('main').querySelectorAll('[data-blck]').forEach(c=>c.onchange=upd); $('blAll').onchange=()=>{ $('main').querySelectorAll('[data-blck]').forEach(c=>c.checked=$('blAll').checked); upd(); };
       $('blDel').onclick=guard($('blDel'),async()=>{ const ids=ck(); if(!ids.length) return; const sum=ids.reduce((a,id)=>a+Number(all.find(x=>x.id===id)?.due||0),0);
         if(!await uiConfirm(`${ids.length}件の伝票（合計 ${yen(sum)}）を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除','danger')) return;
-        /* v1.75・SQL 293：まとめて1回で削除（途中で止まって一部だけ消えることがない） */
+        /* まとめて1回で削除（途中で止まって一部だけ消えることがない） */
         const z=await rpc('admin_bill_void_many',{p_bills:ids}); if(!z.ok) return;
         toast(`${z.data??ids.length}件 削除しました`); PAGES.bills(); }); } }
   draw(); };

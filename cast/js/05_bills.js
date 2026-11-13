@@ -1,10 +1,10 @@
-// v0.36・SQL 134：伝票一覧（自分が係の伝票。今月の分・前月の分は翌月3日まで。オーナー 2026-10-17）。お客様を押すと明細が開く
+// 伝票一覧（自分が係の伝票。今月の分・前月の分は翌月3日まで。オーナー）。お客様を押すと明細が開く
 let billOpen = new Set();
 const PAYN = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
-let blD = null; /* v0.94：開いている月の伝票（明細を開く・閉じる時は読み直さない） */
+let blD = null; /* 開いている月の伝票（明細を開く・閉じる時は読み直さない） */
 async function castBills(month){
   setBack(home); if(!$('blBox')) show('<div class="card c muted">読み込み中…</div>');
-  /* v0.94：月がわかる時（月のボタン・トップで読んだ件数の最初の月）は、件数と伝票を同時に読む（前は順番に待っていた） */
+  /* 月がわかる時（月のボタン・トップで読んだ件数の最初の月）は、件数と伝票を同時に読む（前は順番に待っていた） */
   const g = month || (ME && ME.billMonths && ME.billMonths[0] && ME.billMonths[0].month) || null;
   const pM = sb.rpc('cast_bill_months', { p_token: TOKEN }), pB = g ? sb.rpc('cast_bills', { p_token: TOKEN, p_month: g }) : null;
   const ms = await pM; if(ms.error){ fail(ms.error.message); return; }
@@ -28,30 +28,30 @@ function blPaint(){
     <div class="muted sm" style="margin:0 2px 8px">${esc(KL)}の伝票・前月分は翌月3日まで</div>
     ${B.map(bill).join('') || '<div class="card c muted">伝票はありません</div>'}</div>`);
   $('main').querySelectorAll('[data-bm]').forEach(b => b.onclick = () => castBills(b.dataset.bm));
-  $('main').querySelectorAll('[data-bl]').forEach(e => e.onclick = () => { const k = e.dataset.bl; billOpen.has(k) ? billOpen.delete(k) : billOpen.add(k); const y = window.scrollY; blPaint(); window.scrollTo(0, y); }); /* v0.94：読み直さない */
+  $('main').querySelectorAll('[data-bl]').forEach(e => e.onclick = () => { const k = e.dataset.bl; billOpen.has(k) ? billOpen.delete(k) : billOpen.add(k); const y = window.scrollY; blPaint(); window.scrollTo(0, y); }); /* 読み直さない */
 }
-// ---------- 黒服マイページ v0.33・SQL 133（オーナー 2026-10-17）：日報（今の Google フォーム）・報酬明細（キャストと同じ形・受取確認）・担当キャスト・朝礼
-async function hallLoad(pre){ /* v0.73：hall_me は castLoadMe で先に読み始めている */
+// ---------- 黒服マイページ （オーナー）：日報（今の Google フォーム）・報酬明細（キャストと同じ形・受取確認）・担当キャスト・朝礼
+async function hallLoad(pre){ /* hall_me は castLoadMe で先に読み始めている */
   const r = await (pre || sb.rpc('hall_me', { p_token: TOKEN })); if(r.error){ fail(r.error.message); return; }
   ME = { ...r.data, hall: true }; KL = ME.kakari_label || '係'; $('tStore').textContent = ME.store_name || 'OLIVE'; hallHome();
   hallGo(goParam());
 }
-// v0.63・SQL 219：リッチメニューのボタンから、その画面を直接開く（?go=。オーナー 2026-10-23 案3）。開店・閉店作業（work）は 22時から朝8時（営業日の切り替え）までは閉店作業、それ以外は開店作業
+// リッチメニューのボタンから、その画面を直接開く（?go=。オーナー 案3）。開店・閉店作業（work）は 22時から朝8時（営業日の切り替え）までは閉店作業、それ以外は開店作業
 function hallGo(k){
   if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
   const h = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24;
   if(k === 'chorei') hallChorei(); else if(k === 'todo') hallTodo(); else if(k === 'cs') hallCs();
   else if(k === 'work'){ opSwitch = true; hallTasks(h >= 22 || h < 8 ? 'close' : 'open'); }
-  else if(k === 'memo') memoList(); /* v1.22・SQL 352：退店の LINE（要変更）から */
-  else if(k === 'ap'){ const a = jgParam('a'); if(a) apPage(a, null, hallHome); } /* v1.44・SQL 392：【ヒアリングシート】の LINE から、その人のページ */
+  else if(k === 'memo') memoList(); /* 退店の LINE（要変更）から */
+  else if(k === 'ap'){ const a = jgParam('a'); if(a) apPage(a, null, hallHome); } /* 【ヒアリングシート】の LINE から、その人のページ */
   else if(k === 'daily'){ const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.click(); }
 }
-/* v0.94：黒服のトップの数（開店・閉店作業の完了・TODO・書類・ミーティング）は60秒まで覚えておく（ほとんどの画面の「戻る」がトップで、そのたびに5つ読んでいた）。
+/* 黒服のトップの数（開店・閉店作業の完了・TODO・書類・ミーティング）は60秒まで覚えておく（ほとんどの画面の「戻る」がトップで、そのたびに5つ読んでいた）。
    読むだけの関数（HC_READ）のほかを呼んだら（保存・完了・取消など）すぐ忘れる */
 let HC = null;
 const HC_READ = new Set(['memo_list', 'memo_get', 'hall_me', 'hall_tasks', 'hall_todos', 'hall_todo_ahead', 'hall_meeting_get', 'hall_chorei', 'hall_casts', 'hall_close_data', 'hall_cs_session', 'cast_docs_info', 'cast_who', 'cast_me',
   'cast_shift_all', 'cast_shift_day', 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll',
-  'cast_key_my' /* v1.29：鍵のタイル（20_key.js）が読むだけ。前は入っておらず、トップを開いた直後に60秒のためおきが消えていた */]);
+  'cast_key_my' /* 鍵のタイル（20_key.js）が読むだけ。前は入っておらず、トップを開いた直後に60秒のためおきが消えていた */]);
 { const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)) HC = null; return rpc0(fn, ...a); }; }
 function hcGet(){
   if(HC && Date.now() - HC.at < 60000) return HC;
@@ -65,7 +65,7 @@ function hcGet(){
 function hallHome(){
   setBack(null); opSwitch = false; const H = hcGet();
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
-  /* v1.17：トップの整理（オーナー 2026-11-04「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。見出しで4つに分ける。
+  /* トップの整理（オーナー「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。見出しで4つに分ける。
      開店作業・閉店作業は1つ（リッチメニューと同じく 22時〜朝8時は閉店作業。閉店作業を POS でする店は開店作業のみ）。ミーティングはシフトの中（全員のシフトの一番上）。書類は未提出の時だけ */
   const hr = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24, night = hr >= 22 || hr < 8;
   const sh = t => `<div class="sm" style="font-weight:700;color:var(--muted);margin:14px 2px 6px">${t}</div>`;
@@ -78,33 +78,33 @@ function hallHome(){
 /* 黒服のホームのボタンをつなぐ */
 function hallHomeWire(H, night){
   $('main').querySelector('[data-go=todo]').onclick = hallTodo;
-  keyTile(); /* v1.07・SQL 326：鍵（20_key.js）。店と更衣室 */
-  memoTile(); /* v1.22・SQL 352：共有メモ（共有された時だけ。22_memo.js） */
+  keyTile(); /* 鍵（20_key.js）。店と更衣室 */
+  memoTile(); /* 共有メモ（共有された時だけ。22_memo.js） */
   hallWorkTile(H, night);
-  H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b) return; if(r.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5 */ const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* v0.69・SQL 234：休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* v0.47：できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
+  H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b) return; if(r.error){ loadNg(); return; } /*点検 B5 */ const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* 休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
-  $('main').querySelector('[data-go=docs]').onclick = docsList; /* v0.81・SQL 271：黒服も自分の書類（契約書は黒服の条文。オーナー 2026-10-27「その人の契約書をその人のマイページで」） */
-  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* v1.17：未提出の時だけ */ if(!ok) loadNg(); /* v1.05・点検 2026-11-02 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
+  $('main').querySelector('[data-go=docs]').onclick = docsList; /* 黒服も自分の書類（契約書は黒服の条文。オーナー「その人の契約書をその人のマイページで」） */
+  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* 未提出の時だけ */ if(!ok) loadNg(); /*点検 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
-  $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* v0.88・SQL 283：遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
-  mtHallTile(H.mtg); /* v0.93・SQL 287：ミーティング（担当の子の割当）。v1.17：ボタンはシフトの中。未申請はシフトのボタンに */
-  $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* v0.70・SQL 257：キャスト全員のシフト（4段目の右の空きに） */
+  $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* 遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
+  mtHallTile(H.mtg); /* ミーティング（担当の子の割当）。ボタンはシフトの中。未申請はシフトのボタンに */
+  $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* キャスト全員のシフト（4段目の右の空きに） */
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
 }
 /* 開店作業・閉店作業のボタン（夜は閉店作業。済んだ数を出す） */
 function hallWorkTile(H, night){
-  { const b = $('main').querySelector('[data-go=work]'); let ph = night ? 'close' : 'open', closeOn = true; /* v0.55：開店作業。v0.57・SQL 209：閉店作業（管理サイトで「マイページで する」の店だけ） */
+  { const b = $('main').querySelector('[data-go=work]'); let ph = night ? 'close' : 'open', closeOn = true; /* 開店作業。閉店作業（管理サイトで「マイページで する」の店だけ） */
     b.onclick = () => { opSwitch = closeOn; hallTasks(ph); };
     const cnt = r => { b.querySelector('small')?.remove(); const L = r.data.items || []; if(L.length) b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); };
-    H.close.then(rc => { if(rc.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5：読めなかった時は1行 */ closeOn = !!rc.data.on;
+    H.close.then(rc => { if(rc.error){ loadNg(); return; } /*点検 B5：読めなかった時は1行 */ closeOn = !!rc.data.on;
       if(night && closeOn){ cnt(rc); return; } ph = 'open'; b.querySelector('b').textContent = '開店作業';
       H.open.then(ro => { if(ro.error){ loadNg(); return; } cnt(ro); }); }); }
 }
 
-// v0.62・SQL 218：顧客サイト（オーナー 2026-10-23「黒服のマイページにも顧客サイトを」→ パスワードなしで開く）。管理サイトの中と同じく、顧客サイトをこの画面の中に出して入場券を渡す（#hall）。編集は顧客サイトのメニューから編集パスワードで
+// 顧客サイト（オーナー「黒服のマイページにも顧客サイトを」→ パスワードなしで開く）。管理サイトの中と同じく、顧客サイトをこの画面の中に出して入場券を渡す（#hall）。編集は顧客サイトのメニューから編集パスワードで
 let csMsg = null;
 function hallCs(){
   setBack(home);

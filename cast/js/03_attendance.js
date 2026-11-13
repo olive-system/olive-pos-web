@@ -1,4 +1,4 @@
-// v0.04・SQL 099：勤怠（月ごとの打刻の履歴。時刻は丸め後＝報酬計算と同じ）
+// 勤怠（月ごとの打刻の履歴。時刻は丸め後＝報酬計算と同じ）
 const ym = d => String(d).slice(0,7), mAdd = (m, n) => { const [y, mo] = m.split('-').map(Number); const x = new Date(y, mo - 1 + n, 1); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-01`; };
 async function attend(month){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');

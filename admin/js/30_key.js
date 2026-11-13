@@ -1,8 +1,8 @@
-// v1.84・SQL 326：鍵（セサミの解錠）。オーナー 2026-11-02「業者も設定したい。QR 1個で完結したい」「キャストは更衣室の鍵だけ、業者は店の鍵だけ、黒服は店と更衣室」
-//   在籍のキャスト・黒服は POS の LINE連携で自動（登録なし）。業者は追加 → QR（読むと鍵の画面）。セサミの設定（API キー・鍵ごとの UUID と秘密鍵）は入れるだけで表示しない
-//   セサミの設定は、セサミのアプリの「共有」の QR の画像からも読める（この画面の中で読み、送るのは UUID と秘密鍵だけ）
-// v1.87・SQL 329：名前を「鍵」→「セサミ連携」。在籍キャスト・黒服の鍵・日（シフトの日／営業日／常時）・開始・終了を表の中で変更（変更するとすぐ保存）
-//   オーナー 2026-11-03「編集できるように」「これ小窓で開く必要ある？」「ずっと（言い方考えて）がない」→ 常時
+// 鍵（セサミの解錠）。オーナー「業者も設定したい。QR 1個で完結したい」「キャストは更衣室の鍵だけ、業者は店の鍵だけ、黒服は店と更衣室」
+// 在籍のキャスト・黒服は POS の LINE連携で自動（登録なし）。業者は追加 → QR（読むと鍵の画面）。セサミの設定（API キー・鍵ごとの UUID と秘密鍵）は入れるだけで表示しない
+// セサミの設定は、セサミのアプリの「共有」の QR の画像からも読める（この画面の中で読み、送るのは UUID と秘密鍵だけ）
+// 名前を「鍵」→「セサミ連携」。在籍キャスト・黒服の鍵・日（シフトの日／営業日／常時）・開始・終了を表の中で変更（変更するとすぐ保存）
+// オーナー「編集できるように」「これ小窓で開く必要ある？」「ずっと（言い方考えて）がない」→ 常時
 const KEY_URL=new URL('../key/',location.href).href, KEY_WD_ORDER=[1,2,3,4,5,6,0];
 PAGES.o_key=async()=>{ const st=storeId, head=`<h1>セサミ連携 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
@@ -52,8 +52,8 @@ function keyApiEdit(st){
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const q=await rpc('admin_key_api_set',{p_store:st,p_key:md.querySelector('#kaK').value}); if(!q.ok) return; md.remove(); toast('保存しました'); PAGES.o_key(); });
 }
 // セサミのアプリの共有 QR（ssm://UI?t=sk&sk=…）：sk を base64 で戻すと、2〜17バイト目が秘密鍵、最後の16バイトがセサミの UUID
-//   セサミ4 などは99バイト（84〜99バイト目）、セサミ5 などは39バイト（24〜39バイト目）。2026-11-03 更衣室が39バイトで読取エラー
-function keyFromShare(txt){ try{ let sk=new URL(String(txt).replace(/^ssm:\/\//,'https://x/')).searchParams.get('sk'); if(!sk) return null; sk=sk.replace(/ /g,'+'); // QR の sk の「＋」は、そのまま読むと空白になる（2026-11-03）
+// セサミ4 などは99バイト（84〜99バイト目）、セサミ5 などは39バイト（24〜39バイト目）。 更衣室が39バイトで読取エラー
+function keyFromShare(txt){ try{ let sk=new URL(String(txt).replace(/^ssm:\/\//,'https://x/')).searchParams.get('sk'); if(!sk) return null; sk=sk.replace(/ /g,'+'); // QR の sk の「＋」は、そのまま読むと空白になる
   const b=Uint8Array.from(atob(sk.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0)); if(b.length<39) return null;
   const h=a=>[...a].map(x=>x.toString(16).padStart(2,'0')).join(''), u=h(b.length>=99?b.slice(83,99):b.slice(-16));
   return { secret:h(b.slice(1,17)), uuid:`${u.slice(0,8)}-${u.slice(8,12)}-${u.slice(12,16)}-${u.slice(16,20)}-${u.slice(20)}` }; }catch(e){ return null; } }
@@ -65,7 +65,7 @@ function keyLockEdit(l){
   const q=id=>md.querySelector('#'+id);
   q('klF').onchange=async()=>{ const f=q('klF').files[0]; if(!f) return; q('klM').textContent='読取中…';
     try{ await needLib('jsqr'); const im=await createImageBitmap(f), c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const x=c.getContext('2d'); x.drawImage(im,0,0);
-      // 画面全体のスクリーンショットでは、ほかの QR を先に拾うことがある → 使えない QR は白で消して探し直す（2026-11-03）
+      // 画面全体のスクリーンショットでは、ほかの QR を先に拾うことがある → 使えない QR は白で消して探し直す
       let k=null; for(let i=0;i<5&&!k;i++){ const d=x.getImageData(0,0,c.width,c.height), qr=window.jsQR&&jsQR(d.data,c.width,c.height); if(!qr) break;
         k=keyFromShare(qr.data); if(!k){ const L=qr.location, xs=[L.topLeftCorner.x,L.topRightCorner.x,L.bottomLeftCorner.x,L.bottomRightCorner.x], ys=[L.topLeftCorner.y,L.topRightCorner.y,L.bottomLeftCorner.y,L.bottomRightCorner.y];
           const x0=Math.min(...xs), y0=Math.min(...ys), m=(Math.max(...xs)-x0)*.2; x.fillStyle='#fff'; x.fillRect(x0-m,y0-m,Math.max(...xs)-x0+2*m,Math.max(...ys)-y0+2*m); } }

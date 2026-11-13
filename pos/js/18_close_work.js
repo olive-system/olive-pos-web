@@ -1,6 +1,6 @@
 // ---------- 閉店作業の画面（①〜⑤・精算の差・月の一覧）。② の領収書精算は 19_close_receipt.js ----------
-// v12.06・SQL 209：マイページの閉店作業（完了・作業中）。黒服マイページで開始・保存する
-// v12.37：右の状態は「名前 時刻 完了」「名前 作業中」の順にして、完了・作業中の位置をそろえる（オーナー 2026-10-30「完了の位置がずれている。気持ち悪い」）
+// マイページの閉店作業（完了・作業中）。黒服マイページで開始・保存する
+// 右の状態は「名前 時刻 完了」「名前 作業中」の順にして、完了・作業中の位置をそろえる（オーナー「完了の位置がずれている。気持ち悪い」）
 function clMpHtml(L,H){ const nil=x=>x.kind==='todo'&&!x.todo_open&&!x.todo_all, n=L.filter(x=>x.status==='done'&&!nil(x)).length;
   return `${H(`⑤ マイページの閉店作業　<small class="muted" style="font-weight:400">完了 ${n}／${L.filter(x=>!nil(x)).length}</small>`)}<div id="clMp" class="list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));column-gap:18px">${L.map(x=>`<div class="item"><span class="n">${esc(x.name)}</span>${nil(x)?'<span class="muted">なし</span>':x.status==='done'?`<b style="color:var(--ok);white-space:nowrap">${x.kind==='todo'?'':`${esc(x.by||'')} ${x.at?hmJst(x.at):''} `}完了</b>`:x.kind==='todo'?`<b style="color:var(--warn)">未完了 ${x.todo_open}</b>`:x.wip_by?`<b style="background:var(--gold-soft);border-radius:6px;padding:2px 7px;white-space:nowrap">${esc(x.wip_by)} 作業中</b>`:'<b style="color:var(--warn)">未完了</b>'}</div>`).join('')||'<div class="muted">項目がありません</div>'}</div>
   <div class="muted" style="font-size:13px;margin-top:6px">黒服マイページの「閉店作業」で開始・保存します。全部完了で精算できます</div>`; }
@@ -12,7 +12,7 @@ async function renderClosing(){ const today=businessDate(); if(!clDate){ clDate=
   clBindA(K); clBindB(K); clDayMemo(K); clBindReq(K); clBindSave(K); clAfter(K); }
 /* その日の現金の動き・精算・お客様・メモの申請・お酒・後の日の精算・マイページの閉店作業・TODO を読む */
 function clFetch(d,from,to){ return Promise.all([
-    sbAll(()=>sb.from('cash_movements').select('*').eq('store_id',store.id).eq('business_date',d).order('created_at').order('id')), /* v12.30：1000行で切れないように分けて読む・店はデータベースで絞る */
+    sbAll(()=>sb.from('cash_movements').select('*').eq('store_id',store.id).eq('business_date',d).order('created_at').order('id')), /* 1000行で切れないように分けて読む・店はデータベースで絞る */
     sbAll(()=>sb.from('daily_advances').select('staff_id,amount').eq('store_id',store.id).eq('business_date',d).order('id')),
     sbAll(()=>sb.from('payments').select('amount,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',from).lt('paid_at',to).order('id')),
     sb.from('register_closings').select('*').eq('store_id',store.id).eq('business_date',d).maybeSingle(),
@@ -24,7 +24,7 @@ function clFetch(d,from,to){ return Promise.all([
     sb.rpc('pos_close_tasks',{p_day:d}), sb.rpc('pos_todos',{p_day:d}) ]); }
 /* 読んだものから、入金・出金・日払・現金売上・前回の精算・未精算の日を出す。読めない時は箱に出して null */
 async function clPrep(d,today,box,R){ const [mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl]=R;
-  /* v12.06・SQL 209：閉店作業をマイページでする店は、②〜⑦・⑨をマイページへ（v12.22 から ② 出退勤確認・③ マイページの閉店作業・④ レジ金合わせ）。ここは完了・作業中の一覧（全部完了でないと精算できない。オーナー 2026-10-23） */
+  /* 閉店作業をマイページでする店は、②〜⑦・⑨をマイページへ（v12.22 から ② 出退勤確認・③ マイページの閉店作業・④ レジ金合わせ）。ここは完了・作業中の一覧（全部完了でないと精算できない。オーナー） */
   const mp=!ctk.error&&ctk.data?.on, mpL=mp?(ctk.data.items||[]):[]; mpL.forEach(x=>{ if(x.kind==='todo') x.todo_all=tdl.error?1:(tdl.data||[]).length; }); /* TODO が1件も無い日（休みの日など）は「完了」ではなく「なし」と出す（終わらせた人がいないのに完了に見えるため） */
   if(setCur!=='closing') return;
   if(mv.error||cls.error){ box.innerHTML=`<div class="muted">SQL 018 が未適用の可能性があります：${esc((mv.error||cls.error).message)}</div>`; return; }
@@ -33,13 +33,13 @@ async function clPrep(d,today,box,R){ const [mv,adv,pay,cls,prev,bc,rq,od,lat,ct
   const advRows=(adv.data||[]).filter(a=>a.amount>0); const advSum=advRows.reduce((a,x)=>a+x.amount,0);
   const cashSales=(pay.data||[]).filter(p=>p.bills&&p.bills.store_id===store.id&&p.bills.status!=='void').reduce((a,p)=>a+(p.amount||0),0);
   const saved=cls.data||null; const prevRow=(prev.data||[])[0]||null; const hasPrev=!!prevRow;
-  // v10.43：前回の精算から今日までに未精算の日があれば、その日の現金の動きも本日釣銭に含める（未精算の日のお金はレジに残っているため）。後の日の精算がある日・未来の日は保存できない
+  // 前回の精算から今日までに未精算の日があれば、その日の現金の動きも本日釣銭に含める（未精算の日のお金はレジに残っているため）。後の日の精算がある日・未来の日は保存できない
   const gp=(!saved&&prevRow)?await clGap(prevRow.business_date,d):{net:0,days:[]}; if(setCur!=='closing'||clDate!==d) return; if(gp.error){ box.innerHTML=`<div class="muted">閉店作業を読み込めません。再度開いてください：${esc(gp.error.message)}</div>`; return; } const later=(lat.data||[]).length>0, future=d>today;
-  clCtx={d,outSum,inSum,advSum,cashSales,saved,hasPrev,prevFloat:prevRow?prevRow.next_float+gp.net:0}; const clIdle=!saved&&d<today&&!outSum&&!inSum&&!advSum&&!cashSales; // v10.43：休みなどで動きがない過去の日は「精算済（変動なし自動繰越）」
+  clCtx={d,outSum,inSum,advSum,cashSales,saved,hasPrev,prevFloat:prevRow?prevRow.next_float+gp.net:0}; const clIdle=!saved&&d<today&&!outSum&&!inSum&&!advSum&&!cashSales; // 休みなどで動きがない過去の日は「精算済（変動なし自動繰越）」
   const custIds=[...new Set((bc.data||[]).filter(x=>x.bills&&x.bills.store_id===store.id&&x.bills.status!=='void').map(x=>x.customer_id))];
   return {d,today,box,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds}; }
 /* 今日ご来店のお客様のキープボトル（共同のお客様のボトルも） */
-async function clBottles(custIds){ let bottles=[]; if(custIds.length){ const sh=await sb.from('customer_bottle_shares').select('bottle_id').in('customer_id',custIds); const sid=sh.error?[]:(sh.data||[]).map(x=>x.bottle_id); /* v12.40・SQL 306：共同のお客様が来た日も、そのボトルを出す */ const bt=await sb.from('customer_bottles').select('*').or(`customer_id.in.(${custIds.join(',')})`+(sid.length?`,id.in.(${sid.join(',')})`:'')).eq('is_finished',false); bottles=(bt.data||[]).filter(b=>!b.expired_on); } return bottles; }
+async function clBottles(custIds){ let bottles=[]; if(custIds.length){ const sh=await sb.from('customer_bottle_shares').select('bottle_id').in('customer_id',custIds); const sid=sh.error?[]:(sh.data||[]).map(x=>x.bottle_id); /* 共同のお客様が来た日も、そのボトルを出す */ const bt=await sb.from('customer_bottles').select('*').or(`customer_id.in.(${custIds.join(',')})`+(sid.length?`,id.in.(${sid.join(',')})`:'')).eq('is_finished',false); bottles=(bt.data||[]).filter(b=>!b.expired_on); } return bottles; }
 /* 画面の形（④〜⑨ はマイページで閉店作業をしない店だけ） */
 function clHtmlOld(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K; return mp?'':`  ${H('④ ボトル残量（今日ご来店のお客様のキープボトル）')}
   <div class="list">${bottles.map(b=>`<div class="item"><span class="n">${esc(b.name)}<br><small>${esc(cn(b.customer_id))} 様${esc(knLabel(b,cn(b.customer_id)))}</small></span><select data-clrem="${b.id}">${[10,9,8,7,6,5,4,3,2,1,0].map(n=>`<option value="${n}" ${b.remaining===n?'selected':''}>${n}/10</option>`).join('')}</select></div>`).join('')||'<div class="muted">該当なし（伝票に「＋お客様」で登録された方のボトルが出ます）</div>'}</div>
@@ -90,12 +90,12 @@ function clBindA(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
   box.querySelectorAll('[data-den]').forEach(i=>i.oninput=()=>{ clCounts[i.dataset.den]=clNum(i.value); clRecalc(); });
   if($('clDepIn')) $('clDepIn').oninput=e=>{ clDeposit=clNum(e.target.value); clRecalc(); };
   if($('clOpenIn')) $('clOpenIn').oninput=e=>{ clOpening=clNum(e.target.value); clRecalc(); };
-  // v11.24・SQL 077：入金・出金の項目は管理サイトの POS設定 で決める（「その他」は自由に書ける）
+  // 入金・出金の項目は管理サイトの POS設定 で決める（「その他」は自由に書ける）
   if($('clKind')){ const items=k=>{ const v=settings?.['cash_'+k+'_items']; return Array.isArray(v)?v:(k==='out'?['領収書精算','支払い']:[]); };
     const fill=()=>{ const k=$('clKind').value; $('clMemoSel').innerHTML=items(k).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__other">その他</option>'; };
-    const mv=()=>{ const out=$('clKind').value==='out', rc=out&&$('clMemoSel').value===CL_RCPT; /* v12.75：領収書精算の時は 金額・追加 のかわりに撮影だけ（オーナー 2026-11-07「日払いの場合は撮影いらないよね」） */ $('clAmt').style.display=$('clAdd').style.display=rc?'none':''; $('clShot').style.display=rc?'':'none'; $('clMemo').style.display=$('clMemoSel').value==='__other'?'':'none'; $('clMemo').placeholder=out?'内容を入力':'内容（例：両替、釣銭補充）'; }; fill(); $('clKind').onchange=()=>{ fill(); mv(); };
+    const mv=()=>{ const out=$('clKind').value==='out', rc=out&&$('clMemoSel').value===CL_RCPT; /* 領収書精算の時は 金額・追加 のかわりに撮影だけ（オーナー「日払いの場合は撮影いらないよね」） */ $('clAmt').style.display=$('clAdd').style.display=rc?'none':''; $('clShot').style.display=rc?'':'none'; $('clMemo').style.display=$('clMemoSel').value==='__other'?'':'none'; $('clMemo').placeholder=out?'内容を入力':'内容（例：両替、釣銭補充）'; }; fill(); $('clKind').onchange=()=>{ fill(); mv(); };
     box.querySelectorAll('[data-clk]').forEach(b=>b.onclick=()=>{ $('clKind').value=b.dataset.clk; box.querySelectorAll('[data-clk]').forEach(x=>x.classList.toggle('on',x===b)); fill(); mv(); }); $('clMemoSel').onchange=()=>{ mv(); if($('clMemoSel').value==='__other') $('clMemo').focus(); }; mv(); }
-  if($('clAdd')) $('clAdd').onclick=guard($('clAdd'),async()=>{ /* v12.30：二度押しで2つ入らないように */ const amount=clNum($('clAmt').value), kind=$('clKind').value, memo=$('clMemoSel').value!=='__other'?$('clMemoSel').value:$('clMemo').value.trim(); if(!amount){ toast('金額を入力してください'); return; } if(!memo){ toast('内容を入力してください'); return; } if(await askBy()===null) return; $('clAdd').disabled=true; const r=await insOnce('cash_movements',{store_id:store.id,business_date:d,kind,amount,memo}); if(r.error){ toast(r.error.message); $('clAdd').disabled=false; return; } await logOp(kind==='out'?'レジ出金の登録':'レジ入金の登録',{date:d,amount,memo},null,true); renderClosing(); });
+  if($('clAdd')) $('clAdd').onclick=guard($('clAdd'),async()=>{ /* 二度押しで2つ入らないように */ const amount=clNum($('clAmt').value), kind=$('clKind').value, memo=$('clMemoSel').value!=='__other'?$('clMemoSel').value:$('clMemo').value.trim(); if(!amount){ toast('金額を入力してください'); return; } if(!memo){ toast('内容を入力してください'); return; } if(await askBy()===null) return; $('clAdd').disabled=true; const r=await insOnce('cash_movements',{store_id:store.id,business_date:d,kind,amount,memo}); if(r.error){ toast(r.error.message); $('clAdd').disabled=false; return; } await logOp(kind==='out'?'レジ出金の登録':'レジ入金の登録',{date:d,amount,memo},null,true); renderClosing(); });
 }
 /* 押した時の動き：入出金の取消・ボトル残量・写真・領収書。①〜⑨ の中身を読む */
 function clBindB(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K;
@@ -103,21 +103,21 @@ function clBindB(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
   box.querySelectorAll('[data-clrem]').forEach(x=>x.onchange=async()=>{ const b=bottles.find(z=>z.id===x.dataset.clrem); const v=Number(x.value); const r=await sb.rpc('pos_bottle_set',{p_id:b.id,p:{remaining:v}}); if(r.error){ toast(r.error.message); return; } await logOp('ボトル残量変更',{customer:cn(b.customer_id),bottle:b.name,before:b.remaining,after:v},null,true); b.remaining=v; toast('残量を保存しました'); });
   if($('clShot')){ const fi=$('clShot').querySelector('input'); fi.onchange=()=>{ const f=fi.files&&fi.files[0]; fi.value=''; if(f) clRcptShot(f,d); }; }
   box.querySelectorAll('[data-mvpdf]').forEach(x=>x.onclick=()=>clRcptView(moves.find(z=>z.id===x.dataset.mvpdf)));
-  clRegRender(d); // v12.72・SQL 387
+  clRegRender(d);
   clRcptRender(d,moves);
   clMvRender(d,moves,saved);
-  clChkRender(d); // v10.61
-  clKmRender(d); // v11.59
-  clTodoRender(d); // v11.71・SQL 145
-  clCardRender(d,false); // v11.60
-  if(mp) clPunchRender(d); // v12.22
+  clChkRender(d);
+  clKmRender(d);
+  clTodoRender(d);
+  clCardRender(d,false);
+  if(mp) clPunchRender(d);
 }
 function clDayMemo(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K;
-  // v11.22・SQL 073：その日のメモ（店・営業日ごとに1つ。管理サイトの収支の Excel の日次「メモ」に入る）
-  /* v12.30・SQL 291：読み終わるまでは保存しない。保存は「読んだ時のメモ」のままの時だけ。ほかで変わっていたら行ごとに合わせて（同じ行は両方残す）もう一度 */
+  // その日のメモ（店・営業日ごとに1つ。管理サイトの収支の Excel の日次「メモ」に入る）
+  /* 読み終わるまでは保存しない。保存は「読んだ時のメモ」のままの時だけ。ほかで変わっていたら行ごとに合わせて（同じ行は両方残す）もう一度 */
   let dmLoaded=false, dmLast=null, dmTm=null;
   sb.from('daily_memos').select('memo').eq('store_id',store.id).eq('business_date',d).maybeSingle().then(r=>{ if(setCur!=='closing'||clDate!==d||!$('clDayMemo')) return; if(r.error){ $('clDayMemo').placeholder=/daily_memos/.test(r.error.message)?'SQL 073 が未実行です':r.error.message; return; } const el=$('clDayMemo'), got=r.data?.memo||'', typed=el.value.trim(); dmLast=got; dmLoaded=true; if(typed){ const mg=memoMerge('',typed,got); el.value=memoMergeDone(mg,mg.conflicts.map(()=>'b')); dmTm=setTimeout(memoSave,1200); } else el.value=got; });
-  // v11.72：その日のメモは打つと自動で保存（オーナー 2026-10-18「メモを保存っていらないように」）
+  // その日のメモは打つと自動で保存（オーナー「メモを保存っていらないように」）
   const memoSave=async()=>{ clearTimeout(dmTm); const el=$('clDayMemo'); if(!el||!dmLoaded) return; let v=el.value.trim(); if(v===dmLast) return; const st=$('clDayMemoSt'); if(st) st.textContent='保存中…';
     for(let k=0;k<5;k++){ const r=await sb.rpc('pos_day_memo_save',{p_day:d,p_base:dmLast,p_memo:v});
       if(r.error){ if($('clDayMemoSt')) $('clDayMemoSt').textContent=''; toast((/daily_memos/.test(r.error.message)?'SQL 073 が未実行です：':'')+r.error.message); return; }
@@ -144,33 +144,33 @@ function clBindSave(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,
     if(r.error){ if(/もう1台/.test(r.error.message)){ await uiAlert(r.error.message);
     renderClosing();
     return;
-    } /* v12.78・SQL 396：ほかの iPad で入出金・日払・現金の会計が入った時は、最新の金額で開き直す */ toast(/counted_by/.test(r.error.message)?'SQL 164 が未実行です':r.error.message);
+    } /* ほかの iPad で入出金・日払・現金の会計が入った時は、最新の金額で開き直す */ toast(/counted_by/.test(r.error.message)?'SQL 164 が未実行です':r.error.message);
     $('clSave').disabled=false;
     return;
     } await logOp('レジ精算を保存',{date:d,expected:v.expected,counted:v.counted,diff:v.diff,deposit:v.deposit,next_float:v.next,...(cb?{by:cb}:{})},dw||null,true);
     if(dw){ const line=`レジ過不足 ${v.diff>0?'+':''}${yen(v.diff)}：${dw}${cb?`（${cb}）`:''}`;
     await sb.rpc('pos_day_memo_append',{p_day:d,p_line:line});
-    /* v12.30・SQL 291：今のメモの後ろに1行足す（1回で） */ } toast('精算を保存しました');
+    /* 今のメモの後ろに1行足す（1回で） */ } toast('精算を保存しました');
     clCounts={};
     clDeposit=0;
     renderClosing();
     };
 }
 /* 精算の前の確かめ（完了していない作業・会計していない伝票）。通せる時だけ true */
-async function clSaveCheck(d,mp){ { let L; try{ L=await clUndone(d,mp); }catch(_){ await uiAlert(RDERR_T); return; } /* 読めない時は通さない */ if(L.length){ await uiAlert('完了していない作業があります\n'+L.map(x=>'・'+x.t).join('\n')); $(L[0].el)?.scrollIntoView({block:'center'}); return; } } /* v12.00：会計していない伝票があると精算できない（締め忘れると、その伝票の分が抜けたまま精算され、自動の延長も足され続ける。オーナー 2026-10-20） */ { const ob=await sb.from('bills').select('table_id').eq('store_id',store.id).eq('status','open').lte('business_date',d); if(ob.error){ await uiAlert(RDERR_T); return; } /* v12.43：読めない時に未会計0枚として通さない */ const L=ob.data||[]; if(L.length){ const nm=L.map(b=>billTable(b)||'卓なし').join('・'); await uiAlert(`まだ会計していない伝票が ${L.length}枚あります（${nm}）\nホールで会計してから精算してください`); return; } } return true; }
+async function clSaveCheck(d,mp){ { let L; try{ L=await clUndone(d,mp); }catch(_){ await uiAlert(RDERR_T); return; } /* 読めない時は通さない */ if(L.length){ await uiAlert('完了していない作業があります\n'+L.map(x=>'・'+x.t).join('\n')); $(L[0].el)?.scrollIntoView({block:'center'}); return; } } /* 会計していない伝票があると精算できない（締め忘れると、その伝票の分が抜けたまま精算され、自動の延長も足され続ける。オーナー） */ { const ob=await sb.from('bills').select('table_id').eq('store_id',store.id).eq('status','open').lte('business_date',d); if(ob.error){ await uiAlert(RDERR_T); return; } /* 読めない時に未会計0枚として通さない */ const L=ob.data||[]; if(L.length){ const nm=L.map(b=>billTable(b)||'卓なし').join('・'); await uiAlert(`まだ会計していない伝票が ${L.length}枚あります（${nm}）\nホールで会計してから精算してください`); return; } } return true; }
 /* 数えた人と過不足の理由を聞く。やめた時は null */
-async function clSaveAsk(v){ /* v11.94・SQL 164：数えた人を選ぶ（日報メールに出る。オーナー 2026-10-19） */ const hs=staff.filter(x=>x.kind==='hall'); const cb=hs.length?await uiPick('レジのお金を数えた人',hs.map(h=>({label:h.display_name,value:h.display_name}))):''; if(hs.length&&!cb) return null; /* v11.95：過不足がある時は理由を必ず聞き、その日のメモに足す（日報メールに出る。ゲネプロ #62） */ let dw=''; if(v.diff){ const w=await uiPrompt(`レジの過不足 ${v.diff>0?'+':''}${yen(v.diff)}\n理由を入力してください（必須・その日のメモに入ります）`,''); if(w===null) return null; if(!w.trim()){ toast('理由を入力してください'); return null; } dw=w.trim(); } return {cb,dw}; }
+async function clSaveAsk(v){ /* 数えた人を選ぶ（日報メールに出る。オーナー） */ const hs=staff.filter(x=>x.kind==='hall'); const cb=hs.length?await uiPick('レジのお金を数えた人',hs.map(h=>({label:h.display_name,value:h.display_name}))):''; if(hs.length&&!cb) return null; /* 過不足がある時は理由を必ず聞き、その日のメモに足す（日報メールに出る。ゲネプロ #62） */ let dw=''; if(v.diff){ const w=await uiPrompt(`レジの過不足 ${v.diff>0?'+':''}${yen(v.diff)}\n理由を入力してください（必須・その日のメモに入ります）`,''); if(w===null) return null; if(!w.trim()){ toast('理由を入力してください'); return null; } dw=w.trim(); } return {cb,dw}; }
 /* 合計・月間一覧・警告・連休明け・精算の取消のお知らせ */
 function clAfter(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K;
   clRecalc(); clRenderMonth(); clRenderWarn(d,prevRow?prevRow.business_date:null);
-  /* v12.72・SQL 387：連絡先交換の LINE は、開いた時ではなく「① お客様登録」の完了の時（v12.54 は開いた時。オーナー 2026-11-06） */
-  sb.rpc('pos_todo_ahead',{p_day:d}).then(q=>{ const el=$('clAhead'); if(el&&clDate===d&&!q.error) el.innerHTML=aheadHtml(q.data); }); /* v12.13・SQL 234：連休前の日は、連休明けの休日分を知らせる（オーナー 2026-10-25） */
-  /* v12.07・SQL 220：精算の取消の後は、レジ金合わせを再度（取消の時刻・理由・取消前の現金売上） */ if(!saved) sb.from('pos_audit_log').select('created_at,reason,detail').eq('store_id',store.id).eq('action','レジ精算の取消').eq('detail->>date',d).order('created_at',{ascending:false}).limit(1).then(q=>{ const x=(q.data||[])[0]; if(!x||setCur!=='closing'||clDate!==d||!$('clRe')) return; const t=new Date(x.created_at);
+  /* 連絡先交換の LINE は、開いた時ではなく「① お客様登録」の完了の時（v12.54 は開いた時。オーナー） */
+  sb.rpc('pos_todo_ahead',{p_day:d}).then(q=>{ const el=$('clAhead'); if(el&&clDate===d&&!q.error) el.innerHTML=aheadHtml(q.data); }); /* 連休前の日は、連休明けの休日分を知らせる（オーナー） */
+  /* 精算の取消の後は、レジ金合わせを再度（取消の時刻・理由・取消前の現金売上） */ if(!saved) sb.from('pos_audit_log').select('created_at,reason,detail').eq('store_id',store.id).eq('action','レジ精算の取消').eq('detail->>date',d).order('created_at',{ascending:false}).limit(1).then(q=>{ const x=(q.data||[])[0]; if(!x||setCur!=='closing'||clDate!==d||!$('clRe')) return; const t=new Date(x.created_at);
     $('clRe').innerHTML=`<div style="background:var(--warn-soft);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.6"><b style="color:var(--warn)">精算の取消　${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}</b>　${esc(x.reason||'')}<br>レジ金合わせを再度行い、「精算を保存」を押してください</div>`;
     if(x.detail?.cash_sales!=null&&$('clSalesWas')) $('clSalesWas').textContent=`（取消前 ${yen(x.detail.cash_sales)}）`; });
 }
-// v10.43：前回の精算の翌日〜前日のうち、未精算の日の現金の動き（現金売上＋入金−出金−日払い）の合計
-async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')), /* v11.30：1000行で切れないように分けて読む */
+// 前回の精算の翌日〜前日のうち、未精算の日の現金の動き（現金売上＋入金−出金−日払い）の合計
+async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')), /* 1000行で切れないように分けて読む */
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',after).lt('business_date',d).order('id')),
     sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').gte('paid_at',bdStart(after)).lt('paid_at',bdStart(d)).order('id')),
     sb.from('register_closings').select('business_date').eq('store_id',store.id).gt('business_date',after).lt('business_date',d) ]);
@@ -183,9 +183,9 @@ function clRecalc(){ const c=clCtx; if(!c) return {}; const s=c.saved; const cnt
   const opening=s?s.opening_float:(c.hasPrev?c.prevFloat:clOpening); const sales=s?s.cash_sales:c.cashSales, cin=s?s.cash_in:c.inSum, cout=s?s.cash_out:(c.outSum+c.advSum); const expected=opening+sales+cin-cout; if(s) counted=s.counted; const diff=counted-expected; const deposit=s?s.deposit:clDeposit; const next=counted-deposit;
   const T=(id,t)=>{ const e=$(id); if(e) e.textContent=t; }; T('clCounted',yen(counted)); T('clOpenTxt',yen(opening)); T('clSales',yen(sales)); T('clIn',yen(cin)); T('clOut',yen(cout)); T('clExp',yen(expected)); T('clCnt2',yen(counted)); T('clDiff',(diff>0?'+':'')+yen(diff)); T('clDepTxt',yen(deposit)); T('clNext',yen(next)); const de=$('clDiff'); if(de) de.style.color=diff===0?'':'var(--warn)';
   return {opening,expected,counted,diff,deposit,next}; }
-// v10.43：前回の精算の翌日〜前日までに、動き（現金売上・入出金・日払い）があったのに精算していない日を赤で出す。日付を押すとその日を開く
+// 前回の精算の翌日〜前日までに、動き（現金売上・入出金・日払い）があったのに精算していない日を赤で出す。日付を押すとその日を開く
 async function clRenderWarn(d,after){ const el=$('clWarn'); if(!el) return; const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()-31); const lo=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; const from=after&&after>lo?after:lo;
-  const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date').eq('store_id',store.id).gt('business_date',from).lt('business_date',d).order('id')), /* v12.30：1000行で切れないように分けて読む・店はデータベースで絞る */
+  const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date').eq('store_id',store.id).gt('business_date',from).lt('business_date',d).order('id')), /* 1000行で切れないように分けて読む・店はデータベースで絞る */
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gt('business_date',from).lt('business_date',d).order('id')),
     sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',bdStart(from)).lt('paid_at',bdStart(d)).order('id')),
     sb.from('register_closings').select('business_date').eq('store_id',store.id).gt('business_date',from).lt('business_date',d) ]);
@@ -196,10 +196,10 @@ async function clRenderWarn(d,after){ const el=$('clWarn'); if(!el) return; cons
   const md=mdS; el.innerHTML=`<div class="alert">${days.map(x=>`<a href="#" data-clw="${x}" style="color:inherit">${md(x)}</a>`).join('・')} が未精算です</div>`;
   el.querySelectorAll('[data-clw]').forEach(a=>a.onclick=e=>{ e.preventDefault(); clDate=a.dataset.clw; clCounts={}; clDeposit=0; renderClosing(); }); }
 async function clRenderMonth(){ const el=$('clMonthBox'); if(!el) return; const [y,m]=clMonth.split('-').map(Number); const last=new Date(y,m,0).getDate(); const d1=`${clMonth}-01`, dN=`${clMonth}-${String(last).padStart(2,'0')}`; const nx=m===12?`${y+1}-01-01`:`${y}-${String(m+1).padStart(2,'0')}-01`;
-  // v10.43：動きがない日も含めて全日を表示。精算記録がない日は、前日から引き継いだ釣銭・現金売上・入出金（日払い含む）から計算して出す。動きがない過去の日はレジ内現金＝理論値・過不足0円・預金0円で「精算済（変動なし自動繰越）」、動きがあったのに精算していない日は「未精算」
+  // 動きがない日も含めて全日を表示。精算記録がない日は、前日から引き継いだ釣銭・現金売上・入出金（日払い含む）から計算して出す。動きがない過去の日はレジ内現金＝理論値・過不足0円・預金0円で「精算済（変動なし自動繰越）」、動きがあったのに精算していない日は「未精算」
   const [r,pv,mv,adv,pay]=await Promise.all([ sb.from('register_closings').select('*').eq('store_id',store.id).gte('business_date',d1).lte('business_date',dN),
     sb.from('register_closings').select('next_float').eq('store_id',store.id).lt('business_date',d1).order('business_date',{ascending:false}).limit(1),
-    sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gte('business_date',d1).lte('business_date',dN).order('id')), /* v12.30：1000行で切れないように分けて読む・店はデータベースで絞る */
+    sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',store.id).gte('business_date',d1).lte('business_date',dN).order('id')), /* 1000行で切れないように分けて読む・店はデータベースで絞る */
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',store.id).gte('business_date',d1).lte('business_date',dN).order('id')),
     sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',store.id).gte('paid_at',bdStart(d1)).lt('paid_at',bdStart(nx)).order('id')) ]);
   if(!$('clMonthBox')) return; const er=r.error||mv.error||adv.error||pay.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; }
@@ -218,7 +218,7 @@ function clMonthRows(last,today,byD,sum,pv,C,CS){
     if(future){ rows.push(`<tr style="color:var(--muted)">${C(dl)}${C('').repeat(9)}</tr>`); continue; }
     rows.push(`<tr data-cld="${dd}" style="cursor:pointer;color:var(--muted)">${C(dl)}${C(yen(carry))}${C(yen(t.sales))}${C(yen(t.cin))}${C(yen(t.cout))}${C(yen(exp))}${idle?C(yen(exp))+C(yen(0))+C(yen(0))+CS(dd<today?'精算済<br>（変動なし自動繰越）':''):C('')+C('')+C('')+CS('<span style="color:var(--warn)">未精算</span>')}</tr>`); }
   return rows; }
-// 精算の前に、閉店作業の全部の項目が完了しているかを1か所で見る（オーナー 2026-11-10「すべてのタスクを完了させないと精算できないように」）。完了していない項目を全部返す
+// 精算の前に、閉店作業の全部の項目が完了しているかを1か所で見る（オーナー「すべてのタスクを完了させないと精算できないように」）。完了していない項目を全部返す
 async function clUndone(d,mp){ const ok=r=>{ if(r.error) throw r.error; return r; };
   const lg=a=>sb.from('pos_audit_log').select('detail').eq('store_id',store.id).eq('action',a).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1);
   const [rb,rl,mv,rm,rg,ev,tq,mt,ck]=(await Promise.all([ sb.from('bills').select('id',{count:'exact',head:true}).eq('store_id',store.id).eq('business_date',d).neq('status','void'), lg(CL_REG), lg(CL_MVD),

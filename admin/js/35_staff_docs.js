@@ -1,5 +1,5 @@
-// SQL 445：スタッフの画面の［書類］のタブ（2026-11-11 オーナー「注文集計の右にもう一つタブ」）。閲覧のみ（撮影・削除は POS の在籍キャストの［編集］）。
-//   見られるのはスタッフ設定を見られる人（admin_staff_docs が確かめる）。部品は lib/olive/staff_docs.js（POS と同じ）
+// スタッフの画面の［書類］のタブ（オーナー「注文集計の右にもう一つタブ」）。閲覧のみ（撮影・削除は POS の在籍キャストの［編集］）。
+// 見られるのはスタッフ設定を見られる人（admin_staff_docs が確かめる）。部品は lib/olive/staff_docs.js（POS と同じ）
 async function csDocsTab(st, s){ const box = $('csDoc'), t = csTab;
   const r = await sb.rpc('admin_staff_docs', { p_store: st, p_staff: s.id }); if(page !== 'set_cast' || csDetail?.s !== s || csTab !== t || !box.isConnected) return;
   if(r.error){ box.innerHTML = `<span class="err">読み込めません：${esc(r.error.message)}</span>`; return; }

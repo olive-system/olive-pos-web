@@ -1,18 +1,18 @@
 // ---------- 詳細 ----------
-/* v1.25：並び順を POS とそろえる（名前・卓名は日本語順、数字は数の順） */
+/* 並び順を POS とそろえる（名前・卓名は日本語順、数字は数の順） */
 async function openDetail(id){ curId=id; cur=null; const c=custs.find(x=>x.id===id); $('dName').textContent=c?c.name+' 様':''; $('detail').innerHTML='<div class="loading">読み込み中…</div>'; show('vDetail'); paintEdit();
   try{ const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id) return; cur=d; renderDetail(); }catch(e){ if(curId===id){ $('detail').innerHTML=''; } await csFail(e); if(e.code==='CS_NOTFOUND'){ show('vList'); loadList(); } } }
 async function reloadDetail(){ if(!curId) return; try{ const d=await rpc('cs_detail',{p_token:token,p_id:curId}); cur=d; renderDetail(); }catch(e){ await csFail(e); } }
 
-// v1.43・SQL 117：連絡先交換（LINEマイページからキャストが提出）。交換したキャストの名前。顧客は自動では選ばないので、編集中に黒服がわかる時だけ「未選択の連絡先交換」から選択（POS と同じ。オーナー 2026-10-16）
+// 連絡先交換（LINEマイページからキャストが提出）。交換したキャストの名前。顧客は自動では選ばないので、編集中に黒服がわかる時だけ「未選択の連絡先交換」から選択（POS と同じ。オーナー）
 async function cxLoad(c){ let d; try{ d=await rpc('cs_contacts',{p_token:token,p_customer:c.id}); }catch(e){ const x=$('dCx'); if(x) x.textContent='—'; return; } const box=$('dCx'); if(!box||!cur||cur.customer.id!==c.id) return;
   const key=x=>String(x||'').replace(/[\s　]/g,''), un=((d&&d.unlinked)||[]).slice().sort((a,b)=>(key(b.name)===key(c.name))-(key(a.name)===key(c.name)));
   box.innerHTML=`${((d&&d.casts)||[]).length?d.casts.map(esc).join('・'):'<span class="muted">なし</span>'}`+(editing()&&un.length?`<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><select id="cxSel" style="flex:1;min-width:0;padding:8px 6px"><option value="">未選択の連絡先交換</option>${un.map(x=>`<option value="${x.id}">${esc(x.name)} 様（${esc(x.cast)} ${cuMd(x.date)}）</option>`).join('')}</select><button class="ghost sm" id="cxGo" style="flex:none">選択</button></div>`:'');
   const go=$('cxGo'); if(go) go.onclick=async()=>{ const id=$('cxSel').value; if(!id){ await uiAlert('連絡先交換を選んでください'); return; } const x=un.find(z=>z.id===id); if(!await uiConfirm(`${x.name} 様（${x.cast}）の連絡先交換を\n${c.name} 様にしますか？`)) return; if(!await needEdit()) return; go.disabled=true; try{ await rpc('cs_contact_link',{p_token:token,p_edit_token:editTok,p_id:id,p_customer:c.id}); toast('顧客を選択しました'); cxLoad(c); }catch(e){ go.disabled=false; await csFail(e); } }; }
-function renderDetail(){ if(!cur) return; const c=cur.customer; /* v1.59：モードが無いので、編集のボタンはいつも同じ形（閲覧だけの人には出さない） */ $('dName').textContent=c.name+' 様';
-  const bts=(cur.bottles||[]).slice().sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); /* v1.25：開けた日の新しい順（POS と同じ） */ const open=bts.filter(b=>!b.is_finished&&!b.expired_on), fin=bts.filter(b=>b.is_finished&&!b.expired_on), exp=bts.filter(b=>b.expired_on);
+function renderDetail(){ if(!cur) return; const c=cur.customer; /* モードが無いので、編集のボタンはいつも同じ形（閲覧だけの人には出さない） */ $('dName').textContent=c.name+' 様';
+  const bts=(cur.bottles||[]).slice().sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); /* 開けた日の新しい順（POS と同じ） */ const open=bts.filter(b=>!b.is_finished&&!b.expired_on), fin=bts.filter(b=>b.is_finished&&!b.expired_on), exp=bts.filter(b=>b.expired_on);
   const kakari=c.kakari_staff_id?sname(c.kakari_staff_id):'';
-  const good=(cur.good||[]).slice().sort((a,b)=>b.n-a.n||jaCmp(sname(a.staff_id),sname(b.staff_id))).slice(0,3)/* v1.28・SQL 066：全員を受け取り、多い順・同じ回数は名前順で3名（POS と同じ） */.map(g=>`<span style="margin-right:14px;white-space:nowrap;display:inline-block">${esc(sname(g.staff_id))} <small class="muted">${g.n}回</small></span>`).join('')||'<span class="muted">なし</span>';
+  const good=(cur.good||[]).slice().sort((a,b)=>b.n-a.n||jaCmp(sname(a.staff_id),sname(b.staff_id))).slice(0,3)/* 全員を受け取り、多い順・同じ回数は名前順で3名（POS と同じ） */.map(g=>`<span style="margin-right:14px;white-space:nowrap;display:inline-block">${esc(sname(g.staff_id))} <small class="muted">${g.n}回</small></span>`).join('')||'<span class="muted">なし</span>';
   const reqs=(cur.requests||[]).map(q=>`<div class="req"><div class="who">${cuMd(q.business_date)}　${esc(sname(q.author_staff_id))}　申請中</div><div style="white-space:pre-wrap">${esc(q.body)}</div></div>`).join('');
   const keep=(boot.keep_products||[]);
   const V={c,bts,open,fin,exp,kakari,good,reqs,keep};
@@ -44,7 +44,7 @@ function rdHtmlBtNew(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; ret
     <div style="border-top:1px dashed var(--line);margin-top:10px;padding-top:10px"><div class="muted" style="font-size:13px;margin-bottom:6px">新しくボトルを登録</div><div style="display:flex;gap:6px;align-items:center"><select id="btSel" style="flex:1;min-width:0;padding:10px 6px"><option value="">銘柄を選ぶ</option>${keep.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}<option value="__free">＋ リストに無い銘柄</option></select><select id="btRem" style="width:auto;flex:none;padding:10px 6px" aria-label="残量">${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}">${n}/10</option>`).join('')}</select><button class="ok" id="btAdd" style="flex:none">登録</button></div></div>
     ${exp.length?`<div style="margin-top:4px">${exp.map(b=>`<div class="muted fit1" style="font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((b.moved?'ボトル移動':'期限切れ')+'：'+b.name+'　'+(b.remaining??0)+'/10　'+(d=>d?String(d).slice(0,10).split('-').map(Number).join('/'):'')(b.expired_on)+(b.moved&&(b.moved_to||b.moved_staff)?'　'+[b.moved_to?'移動先 '+b.moved_to:'',b.moved_staff?KL+' '+b.moved_staff:''].filter(Boolean).join('・'):''))}${b.keep_name&&b.keep_name!==c.name?`（キープ名：${esc(b.keep_name)}）`:''}</div>`).join('')}</div>`:''}
     ${fin.length?`<div class="muted" style="font-size:13px;margin-top:10px">飲み切り済：${fin.slice(0,10).map(b=>esc(b.name)).join('、')}</div>`:''}</div>`; }
-/* メモ・請求先・最終来店日（SQL 469：一方通行・金額は出さない）・削除 v1.47・SQL 196：お客様を削除（オーナー 2026-10-22。来店の履歴・キープボトルがある人は消さない） */
+/* メモ・請求先・最終来店日（一方通行・金額は出さない）・削除 お客様を削除（オーナー。来店の履歴・キープボトルがある人は消さない） */
 function rdHtmlRest(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; return `
   <div class="card"><h2>メモ<button class="edit sm" id="editMemo">編集</button></h2>
     <div class="memo">${c.memo?esc(c.memo):'<span class="muted">なし</span>'}</div>${reqs}
@@ -67,11 +67,11 @@ function rdBindBottles(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; c
     try{ await rpc('cs_bottle',{p_token:token,p_bottle:b.id,p_action:'remaining',p_value:v}); b.remaining=Number(v); toast(`${b.name} を 残り ${v}/10 にしました`); }catch(e){ x.value=String(b.remaining); await csFail(e); } finally{ x.disabled=false; } });
   D.querySelectorAll('[data-fin]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.fin); if(!await uiConfirm(`${b.name} を飲み切りにしますか？`,'飲み切り')) return; await bottleAct(b,'finish','飲み切りにしました'); });
   D.querySelectorAll('[data-exp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.exp); if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`,'期限切れ','danger')) return; await bottleAct(b,'expire','期限切れにしました'); });
-  D.querySelectorAll('[data-mv]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.mv); const v=await mvForm(b,c); if(v) await bottleAct(b,'move','ボトル移動にしました',JSON.stringify(v)); }); /* v1.55・SQL 306：移動先・係を記録（オーナー 2026-11-01「移籍先のお店に持っていける。一応記録しておきたい」） */
-  D.querySelectorAll('[data-sh]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.sh); if(b.own===false){ if(!await uiConfirm(`${b.name} は ${b.share} 様のボトルです。\n共同を解除しますか？`,'共同解除')) return; if(!await needEdit()) return; await bottleAct(b,'share','共同を解除しました','',true); return; } /* 相手のボトルは解除だけ */ if(!await needEdit()) return; const v=await shForm(b,c); if(v!=null) await bottleAct(b,'share',v?'共同ボトルにしました':'共同を解除しました',v,true); }); /* v1.55・SQL 306：共同ボトル（1本を2人のお客様につなぐ） */
+  D.querySelectorAll('[data-mv]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.mv); const v=await mvForm(b,c); if(v) await bottleAct(b,'move','ボトル移動にしました',JSON.stringify(v)); }); /* 移動先・係を記録（オーナー「移籍先のお店に持っていける。一応記録しておきたい」） */
+  D.querySelectorAll('[data-sh]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.sh); if(b.own===false){ if(!await uiConfirm(`${b.name} は ${b.share} 様のボトルです。\n共同を解除しますか？`,'共同解除')) return; if(!await needEdit()) return; await bottleAct(b,'share','共同を解除しました','',true); return; } /* 相手のボトルは解除だけ */ if(!await needEdit()) return; const v=await shForm(b,c); if(v!=null) await bottleAct(b,'share',v?'共同ボトルにしました':'共同を解除しました',v,true); }); /* 共同ボトル（1本を2人のお客様につなぐ） */
   D.querySelectorAll('[data-shgo]').forEach(x=>x.onclick=()=>{ if(x.dataset.shgo) openDetail(x.dataset.shgo); });
   D.querySelectorAll('[data-unexp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.unexp); if(!await uiConfirm(`${b.name} の${b.moved?'ボトル移動':'期限切れ'}を取り消して、キープ中に戻しますか？`,'戻す')) return; if(!await needEdit()) return; await bottleAct(b,'unexpire','キープ中に戻しました',null,true); });
-  /* v1.10：キープ名は常に表示。書き換えて枠を離れたら、編集パスワードを確認してから保存（POS と同じ形） */
+  /* キープ名は常に表示。書き換えて枠を離れたら、編集パスワードを確認してから保存（POS と同じ形） */
   D.querySelectorAll('[data-kn]').forEach(x=>x.onchange=async()=>{ const b=bts.find(z=>z.id===x.dataset.kn); const v=x.value.trim(); const before=b.keep_name||c.name; if((v||c.name)===before){ x.value=before; return; } if(!await needEdit()){ x.value=before; return; } await bottleAct(b,'keep_name','キープ名を保存しました',v,true); });
 }
 /* ボトルの追加（リストに無い銘柄も） */
@@ -87,11 +87,11 @@ function rdBindAdd(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
     try{ const bid=await rpc('cs_bottle_add',{p_token:token,p_customer:c.id,p_product:p.id}); if(rem!==10) await rpc('cs_bottle',{p_token:token,p_bottle:bid,p_action:'remaining',p_value:String(rem)}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ await csFail(e); await reloadDetail(); } };
 }
 window.addEventListener('resize',()=>fitLine());
-// v1.55・SQL 306：ボトル移動の移動先・係（係は今の係を最初に選ぶ）
+// ボトル移動の移動先・係（係は今の係を最初に選ぶ）
 function mvForm(b,c){ const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const k0=b.kakari_staff_id||c.kakari_staff_id||'';
   return sheet(`<h3>${esc(b.name)}（${b.remaining??0}/10）をボトル移動にしますか？</h3><label class="f">移動先<input id="mvTo" maxlength="60" placeholder="例）ファースト"></label><label class="f">${KL}<select id="mvSt"><option value="">なし</option>${casts.map(s=>`<option value="${s.id}" ${s.id===k0?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
   <div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>ボトル移動</button></div>`,(s,done)=>{ s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>done({to:s.querySelector('#mvTo').value.trim(),staff:s.querySelector('#mvSt').value}); }); }
-// v1.55・SQL 306：共同のお客様を選ぶ（名前・会社名で探す）。今の共同は「共同解除」で外す
+// 共同のお客様を選ぶ（名前・会社名で探す）。今の共同は「共同解除」で外す
 function shForm(b,c){ return sheet(`<h3>${esc(b.name)}　共同ボトル</h3><label class="f">共同のお客様<input id="shQ" placeholder="お名前・フリガナ・会社名で検索" autocomplete="off"></label><div id="shL" style="border:1px solid var(--line);border-radius:10px;max-height:240px;overflow:auto"></div>
   <div class="btns">${b.share?'<button class="ghost" data-off style="margin-right:auto">共同解除</button>':''}<button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ let pick=b.share_id&&b.share_id!==c.id?b.share_id:'';
     const draw=()=>{ const q=s.querySelector('#shQ').value.trim(); const hit=custs.filter(x=>x.id!==c.id&&(!q||(x.name||'').includes(q)||(x.company||'').includes(q)||kanaHit(x,q))).slice(0,30); s.querySelector('#shL').innerHTML=hit.map((x,i)=>`<div data-pk="${x.id}" style="padding:8px 10px;cursor:pointer;${i?'border-top:1px solid var(--line);':''}${x.id===pick?'background:var(--soft);font-weight:700':''}">${esc(x.name)} 様${x.company?`　<span class="muted">${esc(x.company)}</span>`:''}</div>`).join('')||'<div class="muted" style="padding:8px 10px">見つかりません</div>'; s.querySelectorAll('[data-pk]').forEach(d=>d.onclick=()=>{ pick=d.dataset.pk; draw(); }); };
@@ -107,10 +107,10 @@ function reqForm(){ const c=cur.customer; const ppl=(boot.staff||[]).filter(s=>s
     s.querySelector('[data-ok]').onclick=async e=>{ const who=s.querySelector('#rqWho').value, body=s.querySelector('#rqBody').value.trim(); if(!who){ toast('書いた人を選んでください'); return; } if(!body){ toast('気づきを入力してください'); return; }
       e.target.disabled=true; try{ await rpc('cs_request',{p_token:token,p_customer:c.id,p_author:who,p_body:body}); LS.set('olive_cs_author',who); done(true); toast('申請しました'); await reloadDetail(); }catch(err){ e.target.disabled=false; await csFail(err); } }; }); }
 
-// v1.46・SQL 171：請求先（オーナー 2026-10-19「顧客サイトにも登録」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」）
+// 請求先（オーナー「顧客サイトにも登録」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」）
 // POS で「請求書」にした時に選んだ・入れた請求先が並ぶ。ここで足す・直す・消すと、POS の請求先に出る。直しても消しても、もう会計した分の請求先は変わらない
-async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* v1.54：説明を外し、1件を1〜2行に（オーナー 2026-11-01「請求先に説明はいらない。もっとコンパクトに」）。「追加」は見出しの右 */
-  try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(e.code==='SQL'?'SQL 171 が未実行です':(e.message||'読み込めません'))/* v1.59：関数が無い時だけ SQL の番号。ほかは本当の文（点検 B3） */}</span>`; return; }
+async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* 説明を外し、1件を1〜2行に（オーナー「請求先に説明はいらない。もっとコンパクトに」）。「追加」は見出しの右 */
+  try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(e.code==='SQL'?'SQL 171 が未実行です':(e.message||'読み込めません'))/* 関数が無い時だけ SQL の番号。ほかは本当の文（点検 B3） */}</span>`; return; }
   if(!cur||cur.customer.id!==c.id||!box()) return;
   box().innerHTML=rows.length?rows.map((x,i)=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;${i?'border-top:1px solid var(--line)':''}"><div style="flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere"><b>${esc(x.company)}</b>${x.attn?`　${esc(x.attn)} 様`:''}${x.address?`<div class="muted" style="font-size:13px;white-space:pre-line">${esc(x.address)}</div>`:''}</div>
     <button class="ghost sm" data-bte="${i}" style="flex:none">修正</button><button class="xb" data-btd="${i}" aria-label="削除">×</button></div>`).join('')

@@ -1,14 +1,14 @@
-// ---------- 伝票の修正 v0.31・SQL 071：収支（日次）の伝票一覧から、会計済の伝票をオーナーが直す（いつの日でも）----------
-// 直せるもの：削除／お客様（追加・新規登録・外す。v2.19・SQL 383）／係・同伴・反応◎／注文（数量・取消・追加・バックの人）／支払い（方法・金額）／人数・来店と退店の時刻（自動延長も付け直す）・値引と値増
+// ---------- 伝票の修正 収支（日次）の伝票一覧から、会計済の伝票をオーナーが直す（いつの日でも）----------
+// 直せるもの：削除／お客様（追加・新規登録・外す）／係・同伴・反応◎／注文（数量・取消・追加・バックの人）／支払い（方法・金額）／人数・来店と退店の時刻（自動延長も付け直す）・値引と値増
 // 画面の中で直してから［保存］でまとめて送る。保存の前に直した後の請求額を確かめる（SQL で計算して元に戻す）。削除以外は操作ログに「何を直したか」を残す
 const BE_M={cash:'現金',card:'カード',invoice:'請求書',oki:'置き'}, BE_ROLE={douhan:'同伴',douhan1:'同伴①',douhan2:'同伴②'};
 const beDh=r=>r==='douhan'||r==='douhan1'||r==='douhan2';
 const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
-// v0.93：来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
+// 来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
 const beHm5=t=>t?hmJst(ceil5(t)):'';
 function beRole(ts){ const x=new Date(new Date(ts||Date.now()).toLocaleString('en-US',{timeZone:'Asia/Tokyo'})), m=x.getHours()*60+x.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; } // POS と同じ決め方
-// v0.38：伝票の No を押すと、その伝票の中身を全部見る（見るだけ。オーナーは「直す」へ）
-async function billView(id,canEdit){ // v0.49・SQL 078：見るだけの人も admin_bill_view で見られる（前は admin_bill_get＝オーナーだけ）
+// 伝票の No を押すと、その伝票の中身を全部見る（見るだけ。オーナーは「直す」へ）
+async function billView(id,canEdit){ // 見るだけの人も admin_bill_view で見られる（前は admin_bill_get＝オーナーだけ）
   let r=await sb.rpc('admin_bill_view',{p_bill:id}); if(r.error&&/admin_bill_view/.test(r.error.message)) r=await sb.rpc('admin_bill_get',{p_bill:id});
   if(r.error){ await uiAlert(r.error.message); return; }
   const box=mkModal(null,billViewHtml(r,canEdit));
@@ -60,7 +60,7 @@ async function billEdit(id){
 function beDiff(E){ const ops=[], note=[]; beDiffBill(E,ops,note); beDiffRows(E,ops,note); return {ops,note:note.filter(Boolean)}; }
 /* お客様（新規登録・追加・外す）と伝票の人数・時刻 */
 function beDiffBill(E,ops,note){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E;
-    // v2.19・SQL 383：お客様の新規登録 → 伝票のお客様の追加・外す
+    // お客様の新規登録 → 伝票のお客様の追加・外す
     S.custs.filter(c=>c._new).forEach(c=>{ ops.push({t:'customers',op:'insert',id:c.customer_id,kakari:c._kk||null,set:{name:c.name,kana:c.kana||null}}); note.push(`お客様を新規登録 ${c.name}`); });
     { const oc=new Set(O.custs.map(c=>c.customer_id)), sc=new Set(S.custs.map(c=>c.customer_id));
       S.custs.filter(c=>!oc.has(c.customer_id)).forEach(c=>{ ops.push({t:'bill_customers',op:'insert',customer:c.customer_id}); if(!c._new) note.push(`お客様を追加 ${c.name}`); });
@@ -105,7 +105,7 @@ function beHtml1(E,v){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,k
     <div class="card" style="margin:0"><h2>お客様</h2>${S.custs.map(c=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(c.name)} 様${c._new?' <small class="muted">新規</small>':''}</span><button class="xb" data-bcurm="${c.customer_id}" aria-label="削除">×</button></div>`).join('')||'<div class="muted">未登録</div>'}
       <div class="row" style="margin-top:8px"><button class="ghost" id="beCAdd">＋お客様</button></div></div>`; } /* お客様 */
 function beHtml2(E,v){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const {it,ex,prods,act,cs}=v; return `
-    <div class="card" style="margin:0"><h2>${KL}・同伴・反応◎</h2>${(()=>{ /* v2.20：反応◎ は1行目（${KL}）の横に並べる（行を分けない。オーナー 2026-11-06「係の横がいいね」） */ const gd=S.goods.map(g=>`<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px">${esc(sn(g.staff_id))}<span style="color:var(--gold)">◎</span> <a data-bgrm="${g.id}" style="cursor:pointer;color:var(--muted)">×</a></span>`).join(''), rw=cs.filter(c=>c.is_kakari||beDh(c.role));
+    <div class="card" style="margin:0"><h2>${KL}・同伴・反応◎</h2>${(()=>{ /* 反応◎ は1行目（${KL}）の横に並べる（行を分けない。オーナー「係の横がいいね」） */ const gd=S.goods.map(g=>`<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px">${esc(sn(g.staff_id))}<span style="color:var(--gold)">◎</span> <a data-bgrm="${g.id}" style="cursor:pointer;color:var(--muted)">×</a></span>`).join(''), rw=cs.filter(c=>c.is_kakari||beDh(c.role));
         return rw.map((c,i)=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span class="row" style="flex-wrap:wrap;gap:6px 10px"><span>${esc(sn(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',BE_ROLE[c.role]||''].filter(Boolean).join('・')}</small></span>${i===0?gd:''}</span><button class="xb" data-bcrm="${c.id}">×</button></div>`).join('')||(gd?`<div class="row" style="flex-wrap:wrap;gap:6px;padding:4px 0">${gd}</div>`:'<div class="muted">なし</div>'); })()}
       <div class="row" style="margin-top:8px;flex-wrap:wrap">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}${sel('d','＋同伴',act.filter(s=>!s.kakari_only&&att.has(s.id)&&!cs.some(c=>c.staff_id===s.id&&beDh(c.role))))}${sel('g','＋反応◎',ST.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&att.has(s.id)&&!S.goods.some(g=>g.staff_id===s.id)))}</div></div>`; } /* 係・同伴・反応◎ */
 function beHtml3(E,v){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const {it,ex,prods,act,cs}=v; return `
@@ -115,7 +115,7 @@ function beHtml3(E,v){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,k
 function beHtml4(E,v){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const {it,ex,prods,act,cs}=v; return `
     <div class="card" style="margin:0"><h2>値引・値増</h2>${S.adjs.map(a=>`<div class="row" style="justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${a.kind==='discount'?'値引':'値増'} ${yen(a.amount)}</span><button class="xb" data-barm="${a.id}">×</button></div>`).join('')||'<div class="muted">なし</div>'}
       <div class="be3"><select id="beAK"><option value="discount">値引</option><option value="surcharge">値増</option></select><input type="number" inputmode="numeric" id="beAA" placeholder="金額"><button class="ok" id="beAAdd">追加</button></div></div>
-    <div class="card" style="margin:0"><h2>支払い</h2>${S.pays.map(p=>{ const lock=!!p.invoice_paid_on||p.method==='oki'; /* v0.91：種類・金額・ボタンの3列を、どの行も同じ幅にそろえる（オーナー 2026-10-15） */
+    <div class="card" style="margin:0"><h2>支払い</h2>${S.pays.map(p=>{ const lock=!!p.invoice_paid_on||p.method==='oki'; /* 種類・金額・ボタンの3列を、どの行も同じ幅にそろえる（オーナー） */
         return lock?`<div class="be3 ln"><span>${BE_M[p.method]||esc(p.method)}</span><span class="r">${yen(p.amount)}</span><span></span><small class="muted">${p.invoice_paid_on?'入金済（「請求書の未入金」で戻すと修正できます）':'置きは POS で'}</small></div>`
           :`<div class="be3 ln"><select data-bpm="${p.id}">${['cash','card','invoice'].map(m=>`<option value="${m}" ${p.method===m?'selected':''}>${BE_M[m]}</option>`).join('')}</select><input type="number" inputmode="numeric" data-bpa="${p.id}" value="${p.amount}"><button class="xb" data-bprm="${p.id}" aria-label="支払いを取消">×</button></div>`; }).join('')||'<div class="muted">支払いはありません</div>'}
       <div class="be3"><select id="bePM">${['cash','card','invoice'].map(m=>`<option value="${m}">${BE_M[m]}</option>`).join('')}</select><input type="number" inputmode="numeric" id="bePA" placeholder="金額"><button class="ok" id="bePayAdd">追加</button></div></div>`; } /* 値引・値増・支払い */
@@ -126,7 +126,7 @@ function beHtml5(E,v){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,k
 /* 押した時の動き：人数・時刻・お客様・係・同伴・反応◎ */
 function beBindA(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const q=s=>box.querySelector(s), qa=s=>box.querySelectorAll(s), redo=()=>{ S._reason=q('#beR').value; draw(); };
     q('#beR').oninput=e=>{ S._reason=e.target.value; };
-    q('#beG').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=1)){ e.target.value=B.guest_count; return; } const old=B.guest_count; if(n===old) return; const dn=S.casts.filter(x=>beDh(x.role)).length; if(n<dn){ e.target.value=old; uiAlert(`同伴は客数（${n}名）までです`); return; } /* v1.94・SQL 337：同伴は客数まで（オーナー 2026-11-03） */
+    q('#beG').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=1)){ e.target.value=B.guest_count; return; } const old=B.guest_count; if(n===old) return; const dn=S.casts.filter(x=>beDh(x.role)).length; if(n<dn){ e.target.value=old; uiAlert(`同伴は客数（${n}名）までです`); return; } /* 同伴は客数まで（オーナー） */
       if(B.set_guest_count!=null){ if(n>old) B.set_guest_count+=n-old; } else S.items.filter(i=>live(i)&&(i.product_id===hcId||i.product_id===bcId)&&i.product_id).forEach(i=>{ i.qty=n; resplit(i); }); // POS と同じ：途中で帰った人がいなければ、自動の HC・BC の数も客数に
       B.guest_count=n; redo(); };
     const tm=(k,v)=>{ if(!v) return; const ts=toTs(v); if(k==='opened_at'&&B.set_start){ B.set_start=new Date(new Date(B.set_start).getTime()+(ceil5(ts)-ceil5(B.opened_at))).toISOString(); } B[k]=ts; reExt(); redo(); };
@@ -166,8 +166,8 @@ function beBindD(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks
     q('#beDel').onclick=guard(q('#beDel'),async()=>{ if(!await uiConfirm(`${md(bd)} 卓${B.table||''}　${yen(O.calc.amount_due)} の伝票を削除しますか？\n売上・${KL}小計・バックから外れます`,'削除','danger')) return; const z=await rpc('admin_bill_void',{p_bill:id}); if(!z.ok) return; close(); toast('削除しました'); (PAGES[page]||PAGES.pl)(); });
     q('#beOk').onclick=guard(q('#beOk'),async()=>{ const {ops,note}=diff(); if(!ops.length){ close(); return; } await check(); if(!E.last) { await uiAlert('修正内容に問題があります。赤い文字を確かめてください'); return; }
       const pd=S.pays.reduce((a,p)=>a+Number(p.amount||0),0); if(pd!==Number(E.last.due)&&!await uiConfirm(`支払いの合計（${yen(pd)}）が請求額（${yen(E.last.due)}）と合いません。このまま保存しますか？`,'保存')) return;
-      const z=await rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:note,p_reason:q('#beR').value.trim(),p_dry:false,p_ver:O.ver||null /* v1.75・SQL 293：開いた時の伝票の版。ほかの画面で変わっていたら断る */}); if(!z.ok) return; close(); toast('修正しました'); (PAGES[page]||PAGES.pl)(); }); }
-// v2.19・SQL 383：お客様を選ぶ・新規登録（POS の「＋ お客様」と同じ形。名前で検索・新規登録）。保存まで送らない
+      const z=await rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:note,p_reason:q('#beR').value.trim(),p_dry:false,p_ver:O.ver||null /* 開いた時の伝票の版。ほかの画面で変わっていたら断る */}); if(!z.ok) return; close(); toast('修正しました'); (PAGES[page]||PAGES.pl)(); }); }
+// お客様を選ぶ・新規登録（POS の「＋ お客様」と同じ形。名前で検索・新規登録）。保存まで送らない
 function beTsureKk(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; if(KL!=='係') return null; const act=sid=>ST.some(s=>s.id===sid&&s.is_active), c0=S.custs.find(c=>!c._new); const k0=c0&&CL.find(c=>c.id===c0.customer_id)?.kakari; if(k0&&act(k0)) return k0;
     const ks=[...new Set(S.casts.filter(c=>c.is_kakari).map(c=>c.staff_id))]; return ks.length===1&&act(ks[0])?ks[0]:null; }
 function beCustPick(E,done){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const m=mkModal(null,`<button class="xb dx" data-k="x" aria-label="閉じる">×</button><h2 style="margin:0">お客様</h2><div style="display:flex;gap:8px"><input id="beCS" placeholder="名前で検索" style="flex:1"><button class="ok" id="beCNew">新規登録</button></div><div id="beCL" style="display:flex;flex-wrap:wrap;gap:6px;max-height:50vh;overflow:auto"></div>`);
@@ -176,7 +176,7 @@ function beCustPick(E,done){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,s
       m.querySelector('#beCL').innerHTML=r.map(c=>`<button class="ghost sm" data-cid="${c.id}">${esc(c.name)}</button>`).join('')||'<span class="muted">該当なし</span>';
       m.querySelectorAll('[data-cid]').forEach(x=>x.onclick=()=>{ const c=CL.find(z=>z.id===x.dataset.cid); S.custs.push({customer_id:c.id,name:c.name}); m.remove(); done(); }); };
     qs.oninput=list; m.querySelector('[data-k=x]').onclick=()=>m.remove();
-    // v2.20・SQL 384：［新規登録］は顧客サイトの「新しいお客様」と同じ。名前の小窓を出さず、お名前・フリガナの入力画面をすぐ出す。検索の文字はお名前へ（かなだけならフリガナへ）
+    // ［新規登録］は顧客サイトの「新しいお客様」と同じ。名前の小窓を出さず、お名前・フリガナの入力画面をすぐ出す。検索の文字はお名前へ（かなだけならフリガナへ）
     m.querySelector('#beCNew').onclick=()=>{ const q=qs.value.trim(), kq=!!q&&!kanaBad(kanaFix(q)), bx=m.querySelector('.box');
       bx.innerHTML=`<button class="xb dx" data-k="x" aria-label="閉じる">×</button><h2 style="margin:0">新しいお客様</h2><label>お名前<input id="beNN" value="${esc(kq?'':q)}"></label><label>フリガナ<input id="beNK" value="${esc(kq?kanaFix(q):'')}" placeholder="例）あおやぎ しろう or アオヤギ シロウ"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">登録</button></div>`;
       const n=bx.querySelector('#beNN'), k=bx.querySelector('#beNK'); setTimeout(()=>(kq?n:(q?k:n)).focus(),0); k.onblur=()=>{ k.value=kanaFix(k.value); };

@@ -1,14 +1,14 @@
-// ---------- 収支 v0.30・SQL 070：月次（1日1行）→ 日付を押すと日次（営業日報・現金管理・入出金・伝票一覧・勤怠）。d-system の収支と同じ形 ----------
+// ---------- 収支 月次（1日1行）→ 日付を押すと日次（営業日報・現金管理・入出金・伝票一覧・勤怠）。d-system の収支と同じ形 ----------
 // 売上は会計済の伝票の入金を売上日で（置きは入金した日、請求＝請求書）。キャスト報酬は日ごと＝その日の時間報酬＋商品バック＋手当−日払。月で決まるものは合計の行だけ（合計＝集計「キャスト」の残り支給額）
-// v0.32・SQL 072：総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の報酬（月給・日給・時給）も入る（黒服日払いは黒服の報酬の先払いなので二重にしない）。人件費比率＝総人件費÷売上計。経費＝出金。勤怠の時刻は「収支」を変えられる人が直せる（理由は必須・操作ログ）
+// 総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の報酬（月給・日給・時給）も入る（黒服日払いは黒服の報酬の先払いなので二重にしない）。人件費比率＝総人件費÷売上計。経費＝出金。勤怠の時刻は「収支」を変えられる人が直せる（理由は必須・操作ログ）
 let plMonth=null, plDate=null;
 const plYen=v=>Number(v||0)?yen(v).replace(/^-/,'−'):'—';
 const plRate=(a,b)=>Number(b||0)?(Math.round(Number(a||0)/Number(b)*10000)/100).toFixed(2)+'%':'—%';
-// v1.11：収支の上の「置き」と「ユニーク数」（まとめと同じ数え方）。あとから入れる
+// 収支の上の「置き」と「ユニーク数」（まとめと同じ数え方）。あとから入れる
 async function plFill(st,m){ setTimeout(async()=>{
-  const same=()=>page==='pl'&&storeId===st&&plMonth===m&&!plDate; /* v1.75：読み終わる前に月・店・画面を変えた時は書かない（点検 2026-10-30） */
-  const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); if(!same()) return; document.querySelectorAll('[data-pl=oki]').forEach(e=>e.textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP')); /* v1.60：箱が2つの形（パソコン・スマホ）にあるので両方に */
-  try{ const set=new Set(); for(let i=0;i<20;i++){ const q=await sb.from('bills').select('bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').order('id') /* v1.75：同じ日の伝票の並びを決める（分けて読む時に抜け・重なりが出ないように） */.range(i*1000,i*1000+999); if(!same()) return; if(q.error) throw 0; (q.data||[]).forEach(b=>(b.bill_customers||[]).forEach(c=>c.customer_id&&set.add(c.customer_id))); if((q.data||[]).length<1000) break; }
+  const same=()=>page==='pl'&&storeId===st&&plMonth===m&&!plDate; /* 読み終わる前に月・店・画面を変えた時は書かない（点検） */
+  const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); if(!same()) return; document.querySelectorAll('[data-pl=oki]').forEach(e=>e.textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP')); /* 箱が2つの形（パソコン・スマホ）にあるので両方に */
+  try{ const set=new Set(); for(let i=0;i<20;i++){ const q=await sb.from('bills').select('bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').order('id') /* 同じ日の伝票の並びを決める（分けて読む時に抜け・重なりが出ないように） */.range(i*1000,i*1000+999); if(!same()) return; if(q.error) throw 0; (q.data||[]).forEach(b=>(b.bill_customers||[]).forEach(c=>c.customer_id&&set.add(c.customer_id))); if((q.data||[]).length<1000) break; }
     if(!same()) return; document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent=set.size+'名'); }catch(e){ if(!same()) return; document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent='—'); } },0); }
 const plLabor=x=>Number(x.cast_pay||0)+Number(x.cast_adv||0)+(x.hall_pay==null?Number(x.hall_adv||0):Math.max(Number(x.hall_pay||0),Number(x.hall_adv||0))); // 総人件費
 function plTotals(d){ const D=d.days||[], S=k=>D.reduce((a,x)=>a+Number(x[k]||0),0); const t={date:'合計',cash:S('cash'),invoice:S('invoice'),card:S('card'),sales:S('sales'),kakari_sub:S('kakari_sub'),douhan_sub:S('douhan_sub'),groups:S('groups'),guests:S('guests'),
@@ -30,11 +30,11 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
 /* 上の4つの箱（売上・来店・経費・入金）の部品と、スマホの幅の1つの箱 */
 function pmKit(K){ const {st,m,mOpts,data,T,cols}=K;
   const box=(l,v,c)=>`<div style="display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;flex:1 1 220px"><span style="background:${c};padding:12px 16px;font-weight:700;white-space:nowrap">${l}</span><b style="flex:1;text-align:right;padding:12px 16px;font-size:20px">${v}</b></div>`;
-  // v1.11：上に「まとめ」の月間（売上・来店・経費・入金の4つの箱。オーナー 2026-10-17「収支の上にまとめの月間を。かさばらないように」→ 見本ア、客単価のあとで改行）
+  // 上に「まとめ」の月間（売上・来店・経費・入金の4つの箱。オーナー「収支の上にまとめの月間を。かさばらないように」→ 見本ア、客単価のあとで改行）
   const Nn=v=>Number(v||0), per=(a,b)=>Nn(b)?Math.round(Nn(a)/Nn(b)).toLocaleString('ja-JP'):'0', cm=v=>Nn(v).toLocaleString('ja-JP'), lab=plLabor(T), ex=lab+Nn(T.cash_out);
-  // v1.17：箱の中は「名前（左）｜数字（右）」の表の形（オーナー「現金 98,000／カード 4,243,000 …こんな感じ。他の枠も」）
+  // 箱の中は「名前（左）｜数字（右）」の表の形（オーナー「現金 98,000／カード 4,243,000 …こんな感じ。他の枠も」）
   const kb=(k,v,rows)=>`<div class="card" style="margin:0;padding:10px 12px"><div class="muted" style="font-size:12px">${k}</div><div style="font-size:20px;font-weight:700;margin:2px 0 6px">${v}</div>${rows.length?`<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px">${rows.map(([a,b])=>`<span class="muted">${a}</span><span style="text-align:right;font-variant-numeric:tabular-nums">${b}</span>`).join('')}</div>`:''}</div>`;
-  /* v1.60：スマホの幅では4つを1つの箱に行で並べる（売上は 現金・カード／請求・置き の2行。オーナー 2026-10-25 案ウ） */
+  /* スマホの幅では4つを1つの箱に行で並べる（売上は 現金・カード／請求・置き の2行。オーナー 案ウ） */
   const kl=(k,v,lines,n)=>`<div style="padding:8px 0;${n?'border-top:1px solid var(--line)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="muted" style="font-size:13px">${k}</span><b style="font-size:18px">${v}</b></div>${lines.map(r=>`<div style="display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;margin-top:2px">${r.map(([x,y])=>`<span><span class="muted">${x}</span> ${y}</span>`).join('')}</div>`).join('')}</div>`;
   const phoneTop=`<div class="card pltopl" style="margin:0 0 12px;padding:6px 12px">${kl('売上',plYen(T.sales),[[['現金',cm(T.cash)],['カード',cm(T.card)]],[['請求',cm(T.invoice)],['置き','<span data-pl="oki">…</span>']]],0)}${kl('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[[['ユニーク','<span data-pl="uq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]]],1)}${kl('経費',plYen(ex),[[['キャスト',cm(Nn(T.cast_pay)+Nn(T.cast_adv))],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.cast_adv))],['諸経費',cm(T.cash_out)]]],1)}${kl('入金',plYen(T.cash_in),[],1)}</div>`;
   return {...K,box,Nn,per,cm,lab,ex,kb,kl,phoneTop}; }
@@ -57,7 +57,7 @@ async function plExcel(d){ /* 請求書がある月は、フォルダのいち�
   aoa[1]=['日付',...cols.map((c,i)=>i>0&&cols[i-1][0]===c[0]?null:c[0]||c[2])]; aoa[2]=['',...cols.map(c=>c[0]?c[2]+(c[1]==='rate'?'(%)':''):null)];
   const ws=XLSX.utils.aoa_to_sheet(aoa), mg=[{s:{r:1,c:0},e:{r:2,c:0}}]; let j=0; while(j<cols.length){ let k=j; while(k+1<cols.length&&cols[k+1][0]===cols[j][0]) k++; if(cols[j][0]) mg.push({s:{r:1,c:j+1},e:{r:1,c:k+1}}); else mg.push({s:{r:1,c:j+1},e:{r:2,c:j+1}}); j=k+1; }
   ws['!merges']=mg; ws['!cols']=[{wch:12},...cols.map(()=>({wch:11}))]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'月次収支明細');
-  // v0.33・SQL 073：d-system と同じく ZIP（フォルダの中に 月次1つ＋日次をその月の全部の日。日次のタブは 出金・入金・伝票一覧・メモ）
+  // d-system と同じく ZIP（フォルダの中に 月次1つ＋日次をその月の全部の日。日次のタブは 出金・入金・伝票一覧・メモ）
   const ym=`${y}-${String(mo).padStart(2,'0')}`, base=`${curStore()?.name||'OLIVE'}_収支明細-${ym}`.replace(/[\\/:*?"<>|]/g,'_');
   try{ await ksLoad('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const ex=await sb.rpc('admin_pl_export',{p_store:storeId,p_month:d.month}); if(ex.error){ await uiAlert((/admin_pl_export/.test(ex.error.message)?'SQL 073 が未実行です：':'')+ex.error.message); return; }
@@ -70,14 +70,14 @@ async function plExcel(d){ /* 請求書がある月は、フォルダのいち�
     const mv=k=>(E.moves||[]).filter(x=>x.date===dd&&x.kind===k), mvs=(k,l)=>{ const r=mv(k); return sheet([['摘要',l,'備考'],...r.map(x=>[x.memo||'',Number(x.amount||0),'']),['合計',r.reduce((a,x)=>a+Number(x.amount||0),0),'']],[24,12,24]); };
     XLSX.utils.book_append_sheet(w,mvs('out','支払金額'),'出金'); XLSX.utils.book_append_sheet(w,mvs('in','収入金額'),'入金');
     const bs=(E.bills||[]).filter(b=>b.date===dd), N=k=>bs.reduce((a,b)=>a+Number(b[k]||0),0);
-    const O=[0,1,2,3,4,5,6,7,8,9,11,16,12,13,14,15,10], ord=r=>O.map(i=>r[i]); // v0.37：列の順番（係小計・合計のあとに現金〜置き、注文は最後）
+    const O=[0,1,2,3,4,5,6,7,8,9,11,16,12,13,14,15,10], ord=r=>O.map(i=>r[i]); // 列の順番（係小計・合計のあとに現金〜置き、注文は最後）
     XLSX.utils.book_append_sheet(w,sheet([ord(['№','入店','退店','時間','領収書','卓番号','客数','顧客',''+KL+'','同伴','注文',''+KL+'小計','現金','カード','請求','置き','合計']),
       ...bs.map((b,j)=>ord([j+1,beHm5(b.opened_at),b.closed_at?hmJst(b.closed_at):'来店中',durHM(b.opened_at,b.closed_at),b.receipt?'◯':'',b.table||'',Number(b.guests||0),b.customers||'',b.kakari||'',b.douhan||'',b.items||'',Number(b.sub||0),Number(b.cash||0),Number(b.card||0),Number(b.invoice||0),Number(b.oki||0),Number(b.due||0)])),
       ord(['計','','','',bs.filter(b=>b.receipt).length,'',N('guests'),'','','','',N('sub'),N('cash'),N('card'),N('invoice'),N('oki'),N('due')])],ord([5,7,7,7,7,9,6,16,14,14,40,10,10,10,10,10,10])),'伝票一覧');
     const memo=(E.memos||[]).find(x=>x.date===dd)?.memo||''; XLSX.utils.book_append_sheet(w,sheet([['メモ'],[memo]],[80]),'メモ');
     dir.file(`日次収支明細-${dd}.xlsx`,out(w)); }
   const blob=await zip.generateAsync({type:'blob'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${base}.zip`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); toast('ダウンロードしました'); }
-// v1.38・SQL 171：請求書（オーナー 2026-10-19「請求がある月は、収支のDLで、月次の上（最初）につけてほしい」「その月の分を、会社ごとに1枚」）
+// 請求書（オーナー「請求がある月は、収支のDLで、月次の上（最初）につけてほしい」「その月の分を、会社ごとに1枚」）
 // オーナーの今の請求書と同じ形。その月に「請求書」で会計した分を、売上日ごとに1行（ご飲食代）。宛先は POS で選んだ請求先（会社名・住所・宛名）。請求先ごとに1枚。請求先が無い前の会計は、お客様の会社名・会社住所
 // 画像（ロゴ）を入れるため、ここだけ ExcelJS で作る。ファイル名は 00_ で始めて、フォルダのいちばん上に並べる
 async function plInvoices(dir,month){
@@ -89,7 +89,7 @@ async function plInvoices(dir,month){
   rows.forEach(x=>{ let g=groups.find(z=>z.k===who(x)); if(!g){ g={k:who(x),h:x,days:[]}; groups.push(g); } const dd=g.days.find(z=>z.date===x.date); if(dd) dd.amount+=Number(x.amount||0); else g.days.push({date:x.date,amount:Number(x.amount||0)}); });
   const zipSplit=a=>{ const m=String(a||'').match(/^(〒?\s*\d{3}-?\d{4})[\s　]+(.*)$/s); return (m?[m[1].replace(/\s/g,''),m[2]]:[String(a||'')]).flatMap(l=>l.split(/\n/)).map(l=>l.trim()).filter(Boolean); };
   const used={};
-  for(const g of groups){ const h=g.h, nm=(h.attn||String(h.receipt_name||'').split('\n')[0]||h.name||'').trim() /* v2.03：領収書名が2社以上の時は1社目 */, wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('請求書',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.5,right:0.5,top:0.6,bottom:0.6,header:0.3,footer:0.3}},views:[{showGridLines:false}]});
+  for(const g of groups){ const h=g.h, nm=(h.attn||String(h.receipt_name||'').split('\n')[0]||h.name||'').trim() /* 領収書名が2社以上の時は1社目 */, wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('請求書',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.5,right:0.5,top:0.6,bottom:0.6,header:0.3,footer:0.3}},views:[{showGridLines:false}]});
     ws.columns=[{width:2},{width:30},{width:12},{width:10},{width:15},{width:2}];
     const font=(c,o={})=>{ c.font={size:10,...o}; }, bar=r=>{ ['B','C','D'].forEach(k=>{ ws.getCell(k+r).fill={type:'pattern',pattern:'solid',fgColor:{argb:G}}; }); ws.getRow(r).height=5; };
     bar(2);
@@ -141,7 +141,7 @@ function plRep(P){ const {st,d,ed,m,jd,head,wire,D,today,S,open,X,adv,fAdv,mAdv,
 function plCash(P){ const {st,d,ed,m,jd,head,wire,D,today,S,open,X,rep,repRows,own,bills,bt,billRows,EV,ppl,tcell,attRows}=P;
   const adv=X.advances||[], fAdv=adv.filter(a=>a.kind!=='hall').reduce((a,x)=>a+Number(x.amount||0),0), mAdv=adv.filter(a=>a.kind==='hall').reduce((a,x)=>a+Number(x.amount||0),0);
   const mv=X.moves||[], inS=mv.filter(x=>x.kind==='in').reduce((a,x)=>a+Number(x.amount||0),0), outS=mv.filter(x=>x.kind==='out').reduce((a,x)=>a+Number(x.amount||0),0);
-  /* v1.80・SQL 317（点検 2026-11-02 C4）：現金の表はレジ精算を反映させる表（オーナー「違ったらいけん」）。
+  /* （点検 C4）：現金の表はレジ精算を反映させる表（オーナー「違ったらいけん」）。
      精算した日＝精算の時に保存した値（本日釣銭・現金売上・入金・出金）をそのまま。出金の行＝保存した出金合計−日払報酬。
      精算していない日＝現金管理の画面と同じ計算（前の精算からの未精算の日の分を本日釣銭に含める・現金売上は受け取った営業日・出金合計に日払報酬を含める）。合計の差引残高＝レジ内現金（理論値）
      SQL 317 の前（X.reg が無い時）は、本日釣銭・現金売上だけ前の数え方 */
@@ -156,7 +156,7 @@ function plCash(P){ const {st,d,ed,m,jd,head,wire,D,today,S,open,X,rep,repRows,o
 function plBills(P){ const {st,d,ed,m,jd,head,wire,D,today,S,open,X,rep,repRows,adv,fAdv,mAdv,mv,inS,outS,cl,R,N0,N1,opening,cSales,cIn,cOut,recv,paid,idle,gapD,cashRows,list}=P;
   const own=!!me?.is_owner, bills=X.bills||[], bt=k=>bills.reduce((a,b)=>a+Number(b[k]||0),0);
   const billRows=bills.map((b,i)=>`<tr><td><a data-bvw="${b.id}" style="color:var(--blue);cursor:pointer;text-decoration:underline">${i+1}</a></td><td>${b.status==='void'?'削除':b.closed_at?'会計済':'<span class="badge">来店中</span>'}</td><td>${esc(b.customers||'')}</td><td>${esc(b.kakari||'')}</td><td class="r"><b>${plYen(b.due)}</b></td><td class="r">${plYen(b.cash)}</td><td class="r">${plYen(b.card)}</td><td class="r">${plYen(b.invoice)}</td><td class="r">${b.oki?plYen(b.oki):'—'}</td><td class="r">${b.guests}</td><td>${esc(b.table||'')}</td><td>${durHM(b.opened_at,b.closed_at)}</td>${own?`<td>${b.closed_at&&b.status==='closed'?`<button class="ghost sm" data-bed="${b.id}">修正</button>`:''}</td>`:''}</tr>`).join('');
-  // 勤怠：一人1行（同伴・出勤・退勤またはアフター）。v1.71・SQL 282：時刻は丸めた時刻だけ（実際の打刻の時刻は打刻一覧）。修正した時は「最初の打刻の丸めた時刻→今」（オーナー 2026-10-28）
+  // 勤怠：一人1行（同伴・出勤・退勤またはアフター）。時刻は丸めた時刻だけ（実際の打刻の時刻は打刻一覧）。修正した時は「最初の打刻の丸めた時刻→今」（オーナー）
   const EV={douhan:'同伴',clock_in:'出勤',clock_out:'退勤',after:'アフター'}, ppl=[]; (X.events||[]).forEach(e=>{ let p=ppl.find(z=>z.id===e.staff_id); if(!p){ p={id:e.staff_id,name:e.name,kind:e.kind,ev:{}}; ppl.push(p); } p.ev[e.type]=e; });
   const tcell=e=>e?`${e.orig_at&&hmJst(e.orig_rounded_at||e.orig_at)!==hmJst(e.rounded_at||e.at)?`<small class="muted">${hmJst(e.orig_rounded_at||e.orig_at)}→</small>`:''}<span${e.corrected?' style="color:var(--warn)"':''}>${hmJst(e.rounded_at||e.at)}</span>${ed?` <button class="ghost sm" data-pfx="${e.id}">修正</button>`:''}`:'—';
   const attRows=ppl.map(p=>`<tr><td>${esc(p.name)}${p.kind==='hall'?' <small class="muted">黒服</small>':''}</td><td>${tcell(p.ev.douhan)}</td><td>${tcell(p.ev.clock_in)}</td><td>${tcell(p.ev.clock_out||p.ev.after)}${p.ev.after?' <small class="muted">アフター</small>':''}</td></tr>`).join('');
@@ -172,10 +172,10 @@ function plHtml(P){ const {st,d,ed,m,jd,head,wire,D,today,S,open,X,rep,repRows,a
       <div class="muted" style="font-size:13px;margin-top:6px">時刻は計算に使う時刻（丸めた時刻）。赤は修正済の時刻、→の左は最初の打刻</div></div>`; }
 /* 押した時の動き：日付・現金管理へ・伝票の修正と中身・打刻の修正 */
 function plBind(P){ const {st,d,ed,m,jd,head,wire,D,today,S,open,X,rep,repRows,adv,fAdv,mAdv,mv,inS,outS,cl,R,N0,N1,opening,cSales,cIn,cOut,recv,paid,idle,gapD,cashRows,list,own,bills,bt,billRows,EV,ppl,tcell,attRows}=P;
-  wire(); if($('plReg')) $('plReg').onclick=()=>{ regDate=d; regTab='day'; go('register'); }; /* v1.75：現金管理を見られない人にはボタンを出さない */
+  wire(); if($('plReg')) $('plReg').onclick=()=>{ regDate=d; regTab='day'; go('register'); }; /* 現金管理を見られない人にはボタンを出さない */
   $('main').querySelectorAll('[data-bed]').forEach(bn=>bn.onclick=guard(bn,()=>billEdit(bn.dataset.bed)));
   $('main').querySelectorAll('[data-bvw]').forEach(a=>a.onclick=()=>billView(a.dataset.bvw,own&&!!bills.find(b=>b.id===a.dataset.bvw&&b.closed_at&&b.status==='closed')));
-  /* v1.80（点検 2026-11-02 C8）：［修正］の「今：」と時刻の枠も、表と同じ丸めた時刻（前は実際の打刻の時刻。2026-10-28 の決まり：表は丸めた時刻だけ） */
+  /* （点検 C8）：［修正］の「今：」と時刻の枠も、表と同じ丸めた時刻（前は実際の打刻の時刻。2026-10-28 の決まり：表は丸めた時刻だけ） */
   $('main').querySelectorAll('[data-pfx]').forEach(bn=>bn.onclick=guard(bn,async()=>{ const e=(X.events||[]).find(z=>z.id===bn.dataset.pfx); if(!e) return;
     const mdl=mkModal(null,`<h2 style="margin:0">${esc(e.name)}　${EV[e.type]||''}の時刻の修正</h2><div class="muted">今：${hmJst(e.rounded_at||e.at)}</div><label>時刻<input type="time" id="pfT" value="${hmJst(e.rounded_at||e.at)}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">修正</button></div>`);
     const v=await new Promise(res=>{ mdl.querySelector('[data-k=no]').onclick=()=>{ mdl.remove(); res(null); }; mdl.querySelector('[data-k=ok]').onclick=()=>{ const t=mdl.querySelector('#pfT').value; mdl.remove(); res({t,rs:null}); }; });
