@@ -11,7 +11,7 @@ async function joinOpen(s){
   if(!s) return;
   if(s.kind==='hall'){ if(!await uiConfirm(`${s.display_name}　入店`,'入店')) return; return joinSend(s,{},null); }
   if(!joinInfo){ const r=await sb.rpc('pos_join_info'); if(r.error){ await uiAlert(/pos_join_info/.test(r.error.message)?'SQL 488 が未実行です':r.error.message); return; } joinInfo=r.data||{}; }
-  const sl=await sb.from('slide_tables').select('id,name,unit').eq('store_id',store.id).eq('is_active',true).order('sort_order'), tbls=sl.error?[]:(sl.data||[]);
+  const sl=await sb.from('slide_tables').select('id,name,unit').eq('store_id',S.store.id).eq('is_active',true).order('sort_order'), tbls=sl.error?[]:(sl.data||[]);
   const m=joinBox(s,tbls);
   document.body.appendChild(m); joinBind(s,m,tbls);
 }
@@ -30,7 +30,7 @@ function joinBind(s,m,tbls){
 }
 /* 小窓の中身（スタッフ設定の言葉と並び） */
 function joinBox(s,tbls){
-  const halls=staff.filter(x=>x.kind==='hall'), bd=businessDate();
+  const halls=S.staff.filter(x=>x.kind==='hall'), bd=businessDate();
   const R=[['担当黒服',joinSel('jnMg',[['','未選択'],...halls.map(h=>[h.id,h.display_name])],s.manager_staff_id||'')],
     ['報酬',joinSel('jnPt',[['hourly','時給'],['daily','日給']],'hourly')],
     [`<span id="jnAmL">保証時給</span>`,joinInp('jnAm',110)+' 円'],

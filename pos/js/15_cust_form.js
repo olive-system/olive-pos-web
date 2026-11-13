@@ -1,8 +1,8 @@
 // ---------- 顧客：基本情報のフォーム ----------
-function renderCuForm(){ const c=cuSel==='__new'?cuDraft:customers.find(x=>x.id===cuSel); if(!c){ $('cuForm').innerHTML='<div class="muted">左の一覧からお客様を選ぶか、「＋新規」で登録してください</div>'; $('cuSide').innerHTML=''; return; }
-  if(!staffAll.length&&!renderCuForm._ld){ renderCuForm._ld=1; loadStaffAll().then(()=>{ if(cuSel===c.id) renderCuForm(); }); } // 退店キャストの名前を出すため
-  const casts=staff.filter(s=>s.kind==='cast');
-  /* 係が辞めたキャストの時は「○○（退店）」で残す（前は「なし」になり、ほかの欄を保存すると係が消えていた。顧客サイトと同じ） */ const kGone=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?(staffAll.find(s=>s.id===c.kakari_staff_id)||{id:c.kakari_staff_id,display_name:''}):null;
+function renderCuForm(){ const c=S.cuSel==='__new'?S.cuDraft:S.customers.find(x=>x.id===S.cuSel); if(!c){ $('cuForm').innerHTML='<div class="muted">左の一覧からお客様を選ぶか、「＋新規」で登録してください</div>'; $('cuSide').innerHTML=''; return; }
+  if(!S.staffAll.length&&!renderCuForm._ld){ renderCuForm._ld=1; loadStaffAll().then(()=>{ if(S.cuSel===c.id) renderCuForm(); }); } // 退店キャストの名前を出すため
+  const casts=S.staff.filter(s=>s.kind==='cast');
+  /* 係が辞めたキャストの時は「○○（退店）」で残す（前は「なし」になり、ほかの欄を保存すると係が消えていた。顧客サイトと同じ） */ const kGone=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?(S.staffAll.find(s=>s.id===c.kakari_staff_id)||{id:c.kakari_staff_id,display_name:''}):null;
   $('cuForm').innerHTML=cufHtml(c,casts,kGone); $('cuForm').querySelectorAll('[data-rn]').forEach(rnBox);
   /* 領収書名の横の「不要」（オーナー「なしと書くと宛名がなしと受け取られる」）。不要の時は領収書名の枠を非表示・会計の領収書の宛名に入れない */
   const rnNo=$('cuForm').querySelector('[data-rnno]'); if(rnNo) rnNo.onchange=()=>{ $('cuForm').querySelector('[data-rn]').style.display=rnNo.checked?'none':'grid'; };
@@ -20,16 +20,16 @@ function cufHtml(c,casts,kGone){ return '<div id="cuReq"></div><div style="displ
 async function cufSave(c,rnNo){ const patch={}; $('cuForm').querySelectorAll('[data-k]').forEach(i=>patch[i.dataset.k]=i.value.trim()||null); if(!patch.name){toast('お名前は必須です');return;} if(patch.kana){ patch.kana=kanaFix(patch.kana)||null; if(kanaBad(patch.kana)){ await uiAlert('フリガナはカタカナで入力してください'); return; } } if(c.is_industry&&!patch.company){ await uiAlert('店名を会社名に入力してください'); return; } if(patch.birthday){ const m=toHan(patch.birthday).match(/^(\d{1,2})[\/月.\-](\d{1,2})日?$/); const dim=[31,29,31,30,31,30,31,31,30,31,30,31]; if(!m||+m[1]<1||+m[1]>12||+m[2]<1||+m[2]>dim[+m[1]-1]){ toast('お誕生日は 11/24 のように入力してください'); return; } patch.birthday=`${+m[1]}/${+m[2]}`; }
         patch.receipt_none=!!rnNo?.checked;
     if(!c.id) return cufAdd(c,patch); return cufUpdate(c,patch); }
-async function cufAdd(c,patch){ const same=customers.filter(x=>x.name===patch.name); if(same.length&&!await uiConfirm(`「${patch.name}」様はすでに登録されています${same[0].company?`（${same[0].company}）`:''}。\n別の方として新規登録しますか？`)) return;
+async function cufAdd(c,patch){ const same=S.customers.filter(x=>x.name===patch.name); if(same.length&&!await uiConfirm(`「${patch.name}」様はすでに登録されています${same[0].company?`（${same[0].company}）`:''}。\n別の方として新規登録しますか？`)) return;
       const { kakari_staff_id:kk, ...cup }=patch; Object.keys(cup).forEach(k=>{ if(cup[k]==null) delete cup[k]; }); if(c.is_industry) cup.is_industry=true; const id=crypto.randomUUID();
-      const b=$('cuSave'); b.disabled=true; const ins=await sb.rpc('pos_customer_add',{p:{id,store_id:store.id,...cup}}); if(ins.error){ b.disabled=false; toast(ins.error.message); return; }
-      if(kk){ const kr=await sb.rpc('pos_kakari_set',{p_customer:id,p_store:store.id,p_staff:kk}); if(kr.error) toast(''+KL+'を保存できません：'+kr.error.message); }
-      const r=await sb.from('customers').select(CUSEL).eq('id',id).single(); cuK(r.data); await logOp('顧客追加',{name:patch.name},null,true); customers.push(r.data||{id,store_id:store.id,...cup}); cuDraft=null; cuSel=id; $('cuSearch').value=''; toast('登録しました'); renderCuList(); renderCuForm();
+      const b=$('cuSave'); b.disabled=true; const ins=await sb.rpc('pos_customer_add',{p:{id,store_id:S.store.id,...cup}}); if(ins.error){ b.disabled=false; toast(ins.error.message); return; }
+      if(kk){ const kr=await sb.rpc('pos_kakari_set',{p_customer:id,p_store:S.store.id,p_staff:kk}); if(kr.error) toast(''+KL+'を保存できません：'+kr.error.message); }
+      const r=await sb.from('customers').select(CUSEL).eq('id',id).single(); cuK(r.data); await logOp('顧客追加',{name:patch.name},null,true); S.customers.push(r.data||{id,store_id:S.store.id,...cup}); S.cuDraft=null; S.cuSel=id; $('cuSearch').value=''; toast('登録しました'); renderCuList(); renderCuForm();
 }
 async function cufUpdate(c,patch){
         const changed=Object.keys(patch).filter(k=>k==='good_cast_ids'?JSON.stringify(c[k]||[])!==JSON.stringify(patch[k]):k==='receipt_none'?!!c[k]!==patch[k]:(c[k]||null)!==patch[k]); if(!changed.length){toast('変更はありません');return;}
     /* 変えた欄だけ保存する。ほかの端末（顧客サイトなど）で同じ欄が先に変わっていたら上書きしない */
-    const now=await sb.from('customers').select(CUSEL).eq('id',c.id).maybeSingle(); if(now.error){ toast(/customer_kakari/.test(now.error.message)?''+KL+'を読み込めません：'+now.error.message:now.error.message); return; } cuK(now.data); if(!now.data){ await uiAlert('このお客様は削除されています'); customers=customers.filter(x=>x.id!==c.id); cuSel=null; renderCuList(); renderCuForm(); return; }
+    const now=await sb.from('customers').select(CUSEL).eq('id',c.id).maybeSingle(); if(now.error){ toast(/customer_kakari/.test(now.error.message)?''+KL+'を読み込めません：'+now.error.message:now.error.message); return; } cuK(now.data); if(!now.data){ await uiAlert('このお客様は削除されています'); S.customers=S.customers.filter(x=>x.id!==c.id); S.cuSel=null; renderCuList(); renderCuForm(); return; }
     const clash=changed.filter(k=>JSON.stringify(now.data[k]??null)!==JSON.stringify(c[k]??null)); let merged=false;
     /* メモはほかの端末の変更と行ごとに自動で合わせる（同じ行を両方が直した時だけ、どちらを残すか聞く） */
     if(clash.includes('memo')){ const r=memoMerge(c.memo,patch.memo,now.data.memo), ch=[]; for(const x of r.conflicts){ const v=await pickClash(x); if(v==null) return; ch.push(v); }
@@ -40,7 +40,7 @@ async function cufUpdate(c,patch){
     const up={}; changed.forEach(k=>up[k]=patch[k]);
     /* 係はこの店舗の係として customer_kakari に保存（ほかの店舗の係は変わらない） */ const { kakari_staff_id:kk, ...cup }=up;
     if(Object.keys(cup).length){ const { error } = await sb.rpc('pos_customer_save',{p_id:c.id,p:cup}); if(error){ toast(error.message.includes('column')?'SQL 011 が未適用です：'+error.message:error.message); return; } }
-    if('kakari_staff_id' in up){ const kr=kk?await sb.rpc('pos_kakari_set',{p_customer:c.id,p_store:store.id,p_staff:kk}):await sb.rpc('pos_kakari_set',{p_customer:c.id,p_store:store.id,p_staff:null}); if(kr.error){ toast(''+KL+'を保存できません：'+kr.error.message); return; } }
+    if('kakari_staff_id' in up){ const kr=kk?await sb.rpc('pos_kakari_set',{p_customer:c.id,p_store:S.store.id,p_staff:kk}):await sb.rpc('pos_kakari_set',{p_customer:c.id,p_store:S.store.id,p_staff:null}); if(kr.error){ toast(''+KL+'を保存できません：'+kr.error.message); return; } }
     await logOp('顧客変更',{name:c.name,fields:changed},null,true); const other=Object.keys(now.data).some(k=>!changed.includes(k)&&JSON.stringify(now.data[k]??null)!==JSON.stringify(c[k]??null)); Object.assign(c,now.data,up); toast(merged?'ほかの人の変更と合わせて保存しました':'保存しました'); renderCuList(); if(other) renderCuForm(); /* ほかの端末で変わった欄も最新にする */
 }
 /* 同業のしるし */
@@ -53,5 +53,5 @@ async function cufDelete(c){ /* 来店履歴があれば先に知らせる。ボ
     if(vc.count){ await uiAlert(`「${c.name}」様は来店履歴があるので削除できません`); return; }
     if(!await uiConfirm(`「${c.name}」を削除しますか？${bc.count?`\nボトルの記録（${bc.count}本・飲み切りや期限切れも含む）も一緒に消えます。`:''}`))return;
     if(bc.count){ const d=await sb.rpc('pos_bottle_del_customer',{p_customer:c.id}); if(d.error){ toast('削除できません：'+d.error.message); return; } }
-    const { error } = await sb.rpc('pos_customer_del',{p_id:c.id}); if(error){ toast('削除できません：'+error.message); renderCuSide(c); return; } await logOp('顧客削除',{name:c.name},null,true); customers=customers.filter(x=>x.id!==c.id); cuSel=null; renderCuList(); renderCuForm();
+    const { error } = await sb.rpc('pos_customer_del',{p_id:c.id}); if(error){ toast('削除できません：'+error.message); renderCuSide(c); return; } await logOp('顧客削除',{name:c.name},null,true); S.customers=S.customers.filter(x=>x.id!==c.id); S.cuSel=null; renderCuList(); renderCuForm();
 }

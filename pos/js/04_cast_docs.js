@@ -2,7 +2,7 @@
 // 5つの四角：写真が無い書類は点線の四角（押すとカメラか写真から選ぶ。入力欄は画面の中の label に置く＝スキル olive-photo-shoot）、写真があれば押すと小窓（追加・削除）。
 // ヒアリングシートは LINEマイページで入力した人は入力内容、契約書は LINEマイページで署名した人は署名の日。部品は lib/olive/staff_docs.js（管理サイトと同じ）
 // ［退店・体験］の［詳細］の小窓（pastSel）でも同じ「書類」を出す
-const posDocsOn = s => cSel === s || (typeof pastSel !== 'undefined' && pastSel === s);
+const posDocsOn = s => S.cSel === s || (typeof S.pastSel !== 'undefined' && S.pastSel === s);
 async function posDocs(s){ const box = $('cDocs'); if(!box || !posDocsOn(s)) return;
   box.innerHTML = '<span class="muted">読み込み中…</span>';
   const r = await sb.rpc('pos_staff_docs', { p_staff: s.id }); if(!posDocsOn(s)) return;
@@ -32,7 +32,7 @@ function posDocsWire(box, s, D){
 }
 // 小窓：写真（追加・削除）／ヒアリングシートの入力内容／契約書の署名
 function posDocsOpen(s, D, k){ const n = SD_KINDS.find(x => x[0] === k)[1], P = sdPhotos(D, k);
-  if(sdHear(D, k)){ sdModal(sdHearHtml(s.display_name, D, store?.code === 'hiroshima')); return; }
+  if(sdHear(D, k)){ sdModal(sdHearHtml(s.display_name, D, S.store?.code === 'hiroshima')); return; }
   if(sdSign(D, k) && !P.length){ contractPdfOpen(() => sb.rpc('pos_staff_contract', { p_staff: s.id })); return; } /* 署名入りの契約書を PDF で（オーナー） */
   const m = sdModal(`<h3 style="margin:0 0 10px">${esc(s.display_name)}　${n}</h3><div style="display:flex;gap:10px;flex-wrap:wrap">
     ${P.map(p => `<div style="position:relative"><img data-sdp="${p.id}" data-ap="${p.ap ? 1 : 0}" alt="" style="width:180px;height:240px;object-fit:cover;border-radius:8px;display:block;background:var(--soft);cursor:pointer">${p.ap ? '' : `<button type="button" class="xb" data-sddel="${p.id}" aria-label="削除" style="position:absolute;right:4px;top:4px;background:var(--card)!important;border-radius:50%">×</button>`}</div>`).join('')}
