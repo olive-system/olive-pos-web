@@ -19,7 +19,7 @@ async function leaveDlg(s){
   try{ const p=uiConfirm(`${s.display_name}　退店`); sync(); y=await p; } finally{ ok.textContent='OK'; ok.disabled=false; box.remove(); } if(!y) return;
   const by=await askBy('退店処理した人'); if(by===null) return;
   const r=await sb.rpc('pos_staff_leave',{p_staff:s.id,p_by:by||null}); if(r.error){ await uiAlert(/p_by/.test(r.error.message)?'SQL 395 が未実行です':r.error.message); return; }
-  toast(r.data?.pending?`${s.display_name}：受取待ち（${leaveMon(r.data.months)}）`:`${s.display_name}：退店しました`); if(cSel?.id===s.id){ cSel=null; if(typeof castFormHide==='function') castFormHide(); }
+  toast(r.data?.pending?`${s.display_name}：受取待ち（${leaveMon(r.data.months)}）`:`${s.display_name}：退店しました`); if(S.cSel?.id===s.id){ S.cSel=null; if(typeof castFormHide==='function') castFormHide(); }
   await loadStaffAll(); renderCasts();
 }
 async function leaveDone(s){
@@ -33,7 +33,7 @@ async function leaveDone(s){
 // ［詳細］は右上の × で閉じる小窓（右の欄 300px には書類の写真と体験日の行が入らない。POS の見るだけの小窓と同じ形）。
 // 体験の報酬・体験日ごとの時刻と日払（立替）（記録を読むだけ。［受領済］は在籍リストと同じ受領のサインの画面）・書類（在籍の［編集］と同じ部品 posDocs。撮影・削除も同じ）
 const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',hired:'採用',declined:'辞退',rejected:'不採用'}; /* 検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
-let pastSel=null;
+S.pastSel=null;
 const pastKind=s=>s.ap_id?'面接':s.is_trial?'体験':'退店';
 const pastDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
 async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast').classList.add('on'); $('cSort').textContent='並べ替え';
@@ -48,21 +48,21 @@ async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast'
   pastForm(); }
 function pastForm(){ const f=$('cForm'); f.classList.add('empty'); f.innerHTML='<div class="muted">一覧の「詳細」を押してください</div>'; }
 const pastGrid=R=>R.map(([k,v,top])=>`<span class="muted" style="font-size:13px${top?';align-self:start;padding-top:7px':''}">${k}</span><span>${v}</span>`).join('');
-function pastClose(){ const m=$('pastBox'); if(m) m.remove(); pastSel=null; }
+function pastClose(){ const m=$('pastBox'); if(m) m.remove(); S.pastSel=null; }
 /* ［詳細］の上の行（源氏名・区分・体験結果または入店日と退店日・担当黒服） */
 function pastRows(s){
-  const mg=s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null;
+  const mg=s.manager_staff_id?S.staffAll.find(x=>x.id===s.manager_staff_id):null;
   const kb=s.kind==='hall'?'黒服':s.ap_id?'キャスト':s.is_trial?'体験':s.kakari_only?KL+'専用':s.is_seppan?'折半':'キャスト';
   return [['源氏名',esc(s.display_name)],['本名',esc(s.real_name||'')],['区分',kb],...(s.ap_id?[['面接日',pastDay(s.day)],['面接結果',PAST_RES[s.result]||'']]:s.is_trial?[['体験結果',PAST_RES[s.result]||'未入力']]:[['入店日',pastDay(s.joined_on)],['退店日',pastDay(s.day)]]),...(mg?[['担当黒服',esc(mg.display_name)]]:[])];
 }
-async function pastOpen(s){ pastClose(); pastSel=s;
+async function pastOpen(s){ pastClose(); S.pastSel=s;
   const R=pastRows(s);
   const m=mkModal(50); m.id='pastBox'; /* 受領のサインの画面（55）・書類の小窓（58）より下 */
   m.innerHTML=`<div class="box" style="width:min(760px,94vw)"><button type="button" class="xb dx" aria-label="閉じる">×</button><div id="pastGrid" style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 10px;align-items:center;font-size:15px">${pastGrid(R)}<span id="pastMore" style="display:contents"></span>${s.kakari_only||!s.id?'':'<span class="muted" style="font-size:13px;align-self:start;padding-top:4px">書類</span><span id="cDocs" style="display:flex;flex-wrap:wrap;gap:4px"></span>'}</div></div>`; /* 書類は在籍の［編集］と同じく係専用には出さない */
   m.querySelector('.dx').onclick=pastClose; m.onclick=e=>{ if(e.target===m) pastClose(); }; document.body.appendChild(m);
   if(!s.id) return; /* 面接で採用にした体験なしの子は、まだスタッフの記録が無い（書類・体験日なし） */
   if(!s.kakari_only) posDocs(s);
-  const r=await sb.rpc('pos_staff_past_detail',{p_staff:s.id}); if(pastSel!==s) return;
+  const r=await sb.rpc('pos_staff_past_detail',{p_staff:s.id}); if(S.pastSel!==s) return;
   const more=$('pastMore'), D=r.data||{}, days=D.days||[], f=n=>Number(n||0).toLocaleString('ja-JP'), A=[];
   if(r.error) A.push(['体験の報酬',`<span style="color:var(--warn)">${/pos_staff_past_detail/.test(r.error.message)?'SQL 451 が未実行です':'表示できません：'+esc(r.error.message)}</span>`]);
   else if(D.pay_amount&&(s.is_trial||days.length)) A.push(['体験の報酬',`${D.pay_type==='daily'?'日給':'時給'} ${f(D.pay_amount)}円`]);
