@@ -109,6 +109,7 @@
   .login button{font-size:18px;padding:12px;border:none;border-radius:8px;background:var(--ink);color:#fff}
   .err{color:var(--out);font-size:14px;min-height:18px}
   .hidden{display:none!important}
+  .net{background:var(--out);color:#fff;border-radius:10px;padding:10px 16px;font-size:18px;font-weight:700}
   /* 15番：入力欄の高さは全部 44px */
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
 </style>
@@ -135,6 +136,7 @@
 </div>
 
 <div id="app" class="hidden">
+  <div id="net" class="net hidden">通信を確認しています…</div>
   <div class="top">
     <div class="store" id="storeName">—</div>
     <div class="clock" id="clock">--:--:--</div>
@@ -232,7 +234,7 @@ async function start(fromLogin){
     const data = r.data, error = r.error;
     /* 2026-10-30 点検：通信の失敗（status 0）で登録コードの画面に行くと、戻れなくなっていた → 管理サイトと同じく「通信を確認しています…」を出して5秒ごとにやり直す。登録コードの画面は本当に断られた時だけ */
     if (error && !r.status) { document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.add('hidden'); document.getElementById('login').classList.remove('hidden');
-      document.getElementById('loginErr').textContent = '通信を確認しています…'; clearTimeout(start.r); start.r = setTimeout(start, 5000); return; }
+      document.getElementById('loginErr').textContent = '通信を確認しています…'; netDown(); clearTimeout(start.r); start.r = setTimeout(start, 5000); return; }
     clearTimeout(start.r); document.getElementById('loginErr').textContent = '';
     if (error) { showReg(/tc_check/.test(error.message) ? 'SQL 063 が未実行です' : error.message); return; }
     if (data && data.stale) { await tcStale(); return; } /* 点検 2026-11-02・SQL 313：パスワードが変わった後の古いログインはログイン画面へ（前は名前の一覧が空・店舗未設定になった） */
@@ -241,10 +243,31 @@ async function start(fromLogin){
   const { data: stores } = await sb.from('stores').select('id,name').limit(1);
   store = (stores && stores[0]) || null;
   document.getElementById('storeName').textContent = store ? store.name : '店舗未設定';
+  netOk(); /* 店が決まってから送る（client_errors に店が付く） */
   await loadStaff();
   initCamera();
   rtSub();
 }
+
+// ---------- 通信切れ：切れている間は上に「通信を確認しています…」を出し、戻ったら開き直す。切れていた時刻と打刻の失敗の回数は、戻ってから client_errors へ送る ----------
+// なぜ：iPad から通信が届かなくなると、こちらには何も残らず、Wi-Fi か画面の固まりかも分からなかった。キャストにも、押しても入らない理由が見えなかった
+const NET_KEY = 'olive_tc_net';
+const netGet = () => { try { return JSON.parse(localStorage.getItem(NET_KEY) || 'null'); } catch(e) { return null; } };
+const netPut = v => { try { if (v) localStorage.setItem(NET_KEY, JSON.stringify(v)); else localStorage.removeItem(NET_KEY); } catch(e) {} };
+const netHm = t => { const d = new Date(t), p = n => String(n).padStart(2,'0'); return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const netIs = e => !navigator.onLine || /Failed to fetch|Load failed|NetworkError|Network request failed|fetch failed/i.test(String(e && e.message) + ' ' + String(e && e.originalError && e.originalError.message)); /* 写真の送信の失敗が通信のせいか */
+function netDown(punchFailed){
+  const n = netGet() || { from: Date.now(), wifi: !navigator.onLine, fails: 0 };
+  if (!navigator.onLine) n.wifi = true; if (punchFailed) n.fails++;
+  netPut(n); document.getElementById('net').classList.remove('hidden');
+}
+function netOk(){
+  document.getElementById('net').classList.add('hidden');
+  const n = netGet(); if (!n) return; netPut(null);
+  if (window.oliveErr) oliveErr({ msg: `通信切れ ${netHm(n.from)}〜${netHm(Date.now())}（${n.wifi ? 'Wi-Fi 切断' : '通信の失敗'}・打刻の失敗 ${n.fails}回）`, src: 'timecard/net' });
+}
+window.addEventListener('offline', () => netDown());
+window.addEventListener('online', () => { const go = () => { if (busy) setTimeout(go, 3000); else location.reload(); }; setTimeout(go, 1500); }); /* 開き直すと start の店が決まった所で netOk が送る */
 
 // ---------- リアルタイム（SQL 067）：管理サイト・POS で店名やスタッフが変わったら、すぐ出し直す（打刻の途中は終わってから）。つながらない時は今までどおり ----------
 let rtCh = null, rtT = 0;
@@ -343,9 +366,10 @@ async function punch(staff){
       const d = new Date();
       photoPath = `${(store && store.id) || 'store'}/${d.toISOString().slice(0,10)}/${staff.id}_${type}_${d.getTime()}.jpg`;
       const { error: upErr } = await sb.storage.from('selfies').upload(photoPath, blob, { contentType:'image/jpeg' });
-      if (upErr) { console.warn('upload failed', upErr); if (await tcIsStale()) { await tcStale(); return; } await showToast('写真を保存できません', '通信を確認して、再度押してください', 3000); return; } /* 点検 2026-11-02：パスワードが変わった時は通信のせいにしない */
+      if (upErr) { console.warn('upload failed', upErr); if (await tcIsStale()) { await tcStale(); return; } if (netIs(upErr)) netDown(true); await showToast('写真を保存できません', '通信を確認して、再度押してください', 3000); return; } /* 点検 2026-11-02：パスワードが変わった時は通信のせいにしない */
     }
-    const { error } = await sb.rpc('punch', { p_staff_id: staff.id, p_type: type, p_photo: photoPath, p_terminal: tcGet() || '' });
+    const { error, status } = await sb.rpc('punch', { p_staff_id: staff.id, p_type: type, p_photo: photoPath, p_terminal: tcGet() || '' });
+    if (error && !status) netDown(true); else if (!error) netOk();
     if (error && /登録されていません/.test(error.message)) { showReg('この端末の登録が削除されました。登録コードを再入力してください'); return; }
     if (error && await tcIsStale()) { await tcStale(); return; }
     if (error) throw error;
