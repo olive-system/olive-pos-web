@@ -27,8 +27,8 @@ async function resvList(){
     ${!x.mine&&x.is_kakari?(x.thanked?`<button data-thv="${i}" style="display:block;background:none;border:none;padding:2px 0 0;font:inherit;font-size:13px;color:var(--ok);text-align:left">ありがとう済 ›</button>`:`<div style="margin-top:6px"><button class="btn g" data-th="${i}" style="width:auto;padding:6px 16px">ありがとう</button></div>`):''}
     ${x.mine?`<div style="display:flex;gap:8px;margin-top:6px"><button class="btn g" data-ed="${i}" style="width:auto;padding:6px 16px">変更</button><button class="btn g" data-cx="${i}" style="width:auto;padding:6px 16px;color:var(--warn)">取消</button></div>`:''}</div>`).join('');
   show(`<button class="btn" id="rvNew" style="margin-bottom:12px">予約／同伴申請</button><div class="card"><div class="gh">予約一覧</div>${rows||'<div class="muted sm" style="padding:8px 0">予約はありません</div>'}</div>`);
-  $('rvNew').onclick = () => resvForm(null);
-  $('main').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => resvForm(RESV[b.dataset.ed]));
+  $('rvNew').onclick = () => castResvForm(null);
+  $('main').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => castResvForm(RESV[b.dataset.ed]));
   $('main').querySelectorAll('[data-cx]').forEach(b => b.onclick = () => resvCancel(RESV[b.dataset.cx], b)); /* v0.94：押したボタンを送っている間は押せない */
   $('main').querySelectorAll('[data-th]').forEach(b => b.onclick = () => resvThanks(RESV[b.dataset.th]));
   /* v0.77：「ありがとう済み」を押すと、送ったありがとうの文を小窓で（オーナー 2026-10-27「なんてありがとうを送ったのかがわかるように。小窓で良い」）。文は SQL 113 の cast_resv_thanks と同じ形 */

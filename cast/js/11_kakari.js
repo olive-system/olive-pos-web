@@ -44,7 +44,7 @@ async function resvCancel(x, b){
 // v1.53・SQL 423：来店時刻は 20:00〜0:30 の15分ごとから選ぶ（type=time は iPhone で午前・午後が出て、午後10時のつもりが 10:00 で入った。オーナー 2026-11-09「24時表記がいい」「20:00〜0:30」）
 const RV_TIMES = Array.from({ length: 19 }, (_, i) => { const m = (20 * 60 + i * 15) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); });
 // 予約の画面は、入力中の状態 R（同伴・顧客・VIP・出勤希望など）を1つの入れ物にして、働きごとの関数に分けた。R はこの画面を開くたびに作るので、前に開いた画面の読み込みが後から返っても混ざらない
-async function resvForm(ed){
+async function castResvForm(ed){
   setBack(resvList); show('<div class="card c muted">読み込み中…</div>');
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
   if(st.error){ fail(st.error.message); return; }

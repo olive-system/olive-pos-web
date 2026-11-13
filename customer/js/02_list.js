@@ -10,7 +10,7 @@ const sname=id=>{ const s=staffBy(id); return s?s.name+(s.active?'':'（退店�
 // ---------- 一覧 ----------
 const csAt=c=>Math.max(Date.parse(c.act)||0,Date.parse(c.created_at)||0), csOrder=(a,b)=>csAt(b)-csAt(a)||jaCmp(a.name,b.name)||String(a.id).localeCompare(String(b.id));
 async function loadList(){ $('rows').innerHTML='<div class="loading">読み込み中…</div>';
-  try{ custs=await rpc('cs_list',{p_token:token})||[]; custs.sort(csOrder); /* v1.52・SQL 276：最近出てきた順（来店・予約・情報の更新。オーナー 2026-10-28）。POS と同じ並び */ renderList(); }catch(e){ $('rows').innerHTML=''; await fail(e); } }
+  try{ custs=await rpc('cs_list',{p_token:token})||[]; custs.sort(csOrder); /* v1.52・SQL 276：最近出てきた順（来店・予約・情報の更新。オーナー 2026-10-28）。POS と同じ並び */ renderList(); }catch(e){ $('rows').innerHTML=''; await csFail(e); } }
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ mode=b.dataset.mode; renderList(); });
 $('q').oninput=()=>renderList();
 function renderList(){ const q=$('q').value.trim();
@@ -30,5 +30,5 @@ function newForm(q){ const kq=q&&!kanaBad(kanaFix(q)); return sheet(`<h3>新し�
   s.querySelector('[data-x]').onclick=()=>done(null); s.querySelector('[data-ok]').onclick=()=>{ const nm=n.value.trim(), kn=kanaFix(k.value); if(!nm){ toast('お名前を入力してください'); return; } if(kanaBad(kn)){ toast('フリガナはカタカナで入力してください'); return; } done({nm,kn}); }; }); }
 $('newBtn').onclick=async()=>{ const v=await newForm($('q').value.trim()); if(!v) return; const nm=v.nm;
   const same=custs.filter(c=>c.name===nm); if(same.length&&!await uiConfirm(`「${nm}」様はすでに登録されています${same[0].company?`（${same[0].company}）`:''}。\n別の方として新規登録しますか？`,'新規登録')) return;
-  try{ const id=await rpc('cs_customer_add',{p_token:token,p_name:nm,p_kana:v.kn||null}); toast('登録しました'); $('q').value=''; await loadList(); openDetail(id); }catch(e){ await fail(e); } };
+  try{ const id=await rpc('cs_customer_add',{p_token:token,p_name:nm,p_kana:v.kn||null}); toast('登録しました'); $('q').value=''; await loadList(); openDetail(id); }catch(e){ await csFail(e); } };
 

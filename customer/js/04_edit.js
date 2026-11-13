@@ -22,7 +22,7 @@ async function efSave(e,s,done,c,memoOnly){ const patch={}, before={}, dr={}; le
       if(!Object.keys(patch).length&&!fChg()){ done(false); toast('変更はありません'); return; }
       if(!editing()){ done(false); if(!await needEdit()) return; return editForm(memoOnly,dr); } /* v1.30：パスワードを入れ直しても、書いた内容は残す */
       e.target.disabled=true; try{ if(fChg()){ await rpc('cs_focus_set',{p_token:token,p_edit_token:editTok,p_id:c.id,p_on:fNew}); if(li0) li0.focus=fNew; delete dr.focus; loadFocus(); renderList(); } if(Object.keys(patch).length) await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:patch,p_before:before}); done(true); toast('保存しました'); await reloadDetail(); const li=custs.find(x=>x.id===c.id); if(li&&cur){ Object.assign(li,{name:cur.customer.name,kana:cur.customer.kana,company:cur.customer.company,receipt_name:cur.customer.receipt_name,kakari_staff_id:cur.customer.kakari_staff_id,is_industry:cur.customer.is_industry}); } }
-      catch(err){ e.target.disabled=false; if(err.code==='CS_CONFLICT'){ done(false); await reloadDetail(); return csClash(memoOnly,c,patch,before,dr); } if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); if(!await needEdit()) return; return editForm(memoOnly,dr); } await fail(err); }
+      catch(err){ e.target.disabled=false; if(err.code==='CS_CONFLICT'){ done(false); await reloadDetail(); return csClash(memoOnly,c,patch,before,dr); } if(err.code==='CS_EDIT'){ done(false); await uiAlert(err.message); if(!await needEdit()) return; return editForm(memoOnly,dr); } await csFail(err); }
 }
 /* v1.30：ほかの人が先に変えていた時。メモは行ごとに自動で合わせて保存する（同じ行を両方が直した時だけ、どちらを残すか聞く）。メモ以外は最新にして、書いた内容と一緒に見せ直す */
 async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; if(!c||c.id!==c0.id){ await uiAlert('ほかの人が先にこのお客様を変更しました'); return; }
@@ -33,7 +33,7 @@ async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; 
     const memo=memoMergeDone(r,ch).replace(/\s+$/,'')||null;
     if(same(memo,c.memo)){ toast('ほかの人の変更と同じだったので、そのままにしました'); return; }
     try{ await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:{memo},p_before:{memo:c.memo??null}}); toast('ほかの人の変更と合わせて保存しました'); await reloadDetail(); }
-    catch(err){ if(err.code==='CS_CONFLICT'){ await reloadDetail(); return csClash(true,c0,{memo},{memo:c.memo??null},{memo}); } if(err.code==='CS_EDIT'){ await uiAlert(err.message); if(!await needEdit()) return; return editForm(true,{memo}); } await fail(err); }
+    catch(err){ if(err.code==='CS_CONFLICT'){ await reloadDetail(); return csClash(true,c0,{memo},{memo:c.memo??null},{memo}); } if(err.code==='CS_EDIT'){ await uiAlert(err.message); if(!await needEdit()) return; return editForm(true,{memo}); } await csFail(err); }
     return; }
   const lb=Object.fromEntries(EF.concat([['is_industry','同業'],['receipt_none','領収書名 不要']])); const d={...dr}; clash.forEach(k=>{ d[k]=c[k]; });
   await uiAlert(`ほかの人が先に「${clash.map(k=>lb[k]||k).join('・')}」を変更していました。そこは最新にして、ほかの欄は書いた内容を残したので、確かめて保存してください`);

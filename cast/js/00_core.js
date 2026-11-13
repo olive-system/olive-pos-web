@@ -20,15 +20,24 @@ function draftBind(key, ids){ const k = 'olive_cast_draft_' + key + '_' + STORE;
 async function upPool(n, one, done){ let next = 0, fin = 0, ng = null;
   const w = async () => { while(next < n && !ng){ const i = next++; try{ await one(i); fin++; if(done) done(fin); }catch(e){ ng = ng || e; } } };
   await Promise.all(Array.from({ length: Math.min(3, n) }, w)); if(ng) throw ng; }
-// 指で書く署名の板（報酬の受取のサイン 07_sign・契約書の署名 14_docs）。前は同じものが2つのファイルにあった（2026-11-08 コード整理）
-// clear()：白紙に戻す／drawn()：1回でも書いたか
-function signPad(cv){
-  const W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, Math.max(1, window.devicePixelRatio||1)); cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
-  const g = cv.getContext('2d'); g.scale(dpr, dpr); let drawn = false, down = false;
-  const clear = () => { g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.strokeStyle = '#111'; g.lineWidth = 2.6; g.lineCap = 'round'; g.lineJoin = 'round'; drawn = false; }; clear();
-  const pos = e => { const b = cv.getBoundingClientRect(); return [(e.clientX-b.left)*W/b.width, (e.clientY-b.top)*H/b.height]; };
-  cv.onpointerdown = e => { e.preventDefault(); down = true; try{ cv.setPointerCapture(e.pointerId); }catch(_){} const [a, b] = pos(e); g.beginPath(); g.moveTo(a, b); g.lineTo(a+0.1, b+0.1); g.stroke(); drawn = true; };
-  cv.onpointermove = e => { if(!down) return; e.preventDefault(); const [a, b] = pos(e); g.lineTo(a, b); g.stroke(); };
-  cv.onpointerup = cv.onpointercancel = () => { down = false; };
-  return { clear, drawn: () => drawn };
-}
+
+// ---- 画面の共通の部品（どの画面も使う：小窓・画面の入れ替え・表示できない時・戻る・読めなかった時の1行） ----
+// v0.11：確認・お知らせは画面の中の窓で出す（ブラウザの窓にはサイトのアドレスが出るため。オーナー 2026-10-15）
+function dlg(msg, ok, cancel, html){ if(!html) msg = jaNet(msg); /* v1.31：html は呼ぶ側でエスケープ済み（黒ドレスのしるしを出す小窓） */ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
+  d.innerHTML = `<div class="box"><p>${html ? msg : esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn" data-k="ok">${esc(ok)}</button></div></div>`;
+  document.body.appendChild(d); d.querySelector('[data-k=ok]').onclick = () => { d.remove(); res(true); }; const n = d.querySelector('[data-k=no]'); if(n) n.onclick = () => { d.remove(); res(false); }; }); }
+UI.box = o => dlg(o.msg, o.ok, o.cancel); /* 知らせの箱の見た目（マイページの小窓）。uiAlert・uiConfirm は lib/olive/core.js */
+// v1.39：見るだけの小窓は OK ではなく右上の × で閉じる（オーナー 2026-11-06「閉じるんだったら×でいいよね」）。inner は呼ぶ側でエスケープ済み
+function xBox(inner, done){ const d = document.createElement('div'); d.className = 'dlg'; d.innerHTML = `<div class="box xv"><button class="xb dx" data-k="x" aria-label="閉じる">×</button>${inner}</div>`;
+  document.body.appendChild(d); d.querySelector('[data-k=x]').onclick = () => { d.remove(); if(done) done(); }; return d; }
+const uiView = m => new Promise(res => xBox(`<p>${esc(m)}</p>`, res)), uiViewH = m => new Promise(res => xBox(`<p>${m}</p>`, res));
+function show(html){ $('main').innerHTML = html; window.scrollTo(0,0); }
+function fail(msg){ msg = jaNet(msg); show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(msg)}</p><p class="muted sm">公式 LINE のメニューから再度開いてください</p></div>`); }
+
+function setBack(fn){ const b=$('tBack'); b.classList.toggle('hide', !fn); $('tSub').classList.toggle('hide', !!fn); b.onclick = fn || null; backFn = fn || null; if(fn && !(history.state && history.state.ol)) { try{ history.pushState({ ol:1 }, ''); }catch(e){} } }
+/* v0.48：スマホ・LINE の「戻る」で、マイページから出ずに左上の「戻る」と同じ動きにする（ゲネプロ マイページ #3） */
+let backFn = null;
+window.addEventListener('popstate', () => { if(!backFn) return; const f = backFn; f(); if(backFn) { try{ history.pushState({ ol:1 }, ''); }catch(e){} } });
+
+// v1.05・点検 2026-11-02 B5：読めなかった時に、ボタン・件数が黙って消えないように、画面の上に1行（1回だけ）
+function loadNg(){ const m = $('main'); if(!m || m.querySelector('.ldng')) return; m.insertAdjacentHTML('afterbegin', '<p class="err sm ldng" style="margin:0 2px 8px">読み込めない項目があります。開き直してください</p>'); }
