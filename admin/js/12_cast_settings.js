@@ -8,7 +8,6 @@ let csMonth=null, csEdit=false, csDetail=null, csTab='memo', csOrdM=null;
 // v0.52：キャスト・黒服のタブをやめて、1つの画面に（上にキャスト、下に黒服）。編集はどちらか片方ずつ（csEdit＝'cast'／'hall'）
 // v0.23：「今月」は営業日（朝8時で日付が変わる）の月
 const CS_CTAX_FROM='2026-11-01'; // v2.02・SQL 346：消費税が空のキャストは、この月以降 3％（体験は除く）
-const csNowMonth=()=>businessDate().slice(0,7)+'-01';
 const csAddMonth=(m,n)=>{ const [y,mo]=m.split('-').map(Number); const d=new Date(Date.UTC(y,mo-1+n,1)); return d.toISOString().slice(0,7)+'-01'; };
 const csMLabel=m=>{ const [y,mo]=m.split('-').map(Number); return `${y}年${mo}月`; };
 const csMShort=m=>`${Number(m.split('-')[1])}月`;

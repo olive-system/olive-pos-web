@@ -9,11 +9,6 @@ $('cSearch').oninput=()=>renderCasts();
 $('cNew').onclick=()=>{ cPast=false; cSel={_new:true,display_name:'',real_name:'',kind:'cast',is_trial:false,is_active:true}; cMode='all'; renderCasts(); castFormShow(); };
 // v11.98：狭い画面（iPad の縦向き）は詳細が一覧の上に出るので、編集・新規登録を押したらそこへ動く（ゲネプロ #8）
 function castFormShow(){ if(innerWidth<=900) setTimeout(()=>$('cForm')?.closest('.cside')?.scrollIntoView({block:'start',behavior:'smooth'}),50); }
-let staffAll=[], closeHM='01:00';
-async function loadStaffAll(){ const { data, error } = await sb.from('staff').select('*').order('sort_order').order('id'); /* 読めなかった時に空で上書きすると、名前・係の選択・在籍リストが全部消えるので、前のまま残す */ if(error){ toast(RDERR_T); return; } staffAll=data||[]; staff=staffAll.filter(s=>s.is_active).map(s=>({id:s.id,display_name:s.display_name,kind:s.kind,sort_order:s.sort_order})); }
-// 担当の黒服（v10.39・SQL 027）。区分が黒服で在籍中の人だけ有効。退職・区分変更・未登録は「未選択」
-const hallList=()=>staffAll.filter(x=>x.kind==='hall'&&x.is_active);
-const mgrOf=s=>{ const m=s&&s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null; return m&&m.is_active&&m.kind==='hall'?m:null; };
 const needMgr=s=>s.kind!=='hall'&&!s.kakari_only;
 async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').classList.remove('on'); cMode='today'; { const ta=$('cTabAll'); if(ta) ta.style.display='none'; } /* v10.64：在籍リストと全員を1つにまとめる（出勤した人が上） */ await expireTrials(); await loadStaffAll(); attDrop(); /* v12.30：在籍リストは出勤を読み直す */ const present=await updateCastBadge(); const q=$('cSearch').value.trim();
   const C=await caLoadDay(); C.present=present; C.q=q;

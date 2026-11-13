@@ -27,3 +27,4 @@ const wdJ=x=>WD[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wd
 // 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（2026-11-08 コード整理）
 const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
+const csNowMonth=()=>businessDate().slice(0,7)+'-01';

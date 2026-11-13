@@ -37,4 +37,6 @@ const curStore=()=>stores().find(s=>s.id===storeId);
 const stSet=()=>me?.settings?.[storeId]||{perms:{},nippo_days:3};
 // v0.05：収支は月次・日次を1つの画面にまとめた（前の設定 pl_day／pl_month も読む）
 function perm(k){ if(me?.is_owner) return 'edit'; if(k==='resv') k='shift'; if(k==='set_close') k='set_open'; /* v1.50 */ /* v1.48：予約はシフトと同じ権限 */ const p=stSet().perms||{}; if(k==='pl') return p.pl||p.pl_day||p.pl_month||'none'; if(k==='register') return p.register||p.register_month||'none'; /* v0.07：レジ精算も月次・日次を1つの画面に */ return p[k]||'none'; }
-
+function visible(k){ if(OWNER_SCREENS.some(s=>s.k===k)) return me.is_owner; return perm(k)!=='none'; }
+function firstPage(){ return SCREENS.find(s=>s.k&&visible(s.k))?.k||(me.is_owner?'pw':'none'); }
+const nameOf=k=>[...SCREENS,...OWNER_SCREENS].find(s=>s.k===k)?.n||'';

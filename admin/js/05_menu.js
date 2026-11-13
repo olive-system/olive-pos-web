@@ -14,5 +14,4 @@ function renderNav(){
 }
 function go(k){ if(k==='register'&&!visible('register')&&visible('hist_cash')) k='hist_cash'; page=k; $('nav').querySelectorAll('[data-go]').forEach(a=>a.classList.toggle('on',a.dataset.go===((k==='set_shift'||k==='resv')?'shift':k==='o_stock'?'product_sum' /* v2.13 */:k==='hist_cash'?'register' /* v2.16 */:(typeof ownerGroupOf==='function'&&ownerGroupOf(k))||k)));
   const f=PAGES[k]||pagePending; f(k); $('main').scrollTop=0; window.scrollTo(0,0); }
-const nameOf=k=>[...SCREENS,...OWNER_SCREENS].find(s=>s.k===k)?.n||'';
 

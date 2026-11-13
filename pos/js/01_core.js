@@ -135,3 +135,24 @@ function groupItems(items){ const out=[], by=new Map();
     let g=by.get(k); if(!g){ g={...i,qty:0,rows:[],bill_item_splits:[]}; by.set(k,g); out.push(g); } g.rows.push(i); g.qty+=i.qty;
     (i.bill_item_splits||[]).forEach(s=>{ const e=g.bill_item_splits.find(z=>z.staff_id===s.staff_id); if(e){ e.back_amount=(e.back_amount||0)+(s.back_amount||0); e.back_points=Number(e.back_points||0)+Number(s.back_points||0); } else g.bill_item_splits.push({...s}); }); });
   out.forEach(g=>{ g.ids=g.rows.map(r=>r.id); g.rows.sort((a,b)=>String(a.added_at||'').localeCompare(String(b.added_at||''))); }); return out; }
+// 職員の名簿（在籍・退職を全部）。伝票・在籍リスト・設定・ホールのどの画面も使う
+let staffAll=[], closeHM='01:00';
+async function loadStaffAll(){ const { data, error } = await sb.from('staff').select('*').order('sort_order').order('id'); /* 読めなかった時に空で上書きすると、名前・係の選択・在籍リストが全部消えるので、前のまま残す */ if(error){ toast(RDERR_T); return; } staffAll=data||[]; staff=staffAll.filter(s=>s.is_active).map(s=>({id:s.id,display_name:s.display_name,kind:s.kind,sort_order:s.sort_order})); }
+// 担当の黒服（v10.39・SQL 027）。区分が黒服で在籍中の人だけ有効。退職・区分変更・未登録は「未選択」
+const hallList=()=>staffAll.filter(x=>x.kind==='hall'&&x.is_active);
+const mgrOf=s=>{ const m=s&&s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null; return m&&m.is_active&&m.kind==='hall'?m:null; };
+const snm=id=>staffAll.find(x=>x.id===id)?.display_name||staff.find(x=>x.id===id)?.display_name||'';
+// 行を動かすと指の追跡が切れるため、動き・離すは画面全体で受ける
+// v12.04：上下の端まで持っていくと、リストが自分で動く（オーナー 2026-10-22「並び変えできない」。在籍リストは画面に入りきらない）
+function dragSort(list,sel,onDone){
+  const scroller=()=>{ for(let e=list;e&&e!==document.body;e=e.parentElement){ const cs=getComputedStyle(e); if(/(auto|scroll)/.test(cs.overflowY)&&e.scrollHeight>e.clientHeight) return e; } return document.scrollingElement||document.documentElement; };
+  list.querySelectorAll(sel).forEach(row=>{ const h=row.querySelector('.hd'); if(!h)return;
+    h.onpointerdown=e=>{ e.preventDefault(); let dragging=null, moved=false, lastX=e.clientX, lastY=e.clientY, raf=0; const sc=scroller();
+      const timer=setTimeout(()=>{ dragging=row; row.classList.add('drag'); raf=requestAnimationFrame(auto); },150);
+      const place=(x,y)=>{ const el=document.elementsFromPoint(x,y).map(z=>z.closest(sel)).find(z=>z&&z.parentElement===list); /* 上に重なっている物があっても下の行を見る */ if(!el||el===dragging||el.parentElement!==list)return; const r=el.getBoundingClientRect(); const before=y<r.top+r.height/2; const ref=before?el:el.nextSibling; if(ref===dragging||ref===dragging.nextSibling)return; list.insertBefore(dragging,ref); moved=true; };
+      const auto=()=>{ if(!dragging)return; const box=sc===document.scrollingElement||sc===document.documentElement?{top:0,bottom:window.innerHeight}:sc.getBoundingClientRect(); const edge=70;
+        let v=0; if(lastY<box.top+edge) v=-Math.ceil((box.top+edge-lastY)/4); else if(lastY>box.bottom-edge) v=Math.ceil((lastY-(box.bottom-edge))/4);
+        if(v){ sc.scrollTop+=v; place(lastX,Math.min(Math.max(lastY,box.top+12),box.bottom-12)); } /* 指がリストの外に出ても、内側の一番近い行で入れ替える */ raf=requestAnimationFrame(auto); };
+      const move=ev=>{ if(!dragging)return; ev.preventDefault(); lastX=ev.clientX; lastY=ev.clientY; place(lastX,lastY); };
+      const end=async()=>{ clearTimeout(timer); cancelAnimationFrame(raf); window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',end); window.removeEventListener('pointercancel',end); if(!dragging)return; dragging.classList.remove('drag'); dragging=null; if(moved) await onDone([...list.querySelectorAll(sel)].map(r=>r.dataset.id)); };
+      window.addEventListener('pointermove',move,{passive:false}); window.addEventListener('pointerup',end); window.addEventListener('pointercancel',end); }; }); }

@@ -29,7 +29,6 @@ async function checkPwAlert(){ if(!store) return; try{
   el.innerHTML=`${FX('warningsign')} 黒服（${esc(a.data.pw_alert_note||'')}）が退店しました。オーナーは管理サイトでパスワードを更新してください`; el.style.display='block';
 }catch(e){ console.warn('pwAlert',e); } }
 let extOpen=false;
-const snm=id=>staffAll.find(x=>x.id===id)?.display_name||staff.find(x=>x.id===id)?.display_name||'';
 // 二重押し防止：処理中はボタンを止める
 // 新しい版が公開されていたら、ホール状況を見ている時に自動で読み直す（古い画面のまま使い続けない）
 const MY_VER=(document.head.innerHTML.match(/<!-- (v[\d.]+) -->/)||[])[1]||'';
