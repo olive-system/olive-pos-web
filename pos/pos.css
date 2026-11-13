@@ -7,10 +7,10 @@
   header .clock{margin-left:auto;font-variant-numeric:tabular-nums;font-size:18px}
   main{flex:1;overflow:auto;padding:16px 20px}
   .view{display:none}.view.on{display:block}
-  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 16px;background:var(--soft);color:var(--ink)}
+  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 16px;min-height:44px;background:var(--soft);color:var(--ink)}
   button.primary{background:var(--blue);color:#fff}button.ok{background:var(--acc);color:#fff}
   button.danger{background:var(--warn);color:#fff}button.gold{background:var(--gold);color:#fff}
-  button.ghost{background:transparent;border:1px solid var(--line)}button.sm{padding:6px 10px;font-size:13px}
+  button.ghost{background:transparent;border:1px solid var(--line)}button.sm{min-height:0;padding:6px 10px;font-size:13px}
   button.on{background:var(--ink);color:#fff}
   input,select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
   .tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
@@ -19,7 +19,7 @@
   .tbl.busy{background:var(--gold-soft);text-align:left;justify-content:flex-start;gap:4px}.tbl.busy.over{border-color:var(--warn)}
   .tbl .row{display:flex;justify-content:space-between;font-size:14px}.tbl .total{font-size:22px;font-weight:700;text-align:right}.tbl .casts{font-size:13px;color:var(--ink)}
   .alert{background:var(--warn-soft);color:var(--warn);padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:700}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
   .cols{display:grid;grid-template-columns:.85fr .85fr 1fr 1.1fr;gap:12px}
   .item.cast{flex-direction:row;align-items:center;gap:6px}.item.cast .n{flex:1;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:17px;font-weight:700}.item.cast .nm{white-space:nowrap}.badge{white-space:nowrap}.item.cast .btns{display:flex;gap:6px}.item.cast .btns button{flex:1;padding-left:6px;padding-right:6px;white-space:nowrap}.item.cast .btns button[data-rmcast]{flex:none}
   h2{margin:0 0 10px;font-size:15px;color:var(--muted)}
@@ -44,9 +44,9 @@
   .ord4 .ocast{padding:11px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);text-align:left;font-size:15px}.ord4 .ocast.on{background:var(--pri);color:#fff;border-color:var(--pri)}.ord4 .ocgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .ord4 .oline{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}.ord4 .oline.sel{border:2px solid var(--ink)}
   .ord4 .oline .r1{display:flex;justify-content:space-between;align-items:center;gap:6px}.ord4 .oline small{color:var(--muted)}.ord4 .oline small.none{color:var(--warn)}
-  .ord4 .qty{display:flex;align-items:center;gap:6px}.ord4 .qty button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:18px}
+  .ord4 .qty{display:flex;align-items:center;gap:6px}.ord4 .qty button{min-height:0;width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:18px}
   .prod{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:left;min-height:64px}.prod .p{display:block;color:var(--muted);font-size:13px;margin-top:4px}
-  .num{display:inline-flex;align-items:center;gap:8px;font-size:22px;font-weight:700}.num button{width:40px;height:40px;border-radius:50%;font-size:22px;padding:0}
+  .num{display:inline-flex;align-items:center;gap:8px;font-size:22px;font-weight:700}.num button{min-height:0;width:40px;height:40px;border-radius:50%;font-size:22px;padding:0}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}.modal.on{display:flex}
   .modal .box{background:#fff;border-radius:16px;padding:18px;width:min(760px,92vw);max-height:88vh;overflow:auto}
   .modal .box:has(>.dx){position:relative;padding-right:44px}.modal .box:has(>.dx)>.bar{margin-right:-26px}button.xb.dx{position:absolute;top:10px;right:10px;font-size:24px!important} /* v12.71：見るだけの小窓は下の「閉じる」ではなく右上の × で閉じる（オーナー 2026-11-06「閉じるんだったら×でいいよね」） */
@@ -74,7 +74,7 @@
   header .dt{background:var(--head2);color:#fff;padding:6px 12px;border-radius:10px;text-align:center;line-height:1.2;font-variant-numeric:tabular-nums}
   header .dt small{display:block;font-size:12px}
   header .nav{margin-left:auto;display:flex;gap:8px}
-  header .nav button{position:relative;background:var(--brand);color:#fff;font-weight:700;padding:10px 14px;border-radius:50%;min-width:74px;height:74px;font-size:14px;line-height:1.1}
+  header .nav button{min-height:0;position:relative;background:var(--brand);color:#fff;font-weight:700;padding:10px 14px;border-radius:50%;min-width:74px;height:74px;font-size:14px;line-height:1.1}
   header .nav button.on{background:var(--brand-d)}
   header .nav .bd{position:absolute;top:-4px;right:-4px;background:var(--warn);color:#fff;border-radius:999px;font-size:12px;padding:2px 7px;font-weight:700}
   header .menuBtn{background:var(--brand);color:#fff;border-radius:50%;width:74px;height:74px;font-weight:700}
@@ -101,10 +101,10 @@
 #cuSide .item{padding:8px 10px;gap:4px 6px!important}
 #cuSide .item input,#cuSide .item select,#cuBtSel,#cuBtRem{height:30px;box-sizing:border-box;padding-top:0;padding-bottom:0;font-size:13px!important}
 #cuSide .item select{flex:none;width:auto}
-#cuSide .item button.sm,#cuBtAdd{height:30px;box-sizing:border-box;padding:0 8px;font-size:12px}
+#cuSide .item button.sm,#cuBtAdd{min-height:0;height:30px;box-sizing:border-box;padding:0 8px;font-size:12px}
 /* v10.76〜81：右の列を整理（v10.81＝列の幅を元の 280px｜1.25｜1 に戻し、文字の大きさで収める（銘柄14px・日付は銘柄の下）。「○か月以上」と両側のボタンは40px。v10.80＝顧客一覧の期間（○か月〜）を常に表示し［全員］と［ご来店なし］の間に。左の列 230px。v10.79＝ボトル欄を 銘柄・日付・残量・✕（削除）／キープ名／飲切・期限切・ボトル移動 に。列の幅は 200px｜1｜1.25。v10.78＝列の幅を 230px｜1｜1.1 にして右の列を広げ、ボトル欄を3段に＝銘柄＋日付／キープ名＋残量／飲み切り・期限切れ・ボトル移動・削除）。来店履歴は全行同じ形（上＝日付・下＝卓・人数・右＝金額、日付は今年なら M/D）。ボトル1本の欄を6段→4段に（銘柄＋日付／キープ名／残量＋飲み切り／期限切れ・ボトル移動・削除） */
 #cuSide .item.bt{display:flex;flex-direction:column;align-items:stretch;gap:6px!important}
-#cuSide .bt1{display:flex;align-items:center;gap:8px}#cuSide .bt1 .n{flex:1 1 0;min-width:0;overflow-wrap:anywhere;font-size:16px;font-weight:600;line-height:1.35}#cuSide .bt1 .n small{font-size:12px;font-weight:400;margin-left:6px;white-space:nowrap;color:var(--muted)}#cuSide .bt1 select{flex:none;width:auto;padding-left:6px!important;padding-right:2px!important}#cuSide .bt1 button.bx{flex:none;width:30px;padding:0;color:var(--muted);font-size:14px}
+#cuSide .bt1{display:flex;align-items:center;gap:8px}#cuSide .bt1 .n{flex:1 1 0;min-width:0;overflow-wrap:anywhere;font-size:16px;font-weight:600;line-height:1.35}#cuSide .bt1 .n small{font-size:12px;font-weight:400;margin-left:6px;white-space:nowrap;color:var(--muted)}#cuSide .bt1 select{flex:none;width:auto;padding-left:6px!important;padding-right:2px!important}#cuSide .bt1 button.bx{min-height:0;flex:none;width:30px;padding:0;color:var(--muted);font-size:14px}
 #cuSide .bt2{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;margin:0}#cuSide .bt2 .kn{flex:1 1 90px;min-width:0;display:flex;align-items:center;gap:4px}#cuSide .bt2 .kn span{font-size:10px}/* v10.85：キープ名の文字を小さく・ボタンは「移動」にして2段に収める */#cuSide .bt2 span{white-space:nowrap}#cuSide .bt2 input{flex:1 1 0;min-width:0;width:0}#cuSide .bt2 .bt3{flex:none;margin-left:auto}
 #cuModes{gap:4px!important;flex-wrap:nowrap!important}#cuModes .chip,#cuMonths{height:40px;box-sizing:border-box;font-size:14px;white-space:nowrap;padding:0 10px}#cuMonths{width:auto;padding:0 2px 0 8px}
 #cuSide .cvis{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}#cuSide .cvis:last-child{border-bottom:none}#cuSide .cvis .fit1{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#cuSide .cvis .amt{font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -112,7 +112,7 @@
 #cuSide .item.hv{padding:6px 10px;font-size:14px;flex-wrap:nowrap!important}#cuSide .item.hv .n{flex:1 1 0;min-width:0;line-height:1.3}#cuSide .item.hv .n small{display:block;font-size:12px}#cuSide .item.hv .amt{min-width:0;white-space:nowrap}
 /* v10.83：期限切れ・ボトル移動の行は1行に収まるまで文字を小さくする（fitLine） */
 #cuSide .item .n.fit1{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#cuSide .bt3{display:flex;flex-wrap:wrap;align-items:center;gap:4px}#cuSide .bt3 button.sm{padding:0 8px;white-space:nowrap}
+#cuSide .bt3{display:flex;flex-wrap:wrap;align-items:center;gap:4px}#cuSide .bt3 button.sm{min-height:0;padding:0 8px;white-space:nowrap}
   /* 15番：長い説明は1行＋「？」で詳しく（押すとその場で下に開く）。入力欄の高さは全部 44px */
   .hint .qm{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px!important;min-height:0!important;min-width:0;padding:0!important;margin:0 0 0 6px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--muted);font-size:12px;line-height:1;vertical-align:middle;cursor:pointer}
   .hint .more{display:none;margin-top:4px}.hint.open .more{display:block}.hint.open .qm{background:var(--line)}
@@ -124,10 +124,10 @@
 .cgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px}.lp{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 @media (max-width:900px){.cgrid{grid-template-columns:minmax(0,1fr)}.cgrid>.cside{order:-1}.cgrid>.cside:has(#cForm.empty){display:none}}
 .pl{display:inline-block;width:20px;vertical-align:middle;line-height:1;text-align:left}.pl.af{font-size:9px}
-  button.xb{background:none!important;border:none!important;box-shadow:none;border-radius:6px;padding:4px 6px!important;margin:0;width:auto!important;min-width:0;height:auto!important;min-height:0;font:inherit;font-size:18px!important;line-height:1;color:var(--muted)!important;flex:none;cursor:pointer}button.xb.img{position:absolute;top:2px;right:4px;color:var(--card)!important;text-shadow:0 0 4px var(--ink)}button.xb.img.lt{color:var(--muted)!important;text-shadow:none} /* 2026-11-05：行・写真の × は枠なし・うすく小さく（オーナー「×に枠はダサい、スペース食う」） */
+  button.xb{min-height:0;background:none!important;border:none!important;box-shadow:none;border-radius:6px;padding:4px 6px!important;margin:0;width:auto!important;min-width:0;height:auto!important;min-height:0;font:inherit;font-size:18px!important;line-height:1;color:var(--muted)!important;flex:none;cursor:pointer}button.xb.img{position:absolute;top:2px;right:4px;color:var(--card)!important;text-shadow:0 0 4px var(--ink)}button.xb.img.lt{color:var(--muted)!important;text-shadow:none} /* 2026-11-05：行・写真の × は枠なし・うすく小さく（オーナー「×に枠はダサい、スペース食う」） */
 #cuSide .bt2 .kn{position:relative}#cuSide .bt2 .kn span{position:absolute;left:7px;top:2px;font-size:9px;line-height:1;pointer-events:none;z-index:1}#cuSide .bt2 .kn input{padding-top:10px!important} /* v12.66：「キープ名」は欄の左上に小さく（オーナー 2026-11-06「スペースを有効活用」）。顧客サイトも同じ */
 /* v12.75：閉店作業 ② 入出金の登録（出金／入金の切り替え・撮影・細い線の一覧。オーナー 2026-11-07「整理整頓されていない」） */
-.clseg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.clseg button{border-radius:0;padding:8px 14px;background:var(--card)}.clseg button.on{background:var(--pri);color:#fff}
+.clseg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.clseg button{min-height:0;border-radius:0;padding:8px 14px;background:var(--card)}.clseg button.on{background:var(--pri);color:#fff}
 label.cllb{display:inline-block;cursor:pointer;border-radius:10px;padding:6px 14px;font-size:13px;background:var(--acc);color:#fff;margin:0}label.cllb.g{background:transparent;color:var(--ink);border:1px solid var(--line);padding:9px 16px;font-size:inherit}.cllb.p{background:var(--pri);color:#fff;border:1px solid var(--pri);padding:9px 16px;font-size:inherit}
 /* v12.82：領収書精算の項目の確認（項目・値・✓／不備の列をそろえる） */ .clrc [data-ck] .r{display:grid;grid-template-columns:76px minmax(0,1fr) 34px;gap:10px;align-items:center;min-height:44px;padding:4px 0;border-bottom:1px solid var(--line);font-size:15px}.clrc .r .k{color:var(--muted)}.clrc .r .v{display:flex;gap:8px;align-items:center;min-width:0;white-space:nowrap;overflow:hidden}.clrc .r .v>span{overflow:hidden;text-overflow:ellipsis}.clrc .r .v input{flex:1;min-width:0;padding:5px 8px;font-size:15px}.clrc .r .v input.ng,.clrc .r .v select.ng{border-color:var(--warn)}.clrc .r .v select{flex:1;min-width:0;width:auto;padding:5px 8px;font-size:15px} /* v12.86：立替者名 */.clrc .r .s{text-align:right;font-size:13px}.clrc .ngt{color:var(--warn)}.clrc .okm{color:var(--ok);font-weight:700}.clmv .p{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .clmv{border-top:1px solid var(--line)}.clmv .r{display:grid;grid-template-columns:52px minmax(0,1fr) 30px 64px 110px 32px;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line)}.clmv .badge{text-align:center}.clmv .t{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.clmv .a{text-align:right;font-variant-numeric:tabular-nums}
