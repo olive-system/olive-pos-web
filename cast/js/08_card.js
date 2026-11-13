@@ -1,4 +1,4 @@
-// v0.09・SQL 105：名刺発注。v0.10・SQL 107：印刷する名前は苗字と名前（両方必須）、「前回と同じ」ボタンで前回の名前を入れる。店の Gmail から印刷屋さんへメール。名刺代は報酬から控除
+// 名刺発注。印刷する名前は苗字と名前（両方必須）、「前回と同じ」ボタンで前回の名前を入れる。店の Gmail から印刷屋さんへメール。名刺代は報酬から控除
 async function cardOrder(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_card_info', { p_token: TOKEN });
@@ -13,7 +13,7 @@ async function cardOrder(){
       <div class="row" style="margin-top:10px"><span>枚数</span><b>${C.qty}枚 ${yen(C.price)}</b></div></div>
     <div class="err sm" style="margin:0 2px 12px">名刺代 ${yen(C.price)}は、報酬から控除されます。</div>
     <button class="btn" id="cnGo">名刺発注</button>${hist?`<div class="card" style="margin-top:12px"><div class="gh">発注履歴</div>${hist}</div>`:''}`);
-  if(lf) $('cnLast').onclick = () => { $('cnF').value = lf; $('cnG').value = lg; }; /* 初回は出さない（オーナー 2026-10-15） */
+  if(lf) $('cnLast').onclick = () => { $('cnF').value = lf; $('cnG').value = lg; }; /* 初回は出さない（オーナー） */
   $('cnGo').onclick = async () => {
     const f = $('cnF').value.trim(), g = $('cnG').value.trim(), nm = `${f}　${g}`;
     if(!f || !g){ await uiAlert('苗字と名前を両方入力してください'); return; }

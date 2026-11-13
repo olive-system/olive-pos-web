@@ -1,5 +1,5 @@
-// v12.48・SQL 334：退店の2段（オーナー 2026-11-03「退店しても報酬を渡すまで消せない」）。［退店］→ 在籍から外す。報酬があって受取確認の無い月があれば「受取待ち」
-//   受取待ちの間は LINEマイページは報酬明細だけ。最後の月の受取確認で自動で退店完了。［退店完了］でも終える。手作業の一覧はチェックだけ（記録しない）
+// 退店の2段（オーナー「退店しても報酬を渡すまで消せない」）。［退店］→ 在籍から外す。報酬があって受取確認の無い月があれば「受取待ち」
+// 受取待ちの間は LINEマイページは報酬明細だけ。最後の月の受取確認で自動で退店完了。［退店完了］でも終える。手作業の一覧はチェックだけ（記録しない）
 const LEAVE_TODO=['グループLINE 削除','名刺 廃棄','公式LINE 表示名 変更（在籍→退店）'];
 const leaveMon=ms=>(ms||[]).map(m=>`${+String(m).slice(5,7)}月分`).join('・');
 function leaveBadge(s){ /* 退店した日から3か月を過ぎたら「3か月超」（オーナー「3か月以内に取りに来てほしい」） */
@@ -12,7 +12,7 @@ async function leaveDlg(s){
   const box=document.createElement('div'); box.id='uiDlgLeave'; box.style.cssText='text-align:left;font-size:16px;line-height:1.6;margin:4px 0 8px';
   box.innerHTML=lb('自動停止')+`<div>タイムカード・シフト・鍵・お知らせ・伝票での選択${pend?'':'・LINEマイページ'}</div>`+(pend?lb('LINEマイページ')+'<div>報酬明細のみ（受取確認まで）</div>'+lb('受取待ち')+`<div>${esc(leaveMon(ms))}</div>`:'')
     +lb('手作業')+LEAVE_TODO.map(t=>`<label style="display:flex;align-items:center;gap:8px;margin:6px 0"><input type="checkbox" style="width:20px;height:20px">${esc(t)}</label>`).join('');
-  /* v12.77・SQL 395（オーナー 2026-11-07「残り香チェックってシステムで何とかカバーできないのかな」→ 退店で済ませる）：手作業3つ全部にチェックするまで［退店］は押せない。
+  /* （オーナー「残り香チェックってシステムで何とかカバーできないのかな」→ 退店で済ませる）：手作業3つ全部にチェックするまで［退店］は押せない。
      押したら「退店処理した人」（黒服）を選び、操作ログの by に残す。毎月の TODO「退店した人の、残り香チェック」は外した */
   $('uiDlgMsg').after(box); const ok=$('uiDlgOk'), cks=[...box.querySelectorAll('input[type=checkbox]')], sync=()=>{ ok.disabled=!cks.every(c=>c.checked); };
   cks.forEach(c=>c.onchange=sync); ok.textContent='退店'; let y=false;
@@ -27,11 +27,11 @@ async function leaveDone(s){
   const r=await sb.rpc('pos_staff_leave',{p_staff:s.id,p_done:true}); if(r.error){ await uiAlert(r.error.message); return; }
   toast(`${s.display_name}：退店完了`); await loadStaffAll(); renderCasts();
 }
-// v13.41・SQL 447：［退店・体験］の一覧。退店日・体験日が半年以内の人（受取待ちは今までどおり在籍リストの一番下）。在籍に戻す時は今までどおり［新規登録］で同じ名前
-//   オーナー 2026-11-11「退店した女の子や、体験入店した女の子、過去の女の子を、過去、半年分表示」。黒服の退店も出す
-// v13.43・SQL 451：［詳細］は右上の × で閉じる小窓（右の欄 300px には書類の写真と体験日の行が入らない。POS の見るだけの小窓と同じ形）。
-//   体験の報酬・体験日ごとの時刻と日払（立替）（記録を読むだけ。［受領済］は在籍リストと同じ受領のサインの画面）・書類（在籍の［編集］と同じ部品 posDocs。撮影・削除も同じ）
-const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',declined:'辞退',rejected:'不採用'}; /* v13.45・SQL 452：検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
+// ［退店・体験］の一覧。退店日・体験日が半年以内の人（受取待ちは今までどおり在籍リストの一番下）。在籍に戻す時は今までどおり［新規登録］で同じ名前
+// オーナー「退店した女の子や、体験入店した女の子、過去の女の子を、過去、半年分表示」。黒服の退店も出す
+// ［詳細］は右上の × で閉じる小窓（右の欄 300px には書類の写真と体験日の行が入らない。POS の見るだけの小窓と同じ形）。
+// 体験の報酬・体験日ごとの時刻と日払（立替）（記録を読むだけ。［受領済］は在籍リストと同じ受領のサインの画面）・書類（在籍の［編集］と同じ部品 posDocs。撮影・削除も同じ）
+const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',declined:'辞退',rejected:'不採用'}; /* 検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
 let pastSel=null;
 const pastDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
 async function renderPast(){ $('cTabToday').classList.remove('on'); $('cTabPast').classList.add('on'); $('cSort').textContent='並べ替え';

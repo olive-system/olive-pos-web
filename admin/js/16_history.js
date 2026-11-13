@@ -1,4 +1,4 @@
-// ---------- 履歴 v0.56：メモ一覧（日のメモ）・入出金履歴・印刷履歴（領収書の発行）・削除履歴（操作ログのうち、消した・取り消した操作）。どれも見るだけ。SQL なし（表を直接読む） ----------
+// ---------- 履歴 メモ一覧（日のメモ）・入出金履歴・印刷履歴（領収書の発行）・削除履歴（操作ログのうち、消した・取り消した操作）。どれも見るだけ。SQL なし（表を直接読む） ----------
 // 期間（31日まで）は 入出金履歴・印刷履歴・削除履歴 で共通。メモ一覧は月
 let hiFrom=null, hiTo=null, hiMonth=null, hiCashK='all', hiDelK='all';
 const hiDay=x=>{ if(!x) return '—'; const wd=new Date(x+'T00:00:00').getDay(); return `${md(x)} <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WD[wd]}</span>`; };
@@ -11,11 +11,11 @@ function hiPeriod(k,extra,note){ const today=businessDate(); if(!hiFrom){ hiFrom
   $('hiGo').onclick=()=>{ const a=$('hiF').value, b=$('hiT').value; if(!a||!b){ uiAlert('期間を入力してください'); return; } if(b<a){ uiAlert('期間が逆になっています'); return; }
     if((new Date(b)-new Date(a))/864e5>30){ uiAlert('期間は31日までにしてください'); return; } hiFrom=a; hiTo=b; PAGES[k](); };
   $('hiMon').onclick=()=>{ const a=($('hiF').value||today).slice(0,8)+'01', d=new Date(a+'T00:00:00'); d.setMonth(d.getMonth()+1); d.setDate(0);
-    $('hiF').value=a; $('hiT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; $('hiGo').click(); }; } /* 点検 2026-11-02：日付を変えるだけで一覧が前の期間のままだった */
+    $('hiF').value=a; $('hiT').value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; $('hiGo').click(); }; } /* 点検 日付を変えるだけで一覧が前の期間のままだった */
 const hiErr=e=>{ $('hiBox').innerHTML=`<div class="card err">読み込めません：${esc(e.message)}</div>`; };
 
 // メモ一覧：POS の閉店作業で書く「日のメモ」を月で
-// v2.09・SQL 363：上に「その日のメモ｜共有メモ」の切り替え（共有メモはオーナーのみ。32_shared_memo.js）
+// 上に「その日のメモ｜共有メモ」の切り替え（共有メモはオーナーのみ。32_shared_memo.js）
 let hiMemoTab='day';
 const hiMemoSw=()=>me?.is_owner?`<div class="seg" style="margin-bottom:14px">${[['day','その日のメモ'],['share','共有メモ']].map(([k,n])=>`<button data-hmsw="${k}" class="${k===hiMemoTab?'on':''}">${n}</button>`).join('')}</div>`:'';
 const hiMemoSwOn=()=>$('main').querySelectorAll('[data-hmsw]').forEach(b=>b.onclick=()=>{ hiMemoTab=b.dataset.hmsw; PAGES.hist_memo(); });
@@ -30,7 +30,7 @@ PAGES.hist_memo=async()=>{ if(!me?.is_owner) hiMemoTab='day'; if(hiMemoTab==='sh
     <div class="muted" style="font-size:13px">POS の閉店作業で書いたメモです</div>`; };
 
 // 入出金履歴：期間の入金・出金（今あるものだけ。消したものは削除履歴）。Excel
-// v2.16：左の「履歴」ではなく、現金管理のタブ（見出しと切り替えは 10_register.js の regHead）
+// 左の「履歴」ではなく、現金管理のタブ（見出しと切り替えは 10_register.js の regHead）
 PAGES.hist_cash=async()=>{ const st=storeId;
   hiPeriod('hist_cash',`<select id="hiK" style="width:auto">${[['all','全部'],['in','入金'],['out','出金']].map(([k,n])=>`<option value="${k}" ${hiCashK===k?'selected':''}>${n}</option>`).join('')}</select>`,'。削除した入出金は「削除履歴」に表示されます'); regTabs();
   const f=hiFrom, t=hiTo; let all=[], rows=[];

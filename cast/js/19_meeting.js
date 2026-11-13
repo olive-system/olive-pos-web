@@ -1,19 +1,19 @@
-// v0.93・SQL 287：月初ミーティング（オーナー 2026-10-29 見本 ミーティング申請_案「作って」）。相手は担当黒服。日は月初の営業日2日・時間帯は店で1つ（管理サイトのシフト設定）
-//   キャスト：来月のシフトが確定したら、担当黒服の空き枠を押して申請＝確定。前月の末日まで取消・変更。退勤後の枠はその日に出勤する時だけ
-//   黒服：自分の担当の子と担当黒服が未選択の子を空き枠に割当。締切後の変更・取消も黒服
+// 月初ミーティング（オーナー 見本 ミーティング申請_案「作って」）。相手は担当黒服。日は月初の営業日2日・時間帯は店で1つ（管理サイトのシフト設定）
+// キャスト：来月のシフトが確定したら、担当黒服の空き枠を押して申請＝確定。前月の末日まで取消・変更。退勤後の枠はその日に出勤する時だけ
+// 黒服：自分の担当の子と担当黒服が未選択の子を空き枠に割当。締切後の変更・取消も黒服
 const mtHm = v => String(v || '').replace(/^0(\d)/, '$1');
 const mtMd = iso => `${Number(String(iso).slice(5,7))}/${Number(String(iso).slice(8,10))}`;
 const mtMo = iso => `${Number(String(iso).slice(5,7))}月分`;
 const mtSlot = (x, on, attr) => `<button ${attr} style="border:1px solid ${on==='me'?'var(--pri)':on==='x'?'var(--soft)':'var(--line)'};border-radius:8px;padding:8px 0;font:inherit;font-size:15px;background:${on==='me'?'var(--pri)':on==='x'?'var(--soft)':'var(--card)'};color:${on==='me'?'#fff':on==='x'?'var(--muted)':'var(--ink)'};${on==='me'?'font-weight:700;':''}${on?'':'cursor:pointer'}" ${on==='x'?'disabled':''}>${mtHm(x.at)}</button>`;
 
-// トップのシフトのボタン（キャスト）：申請していない間は「ミーティング未申請」。v1.17：ミーティングのボタンはなくし、シフトの画面の一番上に（見本 共有メモ_案3）
+// トップのシフトのボタン（キャスト）：申請していない間は「ミーティング未申請」。ミーティングのボタンはなくし、シフトの画面の一番上に（見本 共有メモ_案3）
 function mtTile(){
   if(SHIFT_ALL) return;
   sb.rpc('cast_meeting_get', { p_token: TOKEN }).then(r => { const t = $('main').querySelector('[data-go=shift] small'); if(!t) return;
-    if(r.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5 */
+    if(r.error){ loadNg(); return; } /*点検 B5 */
     if(r.data.show && r.data.open && !r.data.mine){ t.textContent = 'ミーティング未申請'; t.style.color = 'var(--warn)'; } });
 }
-let mtBack = null; /* v1.17：シフトの画面から開いた時は、戻るでシフトへ */
+let mtBack = null; /* シフトの画面から開いた時は、戻るでシフトへ */
 async function mtCast(back){
   if(typeof back === 'function') mtBack = back; setBack(mtBack || home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_meeting_get', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
@@ -38,7 +38,7 @@ function mtCastPaint(M){
     const q = await sb.rpc('cast_meeting_cancel', { p_token: TOKEN }); if(q.error){ await uiAlert(q.error.message); mtCast(); return; } mtCastPaint(q.data); };
 }
 
-// v1.17：シフトの画面の一番上のミーティングの箱（申請できる時か、申請済みの枠がある時だけ。トップのボタンと同じ）
+// シフトの画面の一番上のミーティングの箱（申請できる時か、申請済みの枠がある時だけ。トップのボタンと同じ）
 let MT_C = null;
 function mtShiftBox(){
   const M = MT_C; if(!M || !M.show) return '';
@@ -48,17 +48,17 @@ function mtShiftBox(){
   return `<div class="card">${head}<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${line}</span><button class="lkb" id="mtGo">${!b ? '申請' : M.open ? '変更' : '表示'}</button></div></div>`;
 }
 // シフトのカレンダー（確定）に自分のミーティングを出す
-async function mtShiftMarks(S, pre){ /* v0.94：pre＝シフトと同時に読み始めた分 */
+async function mtShiftMarks(S, pre){ /* pre＝シフトと同時に読み始めた分 */
   let r = null; try{ r = await (pre || sb.rpc('cast_meeting_get', { p_token: TOKEN })); }catch(e){} MT_C = r && !r.error ? r.data : null; if(!MT_C) return;
   [r.data.now, r.data.mine].filter(Boolean).forEach(b => { const F = (S.fixed || []).find(f => String(f.month).slice(0,7) === String(b.day).slice(0,7)); if(F) (F.marks = F.marks || []).push({ day: b.day, kind: 'ミーティング', time: mtHm(b.at) }); });
 }
 
 // ---------- 黒服マイページ ----------
-function mtHallTile(pre){ /* v0.94：黒服のトップは60秒覚えておいた分（hcGet）。v1.17：ボタンはシフトに（未申請 ○人をシフトのボタンに） */
-  (pre || sb.rpc('hall_meeting_get', { p_token: TOKEN })).then(r => { const t = $('main').querySelector('[data-go=shift] small'); if(!t) return; if(r.error){ loadNg(); return; } /* v1.05・点検 2026-11-02 B5 */
+function mtHallTile(pre){ /* 黒服のトップは60秒覚えておいた分（hcGet）。ボタンはシフトに（未申請 ○人をシフトのボタンに） */
+  (pre || sb.rpc('hall_meeting_get', { p_token: TOKEN })).then(r => { const t = $('main').querySelector('[data-go=shift] small'); if(!t) return; if(r.error){ loadNg(); return; } /*点検 B5 */
     const n = (r.data.todo || []).filter(x => x.mine).length; if(n && (r.data.days || []).length){ t.textContent = `ミーティング未申請 ${n}人`; t.style.color = 'var(--warn)'; } });
 }
-// v1.17：全員のシフトの一番上のミーティングの箱（黒服。ミーティングの日がある月だけ）
+// 全員のシフトの一番上のミーティングの箱（黒服。ミーティングの日がある月だけ）
 function mtHallBox(D){
   if(!D || !(D.days || []).length) return '';
   const n = (D.todo || []).filter(x => x.mine).length, booked = (D.days || []).reduce((a, d) => a + (d.slots || []).filter(x => x.id).length, 0);

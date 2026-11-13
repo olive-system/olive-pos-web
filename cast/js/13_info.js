@@ -1,11 +1,11 @@
-// v0.18・SQL 118：⑤お知らせ。補助として、過去のお知らせの置き場所（オーナー 2026-10-16「基本は公式 LINE に送信。過去のトークを遡るのが大変だから、一覧の置き場所」）。管理サイトで掲載、キャストは「確認」を押す
+// ⑤お知らせ。補助として、過去のお知らせの置き場所（オーナー「基本は公式 LINE に送信。過去のトークを遡るのが大変だから、一覧の置き場所」）。管理サイトで掲載、キャストは「確認」を押す
 function urlParam(k){
   const q = new URLSearchParams(location.search); let v = q.get(k);
   if(!v){ const st = q.get('liff.state'); if(st) v = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get(k); }
   return /^[0-9a-f-]{36}$/.test(v || '') ? v : null;
 }
-// v0.54：LINE のリンクから開く画面（?go=contact）。決まった名前だけ
-function goParam(){ const q = new URLSearchParams(location.search); let v = q.get('go'); if(!v){ const st = q.get('liff.state'); if(st) v = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('go'); } return ['contact','shift','sales','resv','perf','chorei','work','todo','daily','cs','apply','dress','meeting','book','voice','sheet','memo','judge','ap'].includes(v) ? v : null; } /* v1.22・SQL 352：共有メモ（退店の要変更の LINE） */ /* v1.14・SQL 339：締め切りのリマインドの LINE（dress・meeting） */ /* v0.64・SQL 221：リッチメニューのボタン（キャスト：shift・sales・resv・contact・perf／黒服：chorei・work・todo・daily・cs） */
+// LINE のリンクから開く画面（?go=contact）。決まった名前だけ
+function goParam(){ const q = new URLSearchParams(location.search); let v = q.get('go'); if(!v){ const st = q.get('liff.state'); if(st) v = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('go'); } return ['contact','shift','sales','resv','perf','chorei','work','todo','daily','cs','apply','dress','meeting','book','voice','sheet','memo','judge','ap'].includes(v) ? v : null; } /* 共有メモ（退店の要変更の LINE） */ /* 締め切りのリマインドの LINE（dress・meeting） */ /* リッチメニューのボタン（キャスト：shift・sales・resv・contact・perf／黒服：chorei・work・todo・daily・cs） */
 const noticeDay = a => { const d = new Date(new Date(a).getTime() + 9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）`; };
 async function noticeLoad(){ const n = await sb.rpc('cast_notice_list', { p_token: TOKEN }); if(n.error){ fail(n.error.message); return false; } NOTICES = n.data || []; ME.unread = NOTICES.filter(x => !x.read).length; return true; }
 async function noticeList(){
@@ -22,7 +22,7 @@ async function noticeOpen(id){
   if(!x){ await uiAlert('このお知らせは削除されています'); noticeList(); return; }
   noticeShow(x);
 }
-// v1.11・SQL 335：添付（写真は並べて表示・押すと大きく。PDF は［表示］で開く）
+// 添付（写真は並べて表示・押すと大きく。PDF は［表示］で開く）
 const noticeFile = p => sb.storage.from('notice-files').getPublicUrl(p).data.publicUrl;
 function noticeAttach(a){
   a = a || []; const im = a.filter(f => f.t === 'img'), pd = a.filter(f => f.t === 'pdf');

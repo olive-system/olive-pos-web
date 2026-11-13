@@ -1,6 +1,6 @@
-// v1.21・SQL 350：LINE で入力するヒアリングシート（任意）（2026-11-04 オーナーが紙の41項目から33項目を選んだ。元 もらったもの/ヒアリングシートの項目_銀座（2026-10-27）.md）
-//   あいさつの［ヒアリングシート］→ ?go=sheet。応募の人の画面なので「LINEマイページ」は出さない。報酬は出さない。銀座と広島で 希望条件の例・営業連絡の人数 がちがう
-//   その人のページ（21_applicant.js）の「面接」の箱に、入力の中身を出す
+// LINE で入力するヒアリングシート（任意）（オーナーが紙の41項目から33項目を選んだ。元 もらったもの/ヒアリングシートの項目_銀座.md）
+// あいさつの［ヒアリングシート］→ ?go=sheet。応募の人の画面なので「LINEマイページ」は出さない。報酬は出さない。銀座と広島で 希望条件の例・営業連絡の人数 がちがう
+// その人のページ（21_applicant.js）の「面接」の箱に、入力の中身を出す
 const SH_HR = () => STORE === 'hiroshima';
 const SHEET = staff => sheetDef(staff, SH_HR()); /* 項目は lib/olive/sheet.js（POS・管理サイトの書類でも使う） */
 const SH_FS = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);height:46px';
@@ -28,8 +28,8 @@ async function sheetStaff(id, store, back){
 
 async function sheetForm(idt){
   const g = await sb.rpc('applicant_sheet_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
-  if(g.data.locked){ show('<div class="ttl">ヒアリングシート</div><div class="card">送信済です</div>'); return; } /* v1.44・SQL 392：お店が［編集］で保存したら本人は修正不可（オーナー 2026-11-07） */
-  /* 2026-11-08 オーナー「途中保存したい」：入力のたびにこの端末に残し、LINE を閉じても次に開いた時に戻す（送信できたら消す） */
+  if(g.data.locked){ show('<div class="ttl">ヒアリングシート</div><div class="card">送信済です</div>'); return; } /* お店が［編集］で保存したら本人は修正不可（オーナー） */
+  /* オーナー「途中保存したい」：入力のたびにこの端末に残し、LINE を閉じても次に開いた時に戻す（送信できたら消す） */
   const dk = 'olive_cast_draft_sheet_' + STORE; let dv = {}; try{ dv = JSON.parse(localStorage.getItem(dk) || '{}').v || {}; }catch(e){}
   show(`<div class="ttl">ヒアリングシート</div>${g.data.sent_at ? '<div class="card sm">送信済です。変更する時は、再度送信してください</div>' : ''}${sheetBody(Object.assign({}, g.data.hearing || {}, dv), false)}<button class="btn" id="shOk">送信</button><div style="height:20px"></div>`);
   const get = sheetWire($('main'));

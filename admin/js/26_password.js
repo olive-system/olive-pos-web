@@ -6,11 +6,11 @@ PAGES.pw=async()=>{
     <div class="muted" style="font-size:14px;margin-top:8px">変更すると、ほかの端末でこのIDでログインしている分はログアウトされます</div></div>`;
   $('main').innerHTML=`<h1>パスワード <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>${own}<div class="card muted">読み込み中…</div>`; bindOwn();
   const [r,ta]=await Promise.all([sb.rpc('admin_credentials',{p_store:storeId}), sb.rpc('admin_tc_accounts',{p_store:storeId})]); if(page!=='pw') return;
-  const TA={}; if(!ta.error) (ta.data||[]).forEach(x=>{ TA[x.user_id]=x; }); /* v0.73・SQL 089：タイムカード専用ID は、ログインした日時と「削除」を出す */
+  const TA={}; if(!ta.error) (ta.data||[]).forEach(x=>{ TA[x.user_id]=x; }); /* タイムカード専用ID は、ログインした日時と「削除」を出す */
   if(r.error){ $('main').lastElementChild.outerHTML=`<div class="card err">${esc(r.error.message)}</div>`; return; }
   const d=r.data||{}; tcHasId=(d.devices||[]).some(x=>x.label==='タイムカード専用');
   const pwCell=pw=>pw?`<span class="pwv" data-pwv="${esc(pw)}">••••••••</span> <button class="ghost sm eye" data-show aria-label="表示"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>`:'<small class="muted">変更すると表示されます</small>';
-  const O=true; // v0.21：この画面はオーナーだけ（SQL 061 で関数もオーナーだけにする）
+  const O=true; // この画面はオーナーだけ（SQL 061 で関数もオーナーだけにする）
   const row=(label,sub,key,pw,extra)=>`<tr><td>${label}${sub?`<br><small class="muted">${sub}</small>`:''}</td><td>${pwCell(pw)}</td><td style="text-align:right;white-space:nowrap">${extra||''}${O?`<button class="ghost sm" data-pw="${esc(key)}" data-label="${esc(label.replace(/<[^>]*>/g,''))}">変更</button>`:''}</td></tr>`;
   $('main').lastElementChild.outerHTML=(O?`
   <div class="card"><div class="row" style="justify-content:space-between;gap:10px;align-items:center"><div style="font-size:14px;line-height:1.7">更新されるもの：POS・タイムカードの端末／タイムカード専用ID／顧客サイト（閲覧用・編集用）<br><span class="muted">黒服が辞めた時に使います。管理サイトのIDは変わりません</span></div><button class="danger" id="rotAll" style="flex:none">全パスワード更新</button></div></div>`:'')+`

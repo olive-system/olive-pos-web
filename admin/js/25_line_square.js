@@ -1,5 +1,5 @@
 // ---------- Square 連携・LINE メニュー（オーナー） ----------
-// v1.08・SQL 131：Square 連携（オーナーだけ）。POS の閉店作業でカード売上を自動で照合する。トークンは入れたら画面に出さない
+// Square 連携（オーナーだけ）。POS の閉店作業でカード売上を自動で照合する。トークンは入れたら画面に出さない
 PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_square_get',{p_store:st}); if(page!=='o_square'||storeId!==st) return;
@@ -22,15 +22,15 @@ PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class
   $('sqSave').onclick=guard($('sqSave'),async()=>{ const t=$('sqTok').value.trim(); if(!t){ await uiAlert('アクセストークンを入力してください'); return; }
     const q=await rpc('admin_square_save',{p_store:st,p_token:t}); $('sqTok').value=''; if(!q.ok) return; toast('つなぎました'); PAGES.o_square(); });
   if($('sqOff')) $('sqOff').onclick=guard($('sqOff'),async()=>{ if(!await uiConfirm('Square 連携を解除しますか？\nカード売上の照合ができなくなります','解除','danger')) return; const q=await rpc('admin_square_off',{p_store:st}); if(!q.ok) return; toast('解除しました'); PAGES.o_square(); }); };
-// v1.53・SQL 219：LINE メニュー（黒服のリッチメニュー。v1.54・SQL 221：キャストも。オーナー 2026-10-23「LINE 連携した人にだけ」「まずは黒服から」）。店ごとに する／しない。初めて「する」にした時に、Edge Function「line-richmenu」で LINE にメニューを作る
+// LINE メニュー（黒服のリッチメニュー。キャストも。オーナー「LINE 連携した人にだけ」「まずは黒服から」）。店ごとに する／しない。初めて「する」にした時に、Edge Function「line-richmenu」で LINE にメニューを作る
 PAGES.o_line=async()=>{ const st=storeId, head=`<h1>LINE メニュー <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_richmenu_get',{p_store:st}); if(page!=='o_line'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_richmenu_get/.test(r.error.message)?'SQL 219 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
-  const D=r.data; /* v1.54・SQL 221：キャストのリッチメニューも（D.cast。オーナー 2026-10-23） */
+  const D=r.data; /* キャストのリッチメニューも（D.cast。オーナー） */
   const K={hall:{nm:'黒服',img:'richmenu_hall.png',on:D.on,made:D.made,linked:D.linked,note:'開店・閉店作業：22時から朝8時までは閉店作業、それ以外は開店作業が開きます'},
     cast:{nm:'キャスト',img:'richmenu_cast.png',on:D.cast?.on,made:D.cast?.made,linked:D.cast?.linked,note:'連絡先交換：LINE のお知らせと同じく、入力の画面が開きます',sql:!D.cast},
-    /* v1.68・SQL 275：みんな用（LINE 連携していない友だち。オーナー 2026-10-27「採用の LINE と同じにしよう」） */
+    /* みんな用（LINE 連携していない友だち。オーナー「採用の LINE と同じにしよう」） */
     minna:{nm:'みんな用',img:'richmenu_minna.png',on:D.minna?.on,made:D.minna?.made,note:'上：面接予約のページ<br>予約状況の確認：電話番号で面接予約を表示<br>ACCESS：Google マップ<br>FAQ：トークに「FAQ」を送信（FAQ の画面は準備中）',sql:!D.minna,no:'275'}};
   const card=k=>{ const x=K[k]; return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>${x.nm}のリッチメニュー</b>
       <span class="seg" data-rmon="${k}">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${!!x.on===v?'on':''}" ${D.ready&&!x.sql?'':'disabled'}>${n}</button>`).join('')}</span></div>

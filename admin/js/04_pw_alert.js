@@ -2,7 +2,7 @@
 function renderAlert(){
   const s=stSet(), box=$('alertBar');
   if(!s.pw_alert){ box.innerHTML=''; return; }
-  // v0.21：警告はパスワードを新しくするまで全員に出し続ける。ボタンはオーナーだけ
+  // 警告はパスワードを新しくするまで全員に出し続ける。ボタンはオーナーだけ
   box.innerHTML=me.is_owner
     ? `<div class="alertbar"><span>${FX('warningsign')} 黒服（${esc(s.pw_alert_note||'')}）が退店しました。POS・タイムカード・顧客サイトのパスワードを変更してください</span><button class="danger" id="rotBtn">全パスワード更新</button></div>`
     : `<div class="alertbar"><span>${FX('warningsign')} 黒服（${esc(s.pw_alert_note||'')}）が退店しました。オーナーにPOS・タイムカード・顧客サイトのパスワードを更新してもらってください</span></div>`;

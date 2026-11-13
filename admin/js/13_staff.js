@@ -1,4 +1,4 @@
-// ---------- スタッフ設定・黒服 v0.24・SQL 064：報酬形態（月給・時給・日給）と金額・源泉徴収・消費税・厚生費は cast_terms に月ごと（○月以降／○月のみ）。日払い・契約書は staff ----------
+// ---------- スタッフ設定・黒服 報酬形態（月給・時給・日給）と金額・源泉徴収・消費税・厚生費は cast_terms に月ごと（○月以降／○月のみ）。日払い・契約書は staff ----------
 const CS_HPAY={monthly:'月給',hourly:'時給',daily:'日給'};
 function csHallTerms(s,rows,m){ const t=rows.filter(r=>r.staff_id===s.id&&r.month<=m&&(r.month===m||!r.only_month)).sort((a,b)=>a.month<b.month?1:-1)[0];
   const pt=t?.pay_type||(CS_HPAY[s.pay_type]?s.pay_type:null);
@@ -9,7 +9,7 @@ async function csHallPart(box,st,ed,m){
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   const er=sf.error||tm.error;
   if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">黒服</h2><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
-  if(!me?.is_owner&&me?.staff_id!==undefined) ed=false; /* v0.68・SQL 087：黒服の条件を変えられるのはオーナーだけ。オーナー以外は自分の行だけ見る */
+  if(!me?.is_owner&&me?.staff_id!==undefined) ed=false; /* 黒服の条件を変えられるのはオーナーだけ。オーナー以外は自分の行だけ見る */
   const K=hpPrep({box,st,ed,m,sf,tm}); K.cell=r=>hpCell(K,r);
   box.innerHTML=hpHtml(K);
   hpBind(K); }
@@ -21,7 +21,7 @@ function hpPrep(K){ const {box,st,ed,m,sf,tm}=K;
   const E=csEdit==='hall', lock=!!csEdit&&!E;
   const sel=(k,v,os)=>`<select data-k="${k}">${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
   const inp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
-  const own=!!me?.is_owner, hm5=v=>v?String(v).slice(0,5):''; // v0.34・SQL 074：出勤・退勤の時刻（遅刻・早退の計算に使う。変えられるのはオーナーだけ）
+  const own=!!me?.is_owner, hm5=v=>v?String(v).slice(0,5):''; // 出勤・退勤の時刻（遅刻・早退の計算に使う。変えられるのはオーナーだけ）
   return {...K,halls,tr0,sql064,rows,E,lock,sel,inp,own,hm5}; }
 /* 1人の行（見る時と編集する時） */
 function hpCell(K,{s,t}){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lock,sel,inp,own,hm5,cell}=K; const wf=t.welfare_mode==='amount'?yen(t.welfare_amount):t.welfare_mode==='none'?'なし':'標準';
@@ -34,7 +34,7 @@ function hpCell(K,{s,t}){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lock,
       sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'), sel('tl',String(!!s.task_limited_ok),[['true','可'],['false','不可']]), sel('tj',String(s.trial_judge_ok!==false),[['true','する'],['false','しない']])];
 }
 function hpHtml(K){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lock,sel,inp,own,hm5,cell}=K;
-  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーのみ</small>':''),'日払（立替）','契約書','本人確認書類','従業者名簿','源泉徴収','消費税','厚生費','限定項目','体験のジャッジ']; /* v1.50・SQL 209：限定の項目をしてよいか（新しく入った人は不可）。v1.56・SQL 227：顧客サイトの編集も同じ可・不可で決める（オーナー 2026-10-24「限定項目だけと言う表示にして、ここで権限をつける」） */
+  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーのみ</small>':''),'日払（立替）','契約書','本人確認書類','従業者名簿','源泉徴収','消費税','厚生費','限定項目','体験のジャッジ']; /* 限定の項目をしてよいか（新しく入った人は不可）。顧客サイトの編集も同じ可・不可で決める（オーナー「限定項目だけと言う表示にして、ここで権限をつける」） */
   return `<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="chAdd">＋追加</button><button class="ghost" id="chEd">編集</button>`)):''}</div>
   ${sql064?'':'<div class="card err">SQL 064 が未実行です（黒服の月給・時給を保存できません）</div>'}
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
@@ -45,7 +45,7 @@ function hpHtml(K){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lock,sel,in
 /* 押した時の動き：編集・追加・名前・キャンセル・報酬と厚生費の欄・保存 */
 function hpBind(K){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lock,sel,inp,own,hm5,cell}=K;
   if(!ed) return;
-  if(!E){ if(!lock){ $('chEd').onclick=()=>{ csEdit='hall'; PAGES.set_cast(); }; $('chAdd').onclick=()=>staffEdit(st,null,'hall'); } box.querySelectorAll('[data-hed]').forEach(a=>a.onclick=()=>{ csDetail={store:st,s:halls.find(h=>h.id===a.dataset.hed)}; csTab='memo'; PAGES.set_cast(); }); return; } /* SQL 445：黒服も名前でキャストと同じ画面（メモ・書類。基本情報の変更はボタンから。2026-11-11 オーナー） */
+  if(!E){ if(!lock){ $('chEd').onclick=()=>{ csEdit='hall'; PAGES.set_cast(); }; $('chAdd').onclick=()=>staffEdit(st,null,'hall'); } box.querySelectorAll('[data-hed]').forEach(a=>a.onclick=()=>{ csDetail={store:st,s:halls.find(h=>h.id===a.dataset.hed)}; csTab='memo'; PAGES.set_cast(); }); return; } /* 黒服も名前でキャストと同じ画面（メモ・書類。基本情報の変更はボタンから。 オーナー） */
   $('chCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
   const tb=box.querySelector('table.cs');
   tb.querySelectorAll('tr[data-sid]').forEach(tr=>{ const q=k=>tr.querySelector(`[data-k=${k}]`);
@@ -62,7 +62,7 @@ async function hpCollect(K,tb){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E
       try{ const pt=q('pt').value||null, am=pt?num('am','金額'):null, wm=q('wm').value, wa=wm==='amount'?num('wa','厚生費'):null;
         if(pt&&!am) throw `${nm}：${CS_HPAY[pt]}の金額を入力してください`;
         if(wm==='amount'&&wa==null) throw `${nm}：厚生費の金額を入力してください`;
-        so={day_pay_ok:b(q('dp').value),contract_done:b(q('ct2').value),doc_id_ok:q('di').value==='true',doc_roster_ok:q('dr').value==='true',task_limited_ok:q('tl').value==='true',trial_judge_ok:q('tj').value==='true'}; /* v2.08・SQL 355：体験のジャッジ する／しない */ /* v1.65・SQL 271：黒服の書類（キャストと同じ3つ） */
+        so={day_pay_ok:b(q('dp').value),contract_done:b(q('ct2').value),doc_id_ok:q('di').value==='true',doc_roster_ok:q('dr').value==='true',task_limited_ok:q('tl').value==='true',trial_judge_ok:q('tj').value==='true'}; /* 体験のジャッジ する／しない */ /* 黒服の書類（キャストと同じ3つ） */
         to={pay_type:pt,amount:am==null?null:Math.round(am),withhold:b(q('wh').value),ctax_pct:num('ct','消費税',100),welfare_mode:wm,welfare_amount:wa==null?null:Math.round(wa)};
       }catch(e){ if(typeof e==='string'){ await uiAlert(e); return; } throw e; }
       const so0={day_pay_ok:s.day_pay_ok??null,contract_done:s.contract_done??null,doc_id_ok:!!s.doc_id_ok,doc_roster_ok:!!s.doc_roster_ok,task_limited_ok:!!s.task_limited_ok,trial_judge_ok:s.trial_judge_ok!==false};
@@ -75,7 +75,7 @@ async function hpSave(K,tb){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lo
     if(!out.length&&!shifts.length){ csEdit=false; toast('変更はありません'); PAGES.set_cast(); return; }
     let only=false;
     if(needP){ const ans=await csAskWhen(m); if(!ans) return; only=ans==='only'; }
-    // v0.63：「いつから」を聞いた後に保存する（前は出勤〜退勤だけ先に保存されて、やめても残った）
+    // 「いつから」を聞いた後に保存する（前は出勤〜退勤だけ先に保存されて、やめても残った）
     if(shifts.length){ const r0=await rpc('admin_save_hall_shift',{p_store:st,p_rows:shifts}); if(!r0.ok) return; }
     if(out.length){ const r=await rpc('admin_save_hall_settings',{p_store:st,p_month:m,p_only:only,p_rows:out}); if(!r.ok){ if(shifts.length) await uiAlert('出勤〜退勤は保存しました。報酬などは保存できていません'); return; } }
     csEdit=false; toast('保存しました'); PAGES.set_cast();
@@ -84,7 +84,7 @@ async function hpSave(K,tb){ const {box,st,ed,m,sf,tm,halls,tr0,sql064,rows,E,lo
 // 名前を押した時：その人だけの条件・メモ
 async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast')==='edit', hl=s.kind==='hall'; /* 黒服は メモ・書類（個別設定・注文集計はキャストだけ） */
   const head=`<div class="row" style="margin-bottom:12px"><button class="ghost" id="csBack">← 一覧に戻る</button><h1 style="margin:0">${esc(s.display_name)}</h1><span style="flex:1"></span>${ed?'<button class="ghost" id="csBase">基本情報の変更</button>':''}</div>
-   <div class="cs-tabs"><button data-t="memo" class="${csTab==='memo'?'on':''}">メモ</button>${hl?'':`<button data-t="sp" class="${csTab==='sp'?'on':''}">個別設定</button><button data-t="ord" class="${csTab==='ord'?'on':''}">注文集計</button>`}<button data-t="doc" class="${csTab==='doc'?'on':''}">書類</button></div>`; /* SQL 445：書類（閲覧のみ。撮影は POS） */
+   <div class="cs-tabs"><button data-t="memo" class="${csTab==='memo'?'on':''}">メモ</button>${hl?'':`<button data-t="sp" class="${csTab==='sp'?'on':''}">個別設定</button><button data-t="ord" class="${csTab==='ord'?'on':''}">注文集計</button>`}<button data-t="doc" class="${csTab==='doc'?'on':''}">書類</button></div>`; /* 書類（閲覧のみ。撮影は POS） */
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const wire=()=>{ $('csBack').onclick=()=>{ csDetail=null; PAGES.set_cast(); }; if($('csBase')) $('csBase').onclick=()=>staffEdit(st,s,hl?'hall':'cast'); $('main').querySelectorAll('.cs-tabs button').forEach(b=>b.onclick=()=>{ csTab=b.dataset.t; csDetailPage(); }); };
   wire();
@@ -92,7 +92,7 @@ async function csDetailPage(){ const st=storeId, s=csDetail.s, ed=perm('set_cast
   const K={st,s,ed,head,wire,t};
   if(t==='sp') return cdSp(K);
   if(t==='ord') return cdOrd(K);
-  if(t==='doc'){ $('main').innerHTML=head+'<div class="card" id="csDoc"><span class="muted">読み込み中…</span></div>'; wire(); await csDocsTab(st,s); return; } // SQL 445（35_staff_docs.js）
+  if(t==='doc'){ $('main').innerHTML=head+'<div class="card" id="csDoc"><span class="muted">読み込み中…</span></div>'; wire(); await csDocsTab(st,s); return; } //（35_staff_docs.js）
   return cdMemo(K); }
 /* 個別設定（支給・控除・時給）：一覧と追加の欄 */
 async function cdSp(K){ const {st,s,ed,head,wire,t}=K;
@@ -119,7 +119,7 @@ function cdSpBind(K){ const {st,s,ed,head,wire,t}=K;
       rtOwn=Date.now(); const x=await sb.rpc('admin_add_cast_special',{p_store:st,p_staff:s.id,p_kind:kind,p_title:title,p_amount:kind==='text'?null:a,p_from:f,p_to:to}); rtOwn=Date.now();
       if(x.error){ await uiAlert(kind==='wage'&&/種類が違います|cast_specials_kind_check/.test(x.error.message)?'SQL 079 が未実行です（「時給加算」はまだ使えません）':x.error.message); return; } toast('追加しました'); csDetailPage(); });
 }
-/* v0.33・SQL 073：注文集計（その月、この人にバックが付いた注文を商品ごとに。取消は除く） */
+/* 注文集計（その月、この人にバックが付いた注文を商品ごとに。取消は除く） */
 async function cdOrd(K){ const {st,s,ed,head,wire,t}=K;
     const now=csNowMonth(); if(!csOrdM) csOrdM=now; const om=csOrdM, mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
     $('main').innerHTML=head+`<div class="card"><select id="coM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===om?'selected':''}>${csMLabel(x)}</option>`).join('')}</select><div id="coBox" class="muted" style="margin-top:10px">読み込み中…</div></div>`; wire();

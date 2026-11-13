@@ -1,4 +1,4 @@
-// データの削除（SQL 470・2026-11-12 オーナー「情報漏洩が気になる。DL してるからデータベースに残す必要もない」）
+// データの削除（6-11-12 オーナー「情報漏洩が気になる。DL してるからデータベースに残す必要もない」）
 // 前の月までの伝票・給与・現金管理を、★★★ に保存した後にオーナーだけが消す。保存が済んでいない時はボタンを出さない
 PAGES.o_purge=async()=>{ const st=storeId, head=`<h1>データの削除 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="muted">読み込み中…</div>';
@@ -17,7 +17,7 @@ PAGES.o_purge=async()=>{ const st=storeId, head=`<h1>データの削除 <small c
   $('main').querySelectorAll('[data-purge]').forEach(b=>b.onclick=async()=>{ const x=R.find(z=>z[0]===b.dataset.purge);
     if(!await uiConfirm(`${y}年${mo}月までの${x[1]} ${n(x[4])}件を削除しますか？\n削除すると元に戻せません`,'削除','danger')) return;
     b.disabled=true;
-    if(x[0]==='cash'){ /* 領収書の写真も一緒に消す（オーナー 2026-11-12）。写真を先に消してから行を消す */
+    if(x[0]==='cash'){ /* 領収書の写真も一緒に消す（オーナー）。写真を先に消してから行を消す */
       const f=await sb.rpc('admin_purge_files',{p_store:st}); if(f.error){ b.disabled=false; await uiAlert(f.error.message); return; }
       for(let i=0;i<(f.data||[]).length;i+=100){ const rm=await sb.storage.from('receipts').remove(f.data.slice(i,i+100)); if(rm.error){ b.disabled=false; await uiAlert('領収書の写真を削除できませんでした：'+rm.error.message); return; } } }
     const q=await sb.rpc('admin_purge',{p_store:st,p_kind:x[0]});

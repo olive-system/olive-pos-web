@@ -1,11 +1,11 @@
-// v0.20・SQL 120：⑥書類（オーナーにヒアリングして決めた形 2026-10-16）。3点セット＝契約書・本人確認書類（本籍地入りの住民票またはパスポートのコピー。原本は店で保管）・従業者名簿
-//   提出期限は最初の報酬の受取。提出済みは POS で黒服がチェック。契約書はここで条ごとに同意・本人情報・署名（今の Google フォームを作り直したもの）。PDF で控え
+// ⑥書類（オーナーにヒアリングして決めた形）。3点セット＝契約書・本人確認書類（本籍地入りの住民票またはパスポートのコピー。原本は店で保管）・従業者名簿
+// 提出期限は最初の報酬の受取。提出済みは POS で黒服がチェック。契約書はここで条ごとに同意・本人情報・署名（今の Google フォームを作り直したもの）。PDF で控え
 let DOCS = null;
 async function docsLoad(){ const r = await sb.rpc('cast_docs_info', { p_token: TOKEN }); DOCS = r.error ? null : r.data; ME.docs = DOCS ? { target: DOCS.target, left: [DOCS.contract, DOCS.id_doc, DOCS.roster].filter(x => !x).length } : null; return !r.error; }
 async function docsList(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   if(!await docsLoad()){ fail('書類を表示できません'); return; }
-  if(DOCS.hold){ show('<div class="card">表示できる書類はありません</div>'); return; } /* v1.18・SQL 347：入店して担当の黒服と対面で［開始］するまで、契約書を見せない（オーナー 2026-11-04） */
+  if(DOCS.hold){ show('<div class="card">表示できる書類はありません</div>'); return; } /* 入店して担当の黒服と対面で［開始］するまで、契約書を見せない（オーナー） */
   const D = DOCS, st = ok => `<span class="sm" style="color:${ok?'var(--ok)':'var(--warn)'}">${ok?'提出済':'未提出'}</span>`, left = ME.docs.left;
   const ag = D.agreed ? new Date(D.agreed.at) : null;
   show(`<div class="ttl">書類</div><div class="card">${left?`<div class="sm" style="color:var(--warn);font-weight:700;padding-bottom:8px">提出期限 ${D.due?mdDay(D.due)+'（最初の報酬の受取）':'最初の報酬の受取'}</div>`:''}

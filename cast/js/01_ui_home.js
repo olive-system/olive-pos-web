@@ -3,26 +3,26 @@ async function start(){
   try{ localStorage.setItem('olive_cast_store', STORE); }catch(e){}
   try{ await liff.init({ liffId: LIFF[STORE] }); }catch(e){ fail('LINE の初期化に失敗しました：' + (e.message||e)); return; }
   if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
-  if(goParam() === 'apply'){ await applyStart(); return; } /* v0.85・SQL 274：みんな用のメニューの「予約状況の確認」（LINE連携していない人も開く） */
-  if(['book', 'voice', 'sheet', 'judge'].includes(goParam())){ await apLiff(goParam()); return; } /* v1.23・SQL 355：judge＝体験のジャッジ */ /* v1.19・SQL 348：応募の人に届く LINE のボタン（面接予約・ご感想・ヒアリングシート）。LINE連携していない人も開く */
+  if(goParam() === 'apply'){ await applyStart(); return; } /* みんな用のメニューの「予約状況の確認」（LINE連携していない人も開く） */
+  if(['book', 'voice', 'sheet', 'judge'].includes(goParam())){ await apLiff(goParam()); return; } /* judge＝体験のジャッジ */ /* 応募の人に届く LINE のボタン（面接予約・ご感想・ヒアリングシート）。LINE連携していない人も開く */
   await login();
 }
 
 // LINE の id_token をデータベースで認証 → 入場券、または連携用の番号
 async function login(){
-  linkWait = false; /* v0.94：待ちは showLink の時だけ */
+  linkWait = false; /* 待ちは showLink の時だけ */
   const idt = liff.getIDToken();
   if(!idt){ liff.login({ redirectUri: location.href }); return; }
   const r = await sb.rpc('cast_login', { p_store: STORE, p_id_token: idt });
   if(r.error){ if(/認証|確かめ/.test(r.error.message)){ liff.logout(); liff.login({ redirectUri: location.href }); return; } fail(r.error.message); return; }
   if(r.data.status === 'link'){ showLink(r.data); return; }
-  if(r.data.status === 'store'){ /* SQL 222：ほかの店で連携している人（開いたトークに欠勤・予約の LINE が届くため開かない） */
+  if(r.data.status === 'store'){ /* ほかの店で連携している人（開いたトークに欠勤・予約の LINE が届くため開かない） */
     show(`<div class="card c"><div class="big">表示できません</div><p class="err">${esc(r.data.store_name)} の公式 LINE のメニューから再度開いてください</p></div>`); return; }
-  TOKEN = r.data.token; clearTimeout(pollT); await castLoadMe(r.data.kind ? r.data : null); /* v0.94・SQL 292：cast_login が kind・shift_all も返す（cast_who を待たない） */
+  TOKEN = r.data.token; clearTimeout(pollT); await castLoadMe(r.data.kind ? r.data : null); /* cast_login が kind・shift_all も返す（cast_who を待たない） */
 }
 
 // 未連携：番号を表示し、黒服が POS で入力するのを待つ（5秒ごとに確認）
-// v0.94・SQL 292：画面が隠れている間は待ちを止め、戻ったらすぐ確かめる。30分で待ちを終える（画面はそのまま）。待ちは LINE の確かめをしない cast_link_poll（連携・期限切れの時だけ cast_login）
+// 画面が隠れている間は待ちを止め、戻ったらすぐ確かめる。30分で待ちを終える（画面はそのまま）。待ちは LINE の確かめをしない cast_link_poll（連携・期限切れの時だけ cast_login）
 let linkWait = false, linkT0 = 0, linkPoll = null;
 function showLink(d){
   show(`<div class="card c"><div class="big">ようこそ</div><p>この LINE は未連携です。</p><p>黒服にこの番号をお伝えください。</p>
@@ -44,19 +44,19 @@ async function linkCheck(){
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && linkWait && !pollT && Date.now() - linkT0 <= 30 * 60000) linkCheck(); });
 
 async function castLoadMe(w0){
-  // v0.73：誰か・成績・ホームの残りを、順番に待たずに同時に読む。リッチメニューのボタン（?go=）から開いた時は、ホームの残りを待たずにその画面を出す
-  //   （オーナー 2026-10-26「シフト、予約、成績など読み込みまでに時間がかかる」。データベースはどれも 0.1秒以下で、待ちは通信を1つずつ順番に待っていたこと）
-  // v0.94・SQL 292：cast_login から黒服かキャストかがわかる時は、黒服は hall_me だけ・キャストはキャストの分だけを同時に読む（前は黒服でもキャストの分を全部読んでいた）。わからない時（SQL 292 の前）は今までどおり
+  // 誰か・成績・ホームの残りを、順番に待たずに同時に読む。リッチメニューのボタン（?go=）から開いた時は、ホームの残りを待たずにその画面を出す
+  // （オーナー「シフト、予約、成績など読み込みまでに時間がかかる」。データベースはどれも 0.1秒以下で、待ちは通信を1つずつ順番に待っていたこと）
+  // cast_login から黒服かキャストかがわかる時は、黒服は hall_me だけ・キャストはキャストの分だけを同時に読む（前は黒服でもキャストの分を全部読んでいた）。わからない時（SQL 292 の前）は今までどおり
   const T = { p_token: TOKEN }, kd = w0 && w0.kind;
-  if(w0 && w0.leaving){ LEAVING = true; ME = { name: w0.name, hall: false }; leaveHome(); return; } /* v1.12・SQL 334：受取待ち（退店）は報酬明細だけ */
+  if(w0 && w0.leaving){ LEAVING = true; ME = { name: w0.name, hall: false }; leaveHome(); return; } /* 受取待ち（退店）は報酬明細だけ */
   if(kd){ SHIFT_ALL = !!w0.shift_all;
     if(kd === 'hall'){ await hallLoad(sb.rpc('hall_me', T)); return; }
     if(kd !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w0.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
   const pW = kd ? null : sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = kd ? null : sb.rpc('hall_me', T);
-  const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* v0.20・SQL 120：書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* v0.36・SQL 134：伝票一覧の件数 */,
-    sb.rpc('cast_birthdays', T) /* v0.40・SQL 150：トップに「お誕生日」。v0.99・SQL 301：前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* v0.18・SQL 118：お知らせの未確認の数 */]);
-  if(pW){ const w = await pW; /* v0.33・SQL 133：黒服が開いた時は黒服マイページ */
-    SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* v0.70・SQL 257：ママは全員のシフト */
+  const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* 書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* 伝票一覧の件数 */,
+    sb.rpc('cast_birthdays', T) /* トップに「お誕生日」。前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* お知らせの未確認の数 */]);
+  if(pW){ const w = await pW; /* 黒服が開いた時は黒服マイページ */
+    SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* ママは全員のシフト */
     if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(pH); return; }
     if(!w.error && w.data && w.data.kind !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w.data.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
   const r = await pM;
@@ -66,19 +66,19 @@ async function castLoadMe(w0){
   const fill = ([d, dc, bm, bd, n]) => { ME.dress = d.error ? null : d.data; ME.billMonths = bm.error ? null : (bm.data || []); ME.bdays = bd.error ? [] : (bd.data || []);
     DOCS = dc.error ? null : dc.data; ME.docs = DOCS ? { target: DOCS.target, left: [DOCS.contract, DOCS.id_doc, DOCS.roster].filter(x => !x).length } : null;
     NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length;
-    ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* v0.12・SQL 110：ドレス新調日（店が「する」の時だけボタンを出す）。v1.05・点検 2026-11-02 B5：読めなかった分があれば、トップに1行 */
+    ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* ドレス新調日（店が「する」の時だけボタンを出す）。点検 B5：読めなかった分があれば、トップに1行 */
   const th = thxParam(), nt = urlParam('notice'), go = goParam();
-  if(['contact','shift','sales','resv','perf','dress','meeting'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* v0.64・SQL 221：リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
+  if(['contact','shift','sales','resv','perf','dress','meeting'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
   fill(await pB);
   home();
-  { if(th) resvThanksById(th); if(nt) noticeOpen(nt); else castGo(go); } /* v0.16・SQL 115：係に届いた LINE の「ありがとう」から開いた時。キャストが開けない go（黒服の画面など）はトップのまま */
+  { if(th) resvThanksById(th); if(nt) noticeOpen(nt); else castGo(go); } /* 係に届いた LINE の「ありがとう」から開いた時。キャストが開けない go（黒服の画面など）はトップのまま */
 }
 
-// v0.64・SQL 221：キャストのリッチメニューのボタンから、その画面を直接開く（?go=。オーナー 2026-10-23 見本 キャストのリッチメニュー_案）。連絡先交換は LINE のリンクと同じく入力から
+// キャストのリッチメニューのボタンから、その画面を直接開く（?go=。オーナー 見本 キャストのリッチメニュー_案）。連絡先交換は LINE のリンクと同じく入力から
 function castGo(k){
   if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
   if(k === 'contact') contactList(true); else if(k === 'shift') (SHIFT_ALL ? shiftAll() : shiftHome()); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf();
-  else if(k === 'dress') dressReport(); else if(k === 'meeting') mtCast(); else if(k === 'memo' && SHIFT_ALL) memoList(); /* v1.22・SQL 352 */ /* v1.14・SQL 339：締め切りのリマインドの LINE から、新調日・ミーティングの画面を直接開く */
+  else if(k === 'dress') dressReport(); else if(k === 'meeting') mtCast(); else if(k === 'memo' && SHIFT_ALL) memoList(); /* 締め切りのリマインドの LINE から、新調日・ミーティングの画面を直接開く */
 }
 
 // スライド表の「次の段」の文：あと○○で 時給○円
@@ -89,12 +89,12 @@ function nextTxt(s){
   const rest = Number(s.next_threshold) - Number(s.value||0), f = UNIT[s.basis] || (v=>v);
   return `あと ${f(s.basis==='points'?Math.round(rest*10)/10:Math.ceil(rest))}で ${u} ${yen(s.next_amount)}`;
 }
-// v1.17：ドレス新調日のボタンは、する店で、今月まだ提出していない時だけ（免除・着物・提出済みは出さない）
+// ドレス新調日のボタンは、する店で、今月まだ提出していない時だけ（免除・着物・提出済みは出さない）
 function dressDue(){ const D = ME.dress; if(!D || !D.enabled || D.exempt) return false; const rp = D.report; return !(rp && rp.status !== 'pending_photo'); }
 function wageNow(){ const st = ME.stats||{}; if(st.wage) return Number(st.wage); const a = (ME.slides||[]).map(s=>Number(s.cur_amount||0)); return a.length ? Math.max(...a) : 0; }
 
 function home(){
-  SHQ = ''; /* v1.38：シフト（全員）の名前の検索は、ホームに戻ったら解除 */
+  SHQ = ''; /* シフト（全員）の名前の検索は、ホームに戻ったら解除 */
   if(LEAVING){ leaveHome(); return; }
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
@@ -106,17 +106,17 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
   const bdCard = homeBdCard();
-  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* v0.41・v0.44：成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー 2026-10-18「ボタンを減らせる」） */
+  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
     <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
-  /* v1.17：トップの整理（オーナー 2026-11-04「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
+  /* トップの整理（オーナー「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
      連絡先交換・アプローチは LINE のリンクとリッチメニューから（画面は今のまま）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
   homeWire();
 }
 /* ホームのお誕生日（3日間）の箱 */
 function homeBdCard(){
   const bdRow = b => { const cu = (b.kind_label||'お客様') === 'お客様'; return `<div class="row"><span><b class="${b.in===0?'err':''}" style="display:inline-block;min-width:5.6em">${b.in===0?'本日':'あと'+b.in+'日'}</b>${esc(b.name)}${cu?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; };
-  /* v1.27・SQL 365：本日・明日・明後日だけ（過ぎた人は出さない）。いない日も箱と［カレンダー］は出す（オーナー 2026-11-05「本日から3日間のみ表示…タップするとお客様のお誕生日一覧をカレンダーで」見本 マイページ_お誕生日カレンダー_案3） */
+  /* 本日・明日・明後日だけ（過ぎた人は出さない）。いない日も箱と［カレンダー］は出す（オーナー「本日から3日間のみ表示…タップするとお客様のお誕生日一覧をカレンダーで」見本 マイページ_お誕生日カレンダー_案3） */
   const bd3 = (ME.bdays||[]).filter(b => b.in >= 0 && b.in <= 2);
   const bdCard = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="gh">お誕生日（3日間）</div><button class="lkb" data-go="bdcal">カレンダー</button></div>${bd3.length ? bd3.map(bdRow).join('') : '<div class="muted sm">該当なし</div>'}</div>`;
   return bdCard;
@@ -124,20 +124,20 @@ function homeBdCard(){
 /* ホームのボタンをつなぐ */
 function homeWire(){
   $('main').querySelector('[data-go=perf]').onclick = perf;
-  $('main').querySelector('[data-go=bdcal]').onclick = () => bdayCal(); /* v1.27（25_bday.js） */
+  $('main').querySelector('[data-go=bdcal]').onclick = () => bdayCal(); /*（25_bday.js） */
   $('main').querySelector('[data-go=absent]').onclick = absent;
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   { const b = $('main').querySelector('[data-go=docs]'); if(b) b.onclick = docsList; }
   $('main').querySelector('[data-go=resv]').onclick = resvList;
-  $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* v0.70：ママは全員のシフト */
+  $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* ママは全員のシフト */
   $('main').querySelector('[data-go=info]').onclick = noticeList;
   { const d = $('main').querySelector('[data-go=dress]'); if(d) d.onclick = dressReport; }
-  mtTile(); /* v0.93・SQL 287：ミーティング。v1.17：申請していない間はシフトのボタンに「ミーティング未申請」 */
-  keyTile(); /* v1.07・SQL 326：鍵（20_key.js） */
-  if(SHIFT_ALL) memoTile(); /* v1.22・SQL 352：共有メモ（オーナー＝ママ） */
-  if(ME.loadNg) loadNg(); /* v1.05・点検 2026-11-02 B5 */
+  mtTile(); /* ミーティング。申請していない間はシフトのボタンに「ミーティング未申請」 */
+  keyTile(); /* 鍵（20_key.js） */
+  if(SHIFT_ALL) memoTile(); /* 共有メモ（オーナー＝ママ） */
+  if(ME.loadNg) loadNg(); /*点検 B5 */
 }
 
 function perf(){
@@ -158,7 +158,7 @@ function perf(){
 }
 
 
-// v1.12・SQL 334：受取待ち（退店した人。最後の報酬の受取確認まで）。報酬明細だけを出す
+// 受取待ち（退店した人。最後の報酬の受取確認まで）。報酬明細だけを出す
 var LEAVING = false;
 function leaveHome(){
   setBack(null);

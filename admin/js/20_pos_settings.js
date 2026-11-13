@@ -1,4 +1,4 @@
-// ---------- POS設定 v0.22・SQL 062：料金（メニュー以外）はここだけで変える。POS では見るだけ ----------
+// ---------- POS設定 料金（メニュー以外）はここだけで変える。POS では見るだけ ----------
 // HC・BC は伝票を立ち上げた時に人数分つける。金額だけ選ぶ（伝票の名前は HC／BC）。HC は係にバック100%（振分できる）、BC は誰にもバックなし
 const HCBC_OPTS=[[null,'付けない'],...Array.from({length:10},(_,i)=>[(i+1)*1000,((i+1)*1000).toLocaleString('ja-JP')+'円'])];
 const vipRow=(t,ed,dis)=>`<tr data-tb="${t.id}"><td>${esc(t.name)}</td><td><input inputmode="numeric" data-v="set" value="${esc(String(t.vip_set_fee||0))}" ${dis}></td><td><input inputmode="numeric" data-v="ext" value="${esc(String(t.vip_ext_fee||0))}" ${dis}></td>${ed?'<td style="width:1%"><button class="xb" data-vrm aria-label="外す">×</button></td>':''}</tr>`;
@@ -6,7 +6,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   const keep=$('siBox')?.dataset.st===st?$('siBox'):null; // 料金だけ保存した時は、店の情報の入力中の内容を消さない
   $('main').innerHTML=`<h1>POS設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
   const [ps,tb]=await Promise.all([ sb.from('pos_settings').select('*').eq('store_id',st).maybeSingle(), sb.from('tables').select('id,name,vip_set_fee,vip_ext_fee,sort_order').eq('store_id',st).order('sort_order').order('id') ]);
-  const tgtR=me?.is_owner?await sb.rpc('admin_sales_target',{p_store:st}):null, tgt=tgtR?.data??null, tgtErr=!!tgtR?.error; /* 読めない時に空欄のまま保存すると目標が消えるので、その時は押せなくする */ /* v2.01・SQL 344：売上目標（朝礼・日報メールの売上予測。オーナーのみ。2026-11-04） */
+  const tgtR=me?.is_owner?await sb.rpc('admin_sales_target',{p_store:st}):null, tgt=tgtR?.data??null, tgtErr=!!tgtR?.error; /* 読めない時に空欄のまま保存すると目標が消えるので、その時は押せなくする */ /* 売上目標（朝礼・日報メールの売上予測。オーナーのみ） */
   if(page!=='set_pos'||storeId!==st) return;
   const er=ps.error||tb.error; if(er){ $('main').innerHTML=`<h1>POS設定</h1><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
   const d=ps.data||{}; if(!('auto_hc_amount' in d)){ $('main').innerHTML=`<h1>POS設定</h1><div class="card err">SQL 062 が未実行です</div>`; return; }
@@ -42,12 +42,12 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   if($('tgtSave')) $('tgtSave').onclick=async()=>{ const raw=toHan($('psTgt').value).replace(/[,，\s円]/g,''); if(raw!==''&&!/^\d+$/.test(raw)){ toast('売上目標を入力してください'); return; }
     const q=await rpc('admin_sales_target_save',{p_store:st,p_amount:raw===''?null:Number(raw)}); if(!q.ok) return; toast('保存しました'); $('psTgt').value=raw===''?'':Number(raw).toLocaleString('ja-JP'); };
   if(!ed) return;
-  // v0.48：VIP料金は VIP の卓だけ出す。「＋VIP の卓を足す」で行を足す、× で外す（保存すると0円＝通常卓）
+  // VIP料金は VIP の卓だけ出す。「＋VIP の卓を足す」で行を足す、× で外す（保存すると0円＝通常卓）
   const vipSync=()=>{ const on=new Set([...$('main').querySelectorAll('tr[data-tb]')].map(x=>x.dataset.tb)); $('vipNone').style.display=on.size?'none':''; [...$('vipAdd').options].forEach(o=>{ if(o.value) o.hidden=on.has(o.value); }); };
   const vipWire=tr=>{ tr.querySelector('[data-vrm]').onclick=()=>{ tr.remove(); vipSync(); }; };
   $('main').querySelectorAll('tr[data-tb]').forEach(vipWire);
   if($('vipAdd')){ vipSync(); $('vipAdd').onchange=()=>{ const t=tables.find(x=>x.id===$('vipAdd').value); $('vipAdd').value=''; if(!t) return; const tb=document.createElement('tbody'); tb.innerHTML=vipRow({...t,vip_set_fee:0,vip_ext_fee:0},true,''); const tr=tb.firstElementChild; $('vipT').appendChild(tr); vipWire(tr); vipSync(); tr.querySelector('[data-v=set]').focus(); }; }
-  // v0.47・SQL 077：入金・出金の項目（足す・×で消す → 項目を保存）
+  // 入金・出金の項目（足す・×で消す → 項目を保存）
   const ciChip=x=>{ const c=document.createElement('span'); c.className='badge gray ci'; c.style.cssText='background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex;gap:6px;align-items:center'; c.innerHTML=`<span>${esc(x)}</span><a data-cirm style="cursor:pointer;color:var(--muted)">×</a>`; c.querySelector('[data-cirm]').onclick=()=>c.remove(); return c; };
   $('main').querySelectorAll('[data-cirm]').forEach(a=>a.onclick=()=>a.closest('.ci').remove());
   $('main').querySelectorAll('[data-ciadd]').forEach(b=>{ const k=b.dataset.ciadd, inp=$('main').querySelector(`[data-ciin="${k}"]`), list=$('main').querySelector(`[data-ci="${k}"]`);
@@ -55,7 +55,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     b.onclick=add; inp.onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); add(); } }; });
   if($('ciSave')){ const cs=$('ciSave'); cs.onclick=guard(cs,async()=>{ const g=k=>[...$('main').querySelectorAll(`[data-ci="${k}"] .ci span`)].map(x=>x.textContent);
     const r=await rpc('admin_save_cash_items',{p_store:st,p_in:g('in'),p_out:g('out')}); if(!r.ok) return; unsavedBtns.delete(cs); toast('保存しました（POS の次の入金・出金から変わります）'); }); }
-  /* v1.55：料金・伝票・VIP料金の箱ごとに保存（オーナー 2026-10-23「料金のところには保存ボタンないよね」）。どの箱の保存でも、この3つの箱の今の入力をまとめて保存する（入れた物が消えない） */
+  /* 料金・伝票・VIP料金の箱ごとに保存（オーナー「料金のところには保存ボタンないよね」）。どの箱の保存でも、この3つの箱の今の入力をまとめて保存する（入れた物が消えない） */
   $('main').querySelectorAll('[data-pssave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
     const g=id=>slNum($(id).value), v={set_minutes:g('psSetM'),set_unit_price:g('psSetP'),ext_minutes:g('psExtM'),ext_unit_price:g('psExtP'),service_rate:g('psSvc'),tax_rate:g('psTax'),total_round_unit:g('psRnd')};
     const lab={set_minutes:'最初のセット時間',set_unit_price:'セット1名単価',ext_minutes:'延長単位',ext_unit_price:'延長1名単価',service_rate:'サービス料率',tax_rate:'消費税率',total_round_unit:'合計の切り上げ単位'};
@@ -64,15 +64,15 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     if(!(v.set_minutes>0)||!(v.ext_minutes>0)){ await uiAlert('セット時間と延長単位は1分以上にしてください'); return; }
     if(v.service_rate>100||v.tax_rate>100){ await uiAlert('サービス料率・消費税率は100%までです'); return; }
     v.auto_hc_amount=$('psHc').value?Number($('psHc').value):null; v.auto_bc_amount=$('psBc').value?Number($('psBc').value):null;
-    v.douhan_is_kakari=$('psDk').checked; v.cust_auto_kakari=$('psCk').checked; if($('psSm')) v.sales_shot_manager=$('psSm').checked; /* v1.42・SQL 187：担当制の店（広島） */
+    v.douhan_is_kakari=$('psDk').checked; v.cust_auto_kakari=$('psCk').checked; if($('psSm')) v.sales_shot_manager=$('psSm').checked; /* 担当制の店（広島） */
     const vip=[]; for(const t of tables){ const tr=$('main').querySelector(`tr[data-tb="${t.id}"]`); if(!tr){ vip.push({id:t.id,set:0,ext:0}); continue; } // 表に無い卓は通常卓（0円）
       const a=slNum(tr.querySelector('[data-v=set]').value)??0, b=slNum(tr.querySelector('[data-v=ext]').value)??0;
       if(!Number.isInteger(a)||!Number.isInteger(b)||a<0||b<0){ await uiAlert(`${tr.cells[0].textContent} のVIP料金は0以上の整数で入力してください`); return; } vip.push({id:t.id,set:a,ext:b}); }
     if(!await uiConfirm('POS設定を保存しますか？\nPOS の次の伝票から変わります')) return;
     const r=await rpc('admin_save_pos_settings',{p_store:st,p_vals:v,p_vip:vip}); if(!r.ok) return; toast('保存しました'); PAGES.set_pos(); })); };
 
-// v0.22・SQL 062：報酬で使う数（日払の上限・体験の源泉・ポイント・同伴の準備時間）。前は POS の料金設定にあった
-// v0.96・SQL 110：ドレス新調日の設定（店ごとに する／しない・毎月○日が提出の期限・罰金の種類）
+// 報酬で使う数（日払の上限・体験の源泉・ポイント・同伴の準備時間）。前は POS の料金設定にあった
+// ドレス新調日の設定（店ごとに する／しない・毎月○日が提出の期限・罰金の種類）
 async function dressFold(st,ed){ const box=$('dressBox'); if(!box) return; const r=await sb.rpc('admin_get_dress_settings',{p_store:st}); if(r.error||page!=='set_pay'||storeId!==st) return; const c=r.data||{};
   let on=!!c.enabled; const dis=ed?'':'disabled', names=[...new Set([c.fine_name,...(c.fine_names||[])])].filter(Boolean);
   box.innerHTML=foldCard('dress','ドレス新調日','',on?`する・毎月${c.due_day}日`:'しない',`<div class="muted" style="font-size:13px;margin-bottom:8px">キャストが毎月の期限までに、新しいドレスの金額とレシートの写真を LINEマイページで提出します。金額が前月の決定時給×3時間未満、または提出がない時は、下の罰金を自動で付けます</div>
@@ -85,7 +85,7 @@ async function dressFold(st,ed){ const box=$('dressBox'); if(!box) return; const
   const sv=$('drSave'); sv.onclick=guard(sv,async()=>{ const d=slNum($('drDay').value); if(!(Number.isInteger(d)&&d>=1&&d<=28)){ await uiAlert('提出の期限は 1〜28 日にしてください'); return; }
     if(!await uiConfirm(on?`ドレス新調日を「する」（毎月${d}日が期限）にしますか？`:'ドレス新調日を「しない」にしますか？')) return;
     const x=await rpc('admin_save_dress_settings',{p_store:st,p_enabled:on,p_due_day:d,p_fine_name:$('drFine').value}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
-// v0.95・SQL 105：名刺発注の設定（LINEマイページの名刺発注。宛先・件名・返信先・枚数・金額。店ごと）
+// 名刺発注の設定（LINEマイページの名刺発注。宛先・件名・返信先・枚数・金額。店ごと）
 async function cardFold(st,ed){ const box=$('cardBox'); if(!box) return; const r=await sb.rpc('admin_get_card_settings',{p_store:st}); if(r.error||page!=='set_pay'||storeId!==st) return; const c=r.data||{};
   const inp=(id,l,v,ph='')=>`<label>${l}<input id="${id}" value="${esc(v??'')}" placeholder="${ph}" ${ed?'':'disabled'}></label>`;
   box.innerHTML=foldCard('card','名刺発注','',`${c.qty}枚 ${Number(c.price).toLocaleString('ja-JP')}円・宛先 ${c.to_email?esc(c.to_email):'未設定'}`,`<div class="muted" style="font-size:13px;margin-bottom:8px">LINEマイページで発注すると、宛先にメールを送信し、名刺代を報酬の個別控除に入れます</div><div class="grid2">
@@ -94,7 +94,7 @@ async function cardFold(st,ed){ const box=$('cardBox'); if(!box) return; const r
   foldWire(box); const sv=$('cdSave'); if(!sv) return;
   sv.onclick=guard(sv,async()=>{ const q=slNum($('cdQty').value), pr=slNum($('cdPrice').value); if(!(q>0)||!(pr>=0)){ await uiAlert('枚数と金額を確認してください'); return; }
     if(!await uiConfirm('名刺発注の設定を保存しますか？')) return; const x=await rpc('admin_save_card_settings',{p_store:st,p_to:$('cdTo').value,p_subject:$('cdSub').value,p_reply:$('cdRe').value,p_qty:q,p_price:pr}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
-// v0.90：報酬・罰金項目の並びに合わせて2つの箱に分けた（保存は同じ admin_save_pay_settings。どちらの保存も6つ全部を送る）
+// 報酬・罰金項目の並びに合わせて2つの箱に分けた（保存は同じ admin_save_pay_settings。どちらの保存も6つ全部を送る）
 const pnNum=(id,label,v,ed)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${ed?'':'disabled'}></label>`;
 const pnSaveBtn=ed=>ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pnsave>保存</button></div>':'';
 const pnYen=v=>v==null?'—':Number(v).toLocaleString('ja-JP')+'円';
@@ -108,7 +108,7 @@ function payPtCard(pos,ed){ const d=pos.data||{};
     ${pnNum('pnSp','セット1名のポイント',d.set_point,ed)}${pnNum('pnEp','延長1回1名のポイント',d.ext_point,ed)}
     ${pnNum('pnTw','体験入店の源泉（%）',d.trial_withholding_rate,ed)}</div>
     <div class="muted" style="font-size:13px;margin-top:8px;line-height:1.6">ポイントは人数分かけて、${KL}で同じに分けます</div>${RWPS?sptBlock(d,ed):''}${pnSaveBtn(ed)}`,'data-paynum'); }
-// v2.33・SQL 421：セットのポイントを1組（伝票1枚）の人数で段にする（団体をたまたま取った子に大きく入りすぎないため）。ポイントスライドの店だけ
+// セットのポイントを1組（伝票1枚）の人数で段にする（団体をたまたま取った子に大きく入りすぎないため）。ポイントスライドの店だけ
 const sptRow=(t,ed)=>`<tr data-spt><td><input inputmode="numeric" data-tu value="${esc(String(t.upto??''))}" ${ed?'':'disabled'}></td><td><input inputmode="decimal" data-tp value="${esc(String(t.p??''))}" ${ed?'':'disabled'}></td><td>${ed?'<button type="button" class="xb" aria-label="削除" data-sptdel>×</button>':''}</td></tr>`;
 function sptBlock(d,ed){ const ts=Array.isArray(d.set_point_tiers)?d.set_point_tiers:[];
   return `<div id="sptBox" style="margin-top:14px"><div style="font-size:14px;margin-bottom:6px">セットのポイント（1組の人数別）</div>

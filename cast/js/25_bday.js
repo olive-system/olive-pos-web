@@ -1,18 +1,18 @@
-// v1.27・SQL 365：お誕生日のカレンダー（オーナー 2026-11-05「タップするとお客様のお誕生日一覧をカレンダーで表示」見本 マイページ_お誕生日カレンダー_案3。
-//   ホームの「お誕生日（3日間）」の［カレンダー］から。お客様はホームと同じ顔ぶれ（台帳の全員・SQL 360）。広島は係を出さない（関数が kakari を null）
-//   マスは3人まで名前（空白を除いて4文字まで）・4人からは2人＋「他○人」（オーナー「3人ぐらいまでは名前」「せめて4文字位まで」）。マスを押すと上の箱がその日。今日のしるしは営業日（関数の today＝business_date_of）
+// お誕生日のカレンダー（オーナー「タップするとお客様のお誕生日一覧をカレンダーで表示」見本 マイページ_お誕生日カレンダー_案3。
+// ホームの「お誕生日（3日間）」の［カレンダー］から。お客様はホームと同じ顔ぶれ（台帳の全員）。広島は係を出さない（関数が kakari を null）
+// マスは3人まで名前（空白を除いて4文字まで）・4人からは2人＋「他○人」（オーナー「3人ぐらいまでは名前」「せめて4文字位まで」）。マスを押すと上の箱がその日。今日のしるしは営業日（関数の today＝business_date_of）
 let BDC = null;
-// v1.40・SQL 378：本日の箱の右に［登録］と虫めがね（オーナー 2026-11-06「名前で検索」「“登録”でいいね。検索マークは右」「検索と申請をごっちゃにしないで」見本 作業場/お誕生日登録申請_案.png）
-//   虫めがね＝お誕生日検索（表示のみ。未登録は「未登録」）・［登録］＝お誕生日が未登録のお客様を選んで申請 → 黒服が開店作業「お誕生日登録申請」で登録／却下
+// 本日の箱の右に［登録］と虫めがね（オーナー「名前で検索」「“登録”でいいね。検索マークは右」「検索と申請をごっちゃにしないで」見本 作業場/お誕生日登録申請_案.png）
+// 虫めがね＝お誕生日検索（表示のみ。未登録は「未登録」）・［登録］＝お誕生日が未登録のお客様を選んで申請 → 黒服が開店作業「お誕生日登録申請」で登録／却下
 const BD_MG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="display:block"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>';
 const bdKey = s => String(s || '').replace(/[\s　]+/g, '');
 function bdPop(title, body){ const d = document.createElement('div'); d.className = 'dlg'; d.style.alignItems = 'flex-start'; d.style.paddingTop = '60px';
   d.innerHTML = `<div class="box" style="max-height:calc(100vh - 90px);overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${title}</b><button class="xb" data-k="x" aria-label="閉じる" style="font-size:20px">×</button></div>${body}</div>`;
   document.body.appendChild(d); d.querySelector('[data-k=x]').onclick = () => d.remove(); return d; }
 const bdFld = 'width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
-// SQL 379：未登録のお客様（両店とも 5,000人ほど）は押した時だけ読む。[id, 名前] の並び
+// 未登録のお客様（両店とも 5,000人ほど）は押した時だけ読む。[id, 名前] の並び
 async function bdLoad(force){ if(BDC.nobd && !force) return true; const r = await sb.rpc('cast_bday_nobd', { p_token: TOKEN }); if(r.error){ await uiAlert(r.error.message); return false; }
-  BDC.nobd = (r.data.nobd || []).map(([id, name, kana]) => ({ id, name, kana })); /* v1.41・SQL 386：フリガナ */ BDC.pend = r.data.pend || []; return true; }
+  BDC.nobd = (r.data.nobd || []).map(([id, name, kana]) => ({ id, name, kana })); /* フリガナ */ BDC.pend = r.data.pend || []; return true; }
 async function bdayFind(){ if(!await bdLoad()) return;
   const d = bdPop('お誕生日検索', `<input id="bdQ" type="search" placeholder="名前・フリガナで検索" style="${bdFld}"><div id="bdR" style="margin-top:6px"></div>`);
   const A = BDC.rows.map(x => ({ ...x, k: bdKey(x.name), kn: kanaKey(x.kana) })).concat((BDC.nobd || []).map(x => ({ name: x.name, k: bdKey(x.name), kn: kanaKey(x.kana) })));

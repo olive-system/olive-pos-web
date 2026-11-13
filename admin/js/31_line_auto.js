@@ -1,6 +1,6 @@
-// v1.98・SQL 341：LINE自動送信（オーナー 2026-11-03「リマインドについて設定できる画面ってあるんかな？」→ 見本 作業場/LINE自動送信_案.png）
-//   リマインド（キャスト：休み希望・新調日・ミーティング／黒服：未提出の一覧）の 送信日・時刻・送信。変更するとすぐ保存
-//   ランキング（SQL 340 の rank_settings）も同じ画面。SQL 340 が未実行の時は箱を出さない
+// LINE自動送信（オーナー「リマインドについて設定できる画面ってあるんかな？」→ 見本 作業場/LINE自動送信_案.png）
+// リマインド（キャスト：休み希望・新調日・ミーティング／黒服：未提出の一覧）の 送信日・時刻・送信。変更するとすぐ保存
+// ランキング（SQL 340 の rank_settings）も同じ画面。SQL 340 が未実行の時は箱を出さない
 const LA_ROWS=[['shift','休み希望'],['dress','新調日'],['meeting','ミーティング']];
 const LA_WD=['日曜','月曜','火曜','水曜','木曜','金曜','土曜'];
 const laTimes=()=>{ const a=[]; for(let h=9;h<24;h++) for(const m of ['00','30']) a.push(`${String(h).padStart(2,'0')}:${m}`); return a; };
@@ -33,16 +33,16 @@ PAGES.o_line_auto=async()=>{ const st=storeId, head=`<h1>LINE自動送信 <small
   const rt=$('main').querySelector('[data-rk]'); if(rt) rt.querySelectorAll('select').forEach(sel=>sel.onchange=async()=>{ const v=n=>rt.querySelector(`[data-rv=${n}]`)?.value;
     const a={p_store:st,p_enabled:v('on')==='1'}; if(K.dow!=null){ a.p_dow=+v('dow'); a.p_at=v('at'); }
     const x=await rpc('admin_save_rank_settings',a); if(!x.ok){ PAGES.o_line_auto(); return; } toast('保存しました'); });
-  /* v2.00・SQL 343：連絡先交換の LINE（閉店時／退勤時／しない。オーナー 2026-11-03） */
+  /* 連絡先交換の LINE（閉店時／退勤時／しない。オーナー） */
   const ca=await sb.rpc('admin_contact_ask_get',{p_store:st}); if(page!=='o_line_auto'||storeId!==st||ca.error) return;
   const el=document.createElement('div'); el.className='card';
   el.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>連絡先交換</b>${laSel('data-cav',[['close','閉店時'],['leave','退勤時'],['off','しない']],ca.data)}</div>
     <div class="muted" style="font-size:13px;margin-top:4px;line-height:1.8">閉店時：POS の閉店作業を開いた時に、出勤したキャスト全員へ。本日来店のお客様から選んで提出します<br>退勤時：退勤の打刻の時に、そのキャストへ。退勤までに立ち上がった伝票のお客様から選びます<br>しない：今までどおり、1:00 に未提出のキャストへ LINE</div>`;
   $('main').appendChild(el);
   el.querySelector('[data-cav]').onchange=async e=>{ const x=await rpc('admin_contact_ask_set',{p_store:st,p_mode:e.target.value}); if(!x.ok){ PAGES.o_line_auto(); return; } toast('保存しました'); };
-  /* v2.04・SQL 348：応募者（応募から入店。オーナー 2026-11-04「管理サイトで文章を変更できるように。またタブが増えるな」→ この画面に箱を1つ。見本 作業場/応募者_体験の後_案4.png の④）。はじめは全部「しない」 */
+  /* 応募者（応募から入店。オーナー「管理サイトで文章を変更できるように。またタブが増えるな」→ この画面に箱を1つ。見本 作業場/応募者_体験の後_案4.png の④）。はじめは全部「しない」 */
   const ap=await sb.rpc('admin_ap_line_get',{p_store:st}); if(page!=='o_line_auto'||storeId!==st||ap.error) return;
-  const A=ap.data||{}, AR=[['greet','あいさつ','友だち追加',0],['greet_scout','あいさつ（面接の時）','QR',0],['iv_eve','面接の前日','面接予約',1],['iv_trial','面接のお礼（体験）','面接結果 体験',0],['iv_thanks','面接のお礼（辞退）','面接結果 辞退',0],['trial_eve','体験の前日','体験予定',1],['trial_self','体験のお礼（本人検討）','本人検討',0],['trial_thanks','体験のお礼','辞退・店検討',0],['retrial','再体入','再体入',0],['join','入店','入店',0],['reapproach','再アプローチ','次回連絡日',1]]; /* v2.57・SQL 452：面接・体験のお礼と体験の前日（体験の翌日はやめた） */
+  const A=ap.data||{}, AR=[['greet','あいさつ','友だち追加',0],['greet_scout','あいさつ（面接の時）','QR',0],['iv_eve','面接の前日','面接予約',1],['iv_trial','面接のお礼（体験）','面接結果 体験',0],['iv_thanks','面接のお礼（辞退）','面接結果 辞退',0],['trial_eve','体験の前日','体験予定',1],['trial_self','体験のお礼（本人検討）','本人検討',0],['trial_thanks','体験のお礼','辞退・店検討',0],['retrial','再体入','再体入',0],['join','入店','入店',0],['reapproach','再アプローチ','次回連絡日',1]]; /* 面接・体験のお礼と体験の前日（体験の翌日はやめた） */
   const ae=document.createElement('div'); ae.className='card';
   ae.innerHTML=`<b>応募者</b><div class="muted" style="font-size:13px;margin-top:4px">応募の人へ（再アプローチはオーナーと担当へ）</div>
     <table class="t" style="margin-top:8px;table-layout:fixed">${LA_HEAD.replace('<th>期限</th><th>送信日</th>','<th>対象</th><th>文</th>')}${AR.map(([k,n,tg,t])=>{ const x=A[k]||{};

@@ -1,5 +1,5 @@
 // ---------- 体験入店の日払い（時間と金額の式・担当の黒服を選ぶ・本人に見せる画面とサイン） ----------
-// 体験入店の日払い：（時給×稼働時間 または 日給 ＋ 手当）− 源泉 ＝ 日払い額。稼働時間は出勤15分切り上げ・退勤15分切り下げ・閉店時間で打ち止め（v11.16：1:00 → 店舗設定の閉店時間）
+// 体験入店の日払い：（時給×稼働時間 または 日給 ＋ 手当）− 源泉 ＝ 日払い額。稼働時間は出勤15分切り上げ・退勤15分切り下げ・閉店時間で打ち止め（1:00 → 店舗設定の閉店時間）
 const closeCap=bd=>new Date(`${bd}T${closeHM}:00`).getTime()+(Number(closeHM.slice(0,2))<12?24*3600*1000:0);
 function trialHours(inAt,outAt){ if(!inAt||!outAt) return null; const Q=900000; const a=Math.ceil(new Date(inAt).getTime()/Q)*Q; const bd=businessDate(new Date(inAt)); const cap=closeCap(bd); const b=Math.floor(Math.min(new Date(outAt).getTime(),cap)/Q)*Q; return Math.max(0,(b-a)/3600000); }
 function trialCalc(s,ev,extra){ const rate=Number(settings?.trial_withholding_rate??10); const amt=Number(s.trial_pay_amount||0); const f=n=>Number(n).toLocaleString(); let base, head; if(s.trial_pay_type==='daily'){ if(!ev.in) return {ready:false,note:'出勤打刻がありません'}; base=amt; head=`日給 ${f(amt)}`; } else { if(!ev.in) return {ready:false,note:'出勤打刻がありません'}; const h=trialHours(ev.in,ev.out); if(h==null) return {ready:false,note:`時給 ${f(amt)}：退勤打刻後に計算`}; base=Math.floor(amt*h); head=`時給 ${f(amt)} × ${h}時間 ＝ ${f(base)}`; } const gross=base+(extra||0); const tax=Math.floor(gross*rate/100); const pay=gross-tax; return {ready:true,base,gross,tax,pay,note:`${head} ＋ 手当 ${f(extra||0)} ＝ ${f(gross)} − 源泉${rate}% ${f(tax)} ＝ ${f(pay)}円`}; }
@@ -7,7 +7,7 @@ function uiPickMgr(s){ return new Promise(res=>{ const hs=hallList(), cur=mgrOf(
 async function openTrialPay(s,c,ev,extra,rc){ if(rc){ showTrialPay(s,c,ev,extra,rc); return; }
   if(!(s.real_name||'').trim()){ const v=await uiPrompt('本名'); if(v===null) return; const rn=v.trim(); if(!rn) return; const r=await sb.rpc('pos_row_update',{p_table:'staff',p_id:s.id,p:{real_name:rn}}); if(r.error){ await uiConfirm(r.error.message); return; } await logOp('キャスト情報変更',{name:s.display_name,fields:[`real_name:→${rn}`]},null,true); s.real_name=rn; }
   const mg=await uiPickMgr(s); if(!mg){ renderCasts(); return; } showTrialPay(s,c,ev,extra,null,mg); }
-// 体験の報酬を本人に見せる画面＋受け取りサイン（v10.36）。時刻は15分丸め後だけ。サイン後は trial_receipts に保存し、再計算しない
+// 体験の報酬を本人に見せる画面＋受け取りサイン。時刻は15分丸め後だけ。サイン後は trial_receipts に保存し、再計算しない
 function trialRound(inAt,outAt){ const Q=900000; const a=Math.ceil(new Date(inAt).getTime()/Q)*Q; const bd=businessDate(new Date(inAt)); const cap=closeCap(bd); const b=Math.floor(Math.min(new Date(outAt).getTime(),cap)/Q)*Q; return {a,b:Math.max(a,b)}; }
 async function showTrialPay(s,c,ev,extra,rc,mg){ let d, sig=null;
   if(rc){ d=rc.calc||{}; const r=await sb.from('trial_receipts').select('signature').eq('id',rc.id).single(); if(r.error){ await uiConfirm(r.error.message); return; } sig=r.data.signature; }

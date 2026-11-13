@@ -1,4 +1,4 @@
-// v0.85・SQL 274：LINE「予約状況の確認」（2026-10-27 オーナー「自分の予約見れるようにならないの？」）。みんな用のメニューから ?go=apply で開く。LINE連携していない人も使う
+// LINE「予約状況の確認」（オーナー「自分の予約見れるようにならないの？」）。みんな用のメニューから ?go=apply で開く。LINE連携していない人も使う
 // 面接予約は今の Google カレンダーの予約ページのまま。初回だけ電話番号を入力 → 店の Apps Script がカレンダーの予約を探す。見つかったら次からは入力なし
 const RESV_PAGE = { ginza:'https://calendar.app.google/7Zg64LLXU3Ne4MWR7', hiroshima:'https://calendar.app.google/T4RLsbyLuuaXeFEX6' };
 const apDay = iso => { const d = new Date(new Date(iso).getTime() + 9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };

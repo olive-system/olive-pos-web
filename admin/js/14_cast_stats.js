@@ -1,4 +1,4 @@
-// ---------- 集計「キャスト」 v0.28・SQL 068・069：成績 → 支給 → 罰金 → 控除 → 支払う額（見るだけ。計算はデータベースの admin_cast_month） ----------
+// ---------- 集計「キャスト」 成績 → 支給 → 罰金 → 控除 → 支払う額（見るだけ。計算はデータベースの admin_cast_month） ----------
 // 決定時給：選んだスライド表と保証時給（日給の人は日給）の高い方。時間報酬＝決定時給×稼働時間（日給の人は 日給×稼働日数）。会計済の伝票だけ。体験は入れない
 // 同伴ノルマ罰金＝足りない回数×時間給×4時間。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算）。厚生費「標準」＝出勤 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円
 let ksMonth=null;
@@ -7,14 +7,14 @@ const KS_COLS=[
   ['支給',[['wage','決定時給','w'],['time_pay','時間報酬','y'],['kakari_back','小計バック','y'],['seppan_pay','折半','y'],['item_back','商品バック','y'],['allowance','手当','y'],['special_pay','個別支給','y']]],
   ['罰金',[['fines','罰金','m'],['quota_fine','同伴ノルマ','m']]],
   ['控除',[['ctax','消費税','m'],['welfare','厚生費','m'],['special_deduct','個別控除','m'],['advance','日払（立替）','m'],['withholding','源泉徴収','m']]],
-  ['支給額',[['taxable','課税対象額','y'],['prev_adjust','前月精算','pa'],['net','残り支給額','net']]]];  // SQL 414：前月精算は、だれかにある月だけ列を出す
+  ['支給額',[['taxable','課税対象額','y'],['prev_adjust','前月精算','pa'],['net','残り支給額','net']]]];  // 前月精算は、だれかにある月だけ列を出す
 PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksMonth=now; const m=ksMonth;
   const mOpts=Array.from({length:13},(_,i)=>csAddMonth(now,-i));
   const head=`<h1>スタッフ <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="row" style="margin-bottom:12px;justify-content:space-between"><select id="ksM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select>${me?.is_owner?'<span class="row" style="gap:8px"><button class="ghost" id="ksXls" disabled>詳細（Excel）</button><button class="ghost" id="ksPdf" disabled>報酬明細（PDF）</button></span>':''}</div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>'; let data=null, hall=null;
   const wire=()=>{ const e=$('ksM'); if(e) e.onchange=()=>{ ksMonth=e.value; PAGES.cast_sales(); }; const x=$('ksXls'), pd=$('ksPdf'); if(x&&data){ x.disabled=pd.disabled=!(data.rows||[]).length&&!(hall?.rows||[]).length; x.onclick=guard(x,()=>ksExcel(data,hall)); pd.onclick=guard(pd,()=>ksPdf(data,hall)); } }; wire();
-  // v0.35：黒服も同じ画面に（キャストの下）。Excel・PDF にも黒服を入れる
-  /* v0.81・SQL 090：キャストと黒服を1回で（キャストの計算を2回しない）。関数が無い時は今までどおり2つ */
+  // 黒服も同じ画面に（キャストの下）。Excel・PDF にも黒服を入れる
+  /* キャストと黒服を1回で（キャストの計算を2回しない）。関数が無い時は今までどおり2つ */
   let r, hr; const sm=await sb.rpc('admin_staff_month',{p_store:st,p_month:m});
   if(!sm.error){ r={data:sm.data.cast}; hr=sm.data.hall?{data:sm.data.hall}:{error:{message:sm.data.hall_error||''}}; }
   else if(/admin_staff_month/.test(sm.error.message)) [r,hr]=await Promise.all([sb.rpc('admin_cast_month',{p_store:st,p_month:m}), sb.rpc('admin_hall_month',{p_store:st,p_month:m})]);
@@ -41,21 +41,21 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
     +`<div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">会計済の伝票と、タイムカードの打刻（丸めた時刻）で計算します<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">決定時給：選んだスライド表と保証時給（日給の人は日給）のうち一番高い金額。時間報酬＝決定時給×稼働時間（日給の人は 日給×稼働日数）<br>小計バック＝${KL}小計×スタッフ設定のバック％（時給・日給に加算）。折半＝${KL}小計×小計バック％（報酬が折半の人。時給・保証時給・同伴ノルマ罰金はなし）。商品バック・手当・日払（立替）・罰金は POS で入れたもの。％の罰金は月末の時給で計算します<br>同伴ノルマ罰金＝足りない回数×時給×4時間（日給の人の時給は 日給÷所定時間）<br>課税対象額＝支給の合計。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算。スタッフ設定で「しない」の人は0円）<br>厚生費「標準」：稼働日数 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円<br>残り支給額＝課税対象額−罰金−控除。体験の人はその日に支払済のため含めていません</div></div>`+'<div id="hpBox" style="margin-top:22px"></div>';
   hallPayDraw(hr,st,m,rows); wire(); };
 
-// v0.29・SQL 069：詳細（Excel）と報酬明細（PDF）のダウンロード（d-system の「Excel」「報酬明細PDF」と同じ形）。ライブラリは押した時に読む
+// 詳細（Excel）と報酬明細（PDF）のダウンロード（d-system の「Excel」「報酬明細PDF」と同じ形）。ライブラリは押した時に読む
 const ksLib={}; function ksLoad(u){ return ksLib[u]||(ksLib[u]=new Promise((ok,ng)=>{ const sc=document.createElement('script'); sc.src=u; sc.onload=ok; sc.onerror=()=>{ delete ksLib[u]; ng(new Error('読み込めません：'+u)); }; document.head.appendChild(sc); })); }
 const ksN=v=>Number(v||0), ksB=(x,k,f)=>ksN(x.backs?.[k]?.[f]);
-// 2026-11-01：自動の遅刻の罰金は「遅刻（シフト19:50・打刻20:05）」のように1回ごとに名前がちがう。明細では元の名前（遅刻）の1行に合計する
+// 自動の遅刻の罰金は「遅刻（シフト19:50・打刻20:05）」のように1回ごとに名前がちがう。明細では元の名前（遅刻）の1行に合計する
 const ksFineBase=k=>String(k).replace(/（(?:シフト|予定)\d[^）]*）$/,'');
 const ksFineNames=rows=>[...new Set(rows.flatMap(x=>Object.keys(x.fine_items||{}).map(ksFineBase)))].sort((a,b)=>a.localeCompare(b,'ja'));
 const ksFine=(x,f)=>Object.entries(x.fine_items||{}).reduce((s,[k,v])=>ksFineBase(k)===f?s+ksN(v):s,0);
 const ksDed=x=>ksN(x.ctax)+ksN(x.fines)+ksN(x.quota_fine)+ksN(x.welfare)+ksN(x.special_deduct);
 const ksHM=h=>{ const t=Math.round(ksN(h)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
 const ksCode=()=>{ const c=curStore()?.code; return c?'_'+c:''; };
-// v0.94：本名（POS の在籍キャストで入れたもの）。報酬明細の PDF は「源氏名/本名」、Excel は「本名」の列（オーナー 2026-10-15）。読めない時は空
+// 本名（POS の在籍キャストで入れたもの）。報酬明細の PDF は「源氏名/本名」、Excel は「本名」の列（オーナー）。読めない時は空
 async function ksReal(){ const r=await sb.from('staff').select('id,real_name').eq('store_id',storeId); const m={}; (r.data||[]).forEach(x=>{ m[x.id]=(x.real_name||'').trim(); }); return m; }
 async function ksExcel(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const RN=await ksReal();
-  // v0.60：キャストと黒服を1つの表に（d-system の「キャスト売上一覧」と同じ。「黒服」のシートはやめた）。黒服の行は名前に（黒服）。黒服だけの数字は ボーナスの「黒服報酬」「黒服ボーナス」、マイナスの「遅刻・早退」「黒服罰金」
+  // キャストと黒服を1つの表に（d-system の「キャスト売上一覧」と同じ。「黒服」のシートはやめた）。黒服の行は名前に（黒服）。黒服だけの数字は ボーナスの「黒服報酬」「黒服ボーナス」、マイナスの「遅刻・早退」「黒服罰金」
   // 黒服の総支給額は 遅刻・早退を引く前（課税対象額＋遅刻・早退）。マイナスの計に遅刻・早退が入るので、総支給額−マイナス−消費税−日払−源泉＝残り支給額 が合う
   const casts=d.rows||[], halls=(h?.rows||[]).map(x=>({_hall:true,id:x.id,name:x.name+'（黒服）',active:x.active,manager:'',points:0,taxable:ksN(x.taxable)+ksN(x.late_deduct),_taxable:ksN(x.taxable),net:x.net,days:x.days,hours:x.hours,
     allowance:x.allowance,special_pay:x.special_pay,_base:x.base,_bonus:x.bonus,_late:x.late_deduct,_hfine:x.fines,ctax:x.ctax,advance:x.advance,welfare:x.welfare,special_deduct:x.special_deduct,withholding:x.withholding,prev_adjust:x.prev_adjust}));
@@ -70,7 +70,7 @@ async function ksExcel(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xls
     ...fn.map(f=>['マイナス',f,x=>ksN(ksFine(x,f))]),['マイナス','同伴ノルマ',x=>ksN(x.quota_fine)],['マイナス','厚生費',x=>ksN(x.welfare)],['マイナス','個別控除',x=>ksN(x.special_deduct)],['マイナス','遅刻・早退',x=>ksN(x._late)],['マイナス','黒服罰金',x=>ksN(x._hfine)],['マイナス','計',x=>ksN(x.fines)+ksN(x.quota_fine)+ksN(x.welfare)+ksN(x.special_deduct)+ksN(x._late)+ksN(x._hfine)],
     ['課税対象額',null,x=>ksN(x._hall?x._taxable:x.taxable)],['源泉徴収',null,x=>ksN(x.withholding)],...(rows.some(x=>ksN(x.prev_adjust))?[['前月精算',null,x=>ksN(x.prev_adjust)]]:[])];
   const last=new Date(y,mo,0).getDate(), body=rows.map((x,i)=>G.map(g=>g[2](x,i)));
-  const tot=G.map((g,j)=>j===0?'合計':j<3?null:typeof body[0]?.[j]==='number'?Math.round(body.reduce((a,r)=>a+ksN(r[j]),0)*100)/100:null); const kr=G.findIndex(g=>g[0]==='給率(%)'), cTax=casts.reduce((a,x)=>a+ksN(x.taxable),0); const kS=G.findIndex(g=>g[0]===''+KL+'小計'), kW=G.findIndex(g=>g[0]==='時間報酬'&&g[1]==='決定時給'); tot[kr]=tot[kS]?Math.round(cTax/tot[kS]*1000)/10:0; tot[kW]=null; // 給率の合計はキャストだけで（黒服は係小計が無い）。点検 2026-11-02：「本名」を足した時に番号がずれ、係本計で割り・稼働日数が空になっていた → 列は名前で探す
+  const tot=G.map((g,j)=>j===0?'合計':j<3?null:typeof body[0]?.[j]==='number'?Math.round(body.reduce((a,r)=>a+ksN(r[j]),0)*100)/100:null); const kr=G.findIndex(g=>g[0]==='給率(%)'), cTax=casts.reduce((a,x)=>a+ksN(x.taxable),0); const kS=G.findIndex(g=>g[0]===''+KL+'小計'), kW=G.findIndex(g=>g[0]==='時間報酬'&&g[1]==='決定時給'); tot[kr]=tot[kS]?Math.round(cTax/tot[kS]*1000)/10:0; tot[kW]=null; // 給率の合計はキャストだけで（黒服は係小計が無い）。点検「本名」を足した時に番号がずれ、係本計で割り・稼働日数が空になっていた → 列は名前で探す
   const aoa=[['キャスト売上一覧'],[`${y}年${mo}月1日〜${y}年${mo}月${last}日`],G.map((g,j)=>j>0&&G[j-1][0]===g[0]&&g[1]?null:g[0]),G.map(g=>g[1]),tot,...body];
   const ws=XLSX.utils.aoa_to_sheet(aoa), mg=[]; let j=0; while(j<G.length){ if(!G[j][1]){ mg.push({s:{r:2,c:j},e:{r:3,c:j}}); j++; continue; } let k=j; while(k+1<G.length&&G[k+1][0]===G[j][0]&&G[k+1][1]) k++; if(k>j) mg.push({s:{r:2,c:j},e:{r:2,c:k}}); j=k+1; }
   ws['!merges']=mg; ws['!cols']=G.map((g,i)=>({wch:i===1?14:i===0?5:11}));
@@ -79,7 +79,7 @@ async function ksExcel(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xls
 async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'); await ksLoad('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const RN=await ksReal(), nmT=x=>esc(x.name)+(RN[x.id]?'/'+esc(RN[x.id]):'');
   const [y,mo]=String(d.month).split('-').map(Number);
-  // v1.81・SQL 319：受取確認（サイン）の後は、サインした時の明細を出す（マイページと同じ。オーナー 2026-11-02「PDF もサイン時の明細」）。読めない時は止める（ちがう金額の明細を出さない）
+  // 受取確認（サイン）の後は、サインした時の明細を出す（マイページと同じ。オーナー「PDF もサイン時の明細」）。読めない時は止める（ちがう金額の明細を出さない）
   const rc=await sb.rpc('admin_pay_receipts',{p_store:storeId,p_month:`${y}-${String(mo).padStart(2,'0')}-01`}); if(rc.error&&!/admin_pay_receipts/.test(rc.error.message)){ await uiAlert('受取確認の明細の読み込みに失敗しました。再度お試しください'); return; }
   const SG={}; (rc.data||[]).forEach(r=>{ if(r.slip) SG[r.staff_id]=r.slip; }); const sgd=x=>SG[x.id]?{...SG[x.id],name:x.name}:x;
   const rows=[...(d.rows||[]).map(sgd),...(h?.rows||[]).map(x=>({...sgd(x),hall:true}))], fn=ksFineNames(rows.filter(x=>!x.hall)), sn=curStore()?.name||'', v=n=>ksN(n)?ksN(n).toLocaleString('ja-JP'):'--';
@@ -102,7 +102,7 @@ function ksSlips(y,mo,sn,fn,v,nmT){
     const ded=[L('消費税',v(x.ctax)),...fn.map(f=>L(f,v(ksFine(x,f)))),L('同伴ノルマ',v(x.quota_fine)),L('厚生費',v(x.welfare)),L('個別控除',v(x.special_deduct)),L('合計',v(ksDed(x)),'sum')];
     return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${nmT(x)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給',x.wage?ksN(x.wage).toLocaleString('ja-JP'):'--')}
       ${grp('支給対象',pay)}${grp('控除対象',ded)}${L('総支給額',ksN(x.taxable-ksDed(x)).toLocaleString('ja-JP'))}${L('課税対象額',v(x.taxable))}${L('源泉徴収',v(x.withholding))}${L('日払（立替）',v(x.advance))}${ksN(x.prev_adjust)?L('前月精算',(ksN(x.prev_adjust)<0?'−':'')+Math.abs(ksN(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額',(ksN(x.net)<0?'−':'')+'¥'+Math.abs(ksN(x.net)).toLocaleString('ja-JP'),'net')}</table></div>`; };
-  // v0.34：黒服の明細（基本給・遅刻・早退・ボーナス）
+  // 黒服の明細（基本給・遅刻・早退・ボーナス）
   const hallSlip=x=>{ const pay=[L(`基本給（${CS_HPAY[x.pay_type]||'—'}）`,v(x.base)),L('遅刻・早退',ksN(x.late_deduct)?'−'+v(x.late_deduct):'--'),L('ボーナス',v(x.bonus)),L('手当など、その他',v(ksN(x.allowance)+ksN(x.special_pay))),L('合計',v(x.taxable),'sum')];
     const ded=[L('消費税',v(x.ctax)),L('罰金',v(x.fines)),L('厚生費',v(x.welfare)),L('個別控除',v(x.special_deduct)),L('合計',v(ksDed(x)),'sum')];
     return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${nmT(x)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L('遅刻・早退',`${ksN(x.late_min)+ksN(x.early_min)}分`)}
@@ -131,15 +131,15 @@ const KS_PDF_CSS=`<style>.kp{width:1123px;height:794px;background:#fff;color:#22
     .kp table.dt{table-layout:auto;font-size:11px}.kp table.dt th{background:#f3f3f3;font-weight:400;text-align:right;padding:4px 6px;border-bottom:1px solid #ddd}.kp table.dt td{text-align:right;padding:4px 6px;height:auto;border-left:1px solid #ddd}
     .kp table.dt .l{text-align:left}.kp table.dt td.r{text-align:right}.kp table.dt tr.tt td{background:#f3f3f3;border-top:1px solid #bbb}</style>`;
 
-// v1.70・SQL 281：月給の人の遅刻は15分ごとに 2,000円（連絡なしは2倍）。v1.51・SQL 215：月給の時給は営業日数で割る・レジ精算より後の退勤は早退にしない。v0.34・SQL 074（v0.35：集計「スタッフ」のキャストの下に移動）：黒服の報酬（その月）。基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額。直せるのはオーナーだけ（遅刻・早退の減算額とボーナス。操作ログに残る）
+// 月給の人の遅刻は15分ごとに 2,000円（連絡なしは2倍）。月給の時給は営業日数で割る・レジ精算より後の退勤は早退にしない。（集計「スタッフ」のキャストの下に移動）：黒服の報酬（その月）。基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額。直せるのはオーナーだけ（遅刻・早退の減算額とボーナス。操作ログに残る）
 function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
   if(r.error){ box.innerHTML=`<div class="card err">${esc(/admin_hall_month|hall_month_calc/.test(r.error.message)?'SQL 074 が未実行です：':'黒服の報酬を読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, rows=D.rows||[], own=!!me?.is_owner, N=v=>Number(v||0), neg=v=>N(v)?`<span style="color:var(--warn)">−${yen(N(v))}</span>`:'—', y0=v=>N(v)?yen(N(v)):'—';
   const sl=D.slide, RK={within:'目標以内',plus2:'＋2%まで',plus5:'＋5%まで',over:'5%超'};
-  // v0.61：担当キャスト売上・売上シェア（POS の黒服の詳細と同じ）。担当キャスト売上＝その黒服が担当黒服になっているキャストの係小計の合計。売上シェア＝担当キャスト売上÷（担当黒服のいるキャスト全員の分）
+  // 担当キャスト売上・売上シェア（POS の黒服の詳細と同じ）。担当キャスト売上＝その黒服が担当黒服になっているキャストの係小計の合計。売上シェア＝担当キャスト売上÷（担当黒服のいるキャスト全員の分）
   const hid=new Set(rows.map(x=>x.id)), ms={}, mn={}; let mall=0; (casts||[]).forEach(c=>{ const h=c.manager_id; if(!h||!hid.has(h)) return; ms[h]=(ms[h]||0)+N(c.sales); mall+=N(c.sales); if(c.active) mn[h]=(mn[h]||0)+1; });
-  if(!own&&D.kakari_all!=null) mall=N(D.kakari_all); /* v0.68・SQL 087：オーナー以外は自分の行だけ返るので、全体は関数の値を使う */
-  const PA=rows.some(x=>N(x.prev_adjust)); /* SQL 414：前月精算は、だれかにある月だけ列を出す */
+  if(!own&&D.kakari_all!=null) mall=N(D.kakari_all); /* オーナー以外は自分の行だけ返るので、全体は関数の値を使う */
+  const PA=rows.some(x=>N(x.prev_adjust)); /* 前月精算は、だれかにある月だけ列を出す */
   const share=x=>mall>0?(Math.round(N(ms[x.id])/mall*1000)/10).toFixed(1)+'%':'—';
   box.innerHTML=`<h2 style="margin:0 0 8px">黒服</h2>
     <div class="card" style="font-size:14px;line-height:1.7">ボーナス総額 <b>${yen(N(D.pool))}</b>　<span class="muted">売上計 ${yen(N(D.sales))}・人件費比率 ${N(D.ratio).toFixed(2)}%${sl?`（目標 ${N(sl.target).toFixed(2)}%・${RK[sl.rank]||''}・「${N(sl.sales_man)}万円以上」の行）`:'（黒服ボーナススライドに当てはまる行がありません）'}</span></div>
@@ -152,10 +152,10 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
   box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return; await hallPayFix(x,m); })); }
 /* 黒服の報酬の修正の小窓（遅刻・早退の減算額・ボーナス・連絡なし） */
 async function hallPayFix(x,m){ const N=v=>Number(v||0);
-    // v1.70・SQL 281：月給の人は遅刻日ごとに「連絡なし」を選ぶ（15分ごとに 2,000円・連絡なし 4,000円）。理由の入力と操作ログはなし（オーナー 2026-10-28）
+    // 月給の人は遅刻日ごとに「連絡なし」を選ぶ（15分ごとに 2,000円・連絡なし 4,000円）。理由の入力と操作ログはなし（オーナー）
     const ld=x.pay_type==='monthly'?(x.late_days||[]):[];
     const md=mkModal(null,hallPayFixHtml(x,m,ld));
-    /* v1.80（点検 2026-11-02 C5）：「連絡なし」を変更したら、手入力の減算額を空にして決まりどおりの額で計算し直す（前は手入力があると額が変わらなかった）。早退の分＝自動の減算額−遅刻日の額の合計 */
+    /* （点検 C5）：「連絡なし」を変更したら、手入力の減算額を空にして決まりどおりの額で計算し直す（前は手入力があると額が変わらなかった）。早退の分＝自動の減算額−遅刻日の額の合計 */
     const ldAmt=c=>N(md.querySelector(`[data-ncamt="${c.dataset.nc}"]`).dataset.min)/15*2000*(c.checked?2:1), early=x.late_fixed?null:N(x.late_deduct)-ld.reduce((a,z)=>a+N(z.amount),0);
     md.querySelectorAll('[data-nc]').forEach(c=>c.onchange=()=>{ const b=md.querySelector(`[data-ncamt="${c.dataset.nc}"]`); b.textContent=yen(ldAmt(c)); const L=md.querySelector('#hfL'); L.value='';
       L.placeholder=early==null?'自動':`自動（${yen(early+[...md.querySelectorAll('[data-nc]')].reduce((a,y)=>a+ldAmt(y),0))}）`; });

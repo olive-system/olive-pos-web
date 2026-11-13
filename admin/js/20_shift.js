@@ -1,10 +1,10 @@
 // ---------- シフト（月のカレンダー・日の詳細） ----------
-// v1.06・SQL 127：目安より少ない日は「3／6人」を赤（オーナー 2026-10-16「足りない日は 3/6 の部分を赤くして警告」）
-// v1.05・SQL 126：同伴の申請があればシフトに自動で入るので、赤の札（同伴なのにシフトなし）は外した。色の見本は実際と同じ形（オーナー 2026-10-16）
-// v1.03・SQL 124：曜日別の目安人数は「シフト設定」へ（オーナー 2026-10-16「設定から行くように」）。「下書き作成」→「自動作成」。色の見本をカレンダーの上に
-// v1.00・SQL 122：⑧シフト（オーナーにヒアリングして決めた形 2026-10-16）。上に本日の出勤・同伴・予約、下に月のカレンダー（名前だけ・人数／目安・19:50〜20:15 の不足・予約と同伴の数）。
-//   日を押すとその日の詳細（名前と出勤時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）。曜日別の目安人数 → 下書き作成 → 直す → 確定（マイページに出る）
-let shMonth=null; const SH_TIMES=['19:50',...Array.from({length:13},(_,i)=>`${20+Math.floor(i/4)}:${String(i%4*15).padStart(2,'0')}`)] /* 2026-11-04：シフトの時刻と出勤可能時間は 19:50 と 20:00〜23:00 の15分ごと（オーナー「22時の選択肢がない」「23時まで可能。変更して全部」）。前は 19:50・20:15・20:30・20:45・21:00 だけ */;
+// 目安より少ない日は「3／6人」を赤（オーナー「足りない日は 3/6 の部分を赤くして警告」）
+// 同伴の申請があればシフトに自動で入るので、赤の札（同伴なのにシフトなし）は外した。色の見本は実際と同じ形（オーナー）
+// 曜日別の目安人数は「シフト設定」へ（オーナー「設定から行くように」）。「下書き作成」→「自動作成」。色の見本をカレンダーの上に
+// ⑧シフト（オーナーにヒアリングして決めた形）。上に本日の出勤・同伴・予約、下に月のカレンダー（名前だけ・人数／目安・19:50〜20:15 の不足・予約と同伴の数）。
+// 日を押すとその日の詳細（名前と出勤時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）。曜日別の目安人数 → 下書き作成 → 直す → 確定（マイページに出る）
+let shMonth=null; const SH_TIMES=['19:50',...Array.from({length:13},(_,i)=>`${20+Math.floor(i/4)}:${String(i%4*15).padStart(2,'0')}`)] /* シフトの時刻と出勤可能時間は 19:50 と 20:00〜23:00 の15分ごと（オーナー「22時の選択肢がない」「23時まで可能。変更して全部」）。前は 19:50・20:15・20:30・20:45・21:00 だけ */;
 PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMonth(); if(!shMonth) shMonth=csAddMonth(now,1); const m=shMonth;
   const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2)];
   const head=shSwitch('shift')+`<h1>シフト <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
@@ -12,7 +12,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const [tr,mr,ir]=await Promise.all([sb.rpc('admin_shift_today',{p_store:st}), sb.rpc('admin_shift_month',{p_store:st,p_month:m}), sb.rpc('admin_shift_iv',{p_store:st,p_month:m})]);
   if(page!=='shift'||storeId!==st||shMonth!==m) return;
   if(mr.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(mr.error.message)}</div>`; return; }
-  const T=tr.error?null:tr.data, M=mr.data, IV=ir.error?{}:ir.data||{} /* v2.06・SQL 353：日ごとの面接の数 */, C=M.casts||[], cName=id=>C.find(c=>c.id===id)?.name||'';
+  const T=tr.error?null:tr.data, M=mr.data, IV=ir.error?{}:ir.data||{} /* 日ごとの面接の数 */, C=M.casts||[], cName=id=>C.find(c=>c.id===id)?.name||'';
   // 本日
   let today='';
   if(T){ const byT={}; (T.shifts||[]).forEach(x=>(byT[x.time]=byT[x.time]||[]).push(x.name)); const early=(T.shifts||[]).filter(x=>x.time<='20:15').length;
@@ -27,19 +27,19 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const tg=d=>M.day_targets?.[d]??M.targets?.[String(new Date(d+'T00:00:00+09:00').getDay())]??0;
   const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)), first=new Date(y,mo-1,1).getDay(), nd=new Date(y,mo,0).getDate(), iso=d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}`;
   const ord=x=>C.findIndex(c=>c.id===x.staff_id);
-  // v1.01・SQL 123：マスには主要メンバー（その月の出勤日数が多い子 → 在籍期間の長い子）を4人まで、残りは「他○名」（オーナー 2026-10-16）
+  // マスには主要メンバー（その月の出勤日数が多い子 → 在籍期間の長い子）を4人まで、残りは「他○名」（オーナー）
   const mCnt={}; (M.shifts||[]).forEach(x=>{ mCnt[x.staff_id]=(mCnt[x.staff_id]||0)+1; }); const since=id=>C.find(c=>c.id===id)?.since||'9999-12-31';
   const mainOrd=(a,b)=>(mCnt[b.staff_id]||0)-(mCnt[a.staff_id]||0)||since(a.staff_id).localeCompare(since(b.staff_id))||ord(a)-ord(b);
   let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
   for(let d=1;d<=nd;d++){ const k=iso(d);
-    if(OFF.has(k)){ cal+=`<div style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;background:var(--soft);color:var(--muted)"><b style="color:var(--ink)">${d}</b><div style="font-size:13px;margin-top:4px">休</div></div>`; continue; } // v1.07・SQL 128：お店の休み
+    if(OFF.has(k)){ cal+=`<div style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;background:var(--soft);color:var(--muted)"><b style="color:var(--ink)">${d}</b><div style="font-size:13px;margin-top:4px">休</div></div>`; continue; } // お店の休み
     const L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
-    // v2.06・SQL 353：数は1行ずつ、言葉を先に（出勤・19:50 不足・同伴・予約・面接）。前は「予約○・同伴○」「○／○人」「19:50 不足○人」が横に並び、スマホで折れて読めなかった（オーナー 2026-11-04「面接が何人なんかキャストが何人なんか注意が何人なんかが分かんない」→ 見本 作業場/シフトのマス_案1.png）
+    // 数は1行ずつ、言葉を先に（出勤・19:50 不足・同伴・予約・面接）。前は「予約○・同伴○」「○／○人」「19:50 不足○人」が横に並び、スマホで折れて読めなかった（オーナー「面接が何人なんかキャストが何人なんか注意が何人なんかが分かんない」→ 見本 作業場/シフトのマス_案1.png）
     cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
       <b>${d}</b><div style="font-size:10px;letter-spacing:-.3px;white-space:nowrap;color:var(--muted)">
         <div${L.length<tg(k)?' style="color:var(--warn);font-weight:700"':''}>出勤${L.length}${tg(k)?'/'+tg(k):''}</div>${e<need&&tg(k)>0?`<div style="color:var(--warn);font-weight:700">19:50<br>不足${need-e}人</div>`:''}
         <div style="color:var(--ok)">同伴${dn}</div><div>予約${R.length-dn}</div><div>面接${IV[k]||0}</div></div>
-      <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).flatMap(r=>r.dh&&r.dh.length?r.dh:[r.by])) /* v1.63・SQL 265：同伴の子も */, isD=x=>DH.has(cName(x.staff_id)), BK=new Set(R.map(r=>r.black).filter(Boolean)) /* v2.15・SQL 368：月のマスにも黒ドレスのしるし（オーナー 2026-11-05「付ける」） */, bk=x=>BK.has(cName(x.staff_id))?FX('dress',11):''; const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
+      <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).flatMap(r=>r.dh&&r.dh.length?r.dh:[r.by])) /* 同伴の子も */, isD=x=>DH.has(cName(x.staff_id)), BK=new Set(R.map(r=>r.black).filter(Boolean)) /* 月のマスにも黒ドレスのしるし（オーナー「付ける」） */, bk=x=>BK.has(cName(x.staff_id))?FX('dress',11):''; const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
         return (P.slice(0,4).map(x=>(isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))+bk(x))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
   cal+='</div>';
   const sub=C.filter(c=>c.submitted).length;
@@ -57,7 +57,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   if($('shGoSet')) $('shGoSet').onclick=()=>{ setMonth=m; go('set_shift'); };
   if($('shSet')) $('shSet').onclick=()=>{ setMonth=m; go('set_shift'); };
   if(!ed) return;
-  /* v1.44：休希望（オーナー 2026-10-22「キャストからの休み希望を見れるボタンが欲しい」→ 並びは「休希望・自動作成・確定」）。提出した人を上、未提出を下 */
+  /* 休希望（オーナー「キャストからの休み希望を見れるボタンが欲しい」→ 並びは「休希望・自動作成・確定」）。提出した人を上、未提出を下 */
   $('shNg').onclick=()=>{ const by={}; (M.ng||[]).forEach(x=>(by[x.staff_id]=by[x.staff_id]||[]).push(x.day)); const pm=csAddMonth(m,-1);
     const row=c=>`<div style="display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.6"><b style="min-width:4.5em">${esc(c.name)}</b>${c.submitted?`<span>${c.week?`週${c.week}日・`:''}出勤できない日：${(by[c.id]||[]).sort().map(d=>`${Number(d.slice(8))}（${wdJ(d)}）`).join('・')||'なし'}</span>`:'<span style="color:var(--warn)">未提出</span>'}</div>`;
     const L=C.filter(c=>c.submitted).concat(C.filter(c=>!c.submitted));
@@ -81,8 +81,8 @@ function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:
   let changed=false; const close=()=>{ box.remove(); if(changed) PAGES.shift(); }; box.querySelector('[data-x]').onclick=close;
   if(!ed) return;
   box.querySelectorAll('[data-sdt]').forEach(sel=>sel.onchange=async()=>{ const q=await rpc('admin_shift_set',{p_store:st,p_staff:sel.dataset.sdt,p_day:day,p_time:sel.value||null}); if(!q.ok) return; changed=true;
-    /* v1.75：手元の M.shifts も直す（出勤なしにした後に「追加」で開き直すと、前の出勤が残って見えた。点検 2026-10-30） */
+    /* 手元の M.shifts も直す（出勤なしにした後に「追加」で開き直すと、前の出勤が残って見えた。点検） */
     M.shifts=(M.shifts||[]).filter(s=>!(s.staff_id===sel.dataset.sdt&&s.day===day)).concat(sel.value?[{staff_id:sel.dataset.sdt,day,time:sel.value}]:[]);
     toast(sel.value?`${sel.value} にしました`:'出勤なしにしました'); });
-  box.querySelectorAll('[data-sda]').forEach(b=>b.onclick=guard(b,async()=>{ /* v1.75：2回押しで2回送らない */ const c=C.find(z=>z.id===b.dataset.sda); const t=c.daily?'19:50':(c.earliest&&c.earliest>'20:30'?c.earliest:(c.earliest||'20:30')); const q=await rpc('admin_shift_set',{p_store:st,p_staff:c.id,p_day:day,p_time:t}); if(!q.ok) return; changed=true; box.remove(); M.shifts=(M.shifts||[]).concat([{staff_id:c.id,day,time:t}]); shiftDayEdit(st,M,day,ed); }));
+  box.querySelectorAll('[data-sda]').forEach(b=>b.onclick=guard(b,async()=>{ /* 2回押しで2回送らない */ const c=C.find(z=>z.id===b.dataset.sda); const t=c.daily?'19:50':(c.earliest&&c.earliest>'20:30'?c.earliest:(c.earliest||'20:30')); const q=await rpc('admin_shift_set',{p_store:st,p_staff:c.id,p_day:day,p_time:t}); if(!q.ok) return; changed=true; box.remove(); M.shifts=(M.shifts||[]).concat([{staff_id:c.id,day,time:t}]); shiftDayEdit(st,M,day,ed); }));
   box.querySelector('#sdS').onclick=async()=>{ const v=box.querySelector('#sdT').value; const q=await rpc('admin_shift_day_save',{p_store:st,p_day:day,p_count:v===''?null:Number(v),p_event:box.querySelector('#sdE').checked}); if(!q.ok) return; changed=true; toast('保存しました'); }; }

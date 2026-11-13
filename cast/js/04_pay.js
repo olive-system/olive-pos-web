@@ -1,7 +1,7 @@
-// 報酬明細：今月の途中の明細と、前の月の PDF（SQL 468。前の月は毎月1日 10:30 に固めて PDF にし、伝票を直しても変わらない）
+// 報酬明細：今月の途中の明細と、前の月の PDF（。前の月は毎月1日 10:30 に固めて PDF にし、伝票を直しても変わらない）
 const N = v => Number(v||0), cm = v => N(v) ? N(v).toLocaleString('ja-JP') : '--';
 // SQL 414 の前月精算（prev_adjust）は 468 でやめた。前にサインした明細に入っている時だけ出す
-// 2026-11-01：自動の遅刻の罰金（遅刻（シフト19:50・打刻20:05）など）は、元の名前（遅刻）の1行に合計する（管理サイトの報酬明細と同じ）
+// 自動の遅刻の罰金（遅刻（シフト19:50・打刻20:05）など）は、元の名前（遅刻）の1行に合計する（管理サイトの報酬明細と同じ）
 const fineBase = k => String(k).replace(/（(?:シフト|予定)\d[^）]*）$/, ''), fineSum = (x, f) => Object.entries(x.fine_items||{}).reduce((s, [k, v]) => fineBase(k) === f ? s + N(v) : s, 0);
 function slipHtml(P){
   if(P.hall) return hallSlipHtml(P);
@@ -27,7 +27,7 @@ function hallSlipHtml(P){
     <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${N(x.prev_adjust)?L('前月精算', (N(x.prev_adjust)<0?'−':'')+Math.abs(N(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
 }
 
-// 明細・日払・罰金を1つの枠に（2026-11-12 オーナー「ジャンルごとに枠があって、スペースをくうし、見にくい」）。マイページと、毎月1日の PDF（Edge Function monthly-export がこのファイルを読む）で同じものを使う
+// 明細・日払・罰金を1つの枠に（オーナー「ジャンルごとに枠があって、スペースをくうし、見にくい」）。マイページと、毎月1日の PDF（Edge Function monthly-export がこのファイルを読む）で同じものを使う
 function slipOne(P){
   const adv = (P.advances||[]).map(a => `<div class="row"><span>${mdW(a.date)}</span><b>${yen(a.amount)}</b></div>`).join('');
   const fl = (P.fines||[]).map(f => `<div class="row"><span>${mdDay(f.date)} ${esc(f.reason||'')}</span><b>${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</b></div>`).join('');

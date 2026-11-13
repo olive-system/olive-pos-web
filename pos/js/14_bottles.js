@@ -2,8 +2,8 @@
 function sDate(d){ if(!d) return ''; const [y,m,dd]=String(d).slice(0,10).split('-'); return (y==String(new Date().getFullYear())?'':y+'/')+Number(m)+'/'+Number(dd); }
 function knLabel(b,cname){ return b.keep_name&&b.keep_name!==cname?`（キープ名：${b.keep_name}）`:''; }
 async function expireBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`)) return false; const d=businessDate(); const { error } = await sb.rpc('pos_bottle_set',{p_id:b.id,p:{expired_on:d}}); if(error){ toast(error.message.includes('column')?'SQL 017 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル期限切れ',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=d; toast('期限切れにしました'); return true; }
-// v10.75：ボトル移動（移動先は記録しない。日付と残量を残してキープから外す。SQL 045）
-// v12.40・SQL 306：移動先・係を記録（オーナー 2026-11-01「移籍先のお店に持っていける。一応記録しておきたい」）
+// ボトル移動（移動先は記録しない。日付と残量を残してキープから外す）
+// 移動先・係を記録（オーナー「移籍先のお店に持っていける。一応記録しておきたい」）
 function uiMoveForm(b,k0){ return new Promise(res=>{ const cs=staff.filter(x=>x.kind==='cast'&&x.is_active!==false);
   const m=mkModal(60);
   m.innerHTML=`<div class="box" style="width:min(420px,92vw)"><h2 style="margin:0 0 8px">${esc(b.name)}（${b.remaining??0}/10）をボトル移動にしますか？</h2><label>移動先<input data-mf="to" maxlength="60" placeholder="例）ファースト" style="width:100%"></label><label>${KL}<select data-mf="st" style="width:100%"><option value="">なし</option>${cs.map(s=>`<option value="${s.id}" ${s.id===k0?'selected':''}>${esc(s.display_name)}</option>`).join('')}</select></label><div class="bar" style="justify-content:flex-end"><button class="ghost" data-mf="no">キャンセル</button><button class="primary" data-mf="ok">ボトル移動</button></div></div>`;
@@ -16,10 +16,10 @@ function uiMoveForm(b,k0){ return new Promise(res=>{ const cs=staff.filter(x=>x.
   });
   }
 async function moveBottle(b,cname,k0){ if(!b) return false; const mf=await uiMoveForm(b,b.kakari_staff_id||k0||''); if(!mf) return false; const d=businessDate(); const { error } = await sb.rpc('pos_bottle_set',{p_id:b.id,p:{expired_on:d,moved:true,moved_to:mf.to,moved_staff_id:mf.staff}}); if(error){ toast(error.message.includes('moved')?'SQL 045 が未適用です：'+error.message:error.message); return false; } await logOp('ボトル移動',{customer:cname,bottle:b.name,remaining:b.remaining,to:mf.to,staff:staff.find(x=>x.id===mf.staff)?.display_name||null},null,true); b.expired_on=d; b.moved=true; toast('ボトル移動にしました'); return true; }
-/* v12.30：期限切れ・移動を戻すボタンは v10.86 から出していないので unexpireBottle は消した */
-function btMonths(){ return Number(settings?.bottle_keep_months)||6; } /* v10.99：お店の設定（ボトルのキープ期間）と同じ。顧客サイトと同じ */
-/* v10.99：1回に1000件までしか返らないので、1000件ずつ全部読む（お客様5000件以上に対応） */
-// v11.01：係は店舗ごと（SQL 048 の customer_kakari）。読み込んだお客様の kakari_staff_id を、この店舗の係に置き換える
+/* 期限切れ・移動を戻すボタンは v10.86 から出していないので unexpireBottle は消した */
+function btMonths(){ return Number(settings?.bottle_keep_months)||6; } /* お店の設定（ボトルのキープ期間）と同じ。顧客サイトと同じ */
+/* 1回に1000件までしか返らないので、1000件ずつ全部読む（お客様5000件以上に対応） */
+// 係は店舗ごと（SQL 048 の customer_kakari）。読み込んだお客様の kakari_staff_id を、この店舗の係に置き換える
 const CUSEL='*,customer_kakari(store_id,staff_id)';
 /* メモを行ごとに合わせる（3者マージ）。base＝書き始めた時のメモ、mine＝自分の入力、theirs＝ほかで変わった今のメモ。同じ所を両方が別々に直した時だけ conflicts に入る */
 /* conflicts の choice（'m'／'t'／'b'）で仕上げる */
@@ -28,25 +28,25 @@ CU_SITE.clashBox=(mine,theirs)=>new Promise(res=>{ const m=mkModal(60); const bx
   document.body.appendChild(m); m.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); }); /* メモの食い違いを選ぶ箱の見た目（POS の小窓）。選ぶ決まりは lib/olive/customer.js の pickClash */
 function cuK(c){ if(!c||!('customer_kakari' in c)) return c; const k=(c.customer_kakari||[]).find(x=>x.store_id===store?.id); delete c.customer_kakari; c.kakari_staff_id=k?k.staff_id:null; return c; }
 async function cuLoadAll(){ let r=await sbAll(()=>sb.from('customers').select(CUSEL).order('name').order('id')); if(r.error&&/customer_kakari/.test(r.error.message)){ toast((/does not exist|schema cache/.test(r.error.message)?'SQL 048 が未実行です：':''+KL+'を読み込めません：')+r.error.message); r=await sbAll(()=>sb.from('customers').select('*').order('name').order('id')); } return r; }
-/* v12.30：お客様は最初に全部読み、あとは更新・登録の時刻が前に読んだ一番新しい時刻（5分の余裕）より後の人だけ読む。消えた人に気づくため10分ごとに全部読む */
+/* お客様は最初に全部読み、あとは更新・登録の時刻が前に読んだ一番新しい時刻（5分の余裕）より後の人だけ読む。消えた人に気づくため10分ごとに全部読む */
 let cuMax=0, cuFullAt=0; const cuStamp=c=>Math.max(Date.parse(c?.updated_at)||0,Date.parse(c?.created_at)||0);
 function cuMark(full,list){ if(full) cuFullAt=Date.now(); for(const c of (list||customers)) cuMax=Math.max(cuMax,cuStamp(c)); }
 async function cuPull(delta){ if(!cuMax||(!delta&&Date.now()-cuFullAt>=600000)){ const r=await cuLoadAll(); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMax=0; cuMark(true,r.data); return {data:r.data,error:null}; }
   const since=new Date(cuMax-300000).toISOString(); const r=await sbAll(()=>sb.from('customers').select(CUSEL).or(`updated_at.gte."${since}",created_at.gte."${since}"`).order('id')); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMark(false,r.data);
   const up=new Map(r.data.map(c=>[c.id,c])); const out=customers.map(c=>up.get(c.id)||c); const have=new Set(customers.map(c=>c.id)); r.data.forEach(c=>{ if(!have.has(c.id)) out.push(c); }); return {data:out,error:null}; }
-/* v12.78：ほかの iPad で登録・変更したお客様を、変わった分だけ読む（お客様を追加・伝票を開く時。前は顧客の画面を開くまで届かず、同業の料金が戻る・同じ人を二重に登録することがあった） */
+/* ほかの iPad で登録・変更したお客様を、変わった分だけ読む（お客様を追加・伝票を開く時。前は顧客の画面を開くまで届かず、同業の料金が戻る・同じ人を二重に登録することがあった） */
 async function cuFresh(){ const r=await cuPull(true); if(r&&r.data) customers=r.data; }
-/* v10.99：並び順を顧客サイトとそろえる（名前・卓名は日本語順、数字は数の順） */
+/* 並び順を顧客サイトとそろえる（名前・卓名は日本語順、数字は数の順） */
 function btSort(list){ return list.sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); }
-function btCutoff(n){ const [y,m,d]=businessDate().split('-').map(Number); const x=new Date(y,m-1-(n||btMonths()),1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* v11.32：月末のずれを直す（8/31 の6か月前は 2/28。前は 3/3 になった） */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function btCutoff(n){ const [y,m,d]=businessDate().split('-').map(Number); const x=new Date(y,m-1-(n||btMonths()),1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* 月末のずれを直す（8/31 の6か月前は 2/28。前は 3/3 になった） */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
 // 顧客一覧に出す情報：最終来店日・キープ中のボトル本数と銘柄・キープ名（検索用）
-// v10.94：一覧は「最終 日付・係の名前・キープ中の銘柄（3本まで、4本以上は「ほか○本」）」。顧客サイトと同じ
+// 一覧は「最終 日付・係の名前・キープ中の銘柄（3本まで、4本以上は「ほか○本」）」。顧客サイトと同じ
 let cuInfo={last:{},cnt:{},first:{},kn:{},req:{},bn:{},act:{}}, cuMode='all';
-async function loadCuInfo(){ const info={last:{},cnt:{},first:{},kn:{},req:{},bn:{},act:{}}; const ac=await sb.rpc('pos_cust_act'); if(!ac.error&&ac.data&&typeof ac.data==='object') info.act=ac.data; /* v12.19・SQL 276：最近出てきた時刻（並び） */ const rq=await sb.from('customer_note_requests').select('customer_id').eq('store_id',store.id).eq('status','pending'); (rq.data||[]).forEach(x=>{ info.req[x.customer_id]=(info.req[x.customer_id]||0)+1; }); const bt=await sbAll(()=>sb.from('customer_bottles').select('*').eq('is_finished',false).order('opened_on',{ascending:false}).order('id')); const shr=await sbAll(()=>sb.from('customer_bottle_shares').select('bottle_id,customer_id').order('bottle_id').order('customer_id')); const shBy={}; (shr.data||[]).forEach(x=>(shBy[x.bottle_id]||(shBy[x.bottle_id]=[])).push(x.customer_id)); /* v12.40・SQL 306：共同のお客様にもそのボトルを数える */
+async function loadCuInfo(){ const info={last:{},cnt:{},first:{},kn:{},req:{},bn:{},act:{}}; const ac=await sb.rpc('pos_cust_act'); if(!ac.error&&ac.data&&typeof ac.data==='object') info.act=ac.data; /* 最近出てきた時刻（並び） */ const rq=await sb.from('customer_note_requests').select('customer_id').eq('store_id',store.id).eq('status','pending'); (rq.data||[]).forEach(x=>{ info.req[x.customer_id]=(info.req[x.customer_id]||0)+1; }); const bt=await sbAll(()=>sb.from('customer_bottles').select('*').eq('is_finished',false).order('opened_on',{ascending:false}).order('id')); const shr=await sbAll(()=>sb.from('customer_bottle_shares').select('bottle_id,customer_id').order('bottle_id').order('customer_id')); const shBy={}; (shr.data||[]).forEach(x=>(shBy[x.bottle_id]||(shBy[x.bottle_id]=[])).push(x.customer_id)); /* 共同のお客様にもそのボトルを数える */
   (bt.data||[]).filter(b=>!b.expired_on).flatMap(b=>[b,...(shBy[b.id]||[]).map(cid=>({...b,customer_id:cid}))]).forEach(b=>{ const c=b.customer_id; info.cnt[c]=(info.cnt[c]||0)+1; (info.bn[c]||(info.bn[c]=[])).push(b.name); const d=b.opened_on||String(b.created_at||'').slice(0,10); if(d&&(!info.first[c]||d<info.first[c])) info.first[c]=d; if(b.keep_name) (info.kn[c]||(info.kn[c]=[])).push(b.keep_name); });
-  const lv=await sb.rpc('pos_cust_last'); /* v11.30・SQL 082：前は来店の記録を全部読んでいた。関数が無い時だけ前の読み方 */ if(!lv.error&&lv.data&&typeof lv.data==='object') Object.entries(lv.data).forEach(([id,d])=>{ info.last[id]=d; });
-  else for(let from=0;;from+=1000){ const v=await sb.from('bill_customers').select('customer_id,bills(business_date,status)').order('bill_id').order('customer_id').range(from,from+999); if(v.error) break; (v.data||[]).forEach(x=>{ const bl=x.bills; if(!bl||bl.status==='void') return; if(!info.last[x.customer_id]||bl.business_date>info.last[x.customer_id]) info.last[x.customer_id]=bl.business_date; }); if((v.data||[]).length<1000) break; } /* v11.01：最終は共有の店舗での来店も入れる（SQL 048） */ const sl=await sb.rpc('cust_share_last'); Object.entries(sl.data||{}).forEach(([id,d])=>{ if(!info.last[id]||d>info.last[id]) info.last[id]=d; }); cuInfo=info; }
-const cuAct=c=>Math.max(...[cuInfo.act[c.id],c.updated_at,c.created_at].map(t=>Date.parse(t)||0)); /* v12.19・SQL 276：最近出てきた時刻（来店・予約・情報の更新）。読み直す前に登録・更新した人も上に */
+  const lv=await sb.rpc('pos_cust_last'); /* 前は来店の記録を全部読んでいた。関数が無い時だけ前の読み方 */ if(!lv.error&&lv.data&&typeof lv.data==='object') Object.entries(lv.data).forEach(([id,d])=>{ info.last[id]=d; });
+  else for(let from=0;;from+=1000){ const v=await sb.from('bill_customers').select('customer_id,bills(business_date,status)').order('bill_id').order('customer_id').range(from,from+999); if(v.error) break; (v.data||[]).forEach(x=>{ const bl=x.bills; if(!bl||bl.status==='void') return; if(!info.last[x.customer_id]||bl.business_date>info.last[x.customer_id]) info.last[x.customer_id]=bl.business_date; }); if((v.data||[]).length<1000) break; } /* 最終は共有の店舗での来店も入れる */ const sl=await sb.rpc('cust_share_last'); Object.entries(sl.data||{}).forEach(([id,d])=>{ if(!info.last[id]||d>info.last[id]) info.last[id]=d; }); cuInfo=info; }
+const cuAct=c=>Math.max(...[cuInfo.act[c.id],c.updated_at,c.created_at].map(t=>Date.parse(t)||0)); /* 最近出てきた時刻（来店・予約・情報の更新）。読み直す前に登録・更新した人も上に */
 function cuBase(id){ return cuInfo.last[id]||cuInfo.first[id]||String(customers.find(c=>c.id===id)?.created_at||'').slice(0,10)||''; }
 let cuMonthsSel=null;
 
