@@ -46,3 +46,51 @@ function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map
   const nm=id=>staffAll.find(x=>x.id===id)?.display_name||staff.find(x=>x.id===id)?.display_name||'';
   if(!ks.length) return `<span style="font-size:14px">${KL}小計 <small class="muted">${KL}が未設定</small></span><span class="right" style="font-size:14px">${yen(total)}</span>`;
   return ks.map(id=>`<span style="font-size:14px">${KL}小計 ${esc(nm(id))}</span><span class="right" style="font-size:14px">${yen(Math.floor(total/ks.length))}</span>`).join(''); }
+// ---------- ホールの卓の一覧（自動延長・お預かり品・置き・在籍のしるし） ----------
+// v11.18・SQL 067：自動延長はデータベースで伝票を押さえてから足す（POS 2台が同時に足しても二重にならない）
+let extWarned=false;
+async function autoExtend(){ const now=new Date(); let added=false, called=false;
+  for (const b of openBills) { const mode=modes.find(m=>m.id===b.pricing_mode_id); if (mode && !mode.include_set) continue; if (billEnd(b)>=now) continue;
+    const r=await sb.rpc('pos_auto_extend',{p_bill:b.id});
+    if (r.error) { if(!extWarned){ extWarned=true; toast(/pos_auto_extend/.test(r.error.message)?'SQL 067 が未実行です（自動延長）':r.error.message); } continue; }
+    called=true; if (r.data>0){ added=true; hallDrop(b.id); } /* v12.30：延長した伝票は計算し直す */ }
+  if (called&&!added) { const { data } = await sb.from('bills').select(HALL_SEL).eq('status','open'); if (data) openBills=data; } /* v12.30：もう1台で延長済みの時は、手元の伝票を新しくする（毎分呼び続けない） */
+  if (added) { const { data } = await sb.from('bills').select(HALL_SEL).eq('status','open'); if (data) openBills=data; toast('セット時間を過ぎた卓に延長を追加しました'); } }
+let okiBills=[];
+// v10.89：会計済でまだお返ししていないお預かり品（卓ごと）
+let handTags={};
+async function loadHand(){ const { data, error } = await sb.from('bill_tags').select('id,kind,tag_no,memo,bill_id,bills!inner(table_id,status)').is('returned_at',null).eq('bills.status','closed'); if(error){ console.warn('hand',error.message); return; } handTags={}; for(const t of data||[]){ const k=t.bills?.table_id; if(!k) continue; (handTags[k]=handTags[k]||[]).push(t); } }
+function tagLabel(t){ return `${TAGK[t.kind]||''}${t.tag_no?' #'+esc(t.tag_no):''}${t.memo?` <small>${esc(t.memo)}</small>`:''}`; }
+function openHand(t){ const tg=handTags[t.id]||[]; if(!tg.length) return; const m=mkModal(60);
+  m.innerHTML=`<div class="box" style="width:360px;text-align:center"><button class="xb dx" data-h="no" aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700">${esc(t.name)}　お預かり品</div><div style="margin:14px 0;font-size:22px;font-weight:800;line-height:1.5;text-align:left">${tg.map(x=>FX('label')+' '+tagLabel(x)).join('<br>')}</div><div class="bar" style="justify-content:flex-end"><button class="primary" data-h="ok">お渡ししました</button></div></div>`;
+  document.body.appendChild(m); m.querySelector('[data-h=no]').onclick=()=>m.remove();
+  const ok=m.querySelector('[data-h=ok]'); ok.onclick=async()=>{ ok.disabled=true; const { error } = await sb.rpc('pos_tag_return',{p_ids:tg.map(x=>x.id)}); if(error){ toast(error.message); ok.disabled=false; return; }
+    try{ await sb.rpc('pos_log_add',{p_store:store.id,p_bill:tg[0].bill_id,p_action:'お預かり返却（会計後）',p_detail:{table:t.name,items:tg.map(x=>TAGK[x.kind]+(x.tag_no?'#'+x.tag_no:''))},p_reason:null}); }catch(e){ console.warn('audit',e); }
+    m.remove(); toast('お渡ししました'); loadHall(); }; }
+// v11.29：未入金の置きだけをデータベースで絞って読む（前は会計済の伝票を全部読んでから絞っていて、1000枚を超えると欠けた）。新しい順に100件まで（オーナーの指示）
+const OKI_MAX=100;
+async function loadOki(){ const SEL='id,memo,guest_count,set_start,business_date,bill_casts(staff_id,is_kakari),bill_customers(customer_id),payments!inner(method,amount,received_at)';
+  let r=await sb.from('bills').select(SEL).eq('store_id',store.id).eq('status','closed').eq('payments.method','oki').gt('payments.amount',0).is('payments.received_at',null).order('business_date',{ascending:false}).order('id').limit(OKI_MAX);
+  if(r.error){ console.warn('oki',r.error.message); return; } // 読めない時は、前に読んだ一覧のまま
+  okiBills=(r.data||[]).filter(b=>(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)); }
+function renderHall(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
+  const al=openBills.filter(b=>(billEnd(b)-now)<10*60000);
+  $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(billTable(b)||'?')).join('、')}</div>` : '';
+  $('bdHall').textContent=openBills.length;
+  $('tables').innerHTML='';
+  for (const t of tables.filter(t=>t.is_visible)) { const b=openBills.find(x=>x.table_id===t.id); const el=document.createElement('div'); const hd=handTags[t.id]||[];
+    if (hd.length) { el.className='tbl hand'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="hmsg">お預かり品をお返しください</div>${hd.map(x=>`<div class="hitem">${FX('label')} ${tagLabel(x)}</div>`).join('')}`; el.onclick=()=>openHand(t); }
+    else if (!b) { el.className='tbl'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="empty">空 席</div>`; el.onclick=()=>openNew(t); }
+    else { const end=billEnd(b), remain=Math.round((end-now)/60000); el.className='tbl busy'+(remain<10?' over':'');
+      const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?staff.find(s=>s.id===k.staff_id)?.display_name:'';
+      el.innerHTML=`<div class="name">${esc(t.name)}</div>${cnames(b)?`<div class="cust">${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>${b.guest_count}名</span><span>残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分</span></div><div class="pill">${hm5(b.set_start)}〜${hm5(end)}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
+      el.onclick=()=>{ billFrom='hall'; openBill(b.id); }; }
+    $('tables').appendChild(el); }
+  for (const b of okiBills) { const el=document.createElement('div'); const unpaid=(b.payments||[]).filter(p=>p.method==='oki'&&!p.received_at).reduce((a,p)=>a+p.amount,0);
+    const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?staff.find(s=>s.id===k.staff_id)?.display_name:'';
+    const ml='置き'; el.className='tbl busy oki'; el.innerHTML=`<div class="name">未入金（${ml}）</div><div class="row"><span>${b.guest_count}名 ${esc(cnames(b)||b.memo||'')}</span></div><div class="row"><span>${b.business_date}</span></div><div class="total">${yen(unpaid)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>`;
+    el.onclick=()=>{ billFrom='hall'; openBill(b.id); }; $('tables').appendChild(el); }
+  updateCastBadge(); }
+async function updateCastBadge(){ const s=await attendedOn(businessDate()); /* v12.30：20秒の間は読んだ出勤を使う */ const act=new Set(staff.map(x=>x.id)); $('bdCasts').textContent=[...s].filter(i=>act.has(i)).length; return s; }
+$('navHall').onclick=()=>{ billFrom='hall'; loadHall(); show('v-hall'); };
+$('navOrder').onclick=()=>{ if(cur&&cur.status==='open'){ openOrder(); } else { toast('卓を選んでください'); loadHall(); show('v-hall'); } };
