@@ -51,17 +51,21 @@ function fineEdit(st,i){ const g=i==null?{name:'',h:{calc:'yen',value:null},d:nu
   const del=md.querySelector('[data-k=del]'); if(del) del.onclick=async()=>{ if(!await uiConfirm(`「${g.name}」を罰金の一覧から削除しますか？\n登録済の罰金は削除されません`,'削除','danger')) return; const L=FINES.filter((_,k)=>k!==i); if(!await save(L)) return; md.remove(); toast('削除しました'); PAGES.set_pay(); };
   md.querySelector('[data-k=ok]').onclick=guard(md.querySelector('[data-k=ok]'),async()=>{ const name=q('fnN').value.trim(); if(!name){ await uiAlert('名前を入力してください'); return; }
     if(FINES.some((x,k)=>k!==i&&x.name===name)){ await uiAlert(`「${name}」はもうあります`); return; }
+    const hd=await fineRead(md,q); if(!hd) return; const {h,d}=hd;
+    const L=FINES.slice(); const x={name,h,d}; if(i==null) L.push(x); else L[i]=x; if(!await save(L)) return; md.remove(); toast('保存しました'); PAGES.set_pay(); }); }
+/* 罰金の種類の小窓の入力を読む（時給の人 h・日給の人 d）。まちがいがあれば知らせて null */
+async function fineRead(md,q){
     const hv=md.querySelector('input[name=fnH]:checked')?.value||'none'; let h=null;
-    if(hv==='yen'){ const v=slNum(q('fnHy').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert('時給の人の金額を入力してください'); return; } h={calc:'yen',value:v}; }
-    else if(hv==='hourly_pct'){ const v=slNum(q('fnHp').value); if(!(v>0)){ await uiAlert('時給の何時間分かを入力してください'); return; } h={calc:'hourly_pct',value:Math.round(v*100)}; }
+    if(hv==='yen'){ const v=slNum(q('fnHy').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert('時給の人の金額を入力してください'); return null; } h={calc:'yen',value:v}; }
+    else if(hv==='hourly_pct'){ const v=slNum(q('fnHp').value); if(!(v>0)){ await uiAlert('時給の何時間分かを入力してください'); return null; } h={calc:'hourly_pct',value:Math.round(v*100)}; }
     else if(hv==='input') h={calc:'input',value:null};
     const dv=q('fnD').value; let d=null;
-    if(dv==='same'){ if(!h){ await uiAlert('時給の人が「かからない」の時は、日給の人を選んでください'); return; } if(h.calc==='hourly_pct'){ await uiAlert('時給の時間分は日給の人には使えません。日給の人を選んでください'); return; } d={...h}; }
-    else if(dv==='yen'||dv==='daily_pct'){ const v=slNum(q('fnDn').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert(dv==='yen'?'日給の人の金額を入力してください':'日給の何%かを入力してください'); return; } d={calc:dv,value:v}; }
+    if(dv==='same'){ if(!h){ await uiAlert('時給の人が「かからない」の時は、日給の人を選んでください'); return null; } if(h.calc==='hourly_pct'){ await uiAlert('時給の時間分は日給の人には使えません。日給の人を選んでください'); return null; } d={...h}; }
+    else if(dv==='yen'||dv==='daily_pct'){ const v=slNum(q('fnDn').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert(dv==='yen'?'日給の人の金額を入力してください':'日給の何%かを入力してください'); return null; } d={calc:dv,value:v}; }
     else if(dv==='input') d={calc:'input',value:null};
-    else if(dv==='daily_late'||dv==='daily_early'){ const v=slNum(q('fnDn').value); if(v!=null&&(!(v>0)||!Number.isInteger(v))){ await uiAlert('加算の%は1以上の整数にするか、空けてください'); return; } d={calc:dv,value:v}; }
-    if(!h&&!d){ await uiAlert('時給の人か日給の人のどちらかを選んでください'); return; }
-    const L=FINES.slice(); const x={name,h,d}; if(i==null) L.push(x); else L[i]=x; if(!await save(L)) return; md.remove(); toast('保存しました'); PAGES.set_pay(); }); }
+    else if(dv==='daily_late'||dv==='daily_early'){ const v=slNum(q('fnDn').value); if(v!=null&&(!(v>0)||!Number.isInteger(v))){ await uiAlert('加算の%は1以上の整数にするか、空けてください'); return null; } d={calc:dv,value:v}; }
+    if(!h&&!d){ await uiAlert('時給の人か日給の人のどちらかを選んでください'); return null; }
+  return {h,d}; }
 /* 罰金の種類の追加・変更の小窓の文 */
 function fineEditHtml(g,i,hc,dSel,same){
   return `<h2 style="margin:0">${i==null?'罰金の追加':esc(g.name)}</h2><label>名前<input id="fnN" value="${esc(g.name)}"></label>
