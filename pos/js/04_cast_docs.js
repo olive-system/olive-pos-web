@@ -1,6 +1,6 @@
 // 在籍キャストの［編集］の「書類」（オーナー「黒服がアップロード」「セキュリティを考えると POS」「アップロードしないとチェックが入らないように」）。
 // 5つの四角：写真が無い書類は点線の四角（押すとカメラか写真から選ぶ。入力欄は画面の中の label に置く＝スキル olive-photo-shoot）、写真があれば押すと小窓（追加・削除）。
-// ヒアリングシートは LINEマイページで入力した人は入力内容、契約書は LINEマイページで署名した人は署名の日。部品は lib/olive/staff_docs.js（管理サイトと同じ）
+// ヒアリングシートは LINEマイページで入力した人は入力内容、契約書は LINEマイページで署名した人は署名の PDF、紙で出した人は撮影（オーナー：紙で済んだ人は押しても開く物が無かった）。部品は lib/olive/staff_docs.js（管理サイトと同じ）
 // ［退店・体験］の［詳細］の小窓（pastSel）でも同じ「書類」を出す
 const posDocsOn = s => S.cSel === s || (typeof S.pastSel !== 'undefined' && S.pastSel === s);
 async function posDocs(s){ const box = $('cDocs'); if(!box || !posDocsOn(s)) return;
@@ -13,16 +13,15 @@ async function posDocs(s){ const box = $('cDocs'); if(!box || !posDocsOn(s)) ret
     const face = sdSign(D, k) && !P.length ? `<button type="button" data-sdv="${k}" style="${sq};border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:11px;line-height:1.5;padding:6px;text-align:left">LINEマイページで署名</button>`
       : sdHear(D, k) ? `<button type="button" data-sdv="${k}" style="${sq};border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:11px;line-height:1.5;padding:6px;text-align:left">LINEマイページで入力</button>`
       : P.length ? `<button type="button" data-sdv="${k}" style="${sq};border:0;padding:0;position:relative;background:var(--soft);overflow:hidden"><img data-sdp="${P[0].id}" data-ap="${P[0].ap ? 1 : 0}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">${P.length > 1 ? `<span style="position:absolute;right:4px;bottom:4px;background:var(--ink);color:var(--card);border-radius:4px;padding:0 5px;font-size:11px">${P.length}枚</span>` : ''}</button>`
-      : k === 'contract' ? `<div style="${sq};border:1px dashed var(--line);color:var(--muted);font-size:11px;line-height:1.5;padding:6px;text-align:left">LINEマイページで署名</div>` /* 契約書は撮影しない（本人がマイページで署名） */
       : `<label style="${sq};border:1px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:12px;cursor:pointer">${SD_CAM}撮影<input type="file" accept="image/*" data-sdadd="${k}" style="display:none"></label>`;
     return `<div style="width:${W}px;display:flex;flex-direction:column;gap:3px;font-size:12px">${face}<b style="color:var(--ink);font-weight:500;font-size:11px;line-height:1.3;min-height:2.6em;white-space:nowrap">${k === 'sheet' ? 'ヒアリング<br>シート' : n}</b>${sdStateHtml(st)}</div>`; };
   box.style.gap = '10px 4px'; box.innerHTML = SD_KINDS.map(sdTile).join('');
   posDocsWire(box, s, D);
   sdFill(box, (id, ap) => sb.rpc('pos_staff_doc_photo', { p_id: id, p_ap: ap }), false); /* 四角を押すと小窓（全画面は小窓の中で） */
 }
-// 撮影（入力欄は画面の中。縮めて送り、送れたらその場で四角を写真に）
+// 撮影（入力欄は画面の中。縮めて送り、送れたらその場で四角を写真に。紙の書類は白と黒の2色＝lib/olive/photo.js の shrinkDoc）
 async function posDocsAdd(inp, s){ const f = inp.files && inp.files[0], k = inp.dataset.sdadd, n = SD_KINDS.find(x => x[0] === k)[1]; inp.value = ''; if(!f) return false;
-  try{ const d = await blob64(await shrinkJpeg(f)); const q = await sb.rpc('pos_staff_doc_add', { p_staff: s.id, p_kind: k, p_data: d });
+  try{ const d = await blob64(await shrinkDoc(k, f)); const q = await sb.rpc('pos_staff_doc_add', { p_staff: s.id, p_kind: k, p_data: d });
     if(q.error){ await uiAlert('写真を保存できません：' + q.error.message); return false; }
     await logOp('書類の撮影', { name: s.display_name, doc: n }, null, true); toast(`${n}を保存しました`); return true;
   }catch(e){ await uiAlert('写真を保存できません：' + (e && e.message || e)); return false; } }
@@ -36,7 +35,7 @@ function posDocsOpen(s, D, k){ const n = SD_KINDS.find(x => x[0] === k)[1], P = 
   if(sdSign(D, k) && !P.length){ contractPdfOpen(() => sb.rpc('pos_staff_contract', { p_staff: s.id })); return; } /* 署名入りの契約書を PDF で（オーナー） */
   const m = sdModal(`<h3 style="margin:0 0 10px">${esc(s.display_name)}　${n}</h3><div style="display:flex;gap:10px;flex-wrap:wrap">
     ${P.map(p => `<div style="position:relative"><img data-sdp="${p.id}" data-ap="${p.ap ? 1 : 0}" alt="" style="width:180px;height:240px;object-fit:cover;border-radius:8px;display:block;background:var(--soft);cursor:pointer">${p.ap ? '' : `<button type="button" class="xb" data-sddel="${p.id}" aria-label="削除" style="position:absolute;right:4px;top:4px;background:var(--card)!important;border-radius:50%">×</button>`}</div>`).join('')}
-    ${k === 'contract' ? '' : `<label style="width:180px;height:240px;border:1px dashed var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);cursor:pointer;box-sizing:border-box">${SD_CAM}撮影<input type="file" accept="image/*" data-sdadd="${k}" style="display:none"></label>`}</div>
+    ${`<label style="width:180px;height:240px;border:1px dashed var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);cursor:pointer;box-sizing:border-box">${SD_CAM}撮影<input type="file" accept="image/*" data-sdadd="${k}" style="display:none"></label>`}</div>
     ${P.some(p => p.ap) ? '<div style="color:var(--muted);font-size:12px;margin-top:8px">面接の時の写真</div>' : ''}`);
   sdFill(m, (id, ap) => sb.rpc('pos_staff_doc_photo', { p_id: id, p_ap: ap }));
   const ai = m.querySelector('input[data-sdadd]'); if(ai) ai.onchange = async e => { if(await posDocsAdd(e.target, s)){ m.remove(); await posDocs(s); } };
