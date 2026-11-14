@@ -1,10 +1,10 @@
 // ---------- 上部バーの［本日］（本日の売上・来店） ----------
 // 本日の売上・来店（上部バーの［本日］をタップした時だけ表示。再度タップで閉じる）。数え方は伝票一覧と同じ（置きは全額入金の日）
-async function todayBills(BSEL,today,byStore){ const S=q=>byStore?q.eq('store_id',store.id):q;
-  const q1=await S(sb.from('bills').select(BSEL)).eq('business_date',today).order('opened_at',{ascending:false}); if(q1.error) return {error:q1.error};
+async function todayBills(BSEL,today,byStore){ const bySq=q=>byStore?q.eq('store_id',S.store.id):q;
+  const q1=await bySq(sb.from('bills').select(BSEL)).eq('business_date',today).order('opened_at',{ascending:false}); if(q1.error) return {error:q1.error};
   const pr=await sb.from('payments').select('bill_id').eq('revenue_date',today).gt('amount',0).not('received_at','is',null); if(pr.error) return {error:pr.error};
   const have=new Set((q1.data||[]).map(b=>b.id)); const ids=[...new Set((pr.data||[]).map(p=>p.bill_id))].filter(i=>!have.has(i));
-  const q2=ids.length?await S(sb.from('bills').select(BSEL)).in('id',ids):{data:[]}; if(q2.error) return {error:q2.error};
+  const q2=ids.length?await bySq(sb.from('bills').select(BSEL)).in('id',ids):{data:[]}; if(q2.error) return {error:q2.error};
   return {q1:q1.data||[],all:[...(q1.data||[]),...(q2.data||[])]}; }
 async function todaySum(){ const el=$('tdSum'); el.textContent='…'; const today=businessDate(); const BSEL='id,status,guest_count,business_date,payments(method,amount,received_at,revenue_date)';
   const tb=await todayBills(BSEL,today,true); if(tb.error){ el.textContent='—'; return; } const all=tb.all; const sales=all.filter(b=>b.status==='closed'&&!(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)&&billDay(b)===today); const open=all.filter(b=>b.status==='open'&&b.business_date===today);

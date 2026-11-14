@@ -13,9 +13,15 @@ const ROLE = { douhan1:'同伴①', douhan2:'同伴②', douhan:'同伴', none:'
 const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
 const METHOD = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
 /* ?slot= で同じブラウザに2店を開いても、端末に残す設定が混ざらないように */ const SLOT=((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'')?'-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,''):'');
-let store, settings, modes=[], tables=[], categories=[], products=[], staff=[], customers=[], openBills=[], cur=null, payMethod='cash', billFrom='hall';
+// 店の土台のデータ（読み込んだ時に入れ、どの画面も読む）は、この入れ物 S に1つにまとめる
+const S={store:undefined, settings:undefined, modes:[], tables:[], categories:[], products:[], staff:[], staffAll:[], customers:[], cur:null};
+// 画面どうしで受けわたす今の状態（はじめの値は、それぞれのファイルが読み込まれた時に入れる）
+S.openBills=undefined; S.payMethod=undefined; S.billFrom=undefined; S.termSwitch=undefined; S.salesM=undefined; S.billFp=undefined; S.closeHM=undefined; S.hallOn=undefined; S.extOpen=undefined; S.DBLOG=undefined; S.pastSel=undefined; S.cSel=undefined; S.present=undefined; S.custPick=undefined; S.custBill=undefined; S.RW=undefined; S.alwMode=undefined; S.afMode=undefined; S.setCur=undefined; S.setSel=undefined; S.setEditMode=undefined; S.setCatFilter=undefined; S.auDate=undefined; S.cuInfo=undefined; S.cuMode=undefined; S.cuMonthsSel=undefined; S.cuSideSig=undefined; S.cuSel=undefined; S.cuDraft=undefined; S.clDate=undefined; S.clCounts=undefined; S.clDeposit=undefined; S.clOpening=undefined; S.clMonth=undefined; S.clCtx=undefined;
+// 外の部品（lib/olive/err.js）とテストは今までの名前で読み書きするので、その名前も S に届くように残す
+for(const k of Object.keys(S)) Object.defineProperty(globalThis,k,{get:()=>S[k],set:v=>{ S[k]=v; },configurable:true});
+S.openBills=[]; S.payMethod='cash'; S.billFrom='hall';
 /* 伝票の卓は、その時の卓の名前（bills.table_name。卓を削除・名前を変更しても前の伝票は前の名前）。営業中の伝票だけ今の卓の名前 */
-const billTable=b=>!b?'':(b.status==='open'&&tables.find(t=>t.id===b.table_id)?.name)||b.table_name||tables.find(t=>t.id===b.table_id)?.name||'';
+const billTable=b=>!b?'':(b.status==='open'&&S.tables.find(t=>t.id===b.table_id)?.name)||b.table_name||S.tables.find(t=>t.id===b.table_id)?.name||'';
 /* 構造をシンプルに（2回目）：小窓の箱（class modal on・重なりの順番）を作る3つの手順を1つに（前は同じ3つが18か所） */
 /* オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */
 const TOAST_NG=/(できません|エラー|読めません|出せません|取り消せません|外せません)：|読み込めません|失敗|通信できませんでした/;
@@ -42,16 +48,16 @@ const ptLoad=async()=>{ const a=ptGet(); if(a) return [a,null]; const b=await ke
 $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); const err=$('posRegErr'); err.textContent=''; const code=$('posRegCode').value.trim();
   if(!/^\d{6}$/.test(code)){ err.textContent='登録コードは6桁の数字です'; return; }
   const { data, error } = await sb.rpc('pos_term_register',{p_code:code}); if(error){ err.textContent=error.message; return; }
-  ptSet(data.token); $('posReg').style.display='none'; if(hallOn){ location.reload(); return; } start(); }); /* 点検 開いている途中で登録し直した時は読み直す（1分ごとの処理が二重にならないように） */
+  ptSet(data.token); $('posReg').style.display='none'; if(S.hallOn){ location.reload(); return; } start(); }); /* 点検 開いている途中で登録し直した時は読み直す（1分ごとの処理が二重にならないように） */
 $('posRegOut').onclick=async()=>{ await storeSwDrop(); await sb.auth.signOut(); location.reload(); }; /* 登録の画面からログアウト（点検 B6）。端末の合鍵は消さない */
 /* オーナーの端末は、上の店名を押して銀座・広島を切り替える（オーナー「いちいち消してログインし直すのが嫌」）。店ごとのログインは ?slot= で別々に残る。
    この端末で開いた店を olive_pos_stores（2つの引き出し）に控え、2店ある時だけ店名で、もう1店へ。2店目は設定の「店舗追加」から（その店のログイン＋登録コード。登録コードはオーナーだけが発行） */
-const STORES_KEY='olive_pos_stores', SLOT_RAW=SLOT.slice(1); let posStores={}, termSwitch=false; /* 「店舗追加」は管理サイトで「店舗切替」をオンにした端末だけ（オーナー「店の iPad では出さない」） */
+const STORES_KEY='olive_pos_stores', SLOT_RAW=SLOT.slice(1); let posStores={}; S.termSwitch=false; /* 「店舗追加」は管理サイトで「店舗切替」をオンにした端末だけ（オーナー「店の iPad では出さない」） */
 const slotUrl=s=>location.pathname+(s?'?slot='+encodeURIComponent(s):'');
 async function storeSwLoad(){ try{ posStores=JSON.parse(await dualStore.getItem(STORES_KEY)||'{}')||{}; }catch(e){ posStores={}; } }
 const storeSwSave=()=>dualStore.setItem(STORES_KEY,JSON.stringify(posStores));
-const storeSwOther=()=>Object.entries(posStores).find(([k,v])=>k!==store?.id&&v.slot!==SLOT_RAW)?.[1]||null;
-async function storeSwRec(){ if(!store) return; await storeSwLoad(); for(const k of Object.keys(posStores)) if(posStores[k].slot===SLOT_RAW) delete posStores[k]; posStores[store.id]={name:store.name||'',slot:SLOT_RAW}; await storeSwSave(); storeSwShow(); }
+const storeSwOther=()=>Object.entries(posStores).find(([k,v])=>k!==S.store?.id&&v.slot!==SLOT_RAW)?.[1]||null;
+async function storeSwRec(){ if(!S.store) return; await storeSwLoad(); for(const k of Object.keys(posStores)) if(posStores[k].slot===SLOT_RAW) delete posStores[k]; posStores[S.store.id]={name:S.store.name||'',slot:SLOT_RAW}; await storeSwSave(); storeSwShow(); }
 async function storeSwDrop(){ await storeSwLoad(); for(const k of Object.keys(posStores)) if(posStores[k].slot===SLOT_RAW) delete posStores[k]; await storeSwSave(); }
 function storeSwShow(){ const o=storeSwOther(); $('storeName').style.cursor=o?'pointer':''; $('loginBack').style.display=$('posRegBack').style.display=o?'':'none'; }
 $('storeName').onclick=()=>{ const o=storeSwOther(); if(o) location.href=slotUrl(o.slot); };
@@ -66,22 +72,22 @@ async function posTermLost(){ try{ const [tk]=await ptLoad(); const pt=await sb.
 let startRun=0;
 const loginWait=(on,msg)=>{ $('loginForm').classList.toggle('waiting',on); $('loginErr').textContent=msg||''; };
 async function start(){ const run=++startRun; clearTimeout(start.r); clearTimeout(start.slow);
-  const live=()=>run===startRun&&!hallOn; const retry=()=>{ if(!live()) return; loginWait(true,'通信を確認しています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); };
+  const live=()=>run===startRun&&!S.hallOn; const retry=()=>{ if(!live()) return; loginWait(true,'通信を確認しています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); };
   start.slow=setTimeout(retry,20000);
   try{ const { data:{ session } } = await sb.auth.getSession(); if(!live()) return; if (!session){ loginWait(false); return; }
   if(!$('loginErr').textContent) loginWait(true,'');
   /* タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
   try{ const [tc,dl]=await Promise.all([sb.rpc('is_timecard_user'),sb.rpc('db_logs_on')]); /* 読むだけの2つは同時に */ if(!live()) return; if(tc.data===true){ await sb.auth.signOut(); loginWait(false,'タイムカード専用IDでは、POS は開けません'); return; }
-    DBLOG=dl.data===true; }catch(e){}
+    S.DBLOG=dl.data===true; }catch(e){}
   if(!live()) return;
   /* 登録した端末だけ開く。確認できない時（通信の失敗など）も開かない */
   { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
     const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note}); if(!live()) return;
     if(pt.error||!pt.data){ retry(); return; }
     if(pt.data.stale){ await sb.auth.signOut(); loginWait(false,'パスワードが変わりました。新しいパスワードでログインしてください'); return; } /* 点検 */
-    if(pt.data.ok===false){ loginWait(false); $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } termSwitch=pt.data.store_switch===true; }
-  await loadMasters(true,true); if(!live()) return; if(!store){ retry(); return; } /* 店の設定が読めない時も開かずにやり直す（開くと店が空のまま動かない） */
-  hallOn=true; loginWait(false); $('login').classList.add('hidden'); checkVersion(); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); show('v-hall');
+    if(pt.data.ok===false){ loginWait(false); $('login').classList.add('hidden'); $('posReg').style.display='flex'; $('posRegCode').value=''; return; } S.termSwitch=pt.data.store_switch===true; }
+  await loadMasters(true,true); if(!live()) return; if(!S.store){ retry(); return; } /* 店の設定が読めない時も開かずにやり直す（開くと店が空のまま動かない） */
+  S.hallOn=true; loginWait(false); $('login').classList.add('hidden'); checkVersion(); storeSwRec(); rtSub(); await loadHall(true); setInterval(hallTick,60000); show('v-hall');
   }finally{ if(run===startRun) clearTimeout(start.slow); /* 返事が来た時は止める。待ったまま返事が無い時だけ 20秒でやり直す */ } } /* 1分ごとは画面の描き直しだけ（全部の読み直しは5分ごと・画面を開いていない間は止める） */
 
 async function loadMasters(withCust,quiet){ /* お客様は最初だけ全部読む（あとは cuPull で変わった分だけ） */
@@ -89,40 +95,40 @@ async function loadMasters(withCust,quiet){ /* お客様は最初だけ全部読
   const [m,cu] = await Promise.all([sb.rpc('pos_masters'), withCust?cuLoadAll():null]);
   { const e=[m,cu].find(x=>x&&x.error); if(e&&!quiet) toast('店の設定を読み込めません。再度開いてください：'+e.error.message); } /* 通しチェック3：読めないと後でボタンが黙って止まった */
   const d=m.data||{};
-  if((m.error||!d.store)&&store) return; /* 読み直しで読めなかった時・店が空で返った時は、前に読んだ店の設定のまま（空にすると、次の読み直しまで store.id で止まった） */
-  store=d.store||undefined; kSet(store?.kakari_label); kDom(); settings=d.settings||undefined; modes=d.modes||[]; tables=d.tables||[]; categories=d.categories||[]; products=d.products||[]; staff=d.staff||[]; if(withCust){ customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
-  $('storeName').textContent = store?.name || '店舗未設定';
+  if((m.error||!d.store)&&S.store) return; /* 読み直しで読めなかった時・店が空で返った時は、前に読んだ店の設定のまま（空にすると、次の読み直しまで store.id で止まった） */
+  S.store=d.store||undefined; kSet(S.store?.kakari_label); kDom(); S.settings=d.settings||undefined; S.modes=d.modes||[]; S.tables=d.tables||[]; S.categories=d.categories||[]; S.products=d.products||[]; S.staff=d.staff||[]; if(withCust){ S.customers=(cu.data||[]).map(cuK); if(!cu.error) cuMark(true); }
+  $('storeName').textContent = S.store?.name || '店舗未設定';
   // 閉店時間（管理サイト「POS設定」の店の情報）。体験の時給の打ち止めに使う。読めない時は 1:00
-  if(store&&/^\d{2}:\d{2}$/.test(d.close_time||'')) closeHM=d.close_time;
+  if(S.store&&/^\d{2}:\d{2}$/.test(d.close_time||'')) S.closeHM=d.close_time;
   expireTrials(); /* 1日1回の体験の在籍・自動削除は、ホールを出すのを待たせない（終わったら在籍の一覧から外す） */
 }
 // 体験キャストは1日限り：登録した営業日の翌営業日になったら自動で「削除済」にする（記録は残る）
 // マイページのシフトから前もって登録した体験の人は、体験の日（trial_day）に在籍に出し、その次の営業日に削除済にする
-let trialSweepDay=null; let salesM={};
-async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!store) return; try{ { const a=await sb.rpc('pos_trial_activate',{p_bd:bd}); for(const x of (a.data||[])) await logOp('体験キャストの在籍',{name:x.display_name,day:bd},null,true); }
-  const r=await sb.from('staff').select('id,display_name,created_at,trial_day').eq('is_trial',true).eq('is_active',true); if(r.error) return; const old=(r.data||[]).filter(x=>(x.trial_day||businessDate(new Date(x.created_at)))!==bd); /* 再体入で体験の日が先になった子も、出勤した日の次の営業日に外す（新しい体験の日に pos_trial_activate が戻す） */ const done=[]; for(const x of old){ const u=await sb.rpc('pos_row_update',{p_table:'staff',p_id:x.id,p:{is_active:false}}); if(!u.error){ done.push(x.id); await logOp('体験キャストの自動削除',{name:x.display_name,registered:businessDate(new Date(x.created_at))},null,true); } } if(done.length) staff=staff.filter(z=>!done.includes(z.id)); trialSweepDay=bd; }catch(e){ console.warn('expireTrials',e); } }
+let trialSweepDay=null; S.salesM={};
+async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!S.store) return; try{ { const a=await sb.rpc('pos_trial_activate',{p_bd:bd}); for(const x of (a.data||[])) await logOp('体験キャストの在籍',{name:x.display_name,day:bd},null,true); }
+  const r=await sb.from('staff').select('id,display_name,created_at,trial_day').eq('is_trial',true).eq('is_active',true); if(r.error) return; const old=(r.data||[]).filter(x=>(x.trial_day||businessDate(new Date(x.created_at)))!==bd); /* 再体入で体験の日が先になった子も、出勤した日の次の営業日に外す（新しい体験の日に pos_trial_activate が戻す） */ const done=[]; for(const x of old){ const u=await sb.rpc('pos_row_update',{p_table:'staff',p_id:x.id,p:{is_active:false}}); if(!u.error){ done.push(x.id); await logOp('体験キャストの自動削除',{name:x.display_name,registered:businessDate(new Date(x.created_at))},null,true); } } if(done.length) S.staff=S.staff.filter(z=>!done.includes(z.id)); trialSweepDay=bd; }catch(e){ console.warn('expireTrials',e); } }
 
 // ---------- リアルタイム 設定・伝票がほかで変わったら、すぐ読み直す（つながらない時は、これまでどおり1分ごと） ----------
 // 設定：ホール・伝票を見ている時に読み直す（メニュー登録・注文・設定・顧客の画面の間は、ホールに戻った時）。伝票：ホールは読み直し、開いている伝票は
 // もう1台で変わった時だけ最新にして「もう1台で変更されました」。この端末で触った直後（3秒）と確認の画面が出ている間は待つ
-let rtCh=null, rtMastT=0, rtHallT=0, rtBillT=0, rtTap=0, rtMastWait=false, billFp='';
+let rtCh=null, rtMastT=0, rtHallT=0, rtBillT=0, rtTap=0, rtMastWait=false; S.billFp='';
 const fpOf=b=>JSON.stringify(b,(k,v)=>k==='depPays'||k==='totals'?undefined:v);
 document.addEventListener('pointerdown',()=>{ rtTap=Date.now(); },true);
 const rtBusy=()=>!!document.querySelector('.modal.on');
 const onView=v=>$(v).classList.contains('on');
-function rtSub(){ if(rtCh||!store) return; rtCh=rtJoin(sb,store.id,rtOn); }
+function rtSub(){ if(rtCh||!S.store) return; rtCh=rtJoin(sb,S.store.id,rtOn); }
 let rtSide=false;
 function rtOn(p){ if(p.kind==='settings'){ hallDropAll(); clearTimeout(rtMastT); rtMastT=setTimeout(rtMasters,1500); return; }
   /* 変わった伝票の金額だけ計算し直す。置き・お預かり品は伝票・入金・お預かりが変わった時だけ読む */ if(p.bill) hallDrop(p.bill); else hallDropAll(); if(!p.table||['bills','payments','bill_tags'].includes(p.table)) rtSide=true;
   clearTimeout(rtHallT); rtHallT=setTimeout(()=>{ if(onView('v-hall')&&!rtBusy()){ const sd=rtSide; rtSide=false; loadHall({side:sd}); } },1200);
-  if(cur&&p.bill===cur.id){ clearTimeout(rtBillT); rtBillT=setTimeout(rtBillCheck,Math.max(800,rtTap+3000-Date.now())); } }
+  if(S.cur&&p.bill===S.cur.id){ clearTimeout(rtBillT); rtBillT=setTimeout(rtBillCheck,Math.max(800,rtTap+3000-Date.now())); } }
 async function rtMasters(){ if(!(onView('v-hall')||onView('v-bill'))||rtBusy()){ rtMastWait=true; return; } rtMastWait=false;
-  try{ await loadMasters(); hallDropAll(); checkPwAlert(); if(onView('v-hall')&&!rtBusy()) loadHall(); else if(onView('v-bill')&&cur&&!rtBusy()) openBill(cur.id); }catch(e){ console.warn('rtMasters',e); } }
-async function rtBillCheck(){ if(!cur||!(onView('v-bill')||onView('v-pay'))) return;
+  try{ await loadMasters(); hallDropAll(); checkPwAlert(); if(onView('v-hall')&&!rtBusy()) loadHall(); else if(onView('v-bill')&&S.cur&&!rtBusy()) openBill(S.cur.id); }catch(e){ console.warn('rtMasters',e); } }
+async function rtBillCheck(){ if(!S.cur||!(onView('v-bill')||onView('v-pay'))) return;
   if(rtBusy()||Date.now()-rtTap<3000||document.activeElement?.tagName==='INPUT'&&onView('v-pay')){ clearTimeout(rtBillT); rtBillT=setTimeout(rtBillCheck,1500); return; }
-  const id=cur.id, r=await sb.from('bills').select(BILL_SEL).eq('id',id).single(); if(r.error||!cur||cur.id!==id) return;
-  if(fpOf(r.data)===billFp) return;
-  const onPay=onView('v-pay'); await openBill(id); if(onPay&&cur.status==='open'){ renderPay(); show('v-pay'); } toast('ほかの端末で変更されました'); }
+  const id=S.cur.id, r=await sb.from('bills').select(BILL_SEL).eq('id',id).single(); if(r.error||!S.cur||S.cur.id!==id) return;
+  if(fpOf(r.data)===S.billFp) return;
+  const onPay=onView('v-pay'); await openBill(id); if(onPay&&S.cur.status==='open'){ renderPay(); show('v-pay'); } toast('ほかの端末で変更されました'); }
 
 
 // 在籍リスト・閉店作業の時刻の前のしるし（同じ幅。アフター・シフトは2行）
@@ -136,12 +142,12 @@ function groupItems(items){ const out=[], by=new Map();
     (i.bill_item_splits||[]).forEach(s=>{ const e=g.bill_item_splits.find(z=>z.staff_id===s.staff_id); if(e){ e.back_amount=(e.back_amount||0)+(s.back_amount||0); e.back_points=Number(e.back_points||0)+Number(s.back_points||0); } else g.bill_item_splits.push({...s}); }); });
   out.forEach(g=>{ g.ids=g.rows.map(r=>r.id); g.rows.sort((a,b)=>String(a.added_at||'').localeCompare(String(b.added_at||''))); }); return out; }
 // 職員の名簿（在籍・退職を全部）。伝票・在籍リスト・設定・ホールのどの画面も使う
-let staffAll=[], closeHM='01:00';
-async function loadStaffAll(){ const { data, error } = await sb.from('staff').select('*').order('sort_order').order('id'); /* 読めなかった時に空で上書きすると、名前・係の選択・在籍リストが全部消えるので、前のまま残す */ if(error){ toast(RDERR_T); return; } staffAll=data||[]; staff=staffAll.filter(s=>s.is_active).map(s=>({id:s.id,display_name:s.display_name,kind:s.kind,sort_order:s.sort_order})); }
+S.closeHM='01:00';
+async function loadStaffAll(){ const { data, error } = await sb.from('staff').select('*').order('sort_order').order('id'); /* 読めなかった時に空で上書きすると、名前・係の選択・在籍リストが全部消えるので、前のまま残す */ if(error){ toast(RDERR_T); return; } S.staffAll=data||[]; S.staff=S.staffAll.filter(s=>s.is_active).map(s=>({id:s.id,display_name:s.display_name,kind:s.kind,sort_order:s.sort_order})); }
 // 担当の黒服。区分が黒服で在籍中の人だけ有効。退職・区分変更・未登録は「未選択」
-const hallList=()=>staffAll.filter(x=>x.kind==='hall'&&x.is_active);
-const mgrOf=s=>{ const m=s&&s.manager_staff_id?staffAll.find(x=>x.id===s.manager_staff_id):null; return m&&m.is_active&&m.kind==='hall'?m:null; };
-const snm=id=>staffAll.find(x=>x.id===id)?.display_name||staff.find(x=>x.id===id)?.display_name||'';
+const hallList=()=>S.staffAll.filter(x=>x.kind==='hall'&&x.is_active);
+const mgrOf=s=>{ const m=s&&s.manager_staff_id?S.staffAll.find(x=>x.id===s.manager_staff_id):null; return m&&m.is_active&&m.kind==='hall'?m:null; };
+const snm=id=>S.staffAll.find(x=>x.id===id)?.display_name||S.staff.find(x=>x.id===id)?.display_name||'';
 // 行を動かすと指の追跡が切れるため、動き・離すは画面全体で受ける
 // 上下の端まで持っていくと、リストが自分で動く（オーナー「並び変えできない」。在籍リストは画面に入りきらない）
 function dragSort(list,sel,onDone){
@@ -160,13 +166,13 @@ function dragSort(list,sel,onDone){
 /* 1回に1000件までしか返らないので、1000件ずつ全部読む（お客様5000件以上に対応） */
 // 係は店舗ごと（SQL 048 の customer_kakari）。読み込んだお客様の kakari_staff_id を、この店舗の係に置き換える
 const CUSEL='*,customer_kakari(store_id,staff_id)';
-function cuK(c){ if(!c||!('customer_kakari' in c)) return c; const k=(c.customer_kakari||[]).find(x=>x.store_id===store?.id); delete c.customer_kakari; c.kakari_staff_id=k?k.staff_id:null; return c; }
+function cuK(c){ if(!c||!('customer_kakari' in c)) return c; const k=(c.customer_kakari||[]).find(x=>x.store_id===S.store?.id); delete c.customer_kakari; c.kakari_staff_id=k?k.staff_id:null; return c; }
 async function cuLoadAll(){ let r=await sbAll(()=>sb.from('customers').select(CUSEL).order('name').order('id')); if(r.error&&/customer_kakari/.test(r.error.message)){ toast((/does not exist|schema cache/.test(r.error.message)?'SQL 048 が未実行です：':''+KL+'を読み込めません：')+r.error.message); r=await sbAll(()=>sb.from('customers').select('*').order('name').order('id')); } return r; }
 /* お客様は最初に全部読み、あとは更新・登録の時刻が前に読んだ一番新しい時刻（5分の余裕）より後の人だけ読む。消えた人に気づくため10分ごとに全部読む */
 let cuMax=0, cuFullAt=0; const cuStamp=c=>Math.max(Date.parse(c?.updated_at)||0,Date.parse(c?.created_at)||0);
-function cuMark(full,list){ if(full) cuFullAt=Date.now(); for(const c of (list||customers)) cuMax=Math.max(cuMax,cuStamp(c)); }
+function cuMark(full,list){ if(full) cuFullAt=Date.now(); for(const c of (list||S.customers)) cuMax=Math.max(cuMax,cuStamp(c)); }
 async function cuPull(delta){ if(!cuMax||(!delta&&Date.now()-cuFullAt>=600000)){ const r=await cuLoadAll(); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMax=0; cuMark(true,r.data); return {data:r.data,error:null}; }
   const since=new Date(cuMax-300000).toISOString(); const r=await sbAll(()=>sb.from('customers').select(CUSEL).or(`updated_at.gte."${since}",created_at.gte."${since}"`).order('id')); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMark(false,r.data);
-  const up=new Map(r.data.map(c=>[c.id,c])); const out=customers.map(c=>up.get(c.id)||c); const have=new Set(customers.map(c=>c.id)); r.data.forEach(c=>{ if(!have.has(c.id)) out.push(c); }); return {data:out,error:null}; }
+  const up=new Map(r.data.map(c=>[c.id,c])); const out=S.customers.map(c=>up.get(c.id)||c); const have=new Set(S.customers.map(c=>c.id)); r.data.forEach(c=>{ if(!have.has(c.id)) out.push(c); }); return {data:out,error:null}; }
 /* ほかの iPad で登録・変更したお客様を、変わった分だけ読む（お客様を追加・伝票を開く時。前は顧客の画面を開くまで届かず、同業の料金が戻る・同じ人を二重に登録することがあった） */
-async function cuFresh(){ const r=await cuPull(true); if(r&&r.data) customers=r.data; }
+async function cuFresh(){ const r=await cuPull(true); if(r&&r.data) S.customers=r.data; }
