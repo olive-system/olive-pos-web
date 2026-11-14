@@ -1,5 +1,5 @@
 // 報酬明細：今月の途中の明細と、前の月の PDF（。前の月は毎月1日 10:30 に固めて PDF にし、伝票を直しても変わらない）
-const N = v => Number(v||0), cm = v => N(v) ? N(v).toLocaleString('ja-JP') : '--';
+const cm = v => N(v) ? N(v).toLocaleString('ja-JP') : '--';
 // SQL 414 の前月精算（prev_adjust）は 468 でやめた。前にサインした明細に入っている時だけ出す
 // 自動の遅刻の罰金（遅刻（シフト19:50・打刻20:05）など）は、元の名前（遅刻）の1行に合計する（管理サイトの報酬明細と同じ）
 const fineBase = k => String(k).replace(/（(?:シフト|予定)\d[^）]*）$/, ''), fineSum = (x, f) => Object.entries(x.fine_items||{}).reduce((s, [k, v]) => fineBase(k) === f ? s + N(v) : s, 0);
