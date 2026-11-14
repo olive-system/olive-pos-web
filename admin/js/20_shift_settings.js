@@ -1,4 +1,4 @@
-// ---------- シフト設定（目安人数（曜日別・日別）・定休日・祝日） ----------
+// ---------- シフト設定（目安人数（曜日別・日別）・休み希望の上限（曜日別）・定休日・祝日） ----------
 // シフト設定（曜日別の目安人数を店・月ごとに。日ごとの目安はシフトのカレンダーで日を押して変更）。イベント日の登録も（オーナー）
 let setMonth=null;
 // 日本の祝日（シフト設定のカレンダーに「祝」と出すだけ。休にするかは押して決める）
@@ -20,7 +20,7 @@ PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm
   if(r.error||dr.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc((r.error||dr.error).message)}</div>`; return; }
   const DT=dr.data||{}; /* 日ごとの目安人数 */
   const MT=mr.error?null:mr.data, MD=new Set(MT?.days||[]), hm=v=>v?String(v).replace(/^0(\d)/,'$1'):''; // ミーティング（月初の営業日2日・時間帯は店で1つ）
-  const T=r.data?.targets||{}, EVs=new Set(r.data?.events||[]), OFF=new Set(r.data?.offs||[]), DOW=new Set(r.data?.off_dows||[]), opts=[now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
+  const NC=r.data?.ng_caps||null /* 休み希望の上限（日〜土）。SQL 515 の前は出さない */, T=r.data?.targets||{}, EVs=new Set(r.data?.events||[]), OFF=new Set(r.data?.offs||[]), DOW=new Set(r.data?.off_dows||[]), opts=[now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
   const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)), first=new Date(y,mo-1,1).getDay(), nd=new Date(y,mo,0).getDate(), iso=d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}`, HOL=jpHolidays(y);
   const bx='border:1px solid var(--line);border-radius:6px;padding:6px 0;font:inherit;font-size:14px;line-height:1.25';
   const dOff=k=>OFF.has(k)||DOW.has(new Date(k+'T00:00:00').getDay()), dVal=k=>DT[k]??T[String(new Date(k+'T00:00:00').getDay())]??'';
@@ -32,6 +32,9 @@ PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm
     <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:4px;max-width:560px">${WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')}${'<div></div>'.repeat(first)}${Array.from({length:nd},(_,i)=>{ const k=iso(i+1), off=dOff(k); return `<label style="text-align:center;font-size:12px;${off?'color:var(--muted)':''}">${i+1}<input type="number" inputmode="numeric" min="0" data-sd="${k}" data-sw="${new Date(k+'T00:00:00').getDay()}" value="${off?'':dVal(k)}" ${ed&&!off?'':'disabled'} ${off?'placeholder="休"':''} style="width:100%;text-align:center"></label>`; }).join('')}</div>
     <div class="muted" style="font-size:13px;margin-top:8px">曜日別を変更すると、その曜日の日にまとめて入力します。シフトの自動作成で、日別の人数まで割り振ります</div>
     ${ed?'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="primary sm" id="ssS">保存</button></div>':''}</div>
+    ${NC?`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b>休み希望の上限（人）</b>${ed?'<button class="primary sm" id="ncS">保存</button>':''}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:10px;max-width:560px">${WD.map((w,i)=>`<label style="text-align:center">${w}<input type="number" inputmode="numeric" min="0" max="99" data-nc="${i}" value="${DOW.has(i)?'':NC[i]}" ${ed&&!DOW.has(i)?'':'disabled'} ${DOW.has(i)?'placeholder="休"':''} style="width:100%;text-align:center"></label>`).join('')}</div>
+    <div class="muted" style="font-size:13px;margin-top:8px">1日に休み希望を提出できる人数です（先着順・毎月同じ）。上限に達した日は、LINEマイページで「満」と表示されます。上限を下げても、提出済みの休み希望はそのまま残ります</div></div>`:''}
     <div class="card"><b>定休日</b>
     <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:10px;max-width:560px">${WD.map((w,i)=>{ const on=DOW.has(i); return `<button type="button" ${ed?`data-dw="${i}"`:'disabled'} style="${bx};background:${on?'var(--soft)':'var(--card)'};color:${on?'var(--muted)':'var(--ink)'};${on?'font-weight:700':''}">${w}<small style="display:block;font-size:11px">${on?'休':'&nbsp;'}</small></button>`; }).join('')}</div>
     <div class="muted" style="font-size:13px;margin-top:8px">押すと定休日の登録・取消（毎週）</div></div>
@@ -52,6 +55,8 @@ PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm
     if(ssMode==='mt'){ const on=!MD.has(k); const q=await rpc('admin_meeting_day_set',{p_store:st,p_day:k,p_on:on}); if(!q.ok) return; toast(on?`${md(k)} をミーティング日にしました`:`${md(k)} のミーティング日を取り消しました`); PAGES.set_shift(); return; }
     if(OFF.has(k)){ await uiAlert(`${md(k)} は休の日です`); return; }
     const on=!EVs.has(k); const q=await rpc('admin_shift_event_set',{p_store:st,p_day:k,p_on:on}); if(!q.ok) return; toast(on?`${md(k)} をイベント日にしました`:`${md(k)} のイベント日を取り消しました`); PAGES.set_shift(); }));
+  if($('ncS')) $('ncS').onclick=guard($('ncS'),async()=>{ const v=[...$('main').querySelectorAll('[data-nc]')].map((x,i)=>DOW.has(i)?NC[i]:(x.value===''?null:Number(x.value))); if(v.some(x=>x==null||!(x>=0&&x<=99))){ await uiAlert('休み希望の上限を入力してください'); return; }
+    const q=await rpc('admin_shift_ng_caps_save',{p_store:st,p_caps:v}); if(!q.ok) return; toast('保存しました'); PAGES.set_shift(); });
   if($('mtS')) $('mtS').onclick=guard($('mtS'),async()=>{ const v=id=>$(id).value.trim()||null; const q=await rpc('admin_meeting_save',{p_store:st,p_pre_from:v('mt_pre_f'),p_pre_to:v('mt_pre_t'),p_post_from:v('mt_post_f'),p_post_to:v('mt_post_t'),p_slot:Number($('mt_slot').value)||null}); if(!q.ok) return; toast('保存しました'); PAGES.set_shift(); });
   $('ssS').onclick=guard($('ssS'),async()=>{ const v=[...$('main').querySelectorAll('[data-ss]')].map((x,i)=>DOW.has(i)?(x.value===''?Number(T[String(i)]??0):Number(x.value)):(x.value===''?null:Number(x.value))); if(v.some(x=>x==null||!(x>=0))){ await uiAlert('目安人数を入力してください'); return; }
     const days={}; for(const x of $('main').querySelectorAll('input[data-sd]:not(:disabled)')){ if(x.value==='') continue; const n=Number(x.value); if(!(n>=0&&n<=99)){ await uiAlert(`${md(x.dataset.sd)} の目安人数を確認してください`); return; } days[x.dataset.sd]=n; }

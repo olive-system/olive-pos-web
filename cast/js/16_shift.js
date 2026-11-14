@@ -1,4 +1,4 @@
-// ⑧シフト（オーナーにヒアリングして決めた形）。毎月10日までに来月の「出勤できない日」を提出（1日5人まで先着・10日を過ぎたら変更できない）
+// ⑧シフト（オーナーにヒアリングして決めた形）。毎月10日までに来月の「出勤できない日」を提出（1日の上限は店・曜日ごとに管理サイトのシフト設定で決める。先着・10日を過ぎたら変更できない）
 // ホームのシフトは成績の横（オーナー）
 // シフトの変更は申請の仕組みを作らず公式 LINE で黒服に（オーナー）。ホームの「申請（変更）」は外して、シフトの画面に「シフト変更（メッセージにてご相談ください）」。押すとお店のトークに戻る
 // シフトのカレンダーは左揃え（オーナー）
@@ -33,7 +33,7 @@ function shiftPaint(ng){
     <div class="card"><div class="sm" style="font-weight:700;margin-bottom:8px">${mo}月分${OK?'出勤希望':'休み希望'}　提出期限 ${dueD}</div>
     ${calGrid(S.month, (iso, d) => { const on = ng.has(iso), of = OFF.has(iso), fu = (full.has(iso) && !on) || of;
       return `<div ${S.closed||fu?'':`data-ng="${iso}"`} style="${box};${S.closed||fu?'':'cursor:pointer;'}${on?'background:var(--soft)':''}${fu?';color:var(--muted);background:var(--bg)':''}">${d}${on?(OK?'<small style="display:block;color:var(--ok);font-size:12px">○</small>':'<small style="display:block;color:var(--warn);font-size:12px">×</small>'):fu?`<small style="display:block;font-size:10px">${of?'休':'満'}</small>`:''}${shEvTag(EV, iso, of)}</div>`; })}
-    <div class="muted sm" style="margin-top:6px">${OK?'○ 出勤できる日':'× 出勤できない日（1日5人まで）・満 5人に達した日'}${OFF.size?'・休 お店の休み':''}</div>
+    <div class="muted sm" style="margin-top:6px">${OK?'○ 出勤できる日':(CP => CP.every(x => x === CP[0]) ? `× 出勤できない日（1日${CP[0]}人まで）・満 ${CP[0]}人に達した日` : '× 出勤できない日（曜日ごとに上限あり）・満 上限に達した日')(S.caps || [5])}${OFF.size?'・休 お店の休み':''}</div>
     ${S.closed?'<div class="sm" style="margin-top:6px">提出期限を過ぎました。変更は黒服にご連絡ください</div>':''}</div>
     ${S.closed?'':`<button class="btn" id="shGo">${S.submitted?'再提出':'提出'}</button>`}<button class="btn g" id="shChg" style="margin-top:10px">シフト変更（メッセージにてご相談ください）</button>`);
   shiftPaintWire(ng, OK, mo);
