@@ -50,5 +50,3 @@ async function changeOne(key,label){
     if(!r.ok) return; m.remove(); toast('変更しました'); PAGES.pw(); });
 }
 
-kReg(PL_COLS,SLIDE_DEF,ST_BASIS,KS_COLS,BL_COLS,BL_XLS_COLS,HI_KJ);
-start();
