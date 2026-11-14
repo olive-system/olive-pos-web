@@ -29,7 +29,7 @@ async function cashClosed(run,what){ let r=await run(); const m=String(r?.error?
 const tblName=()=>billTable(S.cur);
 /* 構造をシンプルに（1回目）：「もう1台で変わった時は、知らせて伝票を開き直す」を1つに（前は同じ1行が12か所） */
 async function stale(e){ if(!isStale(e)) return false; await staleReload(e.message); return true; }
-async function staleReload(msg){ toast(msg); if(!S.cur) return; const onPay=$('v-pay').classList.contains('on'); await openBill(S.cur.id); if(onPay&&S.cur.status==='open'){ renderPay(); show('v-pay'); } }
+async function staleReload(msg){ toast(msg); if(!S.cur) return; const onPay=$('v-pay').classList.contains('on'); const opened=await openBill(S.cur.id); if(opened&&onPay&&S.cur.status==='open'){ renderPay(); show('v-pay'); } }
 async function stillOpen(){ const r=await sb.from('bills').select('status').eq('id',S.cur.id).single(); if(!r.error&&r.data?.status!=='open'){ await staleReload('もう1台で会計済です'); return false; } return true; }
 let okiBusy=false; async function closeAsOki(){ if(okiBusy||!S.cur||S.cur.status!=='open') return; const un=S.cur.totals?.unpaid??0; if(un<=0){ toast('未収がないため、置きにする金額がありません'); return; }
   const tg=(S.cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
@@ -54,8 +54,9 @@ async function addAdj(kind){ const v=parseInt($('payAmount').value||'0',10);
   if(ra.error){ toast(ra.error.message);
   return;
   } await logOp(lbl,{amount:v},why.trim());
-  await openBill(S.cur.id);
+  const opened=await openBill(S.cur.id);
   if(await okiSync(wasOki)) return;
+  if(!opened) return;
   renderPay();
   show('v-pay');
   }

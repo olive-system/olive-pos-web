@@ -124,5 +124,5 @@ $('bVoid').onclick=async()=>{ const tn=billTable(S.cur); if(!await uiConfirm(`${
     else if(!S.DBLOG) await logOp('伝票取消',{total:S.cur.totals?.amount_due??null,guest_count:S.cur.guest_count,items:(S.cur.bill_items||[]).filter(i=>!i.is_void).map(i=>`${i.name}×${i.qty}`)},why);
   } finally{ vb.disabled=false; } loadHall(); show('v-hall'); };
 $('bOrder').onclick=()=>openOrder();
-$('bPay').onclick=async()=>{ if(S.cur&&S.cur.status==='open'){ const miss=[]; if(!(S.cur.bill_customers||[]).length) miss.push('お客様が登録されていません'); if(!(S.cur.bill_casts||[]).some(c=>c.is_kakari)) miss.push(''+KL+'が登録されていません'); if(miss.length){ await uiAlert(miss.join('\n')); return; } } renderPay(); show('v-pay'); };
+$('bPay').onclick=async()=>{ if(!S.cur?.totals) return; if(S.cur.status==='open'){ const miss=[]; if(!(S.cur.bill_customers||[]).length) miss.push('お客様が登録されていません'); if(!(S.cur.bill_casts||[]).some(c=>c.is_kakari)) miss.push(''+KL+'が登録されていません'); if(miss.length){ await uiAlert(miss.join('\n')); return; } } renderPay(); show('v-pay'); };
 
