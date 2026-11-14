@@ -13,7 +13,7 @@ const rvDhMine = x => { const ids = x.dh || [], nm = x.dh_names || []; if(!rvDh(
 const rvRow = (x, s, i) => { /* s＝名前の下の行（HTML。シフト（全員）は朝礼と同じ resvWho） */
   return `<div style="padding:6px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:grid;grid-template-columns:3.2em minmax(0,1fr) 2.4em 3.4em;gap:6px;align-items:baseline"><b>${esc(x.time)}</b><span>${esc(x.name)} 様 ${Number(x.guests)||0}名</span>${rvTags(x)}</div>${s ? `<div class="muted sm" style="padding-left:calc(3.2em + 6px)">${s}</div>` : ''}</div>`; };
 // 広島はお店のお客様で、女の子に担当は無い（POS の担当は誘客した子を報酬に付ける印だけ。 オーナー）→ 予約画面に担当を出さない。担当は申請した子（誘客）
-const RV_NOKK = () => STORE === 'hiroshima'; /* 女の子の LINE から送る文（resvMsg）にも担当を出さない（オーナー「まだあるけど？」）。お店・同伴の子に届く文は */
+const RV_NOKK = () => (ME && ME.customer_mode) === 'yukyaku'; /* 女の子の LINE から送る文（resvMsg）にも担当を出さない（オーナー「まだあるけど？」）。お店・同伴の子に届く文は */
 let RESV = [], NOTICES = [];
 async function resvList(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
