@@ -20,11 +20,11 @@ const apGrid = (k, on) => `<div style="display:grid;grid-template-columns:1fr 1f
 const apSeg = (k, opts, v) => `<div class="seg" data-seg="${k}"${opts.length > 5 ? ' style="display:grid;grid-template-columns:repeat(3,1fr)"' : ''}>${ /* 6つは小さい iPhone（375）で1行に入らないので3つずつ2行 */ ''}${opts.map(([x, n]) => `<button type="button" data-v="${x}" class="${x === v ? 'on' : ''}" style="white-space:nowrap;padding:9px 4px">${n}</button>`).join('')}</div>`;
 
 async function apPhotoUrl(store, id){ const r = await sb.rpc('ap_photo', { p_token: TOKEN, p_store: store || null, p_photo: id }); return r.error ? '' : r.data; }
-// 写真を撮る（カメラ）→ 縮めて送る（09_dress.js の shrinkJpeg）
+// 写真を撮る（カメラ）→ 縮めて送る（lib/olive/photo.js の shrinkDoc。紙のヒアリングシートは白と黒の2色・バストアップはカラー）
 // 入力欄を画面に置いてから開く（画面に無い入力欄は、iPhone の LINE でカメラから戻った時に写真が届かないことがある。 広島で1回あった）
 function apShoot(store, id, kind, done){ document.querySelectorAll('input[data-apshoot]').forEach(x => x.remove());
   const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment'; i.dataset.apshoot = '1'; i.style.display = 'none'; document.body.appendChild(i);
-  i.onchange = async () => { const f = i.files && i.files[0]; i.remove(); if(!f) return; try{ const d = await blob64(await shrinkJpeg(f));
+  i.onchange = async () => { const f = i.files && i.files[0]; i.remove(); if(!f) return; try{ const d = await blob64(await shrinkDoc(kind, f));
     const r = await sb.rpc('ap_photo_add', { p_token: TOKEN, p_store: store || null, p_id: id, p_kind: kind, p_data: d }); if(r.error){ await uiAlert(r.error.message); return; } done(); }catch(e){ await uiAlert('写真を送信できませんでした'); } };
   i.click(); }
 // 写真を大きく表示（削除もここ）
