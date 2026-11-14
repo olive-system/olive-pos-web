@@ -57,5 +57,3 @@ async function csRefresh(listToo){ if(!token||document.visibilityState!=='visibl
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ paintEdit(); csRefresh(true); } });
 setInterval(()=>csRefresh(true),60000); /* 一覧の画面でも1分ごとに読み直す（パスワードが変わったらログアウト） */
 
-kReg(EF);
-if(EMB){ token=null; editTok=null; editExp=0; embAsk().then(d=>{ if(d&&d.token) start(); else { show('vLogin'); $('loginErr').textContent=d&&d.error||'顧客サイトを開けません'; } }); } else if(token){ keyDb('readwrite',s=>s.put(token,'olive_cs_token')); start(); } else keyDb('readonly',s=>s.get('olive_cs_token')).then(b=>{ if(b){ token=b; LS0.set('olive_cs_token',b); } start(); }); /* 片方の引き出しが空なら、もう片方から戻す */
