@@ -128,7 +128,7 @@ async function rtBillCheck(){ if(!S.cur||!(onView('v-bill')||onView('v-pay'))) r
   if(rtBusy()||Date.now()-rtTap<3000||document.activeElement?.tagName==='INPUT'&&onView('v-pay')){ clearTimeout(rtBillT); rtBillT=setTimeout(rtBillCheck,1500); return; }
   const id=S.cur.id, r=await sb.from('bills').select(BILL_SEL).eq('id',id).single(); if(r.error||!S.cur||S.cur.id!==id) return;
   if(fpOf(r.data)===S.billFp) return;
-  const onPay=onView('v-pay'); await openBill(id); if(onPay&&S.cur.status==='open'){ renderPay(); show('v-pay'); } toast('ほかの端末で変更されました'); }
+  const onPay=onView('v-pay'); const opened=await openBill(id); if(opened&&onPay&&S.cur.status==='open'){ renderPay(); show('v-pay'); } toast('ほかの端末で変更されました'); }
 
 
 // 在籍リスト・閉店作業の時刻の前のしるし（同じ幅。アフター・シフトは2行）

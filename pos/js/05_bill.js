@@ -1,11 +1,12 @@
 // ---------- bill ----------
 const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), bill_extensions(id,minutes,unit_price,qty,is_auto), bill_items(id,product_id,category_id,name,qty,unit_price,cast_subtotal_price,back_amount,back_points,is_service_target,is_keep,added_at,is_void,bill_item_splits(id,staff_id,sales_amount,back_amount,back_points)), bill_customers(customer_id), bill_adjustments(id,kind,amount,reason), payments(*), bill_tags(id,kind,tag_no,memo,returned_at)';
-/* 伝票を続けて開いた時（2回押す・すぐ別の卓）、先に始めた方が後の伝票（金額がまだ無い）を描いて止まった。最後に開いた方だけが描く */
+/* 伝票を続けて開いた時（2回押す・すぐ別の卓）、先に始めた方が後の伝票（金額がまだ無い）を描いて止まった。最後に開いた方だけが描く。
+   最後まで開けた時だけ true を返す：会計の画面を出す側はこれを見る（読み込みが重なると S.cur は金額の無い伝票になっていて、会計の画面で止まった） */
 let openBillSeq=0;
 async function openBill(id){ const my=++openBillSeq; if(!S.cur||S.cur.id!==id) S.extOpen=false;
   const { data, error } = await sb.from('bills').select(BILL_SEL).eq('id',id).single();
   if (error) { toast(error.message);
-    return;
+    return false;
     } S.cur=data;
     S.billFp=fpOf(data);
     { const dp=await sb.from('bill_departures').select('payment_id').eq('bill_id',id);
@@ -22,15 +23,15 @@ async function openBill(id){ const my=++openBillSeq; if(!S.cur||S.cur.id!==id) S
     await logOp(want?'同業に切替':'同業を解除',{auto:true});
     } } } const r=await sb.rpc('calc_bill',{p_bill:id});
     if(r.error){ toast('伝票の金額を読み込めません：'+r.error.message);
-    return;
+    return false;
     } S.cur.totals=r.data||{};
     if(S.cur.status==='open') hallPut(id,r.data);
     /* ホールの金額も最新に */ /* 通しチェック3：読めない時に0円と出て、置きの残額を消すことがあった */ S.present=await updateCastBadge();
     if(!S.staffAll.length) await loadStaffAll();
-    if(my!==openBillSeq||!S.cur||!S.cur.totals) return;
+    if(my!==openBillSeq||!S.cur||!S.cur.totals) return false;
     renderBill();
     show('v-bill');
-    }
+    return true; }
 S.present=new Set(); const TAGK={coat:'コート',bag:'バッグ',umbrella:'傘',other:'その他'};
 // お誕生日リマインド：前後21日以内なら伝票とホール状況に表示
 function bdayDiff(bd){ const m=String(bd||'').match(/^(\d{1,2})\/(\d{1,2})$/); if(!m) return null; const [y,mo,d]=businessDate().split('-').map(Number); const today=new Date(y,mo-1,d); let best=null; for(const yy of [y-1,y,y+1]){ const diff=Math.round((new Date(yy,+m[1]-1,+m[2])-today)/86400000); if(best===null||Math.abs(diff)<Math.abs(best)) best=diff; } return Math.abs(best)<=21?best:null; }
