@@ -42,7 +42,6 @@ window.addEventListener('popstate', () => { if(!backFn) return; const f = backFn
 //点検 B5：読めなかった時に、ボタン・件数が黙って消えないように、画面の上に1行（1回だけ）
 function loadNg(){ const m = $('main'); if(!m || m.querySelector('.ldng')) return; m.insertAdjacentHTML('afterbegin', '<p class="err sm ldng" style="margin:0 2px 8px">読み込めない項目があります。開き直してください</p>'); }
 // 空や文字の数を数に（空は0）。報酬・伝票・黒服の画面が使う
-const N = v => Number(v||0);
 // リッチメニューの ?go= で画面を開いた後、開き直した時にもう一度飛ばないように消す（キャストと黒服のホームで同じ）
 const goClear = () => { try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} };
 // ホームの四角いボタン（キャストと黒服のホームで同じ形）
