@@ -21,7 +21,7 @@ PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm
   const DT=dr.data||{}; /* 日ごとの目安人数 */
   const MT=mr.error?null:mr.data, MD=new Set(MT?.days||[]), hm=v=>v?String(v).replace(/^0(\d)/,'$1'):''; // ミーティング（月初の営業日2日・時間帯は店で1つ）
   const NC=r.data?.ng_caps||null /* 休み希望の上限（日〜土）。SQL 515 の前は出さない */, T=r.data?.targets||{}, EVs=new Set(r.data?.events||[]), OFF=new Set(r.data?.offs||[]), DOW=new Set(r.data?.off_dows||[]), opts=[now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
-  const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)), first=new Date(y,mo-1,1).getDay(), nd=new Date(y,mo,0).getDate(), iso=d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}`, HOL=jpHolidays(y);
+  const {y,mo,first,nd,iso}=calMonth(m), HOL=jpHolidays(y);
   const bx='border:1px solid var(--line);border-radius:6px;padding:6px 0;font:inherit;font-size:14px;line-height:1.25';
   const dOff=k=>OFF.has(k)||DOW.has(new Date(k+'T00:00:00').getDay()), dVal=k=>DT[k]??T[String(new Date(k+'T00:00:00').getDay())]??'';
   /* 目安人数は日ごと（現場の要望・オーナー「設定を日付のカレンダーに」）。曜日別はまとめて入力する欄（変更するとその曜日の日に入る） */

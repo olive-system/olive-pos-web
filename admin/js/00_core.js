@@ -30,3 +30,6 @@ const csNowMonth=()=>businessDate().slice(0,7)+'-01';
 // キャストの設定・スタッフの表の、選ぶ欄と数を入れる欄（3つの画面で同じ形）
 const csSel=(k,v,os,dis)=>`<select data-k="${k}"${dis?' disabled':''}>${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
 const csInp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
+// 月のカレンダーの数（m は 'YYYY-MM-01'）と、曜日の行＋1日の前の空き（シフト・予約・シフトの設定の3つの画面で同じ形）
+const calMonth=m=>{ const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)); return { y, mo, first:new Date(y,mo-1,1).getDay(), nd:new Date(y,mo,0).getDate(), iso:d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}` }; };
+const calHead=first=>'<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);

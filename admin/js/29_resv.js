@@ -14,7 +14,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_resv_month/.test(r.error.message)?'SQL 203 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, R=D.resv||[], S=D.staff||[], OFF=new Set(D.offs||[]); rvRooms=D.rooms||[];
   const RT=(rt&&!rt.error?rt.data.resv:R).filter(x=>x.day===today);
-  const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7)), first=new Date(y,mo-1,1).getDay(), nd=new Date(y,mo,0).getDate(), iso=d=>`${m.slice(0,8)}${String(d).padStart(2,'0')}`;
+  const {y,mo,first,nd,iso}=calMonth(m);
   const byDay={}; R.forEach(x=>(byDay[x.day]=byDay[x.day]||[]).push(x));
   const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
     // VIPルームのしるしと、同伴の子（お客様の人数まで）
@@ -45,7 +45,7 @@ const rvTodayCard=(today,RT,ed,row)=>`<div class="card"><div class="row" style="
     <div id="rvToday">${RT.map(row).join('')||'<div class="muted" style="margin-top:6px">本日の予約はありません</div>'}</div></div>`;
 // 月のカレンダー
 function rvCal(nd,first,iso,byDay,OFF){
-  let cal='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">'+WD.map(w=>`<div class="muted" style="text-align:center;font-size:12px">${w}</div>`).join('')+'<div></div>'.repeat(first);
+  let cal=calHead(first);
   for(let d=1;d<=nd;d++){ const k=iso(d), L=byDay[k]||[], dh=L.filter(x=>x.douhan).length;
     cal+=`<div data-rvd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:5px 6px;min-height:78px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${OFF.has(k)?'background:var(--soft);color:var(--muted)':''}">
       <b style="color:var(--ink)">${d}</b>${OFF.has(k)&&!L.length?'<div style="font-size:13px">休</div>':''}
