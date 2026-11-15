@@ -76,7 +76,7 @@ async function castLoadMe(w0){
 
 // キャストのリッチメニューのボタンから、その画面を直接開く（?go=。オーナー 見本 キャストのリッチメニュー_案）。連絡先交換は LINE のリンクと同じく入力から
 function castGo(k){
-  if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
+  if(!k) return; goClear();
   if(k === 'contact') contactList(true); else if(k === 'shift') (SHIFT_ALL ? shiftAll() : shiftHome()); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf();
   else if(k === 'dress') dressReport(); else if(k === 'meeting') mtCast(); else if(k === 'memo' && SHIFT_ALL) memoList(); /* 締め切りのリマインドの LINE から、新調日・ミーティングの画面を直接開く */
 }
@@ -104,7 +104,7 @@ function home(){
     const pct = Math.max(0, Math.min(100, Number(sl.value||0) / Number(sl.next_threshold) * 100));
     top += `<div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div><div class="muted sm">${esc(nextTxt(sl))}</div>`;
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
-  const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
+  const tile = homeTile;
   const bdCard = homeBdCard();
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
