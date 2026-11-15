@@ -197,15 +197,11 @@ async function clRenderWarn(d,after){ const el=$('clWarn'); if(!el) return; cons
   el.querySelectorAll('[data-clw]').forEach(a=>a.onclick=e=>{ e.preventDefault(); S.clDate=a.dataset.clw; S.clCounts={}; S.clDeposit=0; renderClosing(); }); }
 async function clRenderMonth(){ const el=$('clMonthBox'); if(!el) return; const [y,m]=S.clMonth.split('-').map(Number); const last=new Date(y,m,0).getDate(); const d1=`${S.clMonth}-01`, dN=`${S.clMonth}-${String(last).padStart(2,'0')}`; const nx=m===12?`${y+1}-01-01`:`${y}-${String(m+1).padStart(2,'0')}-01`;
   // 動きがない日も含めて全日を表示。精算記録がない日は、前日から引き継いだ釣銭・現金売上・入出金（日払い含む）から計算して出す。動きがない過去の日はレジ内現金＝理論値・過不足0円・預金0円で「精算済（変動なし自動繰越）」、動きがあったのに精算していない日は「未精算」
-  const [r,pv,mv,adv,pay]=await Promise.all([ sb.from('register_closings').select('*').eq('store_id',S.store.id).gte('business_date',d1).lte('business_date',dN),
+  const [r,pv,cd]=await Promise.all([ sb.from('register_closings').select('*').eq('store_id',S.store.id).gte('business_date',d1).lte('business_date',dN),
     sb.from('register_closings').select('next_float').eq('store_id',S.store.id).lt('business_date',d1).order('business_date',{ascending:false}).limit(1),
-    sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',S.store.id).gte('business_date',d1).lte('business_date',dN).order('id')), /* 1000行で切れないように分けて読む・店はデータベースで絞る */
-    sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',S.store.id).gte('business_date',d1).lte('business_date',dN).order('id')),
-    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',S.store.id).gte('paid_at',bdStart(d1)).lt('paid_at',bdStart(nx)).order('id')) ]);
-  if(!$('clMonthBox')) return; const er=r.error||mv.error||adv.error||pay.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; }
-  const byD={}; (r.data||[]).forEach(x=>byD[x.business_date]=x); const sum={}; const add=(dd,k,v)=>{ (sum[dd]=sum[dd]||{sales:0,cin:0,cout:0})[k]+=Number(v)||0; };
-  (mv.data||[]).forEach(x=>add(x.business_date,x.kind==='in'?'cin':'cout',x.amount)); (adv.data||[]).filter(x=>x.amount>0).forEach(x=>add(x.business_date,'cout',x.amount));
-  (pay.data||[]).filter(p=>p.bills&&p.bills.store_id===S.store.id&&p.bills.status!=='void').forEach(p=>add(businessDate(new Date(p.paid_at)),'sales',p.amount));
+    sb.rpc('cash_days',{p_store:S.store.id,p_from:d1,p_to:dN}) ]); /* 日ごとの現金の動きは、データベースの cash_days 1つで（管理サイトの現金管理・P/L の日と同じ。SQL 524） */
+  if(!$('clMonthBox')) return; const er=r.error||cd.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; }
+  const byD={}; (r.data||[]).forEach(x=>byD[x.business_date]=x); const sum={}; (cd.data||[]).forEach(x=>{ sum[x.business_date]={sales:Number(x.sales)||0,cin:Number(x.cash_in)||0,cout:(Number(x.cash_out)||0)+(Number(x.advances)||0)}; });
   const today=businessDate(); const td='style="padding:6px 5px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap"'; const C=v=>`<td ${td}>${v}</td>`; const CS=v=>`<td style="padding:6px 5px;border-bottom:1px solid var(--line);font-size:12px;white-space:nowrap;line-height:1.3">${v}</td>`; // 状態の列は折り返して全部見せる
   const rows=clMonthRows(last,today,byD,sum,pv,C,CS);
   el.innerHTML=`<table style="border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px"><tr>${['日付','本日釣銭','現金売上','入金合計','出金合計','理論値','レジ内現金','過不足','預金','状態'].map(h=>`<th ${td}>${h}</th>`).join('')}</tr>${rows.join('')}</table>`;
