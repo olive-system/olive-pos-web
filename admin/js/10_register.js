@@ -10,16 +10,10 @@ function regTabs(){ $('main').querySelectorAll('[data-rt]').forEach(b=>b.onclick
   if(v==='month'&&regTab==='day'&&regDate) regMonth=regDate.slice(0,7); /* 日次で見ている日の月を開く */ regTab=v; PAGES.register(); }); }
 PAGES.register=()=>regTab==='month'?regMonthPage():regDayPage();
 // 期間（from〈含まない〉〜to〈含まない〉）の日ごとの 現金売上・入金・出金（日払い含む）
-// 1000行で切れないように分けて読む（精算の間が空いた時に「未精算分」が少なく出た）
-async function regMoves(fromEx,toEx){
-  const [mv,adv,pay]=await Promise.all([
-    sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx).order('id')),
-    sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',storeId).gt('business_date',fromEx).lt('business_date',toEx).order('id')),
-    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',storeId).gte('paid_at',bdStart(fromEx)).lt('paid_at',bdStart(toEx)).order('id')) ]);
-  const er=mv.error||adv.error||pay.error; if(er) return {error:er};
-  const sum={}; const add=(dd,k,v)=>{ if(dd<=fromEx||dd>=toEx) return; (sum[dd]=sum[dd]||{sales:0,cin:0,cout:0})[k]+=Number(v)||0; };
-  (mv.data||[]).forEach(x=>add(x.business_date,x.kind==='in'?'cin':'cout',x.amount)); (adv.data||[]).filter(x=>x.amount>0).forEach(x=>add(x.business_date,'cout',x.amount));
-  (pay.data||[]).filter(p=>p.bills&&p.bills.status!=='void'&&p.amount).forEach(p=>add(businessDate(new Date(p.paid_at)),'sales',p.amount));
+async function regMoves(fromEx,toEx){ /* 日ごとの現金の動きは、データベースの cash_days 1つで（POS の閉店作業・P/L の日と同じ。SQL 524） */
+  if(dayAdd(fromEx,1)>dayAdd(toEx,-1)) return {sum:{}};
+  const r=await sb.rpc('cash_days',{p_store:storeId,p_from:dayAdd(fromEx,1),p_to:dayAdd(toEx,-1)}); if(r.error) return {error:r.error};
+  const sum={}; (r.data||[]).forEach(x=>{ sum[x.business_date]={sales:Number(x.sales)||0,cin:Number(x.cash_in)||0,cout:(Number(x.cash_out)||0)+(Number(x.advances)||0)}; });
   return {sum}; }
 
 // POS の閉店作業と同じように、入出金の登録・削除とレジ金合わせ（精算の保存）ができる。POS と同じ表・同じ操作ログに入る
