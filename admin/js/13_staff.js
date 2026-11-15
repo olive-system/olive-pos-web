@@ -19,8 +19,8 @@ function hpPrep(K){ const {box,st,ed,m,sf,tm}=K;
   const sql064=!tr0.length||'monthly_wage' in tr0[0];
   const rows=halls.map(s=>({s,t:csHallTerms(s,tr0,m)}));
   const E=csEdit==='hall', lock=!!csEdit&&!E;
-  const sel=(k,v,os)=>`<select data-k="${k}">${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
-  const inp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
+  const sel=csSel;
+  const inp=csInp;
   const own=!!me?.is_owner, hm5=v=>v?String(v).slice(0,5):''; // 出勤・退勤の時刻（遅刻・早退の計算に使う。変えられるのはオーナーだけ）
   return {...K,halls,tr0,sql064,rows,E,lock,sel,inp,own,hm5}; }
 /* 1人の行（見る時と編集する時） */

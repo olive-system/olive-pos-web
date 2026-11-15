@@ -58,8 +58,8 @@ function csCastPrep(K){ const {box,st,ed,m,sf,tm,ft,nt,stb}=K;
   const rows=casts.map(s=>({s,t:csTerms(s,tm.data||[],m)}));
   const hallName=id=>halls.find(h=>h.id===id)?.display_name||'—';
   const E=csEdit==='cast', lock=!!csEdit&&!E;
-  const sel=(k,v,os,dis)=>`<select data-k="${k}" ${dis?'disabled':''}>${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
-  const inp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
+  const sel=csSel;
+  const inp=csInp;
   const yn=v=>v==null?'—':v;
   const PT={hourly:'時給',daily:'日給',seppan:'折半'};
   const HD=['担当黒服','報酬','スライド表','保証日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払（立替）','契約書','メモ'];
@@ -178,7 +178,7 @@ async function csShiftPart(box,st,ed,m){
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   if(r.error){ box.innerHTML=`<h2 style="margin:0 0 8px">シフト</h2><div class="card err">${esc(/admin_shift_staff/.test(r.error.message)?'SQL 127 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const rows=r.data||[], E=csEdit==='shift', lock=!!csEdit&&!E;
-  const sel=(k,v,os)=>`<select data-k="${k}">${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
+  const sel=csSel;
   const cell=c=>!E?[c.week?`週 ${c.week}日`:'<span class="badge warnb">未設定</span>', c.earliest?`${c.earliest}〜`:'<span class="badge warnb">未設定</span>', c.ok_only?'出勤希望':'休み希望',
       c.joined?csDate(c.joined):c.since?csDate(c.since):'—']
     :[sel('w',c.week??'',[['','未設定'],...[1,2,3,4,5,6,7].map(n=>[n,`週 ${n}日`])]), sel('e',c.earliest??'',[['','未設定'],...SH_TIMES.map(t=>[t,t+'〜'])]),

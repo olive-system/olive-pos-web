@@ -27,3 +27,6 @@ const wdJ=x=>WD[new Date(x+'T00:00:00+09:00').getDay()], mdW=x=>`${md(x)}（${wd
 const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
 const csNowMonth=()=>businessDate().slice(0,7)+'-01';
+// キャストの設定・スタッフの表の、選ぶ欄と数を入れる欄（3つの画面で同じ形）
+const csSel=(k,v,os,dis)=>`<select data-k="${k}"${dis?' disabled':''}>${os.map(([ov,on])=>`<option value="${esc(ov)}" ${String(v??'')===String(ov)?'selected':''}>${esc(on)}</option>`).join('')}</select>`;
+const csInp=(k,v,w,dis)=>`<input data-k="${k}" inputmode="decimal" value="${esc(v??'')}" style="width:${w}px" ${dis?'disabled':''}>`;
