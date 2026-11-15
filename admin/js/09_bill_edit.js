@@ -18,7 +18,7 @@ async function billView(id,canEdit){ // 見るだけの人も admin_bill_view �
 /* 管理サイトの伝票を見る小窓の文（POS の会計済の明細書と同じ形） */
 function billViewHtml(r,canEdit){
   const O=r.data||{}, B=O.bill||{}, C=O.calc||{}, ST=O.staff||[], sn=sid=>ST.find(x=>x.id===sid)?.name||'（不明）', pn=pid=>(O.products||[]).find(p=>p.id===pid)?.name||'';
-  const N=v=>Number(v||0), items=(O.items||[]).filter(i=>!i.is_void), voids=(O.items||[]).filter(i=>i.is_void), exts=O.exts||[], adjs=O.adjs||[], pays=O.pays||[];
+  const items=(O.items||[]).filter(i=>!i.is_void), voids=(O.items||[]).filter(i=>i.is_void), exts=O.exts||[], adjs=O.adjs||[], pays=O.pays||[];
   const dur=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}時間${String(m%60).padStart(2,'0')}分`; };
   const ks=(O.casts||[]).filter(c=>c.is_kakari).map(c=>sn(c.staff_id)), ds=(O.casts||[]).filter(c=>beDh(c.role)).map(c=>sn(c.staff_id)), gd=(O.goods||[]).map(g=>sn(g.staff_id));
   // POS の会計済の伝票（明細書）と同じ形

@@ -142,7 +142,7 @@ const KS_PDF_CSS=`<style>.kp{width:1123px;height:794px;background:#fff;color:#22
 // 月給の人の遅刻は15分ごとに 2,000円（連絡なしは2倍）。月給の時給は営業日数で割る・レジ精算より後の退勤は早退にしない。（集計「スタッフ」のキャストの下に移動）：黒服の報酬（その月）。基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額。直せるのはオーナーだけ（遅刻・早退の減算額とボーナス。操作ログに残る）
 function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
   if(r.error){ box.innerHTML=`<div class="card err">${esc(/admin_hall_month|hall_month_calc/.test(r.error.message)?'SQL 074 が未実行です：':'黒服の報酬を読み込めません：')}${esc(r.error.message)}</div>`; return; }
-  const D=r.data||{}, rows=D.rows||[], own=!!me?.is_owner, N=v=>Number(v||0), nf=v=>Math.round(N(v)).toLocaleString('ja-JP'), neg=v=>N(v)?`<span style="color:var(--warn)">−${nf(Math.abs(N(v)))}</span>`:'—', y0=v=>N(v)?nf(v):'—';  /* 表の値に単位を付けない（見出しでわかる。キャストの表と同じ） */
+  const D=r.data||{}, rows=D.rows||[], own=!!me?.is_owner, nf=v=>Math.round(N(v)).toLocaleString('ja-JP'), neg=v=>N(v)?`<span style="color:var(--warn)">−${nf(Math.abs(N(v)))}</span>`:'—', y0=v=>N(v)?nf(v):'—';  /* 表の値に単位を付けない（見出しでわかる。キャストの表と同じ） */
   const sl=D.slide, RK={within:'目標以内',plus2:'＋2%まで',plus5:'＋5%まで',over:'5%超'};
   // 担当キャスト売上・売上シェア（POS の黒服の詳細と同じ）。担当キャスト売上＝その黒服が担当黒服になっているキャストの係小計の合計。売上シェア＝担当キャスト売上÷（担当黒服のいるキャスト全員の分）
   const hid=new Set(rows.map(x=>x.id)), ms={}, mn={}; let mall=0; (casts||[]).forEach(c=>{ const h=c.manager_id; if(!h||!hid.has(h)) return; ms[h]=(ms[h]||0)+N(c.sales); mall+=N(c.sales); if(c.active) mn[h]=(mn[h]||0)+1; });
@@ -163,7 +163,7 @@ function hallPayRow(x,{own,PA,N,neg,y0,ms,mn,share,nf}){
       <td>${N(x.net)<0?`<b style="color:var(--warn)">−${nf(Math.abs(N(x.net)))}</b>`:`<b>${nf(x.net)}</b>`}</td>${own?`<td><button class="ghost sm" data-hpfix="${x.id}">修正</button></td>`:''}</tr>`;
 }
 /* 黒服の報酬の修正の小窓（遅刻・早退の減算額・ボーナス・連絡なし） */
-async function hallPayFix(x,m){ const N=v=>Number(v||0);
+async function hallPayFix(x,m){
     // 月給の人は遅刻日ごとに「連絡なし」を選ぶ（15分ごとに 2,000円・連絡なし 4,000円）。理由の入力と操作ログはなし（オーナー）
     const ld=x.pay_type==='monthly'?(x.late_days||[]):[];
     const md=mkModal(null,hallPayFixHtml(x,m,ld));
@@ -177,7 +177,7 @@ async function hallPayFix(x,m){ const N=v=>Number(v||0);
     const z=await rpc('admin_save_hall_adjust',{p_staff:x.id,p_month:m,p_late:l,p_bonus:bb,p_nocontact:v.nc}); if(!z.ok) return; toast('修正しました'); PAGES.cast_sales();
 }
 /* 黒服の報酬の修正の小窓の文 */
-function hallPayFixHtml(x,m,ld){ const N=v=>Number(v||0);
+function hallPayFixHtml(x,m,ld){
   const md2=d=>{ const t=String(d).slice(5).split('-'); return t[0]+'/'+t[1]; };
   const ldBox=ld.length?`<div style="margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden"><div style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--soft);font-weight:700"><span>遅刻日</span><span class="muted" style="font-weight:400;font-size:13px">15分ごと 2,000円・無断遅刻 4,000円</span></div>
       ${ld.map(z=>`<div style="display:grid;grid-template-columns:60px 56px 1fr auto;align-items:center;gap:6px;padding:7px 12px;border-top:1px solid var(--line)"><span>${md2(z.d)}</span><span>${N(z.min)}分</span><label style="display:inline-flex;align-items:center;gap:5px;margin:0"><input type="checkbox" data-nc="${esc(z.d)}"${z.nocontact?' checked':''}>無断遅刻</label><b data-ncamt="${esc(z.d)}" data-min="${N(z.min)}">${yen(N(z.amount))}</b></div>`).join('')}</div>`:'';

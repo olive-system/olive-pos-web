@@ -38,7 +38,7 @@ async function hallLoad(pre){ /* hall_me は castLoadMe で先に読み始めて
 }
 // リッチメニューのボタンから、その画面を直接開く（?go=。オーナー 案3）。開店・閉店作業（work）は 22時から朝8時（営業日の切り替え）までは閉店作業、それ以外は開店作業
 function hallGo(k){
-  if(!k) return; try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} /* 開き直した時にもう一度飛ばない */
+  if(!k) return; goClear();
   const h = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24;
   if(k === 'chorei') hallChorei(); else if(k === 'todo') hallTodo(); else if(k === 'cs') hallCs();
   else if(k === 'work'){ opSwitch = true; hallTasks(h >= 22 || h < 8 ? 'close' : 'open'); }
@@ -64,7 +64,7 @@ function hcGet(){
 }
 function hallHome(){
   setBack(null); opSwitch = false; const H = hcGet();
-  const tile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
+  const tile = homeTile;
   /* トップの整理（オーナー「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。見出しで4つに分ける。
      開店作業・閉店作業は1つ（リッチメニューと同じく 22時〜朝8時は閉店作業。閉店作業を POS でする店は開店作業のみ）。ミーティングはシフトの中（全員のシフトの一番上）。書類は未提出の時だけ */
   const hr = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24, night = hr >= 22 || hr < 8;
