@@ -1,6 +1,5 @@
 // ---------- レジ精算（月次・日次を1つの画面で切り替える）----------
 // POS の閉店作業と同じ計算。管理サイトでは見るだけ（精算の保存は POS で行う）
-const DENOMS=[[10000,'1万円札'],[5000,'5千円札'],[2000,'2千円札'],[1000,'千円札'],[500,'500円玉'],[100,'100円玉'],[50,'50円玉'],[10,'10円玉'],[5,'5円玉'],[1,'1円玉']];
 let regDate=null, regMonth=null, regTab='day';
 // 切り替えに「入出金履歴」（16_history.js の hist_cash。権限は表示設定の「入出金履歴」）。見られるものだけ出す
 const regHead=(k='register')=>{ const on=k==='hist_cash'?'hist':regTab, tabs=[...(visible('register')?[['month','月次'],['day','日次']]:[]),...(visible('hist_cash')?[['hist','入出金履歴']]:[])];
