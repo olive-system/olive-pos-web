@@ -20,6 +20,8 @@ function draftBind(key, ids){ const k = 'olive_cast_draft_' + key + '_' + STORE;
 async function upPool(n, one, done){ let next = 0, fin = 0, ng = null;
   const w = async () => { while(next < n && !ng){ const i = next++; try{ await one(i); fin++; if(done) done(fin); }catch(e){ ng = ng || e; } } };
   await Promise.all(Array.from({ length: Math.min(3, n) }, w)); if(ng) throw ng; }
+// TODO・開店作業・閉店作業の写真を、縮めて3枚ずつ置き場（todo-photos）へ送る。ids はデータベースが出した写真の番号。送れなかったら止めて呼んだ所で知らせる（olive-photo-shoot：黙って失敗させない）
+async function todoPhotosUp(ids, files, done){ await upPool(files.length, async i => { const blob = await shrinkJpeg(files[i]); const up = await sb.storage.from('todo-photos').upload(`${ids[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }, done); }
 
 // ---- 画面の共通の部品（どの画面も使う：小窓・画面の入れ替え・表示できない時・戻る・読めなかった時の1行） ----
 // 確認・お知らせは画面の中の窓で出す（ブラウザの窓にはサイトのアドレスが出るため。オーナー）

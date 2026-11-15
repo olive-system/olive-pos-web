@@ -79,8 +79,7 @@ function hallTodoOne(x, keep){
       if(abP.length){ const c = await sb.rpc('hall_ab_count', { p_token: TOKEN, p_item: x.id, p_rows: Object.fromEntries(abP.map(p => [p.id, tdAbVals[p.id]])), ...(x.carry ? { p_day: x.day } : {}) }); if(c.error) throw c.error; }
       if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length , ...(x.carry ? { p_day: x.day } : {}) }); if(p.error) throw p.error;
         const n = tdShots.length; $('tdGo').textContent = `送っています（0/${n}）`; /* 3枚ずつ同時に送る。数は送り終わった枚数 */
-        await upPool(n, async i => { const blob = await shrinkJpeg(tdShots[i].file); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; },
-          k => { $('tdGo').textContent = `送っています（${k}/${n}）`; }); }
+        await todoPhotosUp(p.data, tdShots.map(s => s.file), k => { $('tdGo').textContent = `送っています（${k}/${n}）`; }); }
       const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error) throw q.error;
       tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = []; tdAbVals = {};
       await uiAlert('完了しました'); hallTodo();
