@@ -55,10 +55,10 @@ async function clPunchRender(d){ const el=$('clPunch'); if(!el) return; if(!S.st
   if(!$('clPunch')||S.clDate!==d) return; const AF=!af.error&&af.data&&af.data.value!=null?af.data:null; if(ev.error||bl.error){ el.innerHTML=`<div class="muted">出退勤を読み込めません。再度開いてください：${esc((ev.error||bl.error).message)}</div>`; return; }
   const K=cpPrep(d,ev,bl,lt); Object.assign(K,cpKit(K)); const {P,lastHtml,B,T,edit}=K, row=r=>cpRow(K,r);
   el.innerHTML=(lt.error?RDERR:'')+`<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px"><span>${lastHtml}</span>${P.length&&edit?'<small class="muted">キャストの時刻を押して修正します。赤字は修正済・未退勤</small>':''}</div>
-    <div class="list">${P.map(row).join('')||'<div class="muted">打刻なし</div>'}</div>`+(AF?clAfterHtml(AF,B,edit):'');
+    <div class="list">${P.map(row).join('')||'<div class="muted">打刻なし</div>'}</div>`+(AF?clAfterHtml(AF,B,false):''); /* アフターは伝票で付ける（SQL 526）。閉店作業は見るだけ */
   const again=()=>clPunchRender(d);
   el.querySelectorAll('[data-pfin]').forEach(b=>b.onclick=()=>punchFix(b.dataset.pfin,'clock_in',again)); el.querySelectorAll('[data-pfout]').forEach(b=>b.onclick=()=>AF?clPunchOut(b.dataset.pfout,T[b.dataset.pfout],again):punchFix(b.dataset.pfout,'clock_out',again));
-  if(AF) el.querySelectorAll('[data-afsel]').forEach(b=>b.onclick=()=>clAfterPick(b.dataset.afsel,d,B,AF,again)); }
+}
 /* 出退勤の表に使う値（打刻の丸め・同伴・最終退店・シフトと遅刻） */
 function cpPrep(d,ev,bl,lt){
   const T={}, Q=900000; (ev.data||[]).forEach(e=>{ const t=T[e.staff_id]||(T[e.staff_id]={}); if(e.event_type==='clock_out'||e.event_type==='after'){ t.out=e.rounded_at||Math.floor(new Date(e.event_at).getTime()/Q)*Q; t.outFix=e.is_corrected; t.outO=e.orig_at?(e.orig_rounded_at||Math.floor(new Date(e.orig_at).getTime()/Q)*Q):null; t.after=e.event_type==='after'; }
@@ -78,9 +78,9 @@ function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   return {tm,lateHtml}; }
 /* 出退勤確認の1人の行（シフト・出・退・遅刻・罰金・同伴） */
 function cpRow(K,{id,s,t}){ const {d,edit,P,T,B,DH,open,last,LT,oW,sW,lW,tm,lateHtml}=K; const on=edit&&s.kind!=='hall'&&!s.is_trial, tag=s.kind==='hall'?'':s.is_trial?'体験':''; /* 同伴かどうかは伝票の係（同伴・同伴①・同伴②）で見る。シフトの同伴・予約・同伴の打刻は予定でキャンセルがあるため（オーナー） */ // 黒服のしるしは出さない（オーナー「黒服って名前でわかるから…スペースがもったいない」）
-    return `<div class="item" style="padding:6px 10px"><span class="n" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.display_name||'')}${tag?`<small class="muted"> ${tag}</small>`:''}</span>${sW?`<span class="muted" style="width:${sW}px;flex:none;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums">${LT[id]?PL_SH+esc(LT[id].shift):''}</span>`:''}<span style="width:${84+oW}px;flex:none">${tm(on,DH.has(id)?PL_DH:PL_IN,t.in?hmJst(t.in):'―',t.inFix||!t.in,'pfin',id,t.inO)}</span><span style="width:${118+oW}px;flex:none">${t.out?tm(on,t.after?PL_AF:PL_OUT,hmJst(t.out),t.outFix,'pfout',id,t.outO):tm(on,'','未退勤',s.kind!=='hall','pfout',id)}</span>${lW?`<span style="width:${lW}px;flex:none;display:flex;gap:6px;align-items:center">${lateHtml(s,LT[id])}</span>`:''}</div>`;
+    return `<div class="item" style="padding:6px 10px"><span class="n" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.display_name||'')}${tag?`<small class="muted"> ${tag}</small>`:''}</span>${sW?`<span class="muted" style="width:${sW}px;flex:none;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums">${LT[id]?PL_SH+esc(LT[id].shift):''}</span>`:''}<span style="width:${84+oW}px;flex:none">${tm(on,DH.has(id)?PL_DH:PL_IN,t.in?hmJst(t.in):'―',t.inFix||!t.in,'pfin',id,t.inO)}</span><span style="width:${118+oW}px;flex:none">${t.out?tm(on,PL_OUT,hmJst(t.out),t.outFix,'pfout',id,t.outO):tm(on,'','未退勤',s.kind!=='hall','pfout',id)}</span>${lW?`<span style="width:${lW}px;flex:none;display:flex;gap:6px;align-items:center">${lateHtml(s,LT[id])}</span>`:''}</div>`;
 }
-// アフター（報酬の種類に「自動：アフター」がある店＝広島）。アフターの打刻をした子に伝票を選ぶ → お客様1名の数を同じ伝票の子の人数で分配。選ばなければ 0（オーナー）
+// アフター（報酬の種類に「自動：アフター」がある店＝広島）。伝票でアフターの子（SQL 526）を出す → お客様1名の数を同じ伝票の子の人数で分配（オーナー）
 // 卓の名前は同じ幅の枠・人数は右の端（スキル olive-no-misalign）。並びは1列3名
 const clBillName=b=>{ const c=(b.bill_customers||[]).map(x=>S.customers.find(z=>z.id===x.customer_id)?.name).filter(Boolean)[0]; return c?c+' 様':'お客様未登録'; };
 const clBillRow=b=>`<span style="display:inline-block;width:44px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(billTable(b))}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(clBillName(b))}</span><span style="width:30px;flex:none;text-align:right;font-variant-numeric:tabular-nums">${b.guest_count}名</span>`;
@@ -90,17 +90,11 @@ function clAfterHtml(AF,B,edit){ const R=AF.rows||[]; if(!R.length) return ''; c
   const nm=id=>S.staffAll.find(x=>x.id===id)?.display_name||'';
   const row=r=>{ const b=r.bill_id&&B.find(x=>x.id===r.bill_id); const inner=b?clBillRow(b):'<span class="muted" style="flex:1">選択</span>';
     return `<div class="item" style="padding:6px;gap:5px;font-size:14px"><span style="width:58px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm(r.staff_id))}</span>${edit?`<button type="button" class="ghost" data-afsel="${r.staff_id}" style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;text-align:left;padding:5px 6px;font-size:14px;min-height:0;background:#fff">${inner}<span class="muted" style="flex:none">▾</span></button>`:`<span style="flex:1;min-width:0;display:flex;gap:6px;font-size:14px">${inner}</span>`}<span style="width:34px;flex:none;text-align:right;font-weight:700;font-variant-numeric:tabular-nums">${pt(r)}</span></div>`; };
-  return `<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 6px"><b style="font-size:16px">アフター</b><small class="muted">お客様1名 ${v.toLocaleString()}${u} を人数で分配・伝票の選択なしは 0${u}</small></div>
+  return `<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 6px"><b style="font-size:16px">アフター</b><small class="muted">お客様1名 ${v.toLocaleString()}${u} を人数で分配</small></div>
     <div class="list" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:10px">${R.map(row).join('')}</div>`; }
-async function clAfterPick(sid,d,B,AF,again){ const cur=(AF.rows||[]).find(r=>r.staff_id===sid)?.bill_id||null; const L=B.slice().sort((a,b)=>(a.opened_at||'')<(b.opened_at||'')?-1:1);
-  const m=mkModal(60);
-  m.innerHTML=`<div class="box" style="width:min(420px,94vw);max-height:86vh;overflow:auto"><b>アフター（${esc(S.staffAll.find(x=>x.id===sid)?.display_name||'')}）</b><div class="list" style="margin-top:10px">${L.map(b=>`<button type="button" class="item" data-afb="${b.id}" style="display:flex;gap:6px;align-items:center;text-align:left;width:100%;font-size:15px;${b.id===cur?'outline:2px solid var(--pri);':''}">${clBillRow(b)}</button>`).join('')}<button type="button" class="item muted" data-afb="" style="text-align:left;width:100%;font-size:15px;${cur?'':'outline:2px solid var(--pri);'}">なし</button></div><div class="bar" style="justify-content:flex-end"><button class="ghost" data-afno>キャンセル</button></div></div>`;
-  document.body.appendChild(m); m.querySelector('[data-afno]').onclick=()=>m.remove();
-  m.querySelectorAll('[data-afb]').forEach(x=>x.onclick=async()=>{ m.remove(); const bid=x.dataset.afb||null; if(bid===cur) return; const r=await sb.rpc('pos_after_set',{p_staff:sid,p_date:d,p_bill:bid}); if(r.error){ await uiConfirm(r.error.message); again(); return; }
-    const b=bid&&B.find(z=>z.id===bid); await logOp('アフターの伝票',{name:S.staffAll.find(z=>z.id===sid)?.display_name||'',bill:b?`${billTable(b)} ${clBillName(b)}`:'なし'}); again(); }); }
-// ② の「退」で 退勤／アフター を切り替え（アフターの打刻をし忘れた子を、アフターの欄に出す）。時刻を変えない時は罰金なし
+// ② の「退」で退勤の時刻を直す（アフターは伝票で付ける・SQL 526）。時刻を変えない時は罰金なし
 async function clPunchOut(id,t,after){ const s=S.staffAll.find(x=>x.id===id); const wi=await sb.rpc('pos_waive_info',{p_staff:id,p_type:'clock_out'}); const kind=t&&t.after?'after':'clock_out';
-  const w={...(wi.data||{}),label:s?.display_name||'',kind,at:t&&t.out?new Date(t.out).getTime():null}; const v=await uiTime('clock_out',w); if(!v) return; const by=await askBy(); if(by===null) return; /* 修正した黒服を残す */
+  const w={...(wi.data||{}),label:s?.display_name||'',at:t&&t.out?new Date(t.out).getTime():null}; const v=await uiTime('clock_out',w); if(!v) return; const by=await askBy(); if(by===null) return; /* 修正した黒服を残す */
   const r=await sb.rpc('pos_punch_out',{p_staff:id,p_kind:v.kind||kind,p_at:v.at}); if(r.error){ await uiConfirm(r.error.message); return; } if(by) await punchBy(id,'clock_out',by); attDrop();
   if(v.w){ const q=await sb.rpc('pos_waive_request',{p_staff:id,p_type:'clock_out',p_applicant:v.w.applicant,p_reason:v.w.reason}); if(q.error) await uiConfirm('打刻は記録しました。免除申請は送信できませんでした：'+q.error.message); else toast('免除申請を送信しました'); } else toast((v.kind||kind)==='after'?'アフターを記録しました':'退勤を記録しました'); after(); }
 // 閉店作業「① お客様登録」（一番上）。伝票ごとにお客様を追加し、確認者を選んで完了 → 出勤したキャストへ連絡先交換の LINE（オーナー「閉店作業の一番最初に伝票のお客様の登録。完了次第、女の子に LINE」）

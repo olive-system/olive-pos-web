@@ -1,5 +1,5 @@
 // ---------- bill ----------
-const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), bill_extensions(id,minutes,unit_price,qty,is_auto), bill_items(id,product_id,category_id,name,qty,unit_price,cast_subtotal_price,back_amount,back_points,is_service_target,is_keep,added_at,is_void,bill_item_splits(id,staff_id,sales_amount,back_amount,back_points)), bill_customers(customer_id), bill_adjustments(id,kind,amount,reason), payments(*), bill_tags(id,kind,tag_no,memo,returned_at)';
+const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), after_bills(staff_id), bill_extensions(id,minutes,unit_price,qty,is_auto), bill_items(id,product_id,category_id,name,qty,unit_price,cast_subtotal_price,back_amount,back_points,is_service_target,is_keep,added_at,is_void,bill_item_splits(id,staff_id,sales_amount,back_amount,back_points)), bill_customers(customer_id), bill_adjustments(id,kind,amount,reason), payments(*), bill_tags(id,kind,tag_no,memo,returned_at)';
 /* 伝票を続けて開いた時（2回押す・すぐ別の卓）、先に始めた方が後の伝票（金額がまだ無い）を描いて止まった。最後に開いた方だけが描く。
    最後まで開けた時だけ true を返す：会計の画面を出す側はこれを見る（読み込みが重なると S.cur は金額の無い伝票になっていて、会計の画面で止まった） */
 let openBillSeq=0;
@@ -57,27 +57,32 @@ function billPeopleChips(b,gr,editable){ const cs=b.bill_casts||[]; const ch=(tx
 async function billPeopleEdit(id){ let box=$('uiDlgList'); if(!box){ box=document.createElement('div'); box.id='uiDlgList'; box.style.cssText='max-height:60vh;overflow:auto;margin:10px 0;font-size:15px'; $('uiDlgMsg').after(box); } if(!S.staffAll.length) await loadStaffAll();
   let b=null; const hc=()=>syncHcBack(id); /* 今開いている伝票（cur）を差し替えずに、この伝票を振り分ける */
   const L=(action,d)=>logOp(action,d,undefined,false,b); /* 今開いている伝票（cur）を差し替えずに、この伝票の操作として残す */
-  const draw=async()=>{ const r=await sb.from('bills').select('id,status,table_id,table_name,guest_count,opened_at,business_date,bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)').eq('id',id).single(); if(r.error){ box.innerHTML=`<div class="muted">${esc(r.error.message)}</div>`; return; } b=r.data;
+  const draw=async()=>{ const r=await sb.from('bills').select('id,status,table_id,table_name,guest_count,opened_at,business_date,bill_casts(id,staff_id,role,is_kakari),after_bills(staff_id),after_none,payments(method,amount,received_at,revenue_date)').eq('id',id).single(); if(r.error){ box.innerHTML=`<div class="muted">${esc(r.error.message)}</div>`; return; } b=r.data;
     const ok=b.status==='closed'&&billDay(b)===businessDate(); const g=await sb.from('good_reactions').select('id,staff_id').eq('bill_id',id); const gl=g.data||[]; const cs=b.bill_casts||[]; const att=await attendedOn(b.business_date);
-    box.innerHTML=billPeopleHtml(ok,cs,gl,att);
+    box.innerHTML=billPeopleHtml(ok,cs,gl,att,b);
     box.querySelectorAll('[data-bprm]').forEach(x=>x.onclick=async()=>{ const c=cs.find(z=>z.id===x.dataset.bprm); const d=await sb.rpc('pos_rows_del',{p_table:'bill_casts',p_where:{id:(c.id)??null}}); if(d.error){ toast(d.error.message); return; } await L('キャストを伝票から外す（会計後）',{name:snm2(c.staff_id)}); if(c.is_kakari) await hc(); draw(); });
     box.querySelectorAll('[data-bpg]').forEach(x=>x.onclick=async()=>{ const gg=gl.find(z=>z.id===x.dataset.bpg); const d=await sb.rpc('pos_good_del',{p_id:gg.id}); if(d.error){ toast(d.error.message); return; } await L('反応◎を取り消し',{name:snm2(gg.staff_id)}); draw(); });
+    box.querySelectorAll('[data-bpaf]').forEach(x=>x.onclick=async()=>{ const q=await sb.rpc('pos_after_set_bill',{p_bill:id,p_staff:x.dataset.bpaf,p_on:false}); if(q.error){ toast(q.error.message); return; } draw(); });
+    box.querySelectorAll('[data-bpafn]').forEach(x=>x.onclick=async()=>{ const q=await sb.rpc('pos_after_none',{p_bill:id,p_on:x.dataset.bpafn==='1'}); if(q.error){ toast(q.error.message); return; } draw(); });
     box.querySelectorAll('[data-bp]').forEach(s=>s.onchange=()=>billPeopleAdd(s,id,b,cs,L,hc,draw)); };
-  await draw(); const tn=billTable(b); try{ await uiAlert(`${tn}　${b?hm5(b.opened_at):''}〜　${KL}・同伴・反応◎`); } finally { box.remove(); } }
+  await draw(); const tn=billTable(b); try{ await uiAlert(`${tn}　${b?hm5(b.opened_at):''}〜　${KL}・同伴・アフター・反応◎`); } finally { box.remove(); } }
 /* 会計後の伝票に係・同伴・反応◎を足す（選んだ時） */
 async function billPeopleAdd(s,id,b,cs,L,hc,draw){
   const sid=s.value; if(!sid) return; s.disabled=true; const k=s.dataset.bp; const ex=cs.find(c=>c.staff_id===sid); let e=null, kak=false;
-  if(k==='g'){ e=(await sb.rpc('pos_good_add',{p_store:S.store.id,p_bill:id,p_staff:sid})).error; if(!e) await L('反応◎',{name:snm2(sid)}); }
+  if(k==='a'){ e=(await sb.rpc('pos_after_set_bill',{p_bill:id,p_staff:sid,p_on:true})).error; }
+  else if(k==='g'){ e=(await sb.rpc('pos_good_add',{p_store:S.store.id,p_bill:id,p_staff:sid})).error; if(!e) await L('反応◎',{name:snm2(sid)}); }
   else if(k==='k'){ kak=true; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:{is_kakari:true}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role:'none',is_kakari:true}})).error; if(!e) await L('係を追加（会計後）',{name:snm2(sid)}); }
   else { if(cs.filter(c=>isDouhan(c.role)).length>=b.guest_count){ toast(`同伴は客数（${b.guest_count}名）までです`); draw(); return; } const role=douhanRole(b.opened_at); kak=!!S.settings.douhan_is_kakari; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:kak?{role,is_kakari:true}:{role}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role,is_kakari:kak}})).error; if(!e) await L('同伴を追加（会計後）',{name:snm2(sid),kind:ROLE[role]}); }
   if(e){ toast(e.message); } else if(kak) await hc(); draw(); }
 /* 会計後の伝票の係・同伴・反応◎の小窓の文 */
-function billPeopleHtml(ok,cs,gl,att){
+function billPeopleHtml(ok,cs,gl,att,b){
   const act=S.staffAll.filter(s=>s.is_active&&(s.kind==='cast'||s.kakari_only)); const opt=(list,ph)=>`<option value="">${ph}</option>`+list.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('');
   const sel=(k,ph,list)=>`<select data-bp="${k}" style="width:auto;min-height:0;font-size:14px;padding:6px 10px">${opt(list,ph)}</select>`;
   return !ok?'<div class="muted">この伝票は当日ではないため変更できません</div>':
       `<div class="muted" style="font-size:13px">${KL}・同伴</div>`+(cs.filter(c=>c.is_kakari||isDouhan(c.role)).map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">${esc(snm2(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',ROLE[c.role]||''].filter(Boolean).join('・')}</small></span><button class="xb" data-bprm="${c.id}">×</button></div>`).join('')||'<div class="muted" style="padding:6px 0">なし</div>')+
       `<div style="display:flex;gap:8px;margin:8px 0 14px">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}${sel('d','＋同伴',act.filter(s=>!s.kakari_only&&!cs.some(c=>c.staff_id===s.id&&isDouhan(c.role))))}</div>`+
+      `<div class="muted" style="font-size:13px">アフター</div>`+((b?.after_bills||[]).map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">${esc(snm2(a.staff_id))}</span><button class="xb" data-bpaf="${a.staff_id}">×</button></div>`).join('')||(b?.after_none?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">なし</span><button class="xb" data-bpafn="0">×</button></div>':''))+
+      `<div style="display:flex;gap:8px;margin:8px 0 14px">${sel('a','＋アフター',act.filter(s=>!s.kakari_only&&!(b?.after_bills||[]).some(a=>a.staff_id===s.id)))}${(b?.after_bills||[]).length||b?.after_none?'':'<button class="ghost sm" data-bpafn="1">なし</button>'}</div>`+
       `<div class="muted" style="font-size:13px">反応◎</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">${gl.map(x=>`<span style="display:inline-flex;align-items:center;font-size:14px;padding:3px 2px 3px 10px;border:1px solid var(--line);border-radius:999px">${esc(snm2(x.staff_id))}<span style="color:var(--gold)">◎</span><button class="xb" data-bpg="${x.id}">×</button></span>`).join('')}${sel('g','＋反応◎',S.staffAll.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&att.has(s.id)&&!gl.some(x=>x.staff_id===s.id)))}</div>`;
 }
 function renderBill(){ const b=S.cur, t=S.tables.find(x=>x.id===b.table_id);
@@ -105,6 +110,9 @@ function rbCust(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,
 /* 係・同伴・反応◎ */
 function rbCasts(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bCasts').innerHTML=(b.bill_casts||[]).map(c=>`<div class="item cast"><span class="n"><span class="nm">${S.present.has(c.staff_id)?'✓ ':''}${esc(snm(c.staff_id))}</span> ${c.is_kakari?'<span class="badge k">'+KL+'</span>':''} ${ROLE[c.role]?`<span class="badge">${ROLE[c.role]}</span>`:''}${S.present.has(c.staff_id)||S.staffAll.find(z=>z.id===c.staff_id)?.kakari_only?'':' <span class="badge gray">未出勤</span>'}</span><div class="btns"><button class="xb" data-rmcast="${c.id}">×</button></div></div>`).join('');
+  $('bCasts').insertAdjacentHTML('beforeend',(b.after_bills||[]).map(a=>`<div class="item cast"><span class="n"><span class="nm">${S.present.has(a.staff_id)?'✓ ':''}${esc(snm(a.staff_id))}</span> <span class="badge">アフター</span></span><div class="btns"><button class="xb" data-rmaf="${a.staff_id}">×</button></div></div>`).join('')+(b.after_none?'<div class="item cast"><span class="n"><span class="badge">アフター なし</span></span><div class="btns"><button class="xb" data-rmafn="1">×</button></div></div>':''));
+  $('bCasts').querySelectorAll('[data-rmaf]').forEach(x=>x.onclick=async()=>{ const r=await sb.rpc('pos_after_set_bill',{p_bill:b.id,p_staff:x.dataset.rmaf,p_on:false}); if(r.error){ toast(r.error.message); return; } openBill(b.id); });
+  $('bCasts').querySelectorAll('[data-rmafn]').forEach(x=>x.onclick=async()=>{ const r=await sb.rpc('pos_after_none',{p_bill:b.id,p_on:false}); if(r.error){ toast(r.error.message); return; } openBill(b.id); });
   $('bCasts').querySelectorAll('[data-rmcast]').forEach(x=>x.onclick=async()=>{ const bc=(b.bill_casts||[]).find(c=>c.id===x.dataset.rmcast); { const dl=await sb.rpc('pos_rows_del',{p_table:'bill_casts',p_where:{id:(x.dataset.rmcast)??null}}); if(dl.error){ toast('キャストを外せません：'+dl.error.message); return; } } await logOp('キャストを伝票から外す',{name:snm(bc?.staff_id)}); if(bc?.is_kakari) await syncHcBack(); /* その人のバックが付いた注文が残っていたら知らせる（ゲネプロ #51） */ const left=(b.bill_items||[]).filter(i=>!i.is_void&&i.name!=='HC'&&(i.bill_item_splits||[]).some(sp=>sp.staff_id===bc?.staff_id)).map(i=>`${i.name}×${i.qty}`); await openBill(b.id); if(left.length) await uiAlert(`${snm(bc?.staff_id)} のバックが付いた注文が残っています。\n${left.join('・')}\n修正する時は、注文の「振分」を押してください`); });
   renderGood(b); // 反応◎
 }
