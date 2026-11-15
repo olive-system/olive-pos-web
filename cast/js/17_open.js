@@ -67,7 +67,7 @@ function htBindB(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, agai
     try{
       if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ await uiAlert('写真を撮ってください'); b.disabled = false; return; }
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
-        await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* 3枚ずつ同時に送る */
+        await todoPhotosUp(p.data, f); } /* 3枚ずつ同時に送る */
       const q = await sb.rpc('hall_open_done', { p_token: TOKEN, p_task: x.id, ...(x.need_comment ? { p_comment: opNotes[x.id] || '' } : {}) }); if(q.error) throw q.error;
       delete opShots[x.id]; delete opChecks[x.id]; delete opNotes[x.id]; again();
     }catch(e){ b.disabled = false; await uiAlert(e.message || String(e)); again(); } });
@@ -249,7 +249,7 @@ async function hcSave(x, ph, s, getData){ s.disabled = true;
     try{
       if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ s.disabled = false; await uiAlert('写真を撮ってください'); return; }
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
-        await upPool(f.length, async i => { const blob = await shrinkJpeg(f[i]); const up = await sb.storage.from('todo-photos').upload(`${p.data[i]}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; }); } /* 3枚ずつ同時に送る */
+        await todoPhotosUp(p.data, f); } /* 3枚ずつ同時に送る */
       const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
       delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; delete drOut[x.id]; hallTasks(ph);
     }catch(e){ s.disabled = false; await uiAlert(e.message || String(e)); }
