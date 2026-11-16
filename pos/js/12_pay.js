@@ -119,7 +119,9 @@ $('paySplit').onclick=()=>{ const un=Math.max(0,S.cur?.totals?.unpaid??0); if(!u
   m.querySelector('[data-k=no]').onclick=()=>m.remove();
   m.querySelector('[data-k=ok]').onclick=()=>{ if(!n) return; split={bill:S.cur.id,n,per:per(n),done:0}; m.remove(); splitApply(); }; };
 $('paySplitEnd').onclick=()=>{ split=null; renderPay(); };
-$('payBack').onclick=()=>openBill(S.cur.id);
+// 伝票に戻ったら自動延長をまた動かす。セットの終わりを過ぎていたら、開いていた分だけ（伝票1枚で合わせて10分まで）データベースで後ろへずらす（SQL 548）
+async function payBackExt(id){ const r=await sb.rpc('pos_pay_back',{p_bill:id}); if(r.error) toast(r.error.message); }
+$('payBack').onclick=async()=>{ if(S.cur.status==='open'&&S.cur.pay_open_at) await payBackExt(S.cur.id); openBill(S.cur.id); };
 $('payClose').onclick=guard($('payClose'),async()=>{ if(S.cur.totals.unpaid>0){toast(`未収 ${yen(S.cur.totals.unpaid)} があります。請求書か置きで登録してください`);return;}
   const tg=(S.cur.bill_tags||[]).filter(t=>!t.returned_at); if(tg.length&&!await uiConfirm(`お預かり品が ${tg.length} 点あります（${tg.map(t=>TAGK[t.kind]+(t.tag_no?'#'+t.tag_no:'')).join('、')}）。\n会計後、この卓に大きく表示されます。お渡ししたら卓をタップして「お渡ししました」を押してください。`))return;
   if(!await uiConfirm(`請求額 ${yen(S.cur.totals.amount_due)} で会計を締めます。\n締めた後は変更できません。`))return;
