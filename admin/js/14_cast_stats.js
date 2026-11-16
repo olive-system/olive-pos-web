@@ -145,10 +145,9 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
   const D=r.data||{}, rows=D.rows||[], own=!!me?.is_owner, nf=v=>Math.round(N(v)).toLocaleString('ja-JP'), neg=v=>N(v)?`<span style="color:var(--warn)">−${nf(Math.abs(N(v)))}</span>`:'—', y0=v=>N(v)?nf(v):'—';  /* 表の値に単位を付けない（見出しでわかる。キャストの表と同じ） */
   const sl=D.slide, RK={within:'目標以内',plus2:'＋2%まで',plus5:'＋5%まで',over:'5%超'};
   // 担当キャスト売上・売上シェア（POS の黒服の詳細と同じ）。担当キャスト売上＝その黒服が担当黒服になっているキャストの係小計の合計。売上シェア＝担当キャスト売上÷（担当黒服のいるキャスト全員の分）
-  const hid=new Set(rows.map(x=>x.id)), ms={}, mn={}; let mall=0; (casts||[]).forEach(c=>{ const h=c.manager_id; if(!h||!hid.has(h)) return; ms[h]=(ms[h]||0)+N(c.sales); mall+=N(c.sales); if(c.active) mn[h]=(mn[h]||0)+1; });
-  if(!own&&D.kakari_all!=null) mall=N(D.kakari_all); /* オーナー以外は自分の行だけ返るので、全体は関数の値を使う */
+  const hid=new Set(rows.map(x=>x.id)), ms={}, mn={}; (casts||[]).forEach(c=>{ const h=c.manager_id; if(!h||!hid.has(h)) return; ms[h]=(ms[h]||0)+N(c.sales); if(c.active) mn[h]=(mn[h]||0)+1; });
   const PA=rows.some(x=>N(x.prev_adjust)); /* 前月精算は、だれかにある月だけ列を出す */
-  const share=x=>mall>0?(Math.round(N(ms[x.id])/mall*1000)/10).toFixed(1)+'%':'—';
+  const share=x=>x.share!=null?N(x.share).toFixed(1)+'%':'—';
   box.innerHTML=`<h2 style="margin:0 0 8px">黒服</h2>
     <div class="card" style="font-size:14px;line-height:1.7">ボーナス総額 <b>${yen(N(D.pool))}</b>　<span class="muted">売上計 ${yen(N(D.sales))}・人件費比率 ${N(D.ratio).toFixed(2)}%${sl?`（目標 ${N(sl.target).toFixed(2)}%・${RK[sl.rank]||''}・「${N(sl.sales_man)}万円以上」の行）`:'（黒服ボーナススライドに当てはまる行がありません）'}</span></div>
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm">名前</th><th>報酬</th><th>担当キャスト売上</th><th>売上シェア</th><th>日数</th><th>時間</th><th>基本給</th><th>遅刻・早退</th><th>ボーナス</th><th>手当</th><th>個別支給</th><th>課税対象額</th><th>罰金</th><th>消費税</th><th>厚生費</th><th>個別控除</th><th>日払（立替）</th><th>源泉徴収</th>${PA?'<th>前月精算</th>':''}<th>残り支給額</th>${own?'<th></th>':''}</tr></thead><tbody>

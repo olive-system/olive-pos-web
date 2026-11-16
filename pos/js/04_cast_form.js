@@ -35,9 +35,9 @@ async function monthKakari(only){ { const q=await sb.rpc('pos_month_kakari'); if
   for(let i=0;i<bs.length;i+=8){ const part=bs.slice(i,i+8); const ts=await Promise.all(part.map(b=>sb.rpc('calc_bill',{p_bill:b.id}))); part.forEach((b,j)=>{ const T=ts[j].data||{}; const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id); const total=(T.set||0)+(T.vip_set||0)+(T.extension||0)+(T.vip_ext||0)+(b.bill_items||[]).filter(x=>!x.is_void).reduce((a,x)=>a+x.cast_subtotal_price*x.qty,0); const each=Math.floor(total/ks.length); ks.forEach(id=>{ m[id]=(m[id]||0)+each; }); }); }
   return m; }
 // 担当キャストの今月の係小計を黒服ごとに集計し、在籍中の黒服全員の合計に対する割合も出す（削除済の黒服・担当なしのキャストは含めない）
-async function clMgrSum(s){ const halls=new Set(S.staffAll.filter(x=>x.kind==='hall'&&x.is_active).map(x=>x.id)); const mgr=new Map(S.staffAll.filter(x=>x.manager_staff_id&&halls.has(x.manager_staff_id)&&x.id!==x.manager_staff_id).map(x=>[x.id,x.manager_staff_id])); const mineN=S.staffAll.filter(x=>x.manager_staff_id===s.id&&x.id!==s.id&&x.is_active).length; const sums={}; let all=0;
-  if(mgr.size){ const m=await monthKakari(new Set(mgr.keys())); if(!m) return {sum:'—',pct:'—'}; Object.entries(m).forEach(([id,v])=>{ const h=mgr.get(id); if(h){ sums[h]=(sums[h]||0)+v; all+=v; } }); }
-  const mine=sums[s.id]||0; return {sum:`${yen(mine)} <small class="muted">担当 ${mineN}人</small>`, pct: all>0&&halls.has(s.id) ? (Math.round(mine/all*1000)/10).toFixed(1)+'%' : '—'}; }
+async function clMgrSum(s){ const mineN=S.staffAll.filter(x=>x.manager_staff_id===s.id&&x.id!==s.id&&x.is_active).length; /* 担当キャスト売上・売上シェアは黒服の給与と同じ数字（pos_hall_share・SQL 536） */
+  const r=await sb.rpc('pos_hall_share'); if(r.error) return {sum:'—',pct:'—'}; const z=(r.data||{})[s.id]||{};
+  return {sum:`${yen(Number(z.sales)||0)} <small class="muted">担当 ${mineN}人</small>`, pct: z.share!=null ? Number(z.share).toFixed(1)+'%' : '—'}; }
 function renderCastForm(){ const f=$('cForm'); const s=S.cSel; f.classList.toggle('empty',!s); if(!s){ f.innerHTML='<div class="muted">一覧の「編集」を押してください</div>'; return; }
   f.innerHTML=cfHtmlTop(s)+cfHtmlCast(s)+cfHtmlInfo(s)+cfHtmlFoot(s);
   if(!s._new) cfShiftWish(s);
