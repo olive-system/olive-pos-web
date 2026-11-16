@@ -27,7 +27,7 @@ async function sheetStaff(id, store, back){
 }
 
 async function sheetForm(idt){
-  const g = await sb.rpc('applicant_sheet_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
+  const g = await sb.rpc('ap_sheet_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
   if(g.data.locked){ show('<div class="ttl">ヒアリングシート</div><div class="card">送信済です</div>'); return; } /* お店が［編集］で保存したら本人は修正不可（オーナー） */
   /* オーナー「途中保存したい」：入力のたびにこの端末に残し、LINE を閉じても次に開いた時に戻す（送信できたら消す） */
   const dk = 'olive_cast_draft_sheet_' + STORE; let dv = {}; try{ dv = JSON.parse(localStorage.getItem(dk) || '{}').v || {}; }catch(e){}
@@ -36,7 +36,7 @@ async function sheetForm(idt){
   const keep = () => setTimeout(() => { if(!$('shOk') || $('main').querySelector('.ttl')?.textContent !== 'ヒアリングシート') return; /* ほかの画面に移った後は残さない */ try{ localStorage.setItem(dk, JSON.stringify({ at: Date.now(), v: get(false) })); }catch(e){} }, 0);
   $('main').addEventListener('input', keep); $('main').addEventListener('click', e => { if(e.target.closest('.seg')) keep(); });
   $('shOk').onclick = async e => { const o = get(false); if(!Object.keys(o).length){ await uiAlert('入力してから送信してください'); return; }
-    e.target.disabled = true; const q = await sb.rpc('applicant_sheet_save', { p_store: STORE, p_id_token: idt, p: o });
+    e.target.disabled = true; const q = await sb.rpc('ap_sheet_save', { p_store: STORE, p_id_token: idt, p: o });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; }
     try{ localStorage.removeItem(dk); }catch(e){}
     show('<div class="card">送信しました。<br>ありがとうございます。<br><br>お会いできるのを楽しみにしております。</div>'); };
