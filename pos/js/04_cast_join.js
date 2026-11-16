@@ -28,6 +28,9 @@ function joinBind(s,m,tbls){
   m.querySelector('[data-k=no]').onclick=()=>m.remove();
   m.querySelector('[data-k=ok]').onclick=async()=>{ const set=await joinCollect(jv); if(set) joinSend(s,set,m); };
 }
+/* 優先は在籍（シフトの表に出る子）の30%まで・切り捨て。この子が入店した後の人数で数え、上限なら「優先」を出さない（データベースも SQL 552 で通さない） */
+function joinRankCapOk(s){ const z=(S.staffAll||[]).filter(x=>x.is_active&&x.kind==='cast'&&!x.kakari_only&&!x.is_trial&&x.id!==s.id);
+  return z.filter(x=>x.shift_rank===1).length < Math.floor((z.length+1)*0.3); }
 /* 小窓の中身（スタッフ設定の言葉と並び） */
 function joinBox(s,tbls){
   const halls=S.staff.filter(x=>x.kind==='hall'), bd=businessDate();
@@ -39,7 +42,7 @@ function joinBox(s,tbls){
     ['同伴ノルマ',joinInp('jnQ',60)+' 回'],['小計バック',joinInp('jnBk',60)+' %'],
     ['メモ',`<span style="display:flex;gap:8px">${joinSel('jnNc',(joinInfo.cats||[]).map(c=>[c,c]),'')}<input id="jnNb" maxlength="50" placeholder="1行・50字まで" style="flex:1;min-width:0"></span>`]];
   const R2=[['希望出勤日数',joinSel('jnW',[['','未設定'],...[1,2,3,4,5,6,7].map(n=>[n,`週 ${n}日`])],'')],['出勤可能時間',joinSel('jnE',[['','未設定'],...(joinInfo.times||[]).map(t=>[t,t+'〜'])],'')],
-    ['提出',joinSel('jnO',[['false','休み希望'],['true','出勤希望']],'false')],['入店日',`<input type="date" id="jnJ" value="${bd}" style="width:auto">`],['自動作成',joinSel('jnR',[['1','優先'],['0','標準'],['-1','控え']],'0')]];
+    ['提出',joinSel('jnO',[['false','休み希望'],['true','出勤希望']],'false')],['入店日',`<input type="date" id="jnJ" value="${bd}" style="width:auto">`],['自動作成',joinSel('jnR',[...(joinRankCapOk(s)?[['1','優先']]:[]),['0','標準'],['-1','控え']],'0')]];
   const sub=s.ap_id?`面接 ${pastDay(s.day)}　面接結果 ${PAST_RES[s.result]||''}`:`体験 ${pastDay(s.day)}${s.result?`　体験結果 ${PAST_RES[s.result]||''}`:''}`;
   const m=mkModal(50); m.id='joinBox';
   m.innerHTML=`<div class="box" style="width:min(1040px,96vw);text-align:left"><h2 style="margin:0 0 4px">${esc(s.display_name)}　入店</h2><div class="muted" style="font-size:13px;margin-bottom:10px">${esc(sub)}</div>
