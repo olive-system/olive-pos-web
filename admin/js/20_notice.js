@@ -7,7 +7,7 @@
 // 全員＝キャスト（マイページに掲載＋LINE）と黒服（LINE）。キャストのみ＝今までの全員。個別＝選んだキャストのマイページに掲載＋LINE・選んだ黒服に LINE
 // 添付は送る時に置き場「notice-files」へ上げる（店のid/番号.jpg|pdf）。写真は 1600px の JPEG に縮める。お知らせの削除・予約の取消・添付を外した保存のあと、使われなくなったものを消す
 let ntEdit=null, ntSched=null, ntFiles=[], ntKey='', ntPick=new Set();
-const NT_STORE={ginza:'銀座',hiroshima:'広島'}, ntStoreName=s=>NT_STORE[s?.code]||s?.name||'';
+const ntStoreName=s=>s?.short||s?.name||'';
 const ntWhen=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 const NT_TO={all:'全員',cast:'キャストのみ',hall:'黒服のみ',pick:'個別'};
 const ntUrl=p=>sb.storage.from('notice-files').getPublicUrl(p).data.publicUrl;
