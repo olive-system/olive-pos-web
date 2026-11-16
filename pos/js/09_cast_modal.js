@@ -8,10 +8,12 @@ $('castAddBtn').onclick=async()=>{
   $('castList').innerHTML=list.map(s=>`<button class="chip" data-id="${s.id}" data-role="none">${esc(s.display_name)}</button>`).join('')||'<span class="muted">出勤中の人はいません</span>';
   $('castListAll').innerHTML=others.map(s=>`<button class="chip" data-id="${s.id}" data-role="none">${esc(s.display_name)}</button>`).join('')||'<span class="muted">なし</span>';
   $('castListAll').classList.add('hidden'); $('castMoreBtn').textContent='出勤していないキャストから選ぶ ▾';
-  let castRoleSel='kakari'; const roleUi=()=>$('castRole').querySelectorAll('[data-cr]').forEach(x=>x.classList.toggle('on',x.dataset.cr===castRoleSel)); $('castRole').querySelectorAll('[data-cr]').forEach(x=>x.onclick=()=>{ castRoleSel=x.dataset.cr; roleUi(); }); roleUi();
+  let castRoleSel='kakari'; const roleUi=()=>{ $('castRole').querySelectorAll('[data-cr]').forEach(x=>x.classList.toggle('on',x.dataset.cr===castRoleSel)); $('castNone').classList.toggle('hidden',castRoleSel!=='after'); }; $('castRole').querySelectorAll('[data-cr]').forEach(x=>x.onclick=()=>{ castRoleSel=x.dataset.cr; roleUi(); }); roleUi();
   // 係は何人でも追加できる（売上は係全員で等分）。同伴にしても他の係は外さない。設定ONなら同伴の人も係になる
   const att=new Set([...Object.keys(present),...gone]); // 今日出勤した人（退勤済も入る）
-  const pick=async b=>{ const isFirst=!(S.cur.bill_casts||[]).some(c=>c.is_kakari); const dh=castRoleSel==='douhan'; /* 同伴の子はお客様と先に座り、伝票の後に出勤を押すので、出勤前でも同伴にできる（オーナー） */
+  const pick=async b=>{ if(castRoleSel==='after'){ /* アフターは伝票で決める（SQL 526）。その日その子のアフターは1つの伝票だけ（あとから付けた伝票に入れかえ）。帰った後に付けることもあるので、出勤中かは聞かない */
+      const r=await sb.rpc('pos_after_set_bill',{p_bill:S.cur.id,p_staff:b.dataset.id,p_on:true}); if(r.error){ toast(r.error.message); return; } $('castModal').classList.remove('on'); openBill(S.cur.id); return; }
+    const isFirst=!(S.cur.bill_casts||[]).some(c=>c.is_kakari); const dh=castRoleSel==='douhan'; /* 同伴の子はお客様と先に座り、伝票の後に出勤を押すので、出勤前でも同伴にできる（オーナー） */
     // 既に伝票に付いている人を選んだ時は、追加ではなくその人の係／同伴を更新する
     const ex=(S.cur.bill_casts||[]).find(c=>c.staff_id===b.dataset.id);
     if(ex){ const upd={}; if(dh){ if(!isDouhan(ex.role)){ const n=(S.cur.bill_casts||[]).filter(c=>isDouhan(c.role)).length; if(n>=S.cur.guest_count){ toast(`同伴は客数（${S.cur.guest_count}名）までです`); return; } upd.role=douhanRole(S.cur.opened_at); } if(S.settings.douhan_is_kakari&&!ex.is_kakari) upd.is_kakari=true; } else if(!ex.is_kakari) upd.is_kakari=true;
@@ -26,6 +28,7 @@ $('castAddBtn').onclick=async()=>{
   /* 続けて押すと、手元の伝票がまだ古いまま2回とも付ける所まで進むので、1つ終わるまで次を受けない */ let picking=false; const pickOnce=async b=>{ if(picking) return; picking=true; try{ await pick(b); } finally{ picking=false; } };
   $('castList').querySelectorAll('.chip').forEach(b=>b.onclick=()=>pickOnce(b));
   $('castListAll').querySelectorAll('.chip').forEach(b=>b.onclick=()=>pickOnce(b));
+  $('castNoneBtn').onclick=async()=>{ const r=await sb.rpc('pos_after_none',{p_bill:S.cur.id,p_on:true}); if(r.error){ toast(r.error.message); return; } $('castModal').classList.remove('on'); openBill(S.cur.id); };
   $('castModal').classList.add('on'); };
 $('castMoreBtn').onclick=()=>{ const el=$('castListAll'); el.classList.toggle('hidden'); $('castMoreBtn').textContent=el.classList.contains('hidden')?'出勤していないキャストから選ぶ ▾':'出勤していないキャストから選ぶ ▴'; };
 $('castCancel').onclick=()=>$('castModal').classList.remove('on');

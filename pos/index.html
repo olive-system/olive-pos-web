@@ -11,7 +11,7 @@
 <script src="../lib/olive/staff_docs.js"></script><!-- スタッフの書類（管理サイトと同じ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v13.80 -->
+<title>OLIVE 会計</title><!-- v13.81 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
 <link rel="stylesheet" href="../lib/olive/olive.css"><link rel="stylesheet" href="pos.css"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
@@ -146,7 +146,8 @@
 
 <div class="modal" id="castModal"><div class="box" style="width:640px">
   <h2 style="color:var(--ink)" id="castAddTtl">係／同伴を追加</h2>
-  <div class="chips" id="castRole" style="margin-bottom:10px"><button class="chip on" data-cr="kakari" style="font-size:18px;padding:10px 22px">係</button><button class="chip" data-cr="douhan" style="font-size:18px;padding:10px 22px">同伴</button></div>
+  <div class="chips" id="castRole" style="margin-bottom:10px"><button class="chip on" data-cr="kakari" style="font-size:18px;padding:10px 22px">係</button><button class="chip" data-cr="douhan" style="font-size:18px;padding:10px 22px">同伴</button><button class="chip" data-cr="after" style="font-size:18px;padding:10px 22px">アフター</button></div>
+  <div class="chips hidden" id="castNone" style="margin-bottom:6px"><button class="chip" id="castNoneBtn">なし</button></div>
   <div class="muted">出勤中</div><div class="chips" id="castList"></div>
   <button class="ghost sm" id="castMoreBtn" style="margin-top:10px">出勤していないキャストから選ぶ ▾</button>
   <div class="chips hidden" id="castListAll" style="margin-top:8px"></div>

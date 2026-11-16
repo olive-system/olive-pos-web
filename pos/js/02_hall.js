@@ -1,5 +1,5 @@
 // ---------- hall ----------
-const HALL_SEL='*, bill_casts(staff_id,role,is_kakari), bill_extensions(minutes,unit_price,qty,is_auto), bill_tags(id,kind,returned_at), bill_customers(customer_id)';
+const HALL_SEL='*, bill_casts(staff_id,role,is_kakari), after_bills(staff_id), bill_extensions(minutes,unit_price,qty,is_auto), bill_tags(id,kind,returned_at), bill_customers(customer_id)';
 /* 伝票の金額（calc_bill）は伝票ごとに覚えておき、変わった伝票だけ計算し直す（前は1分ごと・知らせのたびに全部の伝票を計算していた） */
 let hallTot={}, hallGen={}, hallEpoch=0, hallFullAt=0; S.hallOn=false;
 const hallDrop=id=>{ delete hallTot[id]; hallGen[id]=(hallGen[id]||0)+1; };
@@ -73,6 +73,13 @@ async function loadOki(){ const SEL='id,memo,guest_count,set_start,business_date
   let r=await sb.from('bills').select(SEL).eq('store_id',S.store.id).eq('status','closed').eq('payments.method','oki').gt('payments.amount',0).is('payments.received_at',null).order('business_date',{ascending:false}).order('id').limit(OKI_MAX);
   if(r.error){ console.warn('oki',r.error.message); return; } // 読めない時は、前に読んだ一覧のまま
   okiBills=(r.data||[]).filter(b=>(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)); }
+// アフター未確認：閉店 −（20分＋未会計の組数 × 10分）を過ぎたら、アフターがまだ決まっていない卓の札に出す（オーナー 2026-11-15「1時に必ず全員がオールアップするように誘導したい」・⑭ イ・⑰ 卓の札だけ）
+function afterDue(now){ const [h,m]=(S.closeHM||'01:00').split(':').map(Number); const d=new Date(businessDate()+'T00:00:00'); d.setHours(h,m,0,0); if(h<12) d.setDate(d.getDate()+1); /* 閉店が朝なら次の日の時刻 */
+  return now>=d.getTime()-(20+S.openBills.length*10)*60000; }
+// 卓の札のアフターの行：決まった卓は「アフター ナナ」「アフター なし」、まだの卓は時刻を過ぎたら「アフター未確認」
+function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="casts">アフター ${esc(b.after_bills.map(x=>S.staff.find(s=>s.id===x.staff_id)?.display_name||'').join('・'))}</div>`;
+  if(b.after_none) return '<div class="casts">アフター なし</div>';
+  return afterDue(now)?'<div style="margin-top:6px;padding:4px 8px;border-radius:6px;background:var(--warn);color:#fff;font-size:13px;font-weight:700;text-align:center">アフター未確認</div>':''; }
 function renderHall(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
   const al=S.openBills.filter(b=>!b.pay_open_at&&(billEnd(b)-now)<10*60000);
   $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(billTable(b)||'?')).join('、')}</div>` : ''; $('alerts').insertAdjacentHTML('beforeend',tsukeAgariHtml()); tsukeBind();
@@ -83,7 +90,7 @@ function renderHall(totals){ const now=new Date(); const cnames=b=>(b.bill_custo
     else if (!b) { el.className='tbl'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="empty">空 席</div>`; el.onclick=()=>openNew(t); }
     else { const end=billEnd(b), remain=Math.round((end-now)/60000); const pay=!!b.pay_open_at; el.className='tbl busy'+(remain<10&&!pay?' over':'');
       const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?S.staff.find(s=>s.id===k.staff_id)?.display_name:'';
-      el.innerHTML=`<div class="name">${esc(t.name)}</div>${cnames(b)?`<div class="cust">${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>${b.guest_count}名</span><span>${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div>${tsukeKpbHtml(b.id)}<div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
+      el.innerHTML=`<div class="name">${esc(t.name)}</div>${cnames(b)?`<div class="cust">${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>${b.guest_count}名</span><span>${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div>${tsukeKpbHtml(b.id)}<div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
       el.onclick=async()=>{ S.billFrom='hall'; if(pay) await payBackExt(b.id); openBill(b.id); }; } /* ホールから伝票を開いたら、お会計を閉じたのと同じ */
     $('tables').appendChild(el); }
   for (const b of okiBills) { const el=document.createElement('div'); const unpaid=(b.payments||[]).filter(p=>p.method==='oki'&&!p.received_at).reduce((a,p)=>a+p.amount,0);

@@ -1,5 +1,5 @@
 // 店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
-function kDom(){ const a=$('castAddBtn'); if(a) a.textContent='＋ '+KL+'／同伴'; const t=$('castAddTtl'); if(t) t.textContent=KL+'／同伴を追加'; const c=document.querySelector('#castRole [data-cr=kakari]'); if(c) c.textContent=KL; }
+function kDom(){ const a=$('castAddBtn'); if(a) a.textContent='＋ '+KL+'／同伴／アフター'; const t=$('castAddTtl'); if(t) t.textContent=KL+'／同伴／アフターを追加'; const c=document.querySelector('#castRole [data-cr=kakari]'); if(c) c.textContent=KL; }
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
 /* （SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
 /* すべての通信に端末の合鍵を付ける（データベースが「登録した端末」かを確かめる。点検） */
