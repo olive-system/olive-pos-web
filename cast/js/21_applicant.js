@@ -49,7 +49,7 @@ function apParts(P){ const { A } = P;
   /* バストアップの撮影は左上の四角だけ（同じ撮影が2か所で迷う。オーナー「直感的に操作したい」） */
   /* バストアップの撮影は左上の四角だけ（同じ撮影が2か所で迷う。オーナー「直感的に操作したい」） */
   const photos = `<div style="margin-top:12px"><div class="f">ヒアリングシート</div><div style="display:flex;gap:6px;flex-wrap:wrap">${sheet.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="sheet" style="width:64px;height:86px;padding:0">撮影</button></div></div>`;
-  const hl = sheetLines(A.hearing, SH_HR()); /* 本人が LINE で入力したヒアリングシート */
+  const hl = sheetLines(A.hearing, STORE); /* 本人が LINE で入力したヒアリングシート */
   const hs = `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">ヒアリングシートの入力内容</b><button class="btn g" id="apSh" style="width:auto;padding:8px 16px">編集</button></div>` + (hl.length ? `<div class="sm" style="line-height:1.8;padding-top:6px">${hl.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:45%">${esc(k)}</span><span style="min-width:0">${esc(v)}</span></div>`).join('')}</div>` : '');
   /* 体験結果に不採用。ジャッジが不採用なら最初から選択。辞退・不採用は理由が必須（オーナー「入店にならなかった場合、その理由を強制的に」） */
   /* 検討中は本人検討（来てほしいが本人の返事待ち）と店検討（人が足りなければ呼ぶ）に分ける。オーナー「それがわかるようにしたい」 */

@@ -31,7 +31,7 @@ function posDocsWire(box, s, D){
 }
 // 小窓：写真（追加・削除）／ヒアリングシートの入力内容／契約書の署名
 function posDocsOpen(s, D, k){ const n = SD_KINDS.find(x => x[0] === k)[1], P = sdPhotos(D, k);
-  if(sdHear(D, k)){ sdModal(sdHearHtml(s.display_name, D, S.store?.code === 'hiroshima')); return; }
+  if(sdHear(D, k)){ sdModal(sdHearHtml(s.display_name, D, S.store?.code)); return; }
   if(sdSign(D, k) && !P.length){ contractPdfOpen(() => sb.rpc('pos_staff_contract', { p_staff: s.id })); return; } /* 署名入りの契約書を PDF で（オーナー） */
   const m = sdModal(`<h3 style="margin:0 0 10px">${esc(s.display_name)}　${n}</h3><div style="display:flex;gap:10px;flex-wrap:wrap">
     ${P.map(p => `<div style="position:relative"><img data-sdp="${p.id}" data-ap="${p.ap ? 1 : 0}" alt="" style="width:180px;height:240px;object-fit:cover;border-radius:8px;display:block;background:var(--soft);cursor:pointer">${p.ap ? '' : `<button type="button" class="xb" data-sddel="${p.id}" aria-label="削除" style="position:absolute;right:4px;top:4px;background:var(--card)!important;border-radius:50%">×</button>`}</div>`).join('')}
