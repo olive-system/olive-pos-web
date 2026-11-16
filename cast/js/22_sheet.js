@@ -1,8 +1,7 @@
 // LINE で入力するヒアリングシート（任意）（オーナーが紙の41項目から33項目を選んだ。元 もらったもの/ヒアリングシートの項目_銀座.md）
-// あいさつの［ヒアリングシート］→ ?go=sheet。応募の人の画面なので「LINEマイページ」は出さない。報酬は出さない。銀座と広島で 希望条件の例・営業連絡の人数 がちがう
+// あいさつの［ヒアリングシート］→ ?go=sheet。応募の人の画面なので「LINEマイページ」は出さない。報酬は出さない。店ごとにちがう所は lib/olive/sheet.js の SHEET_STORE
 // その人のページ（21_applicant.js）の「面接」の箱に、入力の中身を出す
-const SH_HR = () => STORE === 'hiroshima';
-const SHEET = staff => sheetDef(staff, SH_HR()); /* 項目は lib/olive/sheet.js（POS・管理サイトの書類でも使う） */
+const SHEET = staff => sheetDef(staff, STORE); /* 項目は lib/olive/sheet.js（POS・管理サイトの書類でも使う） */
 const SH_FS = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);height:46px';
 // 入力の画面（応募の人・お店の両方で使う）。staff はお店（面接官メモの欄も）
 function sheetBody(H, staff){ const fld = (k, t, o, v) => t === 'seg' ? `<div class="seg" data-sh="${k}">${o.map(x => `<button type="button" data-v="${esc(x)}" class="${x === v ? 'on' : ''}" style="white-space:nowrap;padding:9px 4px">${esc(x)}</button>`).join('')}</div>`

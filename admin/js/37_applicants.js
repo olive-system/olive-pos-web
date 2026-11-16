@@ -78,7 +78,7 @@ function aplApBody(x,A){ const ed=!!A.can_edit, st=storeId;
 
 /* 詳細の中の面接・体験・入店日などの行（aplApBody から分けた） */
 function aplApInfo(A,ed,ivOpen,ivDone,ivLabel,sheet,img){
-  const hl=sheetLines(A.hearing,curStore()?.code==='hiroshima');
+  const hl=sheetLines(A.hearing,curStore()?.code);
   return aplSec(aplGrid([['面接',aplDtW(A.interview_at)],ivDone&&!(ed&&ivOpen)?['面接結果',ivLabel]:null,
     A.trial_name?['体験の報酬',aplPay(A.trial_pay_type,A.trial_pay_amount)]:null,
     A.trial_name?['体験日',aplDays(A.days)||aplDtW(A.trial_at),!!A.days?.length]:null,
