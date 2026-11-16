@@ -4,7 +4,7 @@ const PRINT={ method: localStorage.getItem('print_method'+SLOT)||'tmpa' };
 // 概算：今の金額と、30分・60分延長した場合の金額だけ（延長した場合は pos_bill_est＝calc_bill を呼ぶ。SQL 562）／会計：合計と（消費税込）だけ／明細：品・バックのキャスト・小計・サービス料・消費税・合計・伝票のキャスト
 // お客様の名前・日付・卓・端数切上は出さない（オーナー「いらん」）。字は font_a の 1.7 倍（オーナー「1.7倍」。前の字は 3mm で「小さくて見えない」と言われた）
 const PZ=1.7;
-const VIPL='VIPルーム'; /* 明細の VIP の部屋の料金の言い方（オーナー「VIP代ってダサい」） */
+const VIPL='VIP charge'; /* 明細の VIP の部屋の料金の言い方（オーナー「VIP代ってダサい」） */
 const hmS=t=>hmJst(t).replace(/^0/,''); /* 〜1:30（時の頭の 0 は付けない。オーナー「〜1:30の方がかっこいい」） */
 // d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, pays:[{l,r}], note, foot }
 // c：描く道具（g＝canvas・W＝幅・fs＝字の大きさ・y＝今の高さ）。部品は c.y を進める
@@ -51,7 +51,7 @@ async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
   if(kind==='bill'){ const ps=(b.payments||[]).filter(p=>p.amount>0); d.pays=ps.length>1?ps.map(p=>({l:METHOD[p.method],r:p.amount})):[]; } /* 支払い方法が1つの時は、合計と同じ数字なので出さない */
   if(kind==='detail'){ const yen=n=>'¥'+(Number(n)||0).toLocaleString(), it=[];
     if(T.set) it.push({l:`セット ${b.set_minutes}分 ×${b.set_guest_count??b.guest_count}`,r:T.set}); if(T.vip_set) it.push({l:VIPL,r:T.vip_set});
-    (b.bill_extensions||[]).forEach(e=>it.push({l:`延長 ${e.minutes}分 ×${e.qty}`,r:e.unit_price*e.qty})); if(T.vip_ext) it.push({l:`${VIPL} ${S.settings.ext_minutes}分延長`,r:T.vip_ext});
+    (b.bill_extensions||[]).forEach(e=>it.push({l:`延長 ${e.minutes}分 ×${e.qty}`,r:e.unit_price*e.qty})); if(T.vip_ext) it.push({l:`${VIPL} 延長 ${S.settings.ext_minutes}分 ×${(b.bill_extensions||[]).length}`,r:T.vip_ext}); /* VIP の延長は延長の回数ごと（人数は掛けない）。合計なので回数を出す */
     groupItems((b.bill_items||[]).filter(i=>!i.is_void)).forEach(i=>it.push({l:`${i.name} ×${i.qty}`,r:i.unit_price*i.qty,s:(i.bill_item_splits||[]).map(s=>S.staffAll.find(x=>x.id===s.staff_id)?.display_name).filter(Boolean).join('/')}));
     d.items=it; d.sums=[{l:'小計',r:yen(T.subtotal)}]; if(T.service) d.sums.push({l:`サービス料 ${T.service_rate}%`,r:yen(T.service)}); d.sums.push({l:`消費税 ${T.tax_rate}%`,r:yen(T.tax)}); if(T.adjustment) d.sums.push({l:T.adjustment<0?'値引':'値増',r:yen(T.adjustment)});
     const cs=(b.bill_casts||[]).map(c=>(S.staffAll.find(s=>s.id===c.staff_id)?.display_name||'')+(c.is_kakari?'('+KL+')':'')+(ROLE[c.role]?'('+ROLE[c.role]+')':'')).join('、'); if(cs) d.foot='キャスト：'+cs; }
