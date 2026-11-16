@@ -230,7 +230,7 @@ function hcWireBdayReq(H, again){ const {x, ph, r, k, D, td, sv} = H;
     const z = await sb.rpc('hall_bday_req', { p_token: TOKEN, p_task: x.id, p_req: q.id, p_status: st }); if(z.error){ await uiAlert(z.error.message); } again(); }));
 }
 function hcWireTrialJudge(H, again){ const {x, ph, r, k, D, td, sv} = H;
-  judgeWire($('main'), async (id, v) => { const z = await sb.rpc('tj_vote_staff', { p_token: TOKEN, p_ap: id, p_vote: v }); if(z.error){ await uiAlert(z.error.message); } again(); });
+  judgeWire($('main'), async (id, v) => { const z = await sb.rpc('cast_tj_vote_staff', { p_token: TOKEN, p_ap: id, p_vote: v }); if(z.error){ await uiAlert(z.error.message); } again(); });
   $('main').querySelectorAll('[data-jtr]').forEach(b => b.onclick = () => apPage(b.dataset.jtr, null, again)); /* その人のページの「体験」で体験結果 */
 }
 function hcWireKimono(H, again){ const {x, ph, r, k, D, td, sv} = H;

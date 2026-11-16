@@ -140,8 +140,8 @@ async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e)
 // ② 入出金の登録の完了（オーナー「お客様登録は内海 01:08 完了と書いてある。こんな感じで、誰が完了させたのかを書こう」）
 // ① と同じ形：確認者を選んで［完了］→ 見出しの下に「内海 01:08 完了」。記録は pos_audit_log の「入出金の登録の完了」（detail：business_date・by）。完了の後に登録が増えたら［完了］に戻る
 const CL_MVD='入出金の登録の完了';
-async function clMvRender(d,moves,saved){ const top=$('clMvTop'), el=$('clMvDone'); if(!top||!el) return;
-  const lg=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_MVD).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clMvDone')||S.clDate!==d) return; if(lg.error){ el.innerHTML=RDERR; return; }
+async function clMvRender(d,moves,saved){ let top=$('clMvTop'), el=$('clMvDone'); if(!top||!el) return;
+  const lg=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_MVD).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); top=$('clMvTop'); el=$('clMvDone'); if(!top||!el||S.clDate!==d) return; /* 読む間に描き直されると前の欄は画面から外れるので、今の欄を取り直す（2回重なって呼ばれた時に確認者の欄が出なかった） */ if(lg.error){ el.innerHTML=RDERR; return; }
   const last=(lg.data||[])[0], done=last&&!(moves||[]).some(m=>m.created_at>last.created_at);
   top.innerHTML=done?`<div style="font-size:16px;font-variant-numeric:tabular-nums;margin-bottom:6px">${esc(last.detail?.by||'')}　<small class="muted">${hmJst(last.created_at)}</small>　完了</div>`:'';
   if(done||saved){ el.innerHTML=''; return; }

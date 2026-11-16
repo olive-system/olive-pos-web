@@ -13,7 +13,7 @@ async function renderCuReq(c){ const r=await sb.from('customer_note_requests').s
   box.querySelectorAll('[data-rqno]').forEach(x=>x.onclick=async()=>{ const q=rows.find(z=>z.id===x.dataset.rqno); if(!await uiConfirm('この申請を却下しますか？')) return; if(!await reqResolve(q,'rejected')){ renderCuReq(c); return; } toast('却下しました'); after(); }); }
 window.addEventListener('resize',()=>fitLine());
 async function renderCuSide(c){ $('cuSide').innerHTML='<div class="muted">読み込み中…</div>';
-  const [bt,vs,ot]=await Promise.all([ cuBottles(c.id), sb.from('bill_customers').select('bills(id,business_date,guest_count,status,table_id,table_name,payments(method,amount,received_at,revenue_date))').eq('customer_id',c.id), sb.rpc('cust_others',{p_customer:c.id}) ]);
+  const [bt,vs,ot]=await Promise.all([ cuBottles(c.id), sb.from('bill_customers').select('bills(id,business_date,guest_count,status,table_id,table_name,payments(method,amount,received_at,revenue_date))').eq('customer_id',c.id), sb.rpc('pos_cust_others',{p_customer:c.id}) ]);
   /* ほかの店舗（共有する店舗どうし）の来店・キープ中のボトル。ボトルは見るだけ */ const oth=ot.data||{}; const obt=oth.bottles||[];
   if(S.cuSel!==c.id) return;
   const prep=await csdPrep(c,bt,vs,ot,oth,obt); if(!prep) return;

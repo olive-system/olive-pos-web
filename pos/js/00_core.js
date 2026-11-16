@@ -76,7 +76,7 @@ async function start(){ const run=++startRun; clearTimeout(start.r); clearTimeou
   try{ const { data:{ session } } = await sb.auth.getSession(); if(!live()) return; if (!session){ loginWait(false); return; }
   if(!$('loginErr').textContent) loginWait(true,'');
   /* タイムカード専用の ID では POS を開かない。伝票の削除・入金の取消・入出金の削除・罰金の取消の操作ログは、データベースが書く（関数が無い時は今までどおり画面が書く） */
-  try{ const [tc,dl]=await Promise.all([sb.rpc('is_timecard_user'),sb.rpc('db_logs_on')]); /* 読むだけの2つは同時に */ if(!live()) return; if(tc.data===true){ await sb.auth.signOut(); loginWait(false,'タイムカード専用IDでは、POS は開けません'); return; }
+  try{ const [tc,dl]=await Promise.all([sb.rpc('pos_is_timecard_user'),sb.rpc('pos_db_logs_on')]); /* 読むだけの2つは同時に */ if(!live()) return; if(tc.data===true){ await sb.auth.signOut(); loginWait(false,'タイムカード専用IDでは、POS は開けません'); return; }
     S.DBLOG=dl.data===true; }catch(e){}
   if(!live()) return;
   /* 登録した端末だけ開く。確認できない時（通信の失敗など）も開かない */
