@@ -50,8 +50,10 @@ async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
     d.rows=[{l:'',m:'〜'+hmS(r.data.until),r:r.data.now.amount_due},...(r.data.ext||[]).map(e=>({l:`${e.minutes}分延長`,m:'〜'+hmS(e.until),r:e.due}))]; }
   if(kind==='bill'){ const ps=(b.payments||[]).filter(p=>p.amount>0); d.pays=ps.length>1?ps.map(p=>({l:METHOD[p.method],r:p.amount})):[]; } /* 支払い方法が1つの時は、合計と同じ数字なので出さない */
   if(kind==='detail'){ const yen=n=>'¥'+(Number(n)||0).toLocaleString(), it=[];
-    if(T.set) it.push({l:`セット ${b.set_minutes}分 ×${b.set_guest_count??b.guest_count}`,r:T.set}); if(T.vip_set) it.push({l:VIPL,r:T.vip_set});
-    (b.bill_extensions||[]).forEach(e=>it.push({l:`延長 ${e.minutes}分 ×${e.qty}`,r:e.unit_price*e.qty})); if(T.vip_ext) it.push({l:`${VIPL} 延長 ${S.settings.ext_minutes}分 ×${(b.bill_extensions||[]).length}`,r:T.vip_ext}); /* VIP の延長は延長の回数ごと（人数は掛けない）。合計なので回数を出す */
+    /* 延長は POS の伝票の画面と同じく1行にまとめる（30分延長 ×回数。延長ごとの人数は出さない）。VIP の延長は VIP charge のすぐ下（オーナー「VIP chargeの下に延長分のVIP charge」） */
+    const ex=b.bill_extensions||[], xl=`${S.settings.ext_minutes}分延長 ×${ex.length}`;
+    if(T.set) it.push({l:`セット ${b.set_minutes}分 ×${b.set_guest_count??b.guest_count}`,r:T.set}); if(T.vip_set) it.push({l:VIPL,r:T.vip_set}); if(T.vip_ext) it.push({l:`${VIPL} ${xl}`,r:T.vip_ext});
+    if(ex.length) it.push({l:xl,r:ex.reduce((a,e)=>a+e.unit_price*e.qty,0)});
     hcLast(groupItems((b.bill_items||[]).filter(i=>!i.is_void)),i=>S.products.find(p=>p.id===i.product_id)?.agg_category==='HC').forEach(i=>it.push({l:`${i.name} ×${i.qty}`,r:i.unit_price*i.qty,s:(i.bill_item_splits||[]).map(s=>S.staffAll.find(x=>x.id===s.staff_id)?.display_name).filter(Boolean).join('/')}));
     d.items=it; d.sums=[{l:'小計',r:yen(T.subtotal)}]; if(T.service) d.sums.push({l:`サービス料 ${T.service_rate}%`,r:yen(T.service)}); d.sums.push({l:`消費税 ${T.tax_rate}%`,r:yen(T.tax)}); if(T.adjustment) d.sums.push({l:T.adjustment<0?'値引':'値増',r:yen(T.adjustment)});
     const cs=(b.bill_casts||[]).map(c=>(S.staffAll.find(s=>s.id===c.staff_id)?.display_name||'')+(c.is_kakari?'('+KL+')':'')+(ROLE[c.role]?'('+ROLE[c.role]+')':'')).join('、'); if(cs) d.foot='キャスト：'+cs; }
