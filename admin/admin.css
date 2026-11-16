@@ -5,7 +5,7 @@
   button.primary{background:var(--blue);color:#fff}button.ok{background:var(--acc);color:#fff}button.danger{background:var(--warn);color:#fff}
   button.ghost{background:transparent;border:1px solid var(--line)}button.sm{height:34px;padding:0 10px;font-size:14px}
   button:disabled{opacity:.4;cursor:not-allowed}
-  input,select{font:inherit;font-size:16px;height:var(--h);padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%;min-width:0}
+  input,select{width:100%;min-width:0} /* 形と大きさは olive.css。管理サイトは幅いっぱい */
   label{display:block;font-size:13px;color:var(--muted)}label>input,label>select{margin-top:4px;color:var(--ink)}
   .muted{color:var(--muted)}small{font-size:13px}.hide{display:none!important}
   .err{color:var(--warn);font-size:14px;min-height:20px;margin-top:8px}
@@ -37,12 +37,12 @@
   .card h2{font-size:16px;margin:0 0 10px}
   .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;align-items:end}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  table.t{width:100%;border-collapse:collapse}table.t td,table.t th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:15px;vertical-align:middle}
-  table.t th{font-size:13px;color:var(--muted);font-weight:400}
+  
+  
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .seg button{border-radius:0;background:#fff;height:36px;font-size:14px;padding:0 12px;border-right:1px solid var(--line)}.seg button:last-child{border-right:none}
   .seg button.on{background:var(--ink);color:#fff}
-  .badge{font-size:12px;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--gold);color:#fff}.badge.gray{background:var(--muted)}.badge.k{background:var(--acc)}.badge.warnb{background:var(--warn)}
+  .badge.k{background:var(--acc)}
   .num{text-align:right!important;font-variant-numeric:tabular-nums;white-space:nowrap}
   .alert{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:700}
   table.reg{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}table.reg td,table.reg th{padding:6px 5px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right}
@@ -99,7 +99,7 @@
   /* 15番：長い説明は1行＋「？」で詳しく（押すとその場で下に開く）。入力欄の高さは全部 44px */
   .hint .qm{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px!important;min-height:0!important;min-width:0;padding:0!important;margin:0 0 0 6px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--muted);font-size:12px;line-height:1;vertical-align:middle;cursor:pointer}
   .hint .more{display:none;margin-top:4px}.hint.open .more{display:block}.hint.open .qm{background:var(--line)}
-  input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
+  
   table.cs button.sm,table.fn button,.row button.sm{height:44px} /* 入力欄の横のボタンも 44px */
   table.ks td,table.ks th{text-align:right;white-space:nowrap}table.ks th.nm,table.ks td.nm{text-align:left}table.ks th.ksg{text-align:center;color:var(--ink);font-weight:700;border-left:1px solid var(--line)}table.ks tr.kst td{border-top:2px solid var(--line);font-weight:700}
   .plg{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;align-items:start}.plg .card{margin:0}table.pl td.r,table.pl th.r{text-align:right}table.pl tr.sep td{padding:2px;border-bottom:2px solid var(--line)}table.pl tr.kst td{font-weight:700;border-top:2px solid var(--line)}table.pl td,table.pl th{white-space:nowrap}
