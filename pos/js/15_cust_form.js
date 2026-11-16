@@ -49,7 +49,7 @@ async function cufIndustry(c,e){ e.preventDefault(); const on=!c.is_industry; if
 }
 /* 削除（来店履歴があれば止める・ボトルの記録も消す） */
 async function cufDelete(c){ /* 来店履歴があれば先に知らせる。ボトルの記録があれば一緒に消す（英語のエラーを出さない） */
-    /* ほかの店舗に来店・ボトルの記録があるお客様は削除できない */ const ot=await sb.rpc('cust_others',{p_customer:c.id}); if(ot.data?.others_all){ await uiAlert(`「${c.name}」様はほかの店舗に来店・ボトルの記録があるので削除できません`); return; }
+    /* ほかの店舗に来店・ボトルの記録があるお客様は削除できない */ const ot=await sb.rpc('pos_cust_others',{p_customer:c.id}); if(ot.data?.others_all){ await uiAlert(`「${c.name}」様はほかの店舗に来店・ボトルの記録があるので削除できません`); return; }
     const [vc,bc]=await Promise.all([ sb.from('bill_customers').select('bill_id',{count:'exact',head:true}).eq('customer_id',c.id), sb.from('customer_bottles').select('id',{count:'exact',head:true}).eq('customer_id',c.id) ]); if(vc.error||bc.error){ toast('削除できません：'+(vc.error||bc.error).message); return; }
     if(vc.count){ await uiAlert(`「${c.name}」様は来店履歴があるので削除できません`); return; }
     if(!await uiConfirm(`「${c.name}」を削除しますか？${bc.count?`\nボトルの記録（${bc.count}本・飲み切りや期限切れも含む）も一緒に消えます。`:''}`))return;

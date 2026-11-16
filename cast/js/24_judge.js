@@ -18,7 +18,7 @@ function judgeWire(M, vote){ M.querySelectorAll('[data-jg]').forEach(c => c.quer
 // LINE のボタンから（黒服は LINE連携、オーナーはオーナー連携の LINE）
 async function judgeLiff(idt){
   const a = jgParam('a'), v0 = jgParam('v'); if(!a){ fail('表示できません'); return; }
-  const go = async v => { const r = await sb.rpc('tj_liff', { p_store: STORE, p_id_token: idt, p_ap: a, p_vote: v || null }); if(r.error){ if(v){ await uiAlert(r.error.message); return go(null); } fail(r.error.message); return; }
+  const go = async v => { const r = await sb.rpc('cast_tj_liff', { p_store: STORE, p_id_token: idt, p_ap: a, p_vote: v || null }); if(r.error){ if(v){ await uiAlert(r.error.message); return go(null); } fail(r.error.message); return; }
     show(`<div class="ttl">体験のジャッジ</div>${judgeCard({ ...r.data, voted: null, missing: null })}`);
     judgeWire($('main'), (id, vv) => go(vv)); };
   await go(v0 === 'yes' || v0 === 'no' ? v0 : null);
