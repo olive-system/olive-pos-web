@@ -1,30 +1,57 @@
 // ---------- 印刷（Epson TM-m30III：TM Print Assistant経由。設定でブラウザ印刷に切替可） ----------
 const PRINT={ method: localStorage.getItem('print_method'+SLOT)||'tmpa' };
-function padLine(l,r,w=32){ l=String(l); r=String(r); const lw=[...l].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0), rw=[...r].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0); const sp=Math.max(1,w-lw-rw); return l+' '.repeat(sp)+r; }
-function buildLines(kind){ const b=S.cur,T=b.totals,t=S.tables.find(x=>x.id===b.table_id); const L=[]; const d=new Date();
-  L.push({c:true,b:true,t:S.store?.name||'OLIVE'}); L.push({c:true,t:kind==='estimate'?'【 概 算 】':kind==='detail'?'【 明 細 】':'【 御 会 計 】'});
-  L.push({t:`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${hmJst(d)}  ${billTable(b)}  ${b.guest_count}名`});
-  const custs=(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・'); if(custs) L.push({t:custs+' 様'});
-  L.push({t:'-'.repeat(32)});
-  if(T.set) L.push({t:padLine(`セット ${b.set_minutes}分 ×${b.set_guest_count??b.guest_count}`,T.set.toLocaleString())}); if(T.vip_set) L.push({t:padLine('VIP代',T.vip_set.toLocaleString())});
-  (b.bill_extensions||[]).forEach(e=>L.push({t:padLine(`延長 ${e.minutes}分 ×${e.qty}`,(e.unit_price*e.qty).toLocaleString())})); if(T.vip_ext) L.push({t:padLine(`VIP${S.settings.ext_minutes}分延長`,T.vip_ext.toLocaleString())});
-  groupItems((b.bill_items||[]).filter(i=>!i.is_void)).forEach(i=>{ L.push({t:padLine(`${i.name} ×${i.qty}`,(i.unit_price*i.qty).toLocaleString())}); if(kind==='detail'){ const sp=(i.bill_item_splits||[]).map(s=>S.staffAll.find(x=>x.id===s.staff_id)?.display_name).filter(Boolean).join('/'); if(sp) L.push({t:'   → '+sp}); } });
-  L.push({t:'-'.repeat(32)});
-  L.push({t:padLine('小計',T.subtotal.toLocaleString())}); if(T.service) L.push({t:padLine(`サービス料 ${T.service_rate}%`,T.service.toLocaleString())}); L.push({t:padLine(`消費税 ${T.tax_rate}%`,T.tax.toLocaleString())});
-  if(T.adjustment) L.push({t:padLine(T.adjustment<0?'値引':'値増',T.adjustment.toLocaleString())});
-  L.push({b:true,t:padLine('合計',T.amount_due.toLocaleString()+'円')});
-  if(kind==='bill'&&(b.payments||[]).length){ L.push({t:'-'.repeat(32)}); (b.payments||[]).filter(p=>p.amount>0).forEach(p=>L.push({t:padLine(METHOD[p.method],p.amount.toLocaleString())})); }
-  if(kind==='detail'){ const cs=(b.bill_casts||[]).map(c=>(S.staffAll.find(s=>s.id===c.staff_id)?.display_name||'')+(c.is_kakari?'('+KL+')':'')+(ROLE[c.role]?'('+ROLE[c.role]+')':'')).join('、'); if(cs) L.push({t:'キャスト：'+cs}); }
-  if(kind==='estimate') L.push({c:true,t:'※概算です。金額は変わることがあります'});
-  return L; }
-function linesToXml(L){ let x='<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><text lang="ja"/><text font="font_a"/>';
-  for(const l of L){ x+=`<text align="${l.c?'center':'left'}"/><text em="${l.b?'true':'false'}"/><text>${esc(l.t)}&#10;</text>`; }
-  x+='<feed line="3"/><cut type="feed"/></epos-print>'; return x; }
-function linesToHtml(L){ return L.map(l=>`<div style="text-align:${l.c?'center':'left'};font-weight:${l.b?'700':'400'};white-space:pre">${esc(l.t)||'&nbsp;'}</div>`).join(''); }
-function doPrint(L){ if(PRINT.method==='browser'){ $('printArea').innerHTML=linesToHtml(L); setTimeout(()=>window.print(),50); return; }
-  const url='tmprintassistant://tmprintassistant.epson.com/print?ver=1&data-type=eposprintxml&reselect=yes&data='+encodeURIComponent(linesToXml(L))+'&back='+encodeURIComponent(location.href);
-  location.href=url; }
-$('prEst').onclick=()=>doPrint(buildLines('estimate')); $('prBill').onclick=()=>doPrint(buildLines('bill')); $('prDetail').onclick=()=>doPrint(buildLines('detail'));
+// 伝票の印刷（［概算印刷］Estimate・［会計印刷］Bill・［明細印刷］Details）。オーナー（2026-11-17）「ロゴ入り・OLIVE らしいデザイン」「シンプルに洗練して」
+// 概算：今の金額と、30分・60分延長した場合の金額だけ（延長した場合は pos_bill_est＝calc_bill を呼ぶ。SQL 562）／会計：合計と（消費税込）だけ／明細：品・バックのキャスト・小計・サービス料・消費税・合計・伝票のキャスト
+// お客様の名前・日付・卓・端数切上は出さない（オーナー「いらん」）。字は font_a の 1.7 倍（オーナー「1.7倍」。前の字は 3mm で「小さくて見えない」と言われた）
+const PZ=1.7;
+const hmS=t=>hmJst(t).replace(/^0/,''); /* 〜1:30（時の頭の 0 は付けない。オーナー「〜1:30の方がかっこいい」） */
+// 領収書と同じ明朝と Baskerville。ロゴ・店名・見出し・金額を、余白と細い線で並べる。576 ドット幅の絵（imagePrint で白黒に）
+// d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, pays:[{l,r}], note, foot }
+function drawSlip(d,z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
+  const MI=(px,w)=>`${w||600} ${Math.round(px)}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`, BK=(px,it)=>`${it?'italic ':''}400 ${Math.round(px)}px Baskerville,"Baskerville Old Face",Georgia,serif`;
+  const yen=n=>'¥'+(Number(n)||0).toLocaleString();
+  const hl=(y,x1,x2)=>{ g.lineWidth=1; g.beginPath(); g.moveTo(x1,Math.round(y)+.5); g.lineTo(x2,Math.round(y)+.5); g.stroke(); };
+  const sp=(t,y,ls)=>{ /* 字間をあけて真ん中に */ const cs=[...String(t)], w=cs.reduce((s,c)=>s+g.measureText(c).width,0)+ls*(cs.length-1); let x=(W-w)/2; g.textAlign='left'; for(const c of cs){ g.fillText(c,x,y); x+=g.measureText(c).width+ls; } };
+  const wrap=(t,mw)=>{ /* 幅 mw に入るように折り返す */ const out=[]; let cur=''; for(const c of [...String(t)]){ if(cur&&g.measureText(cur+c).width>mw){ out.push(cur); cur=c===' '||c==='　'?'':c; } else cur+=c; } out.push(cur); return out; };
+  const fs=22*z; let y=Math.round(fs*0.6);
+  if(d.logo){ /* ロゴの緑は白黒にすると薄い葉が消えるので、色のある所を全部黒にする */ const lw=Math.round(Math.min(340,W*0.6)), lh=Math.round(d.logo.height*lw/d.logo.width); const lc=document.createElement('canvas'); lc.width=lw; lc.height=lh; const lg=lc.getContext('2d'); lg.drawImage(d.logo,0,0,lw,lh); const px=lg.getImageData(0,0,lw,lh); for(let i=0;i<px.data.length;i+=4){ const on=px.data[i+3]>24&&(px.data[i]+px.data[i+1]+px.data[i+2])<720; px.data[i]=px.data[i+1]=px.data[i+2]=on?0:255; px.data[i+3]=255; } lg.putImageData(px,0,0); g.drawImage(lc,Math.round((W-lw)/2),y); y+=lh; }
+  y+=Math.round(fs*1.3); g.font=MI(fs*0.75,400); sp(d.store||'',y,fs*0.12);
+  y+=Math.round(fs*2.6); g.font=BK(fs*1.45,true); sp(d.title||'',y,fs*0.12); /* 見出しは領収書の Receipt と同じ Baskerville の斜体 */
+  y+=Math.round(fs*1.0); hl(y,W/2-fs*1.2,W/2+fs*1.2);
+  y+=Math.round(fs*1.6);
+  if(d.kind==='estimate'){
+    const mx=Math.round(fs*4.6); /* 〜何時 の始まりをそろえる（延長の言葉の長さで、ずれないように） */
+    d.rows.forEach((r,i)=>{ y+=Math.round(fs*(i?2.5:1.6)); g.textAlign='left'; if(r.l){ g.font=MI(fs*0.8,400); g.fillText(r.l,0,y); } g.font=MI(fs*0.95,600); g.fillText(r.m,mx,y); g.textAlign='right'; g.font=BK(fs*(i?1.45:1.75)); g.fillText(yen(r.r),W,y); });
+  } else if(d.kind==='detail'){
+    (d.items||[]).forEach((it,i)=>{ g.font=BK(fs*1.0); const aw=g.measureText(yen(it.r)).width; g.font=MI(fs*0.85,400); const ls=wrap(it.l,W-aw-fs); ls.forEach((t,k)=>{ y+=Math.round(fs*(k?1.15:(i?1.5:0.9))); g.textAlign='left'; g.font=MI(fs*0.85,400); g.fillText(t,0,y); });
+      g.textAlign='right'; g.font=BK(fs*1.0); g.fillText(yen(it.r),W,y); if(it.s){ y+=Math.round(fs*1.1); g.textAlign='left'; g.font=MI(fs*0.7,400); g.fillText('→ '+it.s,fs*1.2,y,W-fs*1.2); } });
+    y+=Math.round(fs*1.0); hl(y,0,W);
+    (d.sums||[]).forEach((s,i)=>{ y+=Math.round(fs*(i?1.4:1.6)); g.textAlign='left'; g.font=MI(fs*0.8,400); g.fillText(s.l,0,y); g.textAlign='right'; g.font=BK(fs*0.95); g.fillText(s.r,W,y); });
+    y+=Math.round(fs*2.3); g.textAlign='left'; g.font=MI(fs*0.95,600); g.fillText('合計',0,y); g.textAlign='right'; g.font=BK(fs*1.75); g.fillText(yen(d.due),W,y);
+  } else {
+    y+=Math.round(fs*0.6); g.textAlign='left'; g.font=MI(fs*0.95,600); g.fillText('合計',0,y); g.textAlign='right'; g.font=BK(fs*1.9); g.fillText(yen(d.due),W,y);
+    (d.pays||[]).forEach((p,i)=>{ y+=Math.round(fs*(i?1.4:2.0)); g.textAlign='left'; g.font=MI(fs*0.8,400); g.fillText(p.l,0,y); g.textAlign='right'; g.font=BK(fs*1.0); g.fillText(yen(p.r),W,y); });
+  }
+  if(d.note){ y+=Math.round(fs*1.5); g.textAlign='right'; g.font=MI(fs*0.75,400); g.fillText(d.note,W,y); } /* 金額の下に右寄せ */
+  if(d.foot){ y+=Math.round(fs*2.0); g.textAlign='left'; g.font=MI(fs*0.75,400); wrap(d.foot,W).forEach((t,k)=>{ if(k) y+=Math.round(fs*1.1); g.fillText(t,0,y); }); }
+  y+=Math.round(fs*1.4);
+  const out=document.createElement('canvas'); out.width=W; out.height=y; out.getContext('2d').drawImage(cv,0,0); return out; }
+// 伝票から紙の中身を作る（概算は延長した場合の金額をデータベースで出す）。出せない時は null
+async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
+  const d={ kind, title:kind==='estimate'?'Estimate':kind==='bill'?'Bill':'Details', store:S.store?.name||'OLIVE', due:T.amount_due, note:kind==='detail'?'':'（消費税込）' };
+  const src=S.settings?.receipt_logo; if(src){ try{ const im=new Image(); im.src=src; await im.decode(); d.logo=im; }catch(_){} } /* ロゴが読めない時は、ロゴなしで出す */
+  if(kind==='estimate'){ const r=await sb.rpc('pos_bill_est',{p_bill:b.id}); if(r.error){ toast('概算の金額を出せません：'+r.error.message); return null; }
+    d.rows=[{l:'',m:'〜'+hmS(r.data.until),r:r.data.now.amount_due},...(r.data.ext||[]).map(e=>({l:`${e.minutes}分延長`,m:'〜'+hmS(e.until),r:e.due}))]; }
+  if(kind==='bill'){ const ps=(b.payments||[]).filter(p=>p.amount>0); d.pays=ps.length>1?ps.map(p=>({l:METHOD[p.method],r:p.amount})):[]; } /* 支払い方法が1つの時は、合計と同じ数字なので出さない */
+  if(kind==='detail'){ const yen=n=>'¥'+(Number(n)||0).toLocaleString(), it=[];
+    if(T.set) it.push({l:`セット ${b.set_minutes}分 ×${b.set_guest_count??b.guest_count}`,r:T.set}); if(T.vip_set) it.push({l:'VIP代',r:T.vip_set});
+    (b.bill_extensions||[]).forEach(e=>it.push({l:`延長 ${e.minutes}分 ×${e.qty}`,r:e.unit_price*e.qty})); if(T.vip_ext) it.push({l:`VIP${S.settings.ext_minutes}分延長`,r:T.vip_ext});
+    groupItems((b.bill_items||[]).filter(i=>!i.is_void)).forEach(i=>it.push({l:`${i.name} ×${i.qty}`,r:i.unit_price*i.qty,s:(i.bill_item_splits||[]).map(s=>S.staffAll.find(x=>x.id===s.staff_id)?.display_name).filter(Boolean).join('/')}));
+    d.items=it; d.sums=[{l:'小計',r:yen(T.subtotal)}]; if(T.service) d.sums.push({l:`サービス料 ${T.service_rate}%`,r:yen(T.service)}); d.sums.push({l:`消費税 ${T.tax_rate}%`,r:yen(T.tax)}); if(T.adjustment) d.sums.push({l:T.adjustment<0?'値引':'値増',r:yen(T.adjustment)});
+    const cs=(b.bill_casts||[]).map(c=>(S.staffAll.find(s=>s.id===c.staff_id)?.display_name||'')+(c.is_kakari?'('+KL+')':'')+(ROLE[c.role]?'('+ROLE[c.role]+')':'')).join('、'); if(cs) d.foot='キャスト：'+cs; }
+  return d; }
+const slipPrint=kind=>async()=>{ const d=await slipData(kind); if(d) imagePrint(drawSlip(d,PZ)); };
+$('prEst').onclick=slipPrint('estimate'); $('prBill').onclick=slipPrint('bill'); $('prDetail').onclick=slipPrint('detail');
 $('prReceipt').onclick=async()=>{ // 領収書：入金のあった金額まで。発行のたびにサインし、receipts に記録する。出し切った後は再発行扱い（理由必須）
   const recv=(S.cur.payments||[]).filter(p=>p.amount>0&&p.received_at); const received=recv.reduce((a,p)=>a+p.amount,0); const cap=Math.min(received,S.cur.totals?.amount_due??0);
   if(cap<=0){ toast('入金がまだないため、領収書は発行できません'); return; }
