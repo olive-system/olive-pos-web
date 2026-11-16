@@ -1,6 +1,6 @@
 // ---------- order（d-system準拠の4列：カテゴリー／メニュー／選択／注文→確定） ----------
 // ルール：売上は全部係に付く（複数なら等分）。3列目で選ぶのはバック・ポイントを付ける人だけ（選ばなければバックなし）
-// 名前を押すたびにその人の行に1つ足す（同じ物を何人かに一度に入れるため）。注文の時には等分を作らない（等分は伝票の振分で後から）
+// キャストドリンクは、名前を押すたびにその人の行に1つ足す（同じ物を何人かに一度に入れるため。等分は無い）。ほかは選んだ人数で等分（シャンパン・ワインの抜き物）
 let oCat=null, oCart=[], oSel=-1, oPresent=new Set();
 async function openOrder(){ oCart=[]; oSel=-1; oCat=(S.categories.find(c=>c.is_visible&&S.products.some(p=>p.category_id===c.id&&p.is_visible))||S.categories.find(c=>c.is_visible))?.id||null; oPresent=await updateCastBadge(); renderOrder(); show('v-order'); }
 function renderOrder(catId){ if(catId) oCat=catId;
@@ -9,11 +9,14 @@ function renderOrder(catId){ if(catId) oCat=catId;
   $('oProds').innerHTML=S.products.filter(p=>p.category_id===oCat&&p.is_visible).map(p=>`<button class="oprod" data-id="${p.id}"><span>${esc(p.name)}</span><span class="pb">${yen(p.price)}</span></button>`).join('')||'<div class="muted">なし</div>';
   $('oProds').querySelectorAll('.oprod').forEach(b=>b.onclick=()=>cartAdd(S.products.find(p=>p.id===b.dataset.id)));
   renderOrderCasts(); renderCart(); }
-function cartAdd(p){ const i=oCart.findIndex(l=>l.p.id===p.id&&!l.casts.length); /* 人ごとの行に分けるので、名前の付いていない行にだけ足す */ if(i>=0){ oCart[i].qty++; oSel=i; } else { oCart.push({p,qty:1,casts:[]}); oSel=oCart.length-1; } renderOrderCasts(); renderCart(); }
+const perHead=p=>/キャストドリンク/.test(S.categories.find(c=>c.id===p.category_id)?.name||'');
+function cartAdd(p){ const i=perHead(p)?oCart.findIndex(l=>l.p.id===p.id&&!l.casts.length):oCart.findIndex(l=>l.p.id===p.id); /* キャストドリンクは人ごとの行に分けるので、名前の付いていない行にだけ足す */ if(i>=0){ oCart[i].qty++; oSel=i; } else { oCart.push({p,qty:1,casts:[]}); oSel=oCart.length-1; } renderOrderCasts(); renderCart(); }
 function renderOrderCasts(){ const line=oCart[oSel]; const cs=S.staff.filter(s=>s.kind==='cast'); const onBill=new Set((S.cur.bill_casts||[]).map(c=>c.staff_id));
   const rank=s=>onBill.has(s.id)?0:oPresent.has(s.id)?1:2; const list=[...cs].sort((a,b)=>rank(a)-rank(b));
   if(!line){ $('oCasts').innerHTML='<div class="muted">メニューを選ぶと、バックを付けるキャストを選べます</div>'; return; }
   if(noBack(line.p)){ line.casts=[]; $('oCasts').innerHTML=`<div class="muted" style="font-size:14px">「${esc(line.p.name)}」<br>バック0円（設定→メニューで変更できます）</div>`; return; }
+  if(!perHead(line.p)){ $('oCasts').innerHTML=`<div class="muted" style="font-size:12px">「${esc(line.p.name)}」のバックを付ける人（選ばなければバックなし）</div><div class="ocgrid">`+list.map(s=>`<button class="ocast ${line.casts.includes(s.id)?'on':''}" data-id="${s.id}">${esc(s.display_name)}</button>`).join('')+`</div>`;
+    $('oCasts').querySelectorAll('.ocast').forEach(b=>b.onclick=()=>{ const id=b.dataset.id; const k=line.casts.indexOf(id); if(k>=0) line.casts.splice(k,1); else line.casts.push(id); renderOrderCasts(); renderCart(); }); return; }
   const one=id=>oCart.find(l=>l.p.id===line.p.id&&l.casts.length===1&&l.casts[0]===id); /* その人だけの行 */
   const btn=s=>{ const l=one(s.id); return `<button class="ocast ${l?'on':''}" data-id="${s.id}">${esc(s.display_name)}${l&&l.qty>1?' ×'+l.qty:''}</button>`; };
   $('oCasts').innerHTML=`<div class="muted" style="font-size:12px">名前を押すたびに、その人に「${esc(line.p.name)}」を1つ足します</div><div class="ocgrid">`+list.map(btn).join('')+`</div>`;
