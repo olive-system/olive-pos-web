@@ -12,7 +12,7 @@
   button.danger{background:var(--warn);color:#fff}button.gold{background:var(--gold);color:#fff}
   button.ghost{background:transparent;border:1px solid var(--line)}button.sm{min-height:0;padding:6px 10px;font-size:13px}
   button.on{background:var(--ink);color:#fff}
-  input,select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  
   .tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
   .tbl{background:var(--soft);border-radius:14px;min-height:150px;padding:12px;text-align:center;display:flex;flex-direction:column;justify-content:center;cursor:pointer;border:2px solid transparent}
   .tbl .name{font-weight:700;font-size:16px}.tbl .empty{font-size:26px;color:var(--head);margin-top:10px}
@@ -29,7 +29,7 @@
   .list{display:flex;flex-direction:column;gap:6px}
   .item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--soft);border:1px solid var(--line)}
   .item .n{flex:1}.item .amt{font-variant-numeric:tabular-nums;min-width:90px;text-align:right}.item small{color:var(--muted)}.item .qb{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
-  .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--gold);color:#fff}.badge.k{background:var(--ink)}
+  .badge.k{background:var(--ink)}
   .totals{display:grid;grid-template-columns:auto auto;gap:4px 20px;font-variant-numeric:tabular-nums;justify-content:end}.totals .big{font-size:28px;font-weight:800}
   .bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
   .chips{display:flex;flex-wrap:wrap;gap:8px}.chip{padding:10px 14px;border-radius:999px;background:var(--soft);font-size:15px}.chip.on{background:var(--ink);color:#fff}
@@ -50,13 +50,13 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}.modal.on{display:flex}
   .modal .box{background:#fff;border-radius:16px;padding:18px;width:min(760px,92vw);max-height:88vh;overflow:auto}
   .modal .box:has(>.dx){position:relative;padding-right:44px}.modal .box:has(>.dx)>.bar{margin-right:-26px}button.xb.dx{position:absolute;top:10px;right:10px;font-size:24px!important} /* v12.71：見るだけの小窓は下の「閉じる」ではなく右上の × で閉じる（オーナー 2026-11-06「閉じるんだったら×でいいよね」） */
-  table.t{width:100%;border-collapse:collapse}table.t td,table.t th{padding:6px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}table.t input{width:100%}table.t input.n{width:110px;text-align:right}
+  table.t input{width:100%}table.t input.n{width:110px;text-align:right}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;display:none;z-index:80}.toast.on{display:block}
   .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
   .login form{width:360px;background:#fff;padding:32px;border-radius:16px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
   .login form.waiting input,.login form.waiting button{display:none} /* ログインしたまま起動・通信を待つ間は入力欄を出さない */
   .hidden{display:none!important}.muted{color:var(--muted)}.right{text-align:right}
-  .badge.warnb{background:var(--warn)}.badge.gray{background:var(--muted)}.badge.tag{background:var(--muted)}
+  .badge.gray{background:var(--muted)}.badge.tag{background:var(--muted)}
   .cast-line{display:flex;align-items:center;gap:8px;padding:4px 0 4px 12px;font-size:15px}
   .kindbtn{padding:10px 14px;border-radius:10px;background:var(--soft)}.kindbtn.on{background:var(--ink);color:#fff}
   .tbl .tags{font-size:13px;color:var(--muted)}
@@ -117,7 +117,7 @@
   /* 15番：長い説明は1行＋「？」で詳しく（押すとその場で下に開く）。入力欄の高さは全部 44px */
   .hint .qm{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px!important;min-height:0!important;min-width:0;padding:0!important;margin:0 0 0 6px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--muted);font-size:12px;line-height:1;vertical-align:middle;cursor:pointer}
   .hint .more{display:none;margin-top:4px}.hint.open .more{display:block}.hint.open .qm{background:var(--line)}
-  input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]),select{height:44px!important;min-height:44px;box-sizing:border-box;padding-top:0!important;padding-bottom:0!important}
+  
   #cInfo select{height:32px!important;min-height:0!important;font-size:13px!important;padding:0 26px 0 8px!important} /* v11.61：在籍キャストの詳細の選択は小さく（オーナー 2026-10-17「でかい」） */
   #cuForm .chip,#cuBtAdd,#cuSide .item button{height:44px!important;box-sizing:border-box;padding-top:0;padding-bottom:0} /* 入力欄の横のボタンも 44px */
 
