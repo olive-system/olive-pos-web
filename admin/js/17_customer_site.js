@@ -3,11 +3,10 @@ let csFrameMsg=null;
 // お客様のデータ（Excel）。期間の会計済の伝票から、お客様ごとに 名前・係・来店回数・金額（伝票の合計）を金額の高い順に。1枚の伝票にお客様が2人以上いる時は、全員にその伝票の金額を付ける（オーナーの指示）。登録の無い伝票は入らない
 let cdFrom=null, cdTo=null;
 async function custDataExcel(st,f,t){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
-  // 係は店ごとの表（customer_kakari。POS と同じ）。読めない時だけ、前の列（customers.kakari_staff_id）
-  const bills=[]; let ck='customer_kakari(store_id,staff_id)'; for(let i=0;i<50;i++){ const q=await sb.from('bills').select(`id,business_date,bill_customers(customer_id,customers(name,${ck})),payments(amount)`).eq('store_id',st).eq('status','closed').gte('business_date',f).lte('business_date',t).order('business_date').order('id').range(i*1000,i*1000+999);
-    if(q.error&&i===0&&ck!=='kakari_staff_id'&&/customer_kakari/.test(q.error.message)){ ck='kakari_staff_id'; i=-1; continue; }
+  // 係は店ごとの表（customer_kakari。POS と同じ）だけから読む（お客様の表の前の列は、なくすため読まない）
+  const bills=[]; for(let i=0;i<50;i++){ const q=await sb.from('bills').select('id,business_date,bill_customers(customer_id,customers(name,customer_kakari(store_id,staff_id))),payments(amount)').eq('store_id',st).eq('status','closed').gte('business_date',f).lte('business_date',t).order('business_date').order('id').range(i*1000,i*1000+999);
     if(q.error){ await uiAlert('読み込めません：'+q.error.message); return; } bills.push(...(q.data||[])); if((q.data||[]).length<1000) break; }
-  const kOf=c=>c?('customer_kakari' in c?((c.customer_kakari||[]).find(x=>x.store_id===st)?.staff_id||null):c.kakari_staff_id):null;
+  const kOf=c=>(c?.customer_kakari||[]).find(x=>x.store_id===st)?.staff_id||null;
   const sf=await sb.from('staff').select('id,display_name').eq('store_id',st); const sn={}; (sf.data||[]).forEach(x=>{ sn[x.id]=x.display_name; });
   const M={}; for(const b of bills){ const amt=(b.payments||[]).reduce((a,p)=>a+Number(p.amount||0),0); const seen=new Set();
     for(const c of (b.bill_customers||[])){ if(!c.customer_id||seen.has(c.customer_id)) continue; seen.add(c.customer_id); const m=M[c.customer_id]||(M[c.customer_id]={name:c.customers?.name||'',kakari:sn[kOf(c.customers)]||'',n:0,amt:0}); m.n++; m.amt+=amt; } }
