@@ -134,6 +134,8 @@ async function rtBillCheck(){ if(!S.cur||!(onView('v-bill')||onView('v-pay'))) r
 /* 読めなかった項目は黙って消さず・0件として通さず、この1行を出す（点検 B5） */ const RDERR_T='読み込めない項目があります。開き直してください', RDERR=`<div style="color:var(--warn);font-weight:700;font-size:14px;margin:2px 2px 8px;line-height:1.6">${RDERR_T}</div>`;
 const PL_IN='<span class="pl">出</span>', PL_OUT='<span class="pl">退</span>', PL_AF='<span class="pl af">アフ<br>ター</span>', PL_SH='<span class="pl af">シフ<br>ト</span>'; const PL_DH='<span class="pl af">同<br>伴</span>'; // 出退勤確認：同伴で出勤した子は「出」の代わり（オーナー「一マスに同伴」）
 // 伝票の同じ注文を1行にまとめる（データは注文ごとのまま。見た目だけ）。品・単価・係小計の価格・バック額・ポイント・バックの人が同じもの
+// 伝票の品の種類（並び順 itemsInOrder に渡す。セット・延長・VIP の後に ボトル系・ドリンク系・それ以外・BC・HC）
+const posItemKind=i=>billItemKind(i,S.products,S.categories,S.settings);
 function groupItems(items){ const out=[], by=new Map();
   items.forEach(i=>{ const who=[...new Set((i.bill_item_splits||[]).filter(s=>(s.back_amount||0)>0||Number(s.back_points||0)>0).map(s=>s.staff_id))].sort().join(',');
     const k=[i.product_id,i.name,i.category_id,i.unit_price,i.cast_subtotal_price,i.back_amount,Number(i.back_points||0),!!i.is_service_target,!!i.is_keep,who].join('|');
