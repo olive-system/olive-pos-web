@@ -38,9 +38,12 @@ function billViewLines(C,L,N,pn,its,voids,exts,extMin,adjs,pays){
     <div class="bv-ln" style="font-size:24px;font-weight:800;padding-top:10px"><span>請求額</span><span>${yen(C.amount_due)}</span></div><hr>
     <div class="bv-ln"><span>お支払い</span><span style="white-space:normal;text-align:right">${pays.filter(p=>N(p.amount)>0).map(p=>`${BE_M[p.method]||esc(p.method)} ${yen(p.amount)}${p.method==='invoice'?`<small>（${p.invoice_paid_on?mdj(p.invoice_paid_on)+'入金':'未入金'}）</small>`:''}`).join('／')||'入金の記録はありません'}</span></div></div>`;
 }
+// 伝票のアフター（SQL 526）：開いた時に読み、保存の時に足した人・外した人を admin_after_set で送る（伝票の直しの後）
+async function beAfterLoad(id){ const ar=await sb.from('after_bills').select('staff_id').eq('bill_id',id); return (ar.data||[]).map(x=>x.staff_id); }
+async function beAfterSave(id,afA,afD){ for(const [L,on] of [[afA,true],[afD,false]]) for(const sid of L){ const a=await rpc('admin_after_set',{p_bill:id,p_staff:sid,p_on:on}); if(!a.ok) return false; } return true; }
 async function billEdit(id){
   const r=await sb.rpc('admin_bill_get',{p_bill:id}); if(r.error){ await uiAlert(/admin_bill_get/.test(r.error.message)?'SQL 071 が未実行です：'+r.error.message:r.error.message); return; }
-  const O=r.data; O.custs=O.custs||[]; { const ar=await sb.from('after_bills').select('staff_id').eq('bill_id',id); O.after=(ar.data||[]).map(x=>x.staff_id); } /* 伝票のアフター（SQL 526） */ const S=JSON.parse(JSON.stringify(O)), st=O.settings||{}, B=S.bill, att=new Set(O.attended||[]), bd=O.bill.business_date;
+  const O=r.data; O.custs=O.custs||[]; O.after=await beAfterLoad(id); const S=JSON.parse(JSON.stringify(O)), st=O.settings||{}, B=S.bill, att=new Set(O.attended||[]), bd=O.bill.business_date;
   const ST=O.staff||[], sn=sid=>ST.find(x=>x.id===sid)?.name||'（不明）', pn=pid=>(O.products||[]).find(p=>p.id===pid);
   const live=it=>!it.is_void, hcId=st.auto_hc_product_id, bcId=st.auto_bc_product_id;
   // バックは等分（端数は最初の人）。POS と同じ
@@ -175,7 +178,7 @@ function beBindD(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks
       if(!ops.length&&!afA.length&&!afD.length){ close(); return; } if(ops.length){ await check(); if(!E.last) { await uiAlert('修正内容に問題があります。赤い文字を確かめてください'); return; }
       const pd=S.pays.reduce((a,p)=>a+Number(p.amount||0),0); if(pd!==Number(E.last.due)&&!await uiConfirm(`支払いの合計（${yen(pd)}）が請求額（${yen(E.last.due)}）と合いません。このまま保存しますか？`,'保存')) return;
       const z=await rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:note,p_reason:q('#beR').value.trim(),p_dry:false,p_ver:O.ver||null /* 開いた時の伝票の版。ほかの画面で変わっていたら断る */}); if(!z.ok) return; }
-      for(const [L,on] of [[afA,true],[afD,false]]) for(const sid of L){ const a=await rpc('admin_after_set',{p_bill:id,p_staff:sid,p_on:on}); if(!a.ok) return; }
+      if(!await beAfterSave(id,afA,afD)) return;
       close(); toast('修正しました'); (PAGES[page]||PAGES.pl)(); }); }
 // お客様を選ぶ・新規登録（POS の「＋ お客様」と同じ形。名前で検索・新規登録）。保存まで送らない
 function beTsureKk(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; if(KL!=='係') return null; const act=sid=>ST.some(s=>s.id===sid&&s.is_active), c0=S.custs.find(c=>!c._new); const k0=c0&&CL.find(c=>c.id===c0.customer_id)?.kakari; if(k0&&act(k0)) return k0;
