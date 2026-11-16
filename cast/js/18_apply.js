@@ -11,7 +11,7 @@ async function applyStart(phone){
   const idt = liff.getIDToken();
   if(!idt){ liff.login({ redirectUri: location.href }); return; }
   if(!phone) show('<div class="card c muted">読み込み中…</div>');
-  const r = await sb.rpc('applicant_status', { p_store: STORE, p_id_token: idt, p_phone: phone || null });
+  const r = await sb.rpc('ap_status', { p_store: STORE, p_id_token: idt, p_phone: phone || null });
   if(r.error){
     if(/認証/.test(r.error.message)){ liff.logout(); liff.login({ redirectUri: location.href }); return; }
     if(phone){ await uiAlert(r.error.message); if($('apOk')) $('apOk').disabled = false; return; }

@@ -156,17 +156,17 @@ async function apLiff(go){
   if($('tSub')) $('tSub').textContent = ''; document.title = STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座'; /* 応募の人に「LINEマイページ」は出さない */
   const idt = liff.getIDToken(); if(!idt){ liff.login({ redirectUri: location.href }); return; }
   show('<div class="card c muted">読み込み中…</div>');
-  if(go === 'book'){ const r = await sb.rpc('applicant_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }
+  if(go === 'book'){ const r = await sb.rpc('ap_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }
     show('<div class="card c muted">面接予約のページを表示しています…</div>'); try{ liff.openWindow({ url: r.data, external: false }); }catch(e){ location.href = r.data; } return; }
   if(go === 'judge'){ document.title = '体験のジャッジ'; await judgeLiff(idt); return; } /*（24_judge.js） */
   if(go === 'sheet'){ await sheetForm(idt); return; } /*（22_sheet.js） */
-  const g = await sb.rpc('applicant_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
+  const g = await sb.rpc('ap_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
   if(!g.data.ok){ fail('表示できません'); return; }
   if(g.data.sent){ show('<div class="card">ご感想は送信済です。<br>ありがとうございました🙇‍♀️</div>'); return; }
   show(`<div class="ttl">ご感想</div><div class="card"><div class="f">よかった点</div>${apGrid('good', [])}<div class="f" style="margin-top:12px">気になった点</div>${apGrid('concern', [])}
     <label class="f" style="margin-top:10px">ひとこと（任意）<textarea id="vcT" maxlength="500"></textarea></label><button class="btn" id="vcOk" style="margin-top:14px">送信</button></div>`);
   $('vcOk').onclick = async e => { const M = $('main'), pick = k => [...M.querySelectorAll(`[data-${k}]`)].filter(x => x.checked).map(x => x.dataset[k]); e.target.disabled = true;
-    const q = await sb.rpc('applicant_voice_save', { p_store: STORE, p_id_token: idt, p_good: pick('good'), p_concern: pick('concern'), p_text: $('vcT').value });
+    const q = await sb.rpc('ap_voice_save', { p_store: STORE, p_id_token: idt, p_good: pick('good'), p_concern: pick('concern'), p_text: $('vcT').value });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; }
     show('<div class="card">送信しました。<br>ありがとうございました🙇‍♀️</div>'); };
 }
