@@ -71,8 +71,8 @@ function cpPrep(d,ev,bl,lt,fn,al){
   const LT={}; if(!lt.error) (lt.data||[]).forEach(x=>{ LT[x.staff_id]=x; }); /* シフト・遅刻を読めない時は黙って消さず1行出す（点検 B5） */ /* 罰金・手当はスタッフ画面と同じ、その日の合計（罰金は取り消していない物・遅刻のほかに手で入れた物も）。押すと内訳（オーナー「罰金というところをタップすると何に対して罰金がかかっているのか」「罰金だけじゃなくて手当も」）。読めない時は遅刻の罰金だけ */
   const FN=fn&&!fn.error?{}:null; if(FN) (fn.data||[]).forEach(x=>{ const f=FN[x.staff_id]||(FN[x.staff_id]={y:0,p:0,L:[]}); f.y+=Number(x.amount||0); f.p+=Number(x.wage_pct||0); f.L.push(x); });
   const AL={}; if(al&&!al.error) (al.data||[]).forEach(x=>{ if(Number(x.allowance)>0) AL[x.staff_id]={y:Number(x.allowance),memo:x.allowance_memo||''}; });
-  const money=x=>x.s.kind!=='hall'&&(FN?.[x.id]?.y||FN?.[x.id]?.p||AL[x.id]); /* 黒服は金額を出さない */
-  const sW=P.some(x=>LT[x.id])?96:0, lW=P.some(x=>LT[x.id]?.late||money(x))?346:0;
+  const cpHasMoney=x=>x.s.kind!=='hall'&&(FN?.[x.id]?.y||FN?.[x.id]?.p||AL[x.id]); /* 黒服は金額を出さない */
+  const sW=P.some(x=>LT[x.id])?96:0, lW=P.some(x=>LT[x.id]?.late||cpHasMoney(x))?346:0;
   const oW=P.some(x=>x.t.inO||x.t.outO)?46:0; /* 並びは店・日によらずいつも1列（オーナー「広島も銀座も一列」。前は遅刻・修正のある日だけ幅が広がって1列になっていた） */ // 修正した打刻は「最初の打刻の丸めた時刻→今」。ある時は列を広げて出・退をそろえる
   return {d,edit,P,T,B,DH,open,last,lastHtml,LT,FN,AL,oW,sW,lW}; }
 /* 時刻の枠と遅刻のしるし */
@@ -80,12 +80,12 @@ function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   const tm=(on,k,v,fix,key,id,o)=>`<span ${on?`data-${key}="${id}" `:''}style="font-size:14px;white-space:nowrap;padding:2px 4px;font-variant-numeric:tabular-nums;border-bottom:1px dotted ${on?'#999':'transparent'};${on?'cursor:pointer;':''}color:${fix?'var(--warn)':on?'inherit':'var(--muted)'}">${k}${o&&hmJst(o)!==v?`<small style="color:var(--muted)">${hmJst(o)}→</small>`:''}${v}</span>`;
   // 遅刻・無断遅刻のしるしは同じ幅の枠に入れて、罰金・免除の始まりをそろえる（オーナー）。シフトが同伴の日は「同伴」
   // 遅刻のしるし・罰金・手当は、それぞれ同じ幅の枠に入れて、行ごとに始まりをそろえる（無い行も同じ幅の空き）
-  const cell=(w,v)=>`<span style="display:inline-block;width:${w}px;flex:none;white-space:nowrap">${v}</span>`;
-  const amt=(k,id,t,c)=>`<span data-${k}="${id}" style="font-size:14px;padding:2px 4px;cursor:pointer;border-bottom:1px dotted #999;font-variant-numeric:tabular-nums;color:${c}">${t}</span>`;
+  const cpCell=(w,v)=>`<span style="display:inline-block;width:${w}px;flex:none;white-space:nowrap">${v}</span>`;
+  const cpAmt=(k,id,t,c)=>`<span data-${k}="${id}" style="font-size:14px;padding:2px 4px;cursor:pointer;border-bottom:1px dotted #999;font-variant-numeric:tabular-nums;color:${c}">${t}</span>`;
   const lateHtml=(s,l,f,a,id)=>{ const late=!!l?.late, y=f?f.y:Number(l?.fine||0), p=f?f.p:0, hall=s.kind==='hall', fine=!hall&&(y>0||p>0), alw=!hall&&a; if(!late&&!fine&&!alw) return '';
-    return cell(70,!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
-      +cell(132,fine?(f?amt('cpfn',id,'罰金 '+fineSumTxt(y,p),'var(--warn)'):`<span style="color:var(--warn);font-size:14px">罰金 ${fineSumTxt(y,p)}</span>`):late&&l.notice==='approved'?'<span class="badge gray">免除</span>':'')
-      +cell(132,alw?amt('cpal',id,'手当 '+yen(a.y),'inherit'):''); }; // しるしは「遅刻」「無断遅刻」（オーナー「遅刻連絡ではなく遅刻・連絡なし遅刻ではなく無断遅刻」）
+    return cpCell(70,!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
+      +cpCell(132,fine?(f?cpAmt('cpfn',id,'罰金 '+fineSumTxt(y,p),'var(--warn)'):`<span style="color:var(--warn);font-size:14px">罰金 ${fineSumTxt(y,p)}</span>`):late&&l.notice==='approved'?'<span class="badge gray">免除</span>':'')
+      +cpCell(132,alw?cpAmt('cpal',id,'手当 '+yen(a.y),'inherit'):''); }; // しるしは「遅刻」「無断遅刻」（オーナー「遅刻連絡ではなく遅刻・連絡なし遅刻ではなく無断遅刻」）
   return {tm,lateHtml}; }
 /* 出退勤確認の1人の行（シフト・出・退・遅刻・罰金・同伴） */
 function cpRow(K,{id,s,t}){ const {d,edit,P,T,B,DH,open,last,LT,FN,AL,oW,sW,lW,tm,lateHtml}=K; const on=edit&&s.kind!=='hall'&&!s.is_trial, tag=s.kind==='hall'?'':s.is_trial?'体験':''; /* 同伴かどうかは伝票の係（同伴・同伴①・同伴②）で見る。シフトの同伴・予約・同伴の打刻は予定でキャンセルがあるため（オーナー） */ // 黒服のしるしは出さない（オーナー「黒服って名前でわかるから…スペースがもったいない」）
