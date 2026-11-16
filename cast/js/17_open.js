@@ -147,15 +147,18 @@ function hcBodyDrinks(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', get
         <div id="drTx" style="white-space:pre-wrap;line-height:1.7;background:var(--soft);border-radius:8px;padding:8px 10px;user-select:text;-webkit-user-select:text">${esc(drText(r.data, T, O))}</div></div>` : ''}${sv()}`;
     getData = () => ({ rows: T.map(a => ({ id: a.id, out: (O[a.id] ?? '0').trim() })) });
   return { body, getData }; }
-// オールアップ確認（オーナー「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:00 超過は理由が必須。基準を 1:05 に（オーナー「1時ではなく1時5分に。広島も銀座も」）
+// オールアップ確認（オーナー「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:05 超過は理由が必須。基準を 1:05 に（オーナー「1時ではなく1時5分に。広島も銀座も」）
+// 閉店時刻を1分でも過ぎた会計も出し、その時は会計の理由も必須（SQL 530・531）。理由の枠は、超過のある箱の一番下にだけ出す（オーナー「退勤の下に理由、会計の下に理由」「超過の時だけ、理由の枠がでる」）
 function hcBodyAllup(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
-    const R = D.rows || [], np = D.pending > 0;
-    body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">退勤の遅い順（3名）</div>${R.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);font-size:15px${c.pending || c.over ? ';color:var(--warn)' : ''}"><div style="flex:1">${esc(c.name)}</div>
-      <b style="font-variant-numeric:tabular-nums">${c.pending ? '未退勤' : esc(c.out)}</b><span style="width:76px;text-align:right;font-size:13px">${c.over ? `${c.over}分超過` : ''}</span></div>`).join('') || '<div class="muted">今日出勤したキャストがいません</div>'}</div>
+    const R = D.rows || [], B = D.bills || [], np = D.pending > 0;
+    const line = (n, t, ov, warn) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line);font-size:15px${warn ? ';color:var(--warn)' : ''}"><div style="flex:1">${esc(n)}</div>
+      <b style="font-variant-numeric:tabular-nums">${t}</b><span style="width:76px;text-align:right;font-size:13px">${ov ? `${ov}分超過` : ''}</span></div>`;
+    const why = id => np ? '' : `<div style="border-top:1px solid var(--line);padding-top:10px;margin-top:2px"><div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">超過理由（必須）</div><textarea id="${id}" rows="3" maxlength="500" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></div>`;
+    body = `<div class="card"><div class="muted sm" style="margin-bottom:4px">退勤の遅い順（3名）</div>${R.map(c => line(c.name, c.pending ? '未退勤' : esc(c.out), c.over, c.pending || c.over)).join('') || '<div class="muted">今日出勤したキャストがいません</div>'}${D.over ? why('clWhy') : ''}</div>
+      <div class="card"><div class="muted sm" style="margin-bottom:4px">閉店時刻後の会計</div>${B.map(b => line(b.name, esc(b.at), b.over, 1)).join('') || '<div class="muted" style="padding:9px 2px;border-top:1px solid var(--line);font-size:15px">なし</div>'}${D.bill_over ? why('clWhyB') : ''}</div>
       ${np ? `<div class="muted sm err" style="margin:0 2px 8px">未退勤のキャストがいます。退勤の打刻後に保存します（押し忘れは POS で修正）</div><button class="btn" disabled>保存</button>`
-        : D.over ? `<div class="card"><div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">1:05 超過の理由（必須）</div><textarea id="clWhy" rows="3" maxlength="500" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></div>${sv('', '理由は日報メールと操作ログに残ります')}`
-        : sv('', R.length ? '全員 1:05 以前に退勤しています' : '')}`;
-    getData = () => ({ reason: $('clWhy') ? $('clWhy').value : '' });
+        : sv('', D.over || D.bill_over ? '理由は日報メールと操作ログに残ります' : R.length ? '全員 1:05 以前に退勤しています' : '')}`;
+    getData = () => ({ reason: $('clWhy') ? $('clWhy').value : '', bill_reason: $('clWhyB') ? $('clWhyB').value : '' });
   return { body, getData }; }
 // 開店作業「連絡先交換の係の確認」（前の営業日の連絡先交換の係を選び直す。提出したキャストへ LINE・正しい係へは次の朝のまとめで。オーナー）
 function hcBodyContactCheck(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
