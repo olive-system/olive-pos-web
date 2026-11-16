@@ -1,12 +1,12 @@
 // ---------- 印刷（Epson TM-m30III：TM Print Assistant経由。設定でブラウザ印刷に切替可） ----------
 const PRINT={ method: localStorage.getItem('print_method'+SLOT)||'tmpa' };
 // 伝票の印刷（［概算印刷］Estimate・［会計印刷］Bill・［明細印刷］Details）。オーナー（2026-11-17）「ロゴ入り・OLIVE らしいデザイン」「シンプルに洗練して」
-// 概算：今の金額と、30分・60分延長した場合の金額だけ（延長した場合は pos_bill_est＝calc_bill を呼ぶ。SQL 562）／会計：合計と（消費税込）だけ／明細：品・バックのキャスト・小計・サービス料・消費税・合計・伝票のキャスト
+// 概算：今の金額と、30分・60分延長した場合の金額だけ（延長した場合は pos_bill_est＝calc_bill を呼ぶ。SQL 562）／会計：合計と（消費税込）だけ／明細：品・バックのキャスト・小計・サービス料・消費税・合計（伝票のキャストは出さない。オーナー「いらん」）
 // お客様の名前・日付・卓・端数切上は出さない（オーナー「いらん」）。字は font_a の 1.7 倍（オーナー「1.7倍」。前の字は 3mm で「小さくて見えない」と言われた）
 const PZ=1.7;
 const VIPL='VIP charge'; /* 明細の VIP の部屋の料金の言い方（オーナー「VIP代ってダサい」） */
 const hmS=t=>hmJst(t).replace(/^0/,''); /* 〜1:30（時の頭の 0 は付けない。オーナー「〜1:30の方がかっこいい」） */
-// d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, pays:[{l,r}], note, foot }
+// d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, pays:[{l,r}], note }
 // c：描く道具（g＝canvas・W＝幅・fs＝字の大きさ・y＝今の高さ）。部品は c.y を進める
 function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
   const c={ cv, g, W, fs:22*z, y:0, yen:n=>'¥'+(Number(n)||0).toLocaleString(),
@@ -40,7 +40,6 @@ function slipBill(c,d){ const {fs}=c; c.y+=Math.round(fs*0.6); c.lr('合計',c.y
 function drawSlip(d,z){ const c=slipTools(z), {g,W,fs}=c; slipHead(c,d);
   (d.kind==='estimate'?slipEst:d.kind==='detail'?slipDetail:slipBill)(c,d);
   if(d.note){ c.y+=Math.round(fs*1.5); g.textAlign='right'; g.font=c.MI(fs*0.75,400); g.fillText(d.note,W,c.y); } /* 金額の下に右寄せ */
-  if(d.foot){ c.y+=Math.round(fs*2.0); g.textAlign='left'; g.font=c.MI(fs*0.75,400); c.wrap(d.foot,W).forEach((t,k)=>{ if(k) c.y+=Math.round(fs*1.1); g.fillText(t,0,c.y); }); }
   c.y+=Math.round(fs*1.4); const out=document.createElement('canvas'); out.width=W; out.height=c.y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
 // 伝票から紙の中身を作る（概算は延長した場合の金額をデータベースで出す）。出せない時は null
 async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
@@ -55,8 +54,7 @@ async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
     if(T.set) it.push({l:`セット ${b.set_minutes}分 ×${b.set_guest_count??b.guest_count}`,r:T.set}); if(ex.length) it.push({l:xl,r:ex.reduce((a,e)=>a+e.unit_price*e.qty,0)});
     if(T.vip_set) it.push({l:VIPL,r:T.vip_set}); if(T.vip_ext) it.push({l:`${VIPL} ${xl}`,r:T.vip_ext}); /* 並びはセット・延長・VIP（itemsInOrder の前の3つ） */
     itemsInOrder(groupItems((b.bill_items||[]).filter(i=>!i.is_void)),i=>{ const p=S.products.find(x=>x.id===i.product_id); return itemKind(p,S.categories.find(c=>c.id===(i.category_id||p?.category_id)),S.settings); }).forEach(i=>it.push({l:`${i.name} ×${i.qty}`,r:i.unit_price*i.qty,s:(i.bill_item_splits||[]).map(s=>S.staffAll.find(x=>x.id===s.staff_id)?.display_name).filter(Boolean).join('/')}));
-    d.items=it; d.sums=[{l:'小計',r:yen(T.subtotal)}]; if(T.service) d.sums.push({l:`サービス料 ${T.service_rate}%`,r:yen(T.service)}); d.sums.push({l:`消費税 ${T.tax_rate}%`,r:yen(T.tax)}); if(T.adjustment) d.sums.push({l:T.adjustment<0?'値引':'値増',r:yen(T.adjustment)});
-    const cs=(b.bill_casts||[]).map(c=>(S.staffAll.find(s=>s.id===c.staff_id)?.display_name||'')+(c.is_kakari?'('+KL+')':'')+(ROLE[c.role]?'('+ROLE[c.role]+')':'')).join('、'); if(cs) d.foot='キャスト：'+cs; }
+    d.items=it; d.sums=[{l:'小計',r:yen(T.subtotal)}]; if(T.service) d.sums.push({l:`サービス料 ${T.service_rate}%`,r:yen(T.service)}); d.sums.push({l:`消費税 ${T.tax_rate}%`,r:yen(T.tax)}); if(T.adjustment) d.sums.push({l:T.adjustment<0?'値引':'値増',r:yen(T.adjustment)}); }
   return d; }
 const slipPrint=kind=>async()=>{ const d=await slipData(kind); if(d) imagePrint(drawSlip(d,PZ)); };
 $('prEst').onclick=slipPrint('estimate'); $('prBill').onclick=slipPrint('bill'); $('prDetail').onclick=slipPrint('detail');
