@@ -34,12 +34,12 @@ function slipDetail(c,d){ const {g,W,fs}=c;
   (d.sums||[]).forEach((s,i)=>{ c.y+=Math.round(fs*(i?1.4:1.6)); c.lr(s.l,s.r,c.y,c.MI(fs*0.8,400),c.BK(fs*0.95)); });
   c.y+=Math.round(fs*2.3); c.lr('合計',c.yen(d.due),c.y,c.MI(fs*0.95,600),c.BK(fs*1.75)); }
 // 会計：金額だけ（真ん中）。支払い方法が2つの時だけ、その金額
-function slipBill(c,d){ const {g,W,fs}=c; c.y+=Math.round(fs*1.2); g.textAlign='center'; g.font=c.BK(fs*2.1); g.fillText(c.yen(d.due),W/2,c.y); /* 見出しが Bill で金額は1つなので「合計」は出さず、真ん中に大きく（オーナー「bill に合計っている？」） */
+function slipBill(c,d){ const {g,W,fs}=c; c.y+=Math.round(fs*1.2); g.textAlign='center'; g.font=c.BK(fs*2.1); g.fillText(c.yen(d.due),W/2,c.y); c.noteX=Math.round(W/2+g.measureText(c.yen(d.due)).width/2); /* （消費税込）は金額の右の端にそろえる（オーナー「真ん中嫌」） */ /* 見出しが Bill で金額は1つなので「合計」は出さず、真ん中に大きく（オーナー「bill に合計っている？」） */
   (d.pays||[]).forEach((p,i)=>{ c.y+=Math.round(fs*(i?1.4:2.0)); c.lr(p.l,c.yen(p.r),c.y,c.MI(fs*0.8,400),c.BK(fs)); }); }
 // 領収書と同じ明朝と Baskerville。ロゴ・見出し・金額を、余白と細い線で並べる。576 ドット幅の絵（imagePrint で白黒に）
 function drawSlip(d,z){ const c=slipTools(z), {g,W,fs}=c; slipHead(c,d);
   (d.kind==='estimate'?slipEst:d.kind==='detail'?slipDetail:slipBill)(c,d);
-  if(d.note){ const mid=d.kind==='bill'&&!(d.pays||[]).length; c.y+=Math.round(fs*1.5); g.textAlign=mid?'center':'right'; g.font=c.MI(fs*0.75,400); g.fillText(d.note,mid?W/2:W,c.y); } /* 金額の下（会計で金額だけの時は真ん中） */
+  if(d.note){ const x=d.kind==='bill'&&!(d.pays||[]).length&&c.noteX?c.noteX:W; c.y+=Math.round(fs*1.5); g.textAlign='right'; g.font=c.MI(fs*0.75,400); g.fillText(d.note,x,c.y); } /* 金額の下に右寄せ（会計で金額だけの時は、真ん中の金額の右の端に） */
   c.y+=Math.round(fs*1.4); const out=document.createElement('canvas'); out.width=W; out.height=c.y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
 // 伝票から紙の中身を作る（概算は延長した場合の金額をデータベースで出す）。出せない時は null
 async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
