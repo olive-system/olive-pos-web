@@ -21,7 +21,7 @@ async function memoList(store){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('cast_memo_list', { p_token: TOKEN, p_store: store || MEMO_ST || null }); if(r.error){ fail(r.error.message); return; }
   const D = r.data, L = D.memos || []; MEMO_ST = D.store;
-  const sw = D.owner && D.stores ? `<div class="seg">${D.stores.map(s => `<button data-mst="${s.code}" class="${s.code === D.store ? 'on' : ''}">${s.code === 'ginza' ? '銀座' : s.code === 'hiroshima' ? '広島' : esc(s.name)}</button>`).join('')}</div>` : '';
+  const sw = D.owner && D.stores ? `<div class="seg">${D.stores.map(s => `<button data-mst="${s.code}" class="${s.code === D.store ? 'on' : ''}">${esc(s.short || s.name)}</button>`).join('')}</div>` : '';
   show(`${sw}<div style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 8px"><b>共有メモ</b>${D.owner || D.can_new ? '<button class="lkb" id="mmNew">追加</button>' : ''}</div>
     <div class="card"${L.length ? ' style="padding-top:4px"' : ''}>${L.map((x, i) => `<button data-mm="${x.id}" style="display:flex;width:100%;gap:8px;align-items:center;text-align:left;font:inherit;color:var(--ink);background:none;border:0;padding:10px 0;cursor:pointer;${i ? 'border-top:1px solid var(--line)' : ''}">
       <span style="flex:1;min-width:0"><b>${esc(x.title)}</b>${x.needs_change ? ' <small style="border:1px solid var(--warn);color:var(--warn);border-radius:6px;padding:0 6px">要変更</small>' : ''}</span><small class="muted" style="white-space:nowrap">${esc(x.updated)} 更新</small></button>`).join('') || '<div class="muted sm">共有メモはありません</div>'}</div>`);

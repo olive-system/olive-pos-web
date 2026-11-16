@@ -134,7 +134,7 @@ function apBindTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sh
 function apBindDocs(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; const M = $('main');
   $('apSh').onclick = () => sheetStaff(id, store, again); /* お店が書き込む */
   if($('apQr')) $('apQr').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('ap_qr', { p_token: TOKEN, p_store: store || null, p_id: id }); e.target.disabled = false; if(q.error){ await uiAlert(q.error.message); return; } /* 15分の間の友だち追加をこの人につなぐ */
-    await needLib('qrcode'); const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); /* QR の部品は使う時だけ読む（07 の S1） */ xBox(`<p style="font-weight:700;margin:0 0 10px">${esc(STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div>`, again); }; /* 閉じるは右上の × */
+    await needLib('qrcode'); const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); /* QR の部品は使う時だけ読む（07 の S1） */ xBox(`<p style="font-weight:700;margin:0 0 10px">${esc(A.store_jp || '')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div>`, again); }; /* 閉じるは右上の × */
   if($('apDoc')) $('apDoc').onclick = async e => { if(!await uiConfirm('契約書を開始しますか？\n本人のマイページに「書類」が表示されます', '開始')) return; e.target.disabled = true;
     const q = await sb.rpc('ap_docs_open', { p_token: TOKEN, p_store: store || null, p_id: id }); if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
 }
