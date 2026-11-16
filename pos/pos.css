@@ -43,8 +43,8 @@
   .ord4 .oprod .pb{background:var(--soft);border-radius:999px;padding:2px 10px;font-size:13px;white-space:nowrap}
   .ord4 .ocast{padding:11px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);text-align:left;font-size:15px}.ord4 .ocast.on{background:var(--pri);color:#fff;border-color:var(--pri)}.ord4 .ocgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .ord4 .oline{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}.ord4 .oline.sel{border:2px solid var(--ink)}
-  .ord4 .oline .r1{display:flex;justify-content:space-between;align-items:center;gap:6px}.ord4 .oline small{color:var(--muted)}.ord4 .oline small.none{color:var(--warn)}
-  .ord4 .qty{display:flex;align-items:center;gap:6px}.ord4 .qty button{min-height:0;width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:18px}
+  .ord4 .oline .r1{display:flex;justify-content:space-between;align-items:center;gap:6px}.ord4 .oline .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ord4 .oline .amt{font-variant-numeric:tabular-nums}.ord4 .oline small{color:var(--muted)}.ord4 .oline small.none{color:var(--warn)}
+  .ord4 .qty{display:flex;align-items:center;gap:6px}.ord4 .qty button{min-height:0;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;line-height:1;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:18px}.ord4 .qty{flex:none}.ord4 .qty b{min-width:22px;text-align:center;font-variant-numeric:tabular-nums}
   .prod{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:left;min-height:64px}.prod .p{display:block;color:var(--muted);font-size:13px;margin-top:4px}
   .num{display:inline-flex;align-items:center;gap:8px;font-size:22px;font-weight:700}.num button{min-height:0;width:40px;height:40px;border-radius:50%;font-size:22px;padding:0}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}.modal.on{display:flex}
