@@ -41,11 +41,11 @@ function syncHcBack(id){ const f=()=>syncHcBack0(id); hcQ=hcQ.then(f,f); return 
 async function syncHcBack0(id){ id=id||S.cur?.id; if(!S.settings.auto_hc_product_id||!id) return; /* 消して入れ直すのを1つの関数で（2台同時でも二重にならない・途中で切れても消えたままにならない） */
   const r=await sb.rpc('pos_hc_sync',{p_bill:id}); if(r.error) toast('HC のバックを振分できません：'+r.error.message); }
 // 係小計：売上は全部係に付く（セット＋延長＋VIP代＋注文の小計価格）。係が複数なら等分。振り分けできるのはバックだけ
-function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id);
-  const total=(T.set||0)+(T.vip_set||0)+(T.extension||0)+(T.vip_ext||0)+(b.bill_items||[]).filter(i=>!i.is_void).reduce((a,i)=>a+i.cast_subtotal_price*i.qty,0);
+// 金額はデータベースの元の関数（kakari_sub・bill_kakari_share）の答えをそのまま出す（SQL 533。体験の日の係は 0 円：2026-11-09 オーナー「全部から除く」）
+function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id), K=T.kakari||[];
   const nm=id=>S.staffAll.find(x=>x.id===id)?.display_name||S.staff.find(x=>x.id===id)?.display_name||'';
-  if(!ks.length) return `<span style="font-size:14px">${KL}小計 <small class="muted">${KL}が未設定</small></span><span class="right" style="font-size:14px">${yen(total)}</span>`;
-  return ks.map(id=>`<span style="font-size:14px">${KL}小計 ${esc(nm(id))}</span><span class="right" style="font-size:14px">${yen(Math.floor(total/ks.length))}</span>`).join(''); }
+  if(!ks.length) return `<span style="font-size:14px">${KL}小計 <small class="muted">${KL}が未設定</small></span><span class="right" style="font-size:14px">${yen(T.kakari_sub||0)}</span>`;
+  return ks.map(id=>`<span style="font-size:14px">${KL}小計 ${esc(nm(id))}</span><span class="right" style="font-size:14px">${yen(K.find(k=>k.staff_id===id)?.share||0)}</span>`).join(''); }
 // ---------- ホールの卓の一覧（自動延長・お預かり品・置き・在籍のしるし） ----------
 // 自動延長はデータベースで伝票を押さえてから足す（POS 2台が同時に足しても二重にならない）
 let extWarned=false;

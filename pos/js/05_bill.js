@@ -21,7 +21,7 @@ async function openBill(id){ const my=++openBillSeq; if(!S.cur||S.cur.id!==id) S
     if(!u.error){ S.cur.pricing_mode_id=want?ind.id:normal.id;
     S.billFp=fpOf(S.cur);
     await logOp(want?'同業に切替':'同業を解除',{auto:true});
-    } } } const r=await sb.rpc('calc_bill',{p_bill:id});
+    } } } const r=await sb.rpc('pos_bill_calc',{p_bill:id}); /* calc_bill の答え＋係小計（SQL 533） */
     if(r.error){ toast('伝票の金額を読み込めません：'+r.error.message);
     return false;
     } S.cur.totals=r.data||{};
