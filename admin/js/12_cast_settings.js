@@ -185,6 +185,7 @@ async function csShiftPart(box,st,ed,m){
       sel('o',String(!!c.ok_only),[['false','休み希望'],['true','出勤希望']]), `<input type="date" data-k="j" value="${esc(c.joined||'')}" style="width:auto">`];
   const HD=['希望出勤日数','出勤可能時間','提出','入店日'];
   box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">シフト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="cshCancel">キャンセル</button><button class="primary" id="cshSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="cshEd">編集</button>`)):''}</div>
+  ${E&&rows.length?'<div id="cshCap" style="border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:14px"></div>':''}
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${E?`<span style="display:flex;justify-content:space-between;align-items:center;gap:8px">${esc(c.name)}${sel('r',String(c.rank||0),[['1','優先'],['0','標準'],['-1','控え']])}</span>`:`<a data-shopen="${c.id}">${esc(c.name)}</a>${rkTag(c.rank)}`}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">優先：自動作成で同伴の次に入れる／控え：足りない日だけ入れる（管理サイトだけ・本人には出ない）<br>提出　休み希望：休む日を提出／出勤希望：出られる日を提出（自動作成で優先）<br>入店から2か月は売り出し中（自動作成で優先）${ed&&!E?'。修正は「編集」から':''}</div>`;
@@ -194,7 +195,14 @@ async function csShiftPart(box,st,ed,m){
   if(!E){ if(lock) return; $('cshEd').onclick=()=>{ csEdit='shift'; PAGES.set_cast(); }; return; }
   $('cshCancel').onclick=()=>{ csEdit=false; PAGES.set_cast(); };
   const sv=$('cshSave'); sv.onclick=guard(sv,()=>csShiftSave(box,st,rows));
+  cshCapSync(box,rows.length); box.querySelectorAll('select[data-k=r]').forEach(s=>s.onchange=()=>cshCapSync(box,rows.length));
 }
+/* 優先は在籍（シフトの表の人数）の30%まで・切り捨て（オーナー 2026-11-16）。上限の時は、ほかの子に「優先」を出さない。超えている間は［保存］を出さない（データベースも 552 で通さない） */
+function cshCapSync(box,n){ const cap=Math.floor(n*0.3), ss=[...box.querySelectorAll('select[data-k=r]')], cnt=ss.filter(s=>s.value==='1').length, el=$('cshCap'); if(!el) return;
+  for(const s of ss){ if(s.value==='1') continue; const o=s.querySelector('option[value="1"]');
+    if(cnt>=cap&&o) o.remove(); else if(cnt<cap&&!o){ const x=document.createElement('option'); x.value='1'; x.textContent='優先'; s.prepend(x); } }
+  const over=cnt>cap; el.textContent=`優先 ${cnt}人（在籍 ${n}人の30%＝${cap}人まで）${over?`。${cnt-cap}人を標準か控えに変更すると保存できます`:''}`;
+  el.style.background=over?'var(--warn-soft)':'var(--soft)'; el.style.color=over?'var(--warn)':'var(--ink)'; const sv=$('cshSave'); if(sv) sv.style.display=over?'none':''; }
 /* シフトの表の［保存］：変わった人だけを送る */
 async function csShiftSave(box,st,rows){
     const out=[];
