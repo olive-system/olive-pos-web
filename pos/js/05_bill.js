@@ -117,6 +117,8 @@ function rbSetHtml(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEd
         (S.extOpen?ex.map(e=>`<div class="item" style="margin-left:16px"><span class="n">延長 ${e.minutes}分 <small>${e.is_auto?'自動':'手動'} ${yen(e.unit_price)}×${e.qty}</small></span><span class="amt">${yen(e.unit_price*e.qty)}</span><button class="xb" data-ext="${e.id}">×</button></div>`).join(''):'')+
         (t?.vip_ext_fee>0?`<div class="item"><span class="n">VIP${S.settings.ext_minutes}分延長 ×${ex.length}</span><span class="amt">${yen(b.totals?.vip_ext??t.vip_ext_fee*ex.length)}</span></div>`:''); })()+
     (b.ext_waived_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した延長 ${b.ext_waived_minutes}分（料金なし）</div>`:'')+
+    (b.ext_pay_shift_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">会計中猶予 ${b.ext_pay_shift_minutes}分（料金なし）</div>`:'')+
+    (b.status==='open'&&b.pay_open_at?`<div class="muted" style="font-size:12px;padding:2px 4px">お会計中　延長停止 ${hmJst(b.pay_open_at)}</div>`:'')+
     (t?.vip_set_fee>0&&b.vip_set_off?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した VIP代（料金なし）</div>`:'');
 }
 function rbSetBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;

@@ -51,8 +51,9 @@ async function billEdit(id){
   const resplit=it=>{ if(hcId&&it.product_id===hcId) syncHc(); else it.splits=split(it,(it.splits||[]).map(z=>z.staff_id)); };
   // 自動延長：POS の自動延長と同じ考え方で、退店の時刻までに足りる回数にそろえる（手で入れた延長はそのまま）
   const reExt=()=>{ if(O.mode&&O.mode.include_set===false) return; const em=Number(st.ext_minutes||0); if(em<=0||!B.set_start||!B.closed_at) return;
-    const man=S.exts.filter(e=>!e.is_auto), au=S.exts.filter(e=>e.is_auto), base=Number(B.set_minutes||0)+man.reduce((a,e)=>a+Number(e.minutes||0),0)+Number(B.ext_waived_minutes||0);
-    const used=(new Date(B.closed_at)-new Date(B.set_start))/60000, n=Math.max(0,Math.ceil((used-base)/em-1e-9));
+    const man=S.exts.filter(e=>!e.is_auto), au=S.exts.filter(e=>e.is_auto), base=Number(B.set_minutes||0)+man.reduce((a,e)=>a+Number(e.minutes||0),0)+Number(B.ext_waived_minutes||0)+Number(B.ext_pay_shift_minutes||0);
+    const stop=B.pay_open_at&&new Date(B.pay_open_at)<new Date(B.closed_at)?B.pay_open_at:B.closed_at; /* お会計を開いた時刻から先は延長しない（POS と同じ・SQL 548） */
+    const used=(new Date(stop)-new Date(B.set_start))/60000, n=Math.max(0,Math.ceil((used-base)/em-1e-9));
     while(au.length>n) au.pop(); while(au.length<n) au.push({id:beUid(),minutes:em,unit_price:Number(st.ext_unit_price||0),qty:B.guest_count,is_auto:true}); S.exts=[...man,...au]; };
   const toTs=t=>{ const day=t<'08:00'?dayAdd(bd,1):bd; return new Date(`${day}T${t}:00+09:00`).toISOString(); };
   const E={id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,calcSeq:0,last:null,CL:O.cust_list||[]};
