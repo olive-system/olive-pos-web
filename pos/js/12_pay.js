@@ -75,7 +75,7 @@ $('payAdd').onclick=guard($('payAdd'),async()=>{ const v=parseInt($('payAmount')
 let billTo=null, btList={bill:null,sig:'',rows:[]};
 const btCusts=()=>(S.cur?.bill_customers||[]).map(x=>S.customers.find(c=>c.id===x.customer_id)).filter(Boolean);
 async function btLoad(){ const cs=btCusts(), ids=cs.map(c=>c.id); let rows=[];
-  if(ids.length){ const r=await sb.from('customer_bill_tos').select('*').in('customer_id',ids).order('last_used_on',{ascending:false,nullsFirst:false}).order('created_at',{ascending:false}); if(r.error){ toast(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); } else rows=r.data||[]; }
+  if(ids.length){ const r=await sb.rpc('pos_bill_tos',{p_customers:ids}); /* 回数と最後の日は、取り消していない伝票の支払いから数える（SQL 538） */ if(r.error){ toast(r.error.message); } else rows=r.data||[]; }
   // まだ請求先が無いお客様は、顧客の「会社名・会社住所」を候補に出す（選ぶと、そのお客様の請求先として覚える）
   cs.forEach(c=>{ const co=(c.company||'').trim(); if(co&&!rows.some(x=>x.customer_id===c.id&&x.company===co)) rows.push({id:null,customer_id:c.id,company:co,address:c.company_address||'',attn:rnFirst(c.receipt_name)||c.name,fromCust:true}); });
   btList={bill:S.cur.id,sig:S.cur.id+':'+ids.join(','),rows}; }
