@@ -52,20 +52,41 @@ function clSides(lab,big,sw,sh,n){ const P=[]; for(let i=0;i<lab.length;i++){ if
   if(!S.t||!S.b||!S.l||!S.r) return null; const X=(A,B)=>{ const ax=A.x/A.w, ay=A.y/A.w, bx=B.x/B.w, by=B.y/B.w, d=A.dx*B.dy-A.dy*B.dx; if(Math.abs(d)<1e-9) return null; const m=((bx-ax)*B.dy-(by-ay)*B.dx)/d; return [ax+m*A.dx, ay+m*A.dy]; };
   const Q=[X(S.t,S.l),X(S.t,S.r),X(S.b,S.r),X(S.b,S.l)]; if(Q.some(p=>!p||p[0]<-sw*0.1||p[0]>sw*1.1||p[1]<-sh*0.1||p[1]>sh*1.1)) return null;
   const A=Math.abs(Q.reduce((z,p,i)=>{ const q=Q[(i+1)%4]; return z+p[0]*q[1]-q[0]*p[1]; },0))/2; return A>=n*0.9&&A<=n*1.6?Q:null; }
+/* 字を黒く・紙を白く：周りの明るさ（紙の地）で割って、影や照明のむらを消してから濃淡を付ける（Apple のスキャンの白黒に近づける） */
+function clInk(G, W, H){
+  const R = Math.max(8, Math.round(Math.max(W, H) / 60)), W1 = W + 1, I = new Float64Array(W1 * (H + 1)), D = new Uint8ClampedArray(W * H);
+  for(let j = 0; j < H; j++){ let s = 0; for(let i = 0; i < W; i++){ s += G[j * W + i]; I[(j + 1) * W1 + i + 1] = I[j * W1 + i + 1] + s; } }
+  for(let j = 0; j < H; j++){ const y0 = Math.max(0, j - R), y1 = Math.min(H, j + R + 1);
+    for(let i = 0; i < W; i++){ const x0 = Math.max(0, i - R), x1 = Math.min(W, i + R + 1);
+      const mean = (I[y1 * W1 + x1] - I[y0 * W1 + x1] - I[y1 * W1 + x0] + I[y0 * W1 + x0]) / ((x1 - x0) * (y1 - y0));
+      const r = G[j * W + i] / Math.max(40, mean * 1.08); D[j * W + i] = r >= 0.92 ? 255 : Math.pow(Math.max(0, (r - 0.45) / 0.47), 1.6) * 255; } }
+  return D;
+}
+
+/* 撮った写真（canvas）を、角 Q（無ければ自動で探す）で切り取ってまっすぐに直し、長い辺 1600 点・字を黒く紙を白く。
+   先に切り取ってから縮めるので、紙が小さく写っていても細かさが残る。src・P は撮った後の［修正］で使う */
+function clScanCv(c, Q){
+  const w = c.width, h = c.height, x = c.getContext('2d', { willReadFrequently: true });
+  const P = Q || clCorners(x, w, h), sd = x.getImageData(0, 0, w, h).data, dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  let W = w, H = h, map = (u, v) => [u * (w - 1), v * (h - 1)];
+  if(P){ const [p0, p1, p2, p3] = P; W = Math.max(dist(p0, p1), dist(p3, p2)); H = Math.max(dist(p0, p3), dist(p1, p2));
+    const dx1 = p1[0] - p2[0], dx2 = p3[0] - p2[0], dx3 = p0[0] - p1[0] + p2[0] - p3[0], dy1 = p1[1] - p2[1], dy2 = p3[1] - p2[1], dy3 = p0[1] - p1[1] + p2[1] - p3[1], den = dx1 * dy2 - dx2 * dy1;
+    const g = den ? (dx3 * dy2 - dx2 * dy3) / den : 0, hh = den ? (dx1 * dy3 - dx3 * dy1) / den : 0, a = p1[0] - p0[0] + g * p1[0], b = p3[0] - p0[0] + hh * p3[0], e = p1[1] - p0[1] + g * p1[1], f = p3[1] - p0[1] + hh * p3[1];
+    map = (u, v) => { const z = g * u + hh * v + 1; return [(a * u + b * v + p0[0]) / z, (e * u + f * v + p0[1]) / z]; }; }
+  const s = Math.min(1, 1600 / Math.max(W, H)); W = Math.max(1, Math.round(W * s)); H = Math.max(1, Math.round(H * s));
+  const lum = n => 0.299 * sd[n * 4] + 0.587 * sd[n * 4 + 1] + 0.114 * sd[n * 4 + 2], G = new Float32Array(W * H);
+  for(let j = 0; j < H; j++) for(let i = 0; i < W; i++){
+    const [sx, sy] = map(W > 1 ? i / (W - 1) : 0, H > 1 ? j / (H - 1) : 0);
+    const x0 = Math.max(0, Math.min(w - 2, Math.floor(sx))), y0 = Math.max(0, Math.min(h - 2, Math.floor(sy))), fx = Math.max(0, Math.min(1, sx - x0)), fy = Math.max(0, Math.min(1, sy - y0)), n = y0 * w + x0;
+    G[j * W + i] = (lum(n) * (1 - fx) + lum(n + 1) * fx) * (1 - fy) + (lum(n + w) * (1 - fx) + lum(n + w + 1) * fx) * fy; }
+  const D = clInk(G, W, H), o = document.createElement('canvas'); o.width = W; o.height = H; const ox = o.getContext('2d'), od = ox.createImageData(W, H);
+  for(let i = 0; i < W * H; i++){ od.data[i * 4] = od.data[i * 4 + 1] = od.data[i * 4 + 2] = D[i]; od.data[i * 4 + 3] = 255; }
+  ox.putImageData(od, 0, 0); return { w: W, h: H, url: o.toDataURL('image/jpeg', 0.8), src: c, P };
+}
+
 async function clScan(file){ const img=await new Promise((ok,ng)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>ng(new Error('写真を読み込めません')); i.src=URL.createObjectURL(file); });
-  const k=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight)), w=Math.round(img.naturalWidth*k), h=Math.round(img.naturalHeight*k);
-  const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); x.drawImage(img,0,0,w,h); URL.revokeObjectURL(img.src);
-  const sd=x.getImageData(0,0,w,h).data, L=new Float32Array(w*h); for(let i=0;i<w*h;i++) L[i]=0.299*sd[i*4]+0.587*sd[i*4+1]+0.114*sd[i*4+2];
-  const P=clCorners(x,w,h), dist=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1]);
-  let W=w, Hh=h, map=(u,v)=>[u*(w-1),v*(h-1)];
-  if(P){ const [p0,p1,p2,p3]=P; W=Math.round(Math.max(dist(p0,p1),dist(p3,p2))); Hh=Math.round(Math.max(dist(p0,p3),dist(p1,p2))); const s=Math.min(1,1600/Math.max(W,Hh)); W=Math.max(1,Math.round(W*s)); Hh=Math.max(1,Math.round(Hh*s));
-    const dx1=p1[0]-p2[0], dx2=p3[0]-p2[0], dx3=p0[0]-p1[0]+p2[0]-p3[0], dy1=p1[1]-p2[1], dy2=p3[1]-p2[1], dy3=p0[1]-p1[1]+p2[1]-p3[1], den=dx1*dy2-dx2*dy1;
-    const g=den?(dx3*dy2-dx2*dy3)/den:0, hh=den?(dx1*dy3-dx3*dy1)/den:0, a=p1[0]-p0[0]+g*p1[0], b=p3[0]-p0[0]+hh*p3[0], e=p1[1]-p0[1]+g*p1[1], f=p3[1]-p0[1]+hh*p3[1];
-    map=(u,v)=>{ const z=g*u+hh*v+1; return [(a*u+b*v+p0[0])/z,(e*u+f*v+p0[1])/z]; }; }
-  const o=document.createElement('canvas'); o.width=W; o.height=Hh; const ox=o.getContext('2d'), od=ox.createImageData(W,Hh), a2=od.data;
-  for(let j=0;j<Hh;j++) for(let i=0;i<W;i++){ const [sx,sy]=map(W>1?i/(W-1):0,Hh>1?j/(Hh-1):0); const x0=Math.max(0,Math.min(w-2,Math.floor(sx))), y0=Math.max(0,Math.min(h-2,Math.floor(sy))), fx=Math.max(0,Math.min(1,sx-x0)), fy=Math.max(0,Math.min(1,sy-y0)), n=y0*w+x0;
-    const l=(L[n]*(1-fx)+L[n+1]*fx)*(1-fy)+(L[n+w]*(1-fx)+L[n+w+1]*fx)*fy, v=Math.max(0,Math.min(255,(l-110)*1.9+128)), q=(j*W+i)*4; a2[q]=a2[q+1]=a2[q+2]=v; a2[q+3]=255; }
-  ox.putImageData(od,0,0); return {w:W,h:Hh,url:o.toDataURL('image/jpeg',0.72)}; }
+  const k=Math.min(1,3200/Math.max(img.naturalWidth,img.naturalHeight)), c=document.createElement('canvas'); c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src); return clScanCv(c,null); } /* 切り取り・字を黒く紙を白くは clScanCv。POS の中のカメラで撮った時も同じ */
 async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.h/sc.w*10)/10; const pdf=new window.jspdf.jsPDF({unit:'mm',format:[W,H],orientation:H>=W?'p':'l'}); pdf.addImage(sc.url,'JPEG',0,0,W,H); return pdf.output('blob'); }
 // 精算の手引きの項目を確かめる（オーナー「宛名・日付・軽減税率・但し書き・発行店名・電話番号・登録番号・飲食の参加者・自分の名前・鮮明さ」）
 // ・receipt-read が全部の項目を読み、合っているかはここで決める。不備が1つでもあると OK を押せない
@@ -98,7 +119,7 @@ function clRcptBox(){
   return `<div class="box clrc" style="width:min(860px,96vw)"><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(CL_RCPT)}</div>
     <div style="display:flex;gap:16px;align-items:flex-start"><div data-im style="flex:none;width:min(360px,42vw);height:min(540px,60vh);border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden"></div>
     <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--line)"><span>金額</span><input data-a type="number" inputmode="numeric" placeholder="読み取り中…" style="width:150px;text-align:right"></div><div data-ck></div></div></div>
-    <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g" data-re>再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok disabled>OK</button></div></div>`;
+    <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g" data-re>再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-fx>修正</button><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok disabled>OK</button></div></div>`;
 }
 // 読み取った中身の行（宛名・日付・登録番号など。不備は入れ直せる）
 function clRcptRows(X,PY,blur){
@@ -120,7 +141,90 @@ async function clRcptSave(m,d,sc,X,amount){
     const r=await sb.rpc('pos_rows_add',{p_table:'cash_movements',p:{id,store_id:S.store.id,business_date:d,kind:'out',amount,memo:CL_RCPT,receipt_path:path,payer:X.payer.v||null,receipt_check:chk}}); if(r.error){ await sb.storage.from('receipts').remove([path]); await uiAlert('登録できません：'+r.error.message); return; }
     await logOp('レジ出金の登録',{date:d,amount,memo:CL_RCPT,receipt:true,payer:X.payer.v||null},null,true); m.remove(); renderClosing();
 }
-async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); return; }
+/* 撮る前に紙の4つの角に丸・自動で撮る・撮った後に角を修正（オーナー「アップルのようにスキャンは撮る前に合わせたら？」「角に丸をつけて角を検出はできない？」→ ア）。
+   POS の画面の中にカメラの映像を出す。カメラを使えない端末・許可されなかった時は、今までどおり iPad のカメラ（［撮影］の中の入力欄）で撮る */
+const CL_CAM_STILL = 1000; // 丸がこの時間（ミリ秒）同じ所にあれば自動で撮る
+
+function clCamOk(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !S.clCamNo; }
+
+/* ［撮影］の label（中に入力欄）に付ける：カメラを使える時は POS の中のカメラ、使えない時は今までどおり入力欄 */
+function clCamWire(lb, done){
+  if(!lb || lb.dataset.cam) return; lb.dataset.cam = '1';
+  lb.addEventListener('click', e => { if(!clCamOk()) return; e.preventDefault(); clCamOpen(done); });
+}
+
+/* 映像の上に丸を描く位置（映像は枠の中に収めて表示） */
+function clCamFit(v, box){
+  const bw = box.clientWidth, bh = box.clientHeight, vw = v.videoWidth || 1, vh = v.videoHeight || 1;
+  const k = Math.min(bw / vw, bh / vh); return { k, ox: (bw - vw * k) / 2, oy: (bh - vh * k) / 2, bw, bh };
+}
+
+/* 4つの角に丸（見つからない時は何も出さない） */
+function clCamDots(cv, Q, f){
+  cv.width = f.bw; cv.height = f.bh; const x = cv.getContext('2d'); x.clearRect(0, 0, f.bw, f.bh); if(!Q) return;
+  const c = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim(); /* 丸は色の決まりの --brand（olive.css） */
+  x.lineWidth = 4; x.strokeStyle = c;
+  for(const [px, py] of Q){ x.beginPath(); x.arc(f.ox + px * f.k, f.oy + py * f.k, 16, 0, 7); x.globalAlpha = .35; x.fillStyle = c; x.fill(); x.globalAlpha = 1; x.stroke(); }
+}
+
+/* 4つの角がほとんど動いていないか（対角の 3% 以内） */
+function clCamSame(A, B, w, h){
+  if(!A || !B) return false; const t = Math.hypot(w, h) * 0.03;
+  return A.every((p, i) => Math.hypot(p[0] - B[i][0], p[1] - B[i][1]) <= t);
+}
+
+/* 小さくした映像で角を探す（clCorners は 19_close_receipt.js） */
+function clCamFind(v, sm){
+  const vw = v.videoWidth, vh = v.videoHeight; if(!vw) return null;
+  const k = 480 / Math.max(vw, vh); sm.width = Math.round(vw * k); sm.height = Math.round(vh * k);
+  const x = sm.getContext('2d', { willReadFrequently: true }); x.drawImage(v, 0, 0, sm.width, sm.height);
+  const P = clCorners(x, sm.width, sm.height); return P ? P.map(([px, py]) => [px / k, py / k]) : null;
+}
+
+/* POS の中のカメラ：丸が止まったら自動で撮る。シャッターでも撮れる。撮れたら done(写真の canvas, 角) */
+async function clCamOpen(done){
+  let st;
+  try{ st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false }); }
+  catch(e){ S.clCamNo = true; await uiAlert('カメラを使えません。再度［撮影］を押すと、iPad のカメラで撮影します'); return; }
+  const m = mkModal(56); m.innerHTML = `<div class="box clcam"><button type="button" class="xb dx" data-x aria-label="閉じる">×</button><div class="clcv"><video playsinline muted autoplay></video><canvas></canvas></div><div class="clcb"><button type="button" class="clsh" data-sh aria-label="撮影"></button></div></div>`;
+  document.body.appendChild(m);
+  const v = m.querySelector('video'), cv = m.querySelector('canvas'), box = m.querySelector('.clcv'), sm = document.createElement('canvas');
+  let Q = null, still = 0, end = false;
+  const stop = () => { end = true; st.getTracks().forEach(t => t.stop()); m.remove(); };
+  const shot = () => {
+    if(end || !v.videoWidth) return; const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); const q = Q; stop(); done(c, q);
+  };
+  m.querySelector('[data-x]').onclick = stop; m.querySelector('[data-sh]').onclick = shot;
+  v.srcObject = st; try{ await v.play(); }catch(_){}
+  const camTick = () => {
+    if(end) return; let P = null; try{ P = clCamFind(v, sm); }catch(_){}
+    const now = performance.now(); if(P && clCamSame(P, Q, v.videoWidth, v.videoHeight)){ if(!still) still = now; } else still = 0;
+    Q = P; clCamDots(cv, Q, clCamFit(v, box));
+    if(Q && still && now - still >= CL_CAM_STILL) return shot();
+    setTimeout(camTick, 200);
+  };
+  camTick();
+}
+
+/* 撮った後の［修正］：写真の上の4つの丸を指で紙の角へ動かす → OK で切り取り直す。done(新しい角) */
+function clCamFix(sc, done){
+  const c = sc.src, w = c.width, h = c.height, P = (sc.P || [[w * .1, h * .1], [w * .9, h * .1], [w * .9, h * .9], [w * .1, h * .9]]).map(p => p.slice());
+  const m = mkModal(58); m.innerHTML = `<div class="box clcam"><div class="clcv" style="touch-action:none"><canvas data-ph></canvas><canvas data-dt></canvas></div><div class="bar" style="justify-content:flex-end;padding:10px 12px;margin:0"><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok>OK</button></div></div>`;
+  document.body.appendChild(m);
+  const box = m.querySelector('.clcv'), ph = m.querySelector('[data-ph]'), dt = m.querySelector('[data-dt]');
+  const fit = () => { const bw = box.clientWidth, bh = box.clientHeight, k = Math.min(bw / w, bh / h); return { k, ox: (bw - w * k) / 2, oy: (bh - h * k) / 2, bw, bh }; };
+  const draw = () => { const f = fit(); ph.width = f.bw; ph.height = f.bh; ph.getContext('2d').drawImage(c, f.ox, f.oy, w * f.k, h * f.k); clCamDots(dt, P, f); };
+  let on = -1;
+  const fixAt = e => { const r = box.getBoundingClientRect(), f = fit(); return [(e.clientX - r.left - f.ox) / f.k, (e.clientY - r.top - f.oy) / f.k]; };
+  box.onpointerdown = e => { const [px, py] = fixAt(e), f = fit(); let best = 1e9; P.forEach(([qx, qy], i) => { const dd = Math.hypot(qx - px, qy - py) * f.k; if(dd < best){ best = dd; on = i; } }); if(best > 60) on = -1; else box.setPointerCapture(e.pointerId); };
+  box.onpointermove = e => { if(on < 0) return; const [px, py] = fixAt(e); P[on] = [Math.max(0, Math.min(w - 1, px)), Math.max(0, Math.min(h - 1, py))]; clCamDots(dt, P, fit()); };
+  box.onpointerup = box.onpointercancel = () => { on = -1; };
+  m.querySelector('[data-c]').onclick = () => m.remove();
+  m.querySelector('[data-ok]').onclick = () => { m.remove(); done(P); };
+  requestAnimationFrame(draw);
+}
+async function clRcptShot(file,d){ let sc; try{ sc=file instanceof Blob?await clScan(file):file; }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); return; } /* file は写真、または POS の中のカメラで撮って切り取った物（clScanCv の結果） */
   const m=mkModal(55); /* 入力した黒服の小窓（uiDlg・60）が上に出るように */
   m.innerHTML=clRcptBox();
   document.body.appendChild(m); const A=m.querySelector('[data-a]'), CK=m.querySelector('[data-ck]'), OK=m.querySelector('[data-ok]'), RE=m.querySelector('[data-re]'); let X=null, PY=[];
@@ -134,6 +238,8 @@ async function clRcptShot(file,d){ let sc; try{ sc=await clScan(file); }catch(e)
   const show=s=>{ sc=s; /* （オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(sc!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(sc===s) uiAlert('PDF を作成できません：'+(e.message||'')); });
     A.value=''; A.placeholder='読み取り中…'; X=null; draw(); const me=s; clRead(s.url).then(q=>{ if(sc!==me||!document.body.contains(m)) return; A.placeholder='金額'; X=clCheck(q?.read); if(q?.amount!=null&&!A.value) A.value=q.amount; draw(); if(!q?.read) toast('領収書を読み取れませんでした。項目を入力してください'); }); };
   A.oninput=can; show(sc); m.querySelector('[data-c]').onclick=()=>{ const u=m.querySelector('[data-im]').dataset.u; if(u) URL.revokeObjectURL(u); m.remove(); };
+  const redo=f=>{ try{ show(f()); }catch(e){ uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
+  clCamWire(RE,(c,q)=>redo(()=>clScanCv(c,q))); m.querySelector('[data-fx]').onclick=()=>clCamFix(sc,P=>redo(()=>clScanCv(sc.src,P)));
   const ri=RE.querySelector('input'); ri.onchange=async()=>{ const f=ri.files&&ri.files[0]; ri.value=''; if(!f) return; try{ show(await clScan(f)); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
   OK.onclick=guard(OK,async()=>{ const amount=clNum(A.value); if(!amount){ toast('金額を入力してください'); A.focus(); return; } if(!X||CL_RK.some(([k])=>X[k].ng)) return; if(await askBy()===null) return;
     await clRcptSave(m,d,sc,X,amount); }); }
