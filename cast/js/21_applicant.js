@@ -153,7 +153,8 @@ function apIvAddDlg(w, iso, store, back, done){ const d = new Date(iso + 'T00:00
 
 // 応募の人に届く LINE のボタン（LINE連携していない人も開く）。［面接予約］は押した時刻を残して予約ページへ・［ご感想］は体験の翌日
 async function apLiff(go){
-  if($('tSub')) $('tSub').textContent = ''; document.title = STORE === 'hiroshima' ? 'OLIVE 広島' : 'OLIVE 銀座'; /* 応募の人に「LINEマイページ」は出さない */
+  if($('tSub')) $('tSub').textContent = ''; document.title = 'OLIVE'; /* 応募の人に「LINEマイページ」は出さない。店の名前は店の表から（ジャッジの画面は自分の題を出すので上書きしない） */
+  if(go !== 'judge') sb.rpc('ap_store_title', { p_store: STORE }).then(r => { if(r.data) document.title = r.data; });
   const idt = liff.getIDToken(); if(!idt){ liff.login({ redirectUri: location.href }); return; }
   show('<div class="card c muted">読み込み中…</div>');
   if(go === 'book'){ const r = await sb.rpc('ap_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }

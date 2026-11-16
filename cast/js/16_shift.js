@@ -76,7 +76,6 @@ function shSearch(){ return new Promise(res => { const d = document.createElemen
   document.body.appendChild(d); const q = d.querySelector('#shQ'), done = v => { d.remove(); res(v); };
   d.querySelector('[data-k=ok]').onclick = () => done(q.value.trim()); d.querySelector('[data-k=no]').onclick = () => done(null);
   q.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); done(q.value.trim()); } }; q.focus(); }); }
-const SH_STORE = { ginza: '銀座', hiroshima: '広島' };
 async function shiftAll(store){
   if(SHALL && store && store !== SHALL.store) SHQ = '';
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
@@ -110,7 +109,7 @@ function saKitB(S){ const { store, mtBox, A, td, KLs, box, groups, rows, all, hi
     + (tHt.length ? `${sep}<div class="gh">黒服の体験</div><div>${tHt.map(x => apRing(x.name, x.ap)).join('・')}</div>` : '')
     + (tR.length ? `${sep}<div class="gh">${rvHead(tR)}</div>${tR.map((x, i) => rvRow(x, shWho(x), i)).join('')}` : '') /* しるしは右の列・同伴の子 */
     + (tIv.length ? `${sep}<div class="gh">面接 ${tIv.length}件</div>${ivRows(tIv)}` : '');
-  const sw = (A.stores || []).length > 1 ? `<div style="display:flex;gap:8px;margin-bottom:10px">${A.stores.map(s => `<button class="btn${s.code === A.store ? '' : ' g'}" data-shst="${s.code}" style="flex:1">${esc(SH_STORE[s.code] || s.name)}</button>`).join('')}</div>` : '';
+  const sw = (A.stores || []).length > 1 ? `<div style="display:flex;gap:8px;margin-bottom:10px">${A.stores.map(s => `<button class="btn${s.code === A.store ? '' : ' g'}" data-shst="${s.code}" style="flex:1">${esc(s.short || s.name)}</button>`).join('')}</div>` : '';
   const shHead = `<div style="position:relative;margin-bottom:6px"><div class="ttl" style="margin:0;line-height:36px">シフト（全員）</div><div style="position:absolute;right:0;top:0">${SHQ ? `<span style="display:inline-flex;align-items:center;height:36px;max-width:9em;border:1px solid var(--line);border-radius:8px;padding:0 2px 0 10px;background:var(--card);font-size:14px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(SHQ)}</span><button class="xb" id="shQx" aria-label="解除">×</button></span>` : '<button class="btn g" id="shQgo" style="width:auto;padding:0 14px;height:36px;font-size:14px">検索</button>'}</div></div>`;
   return { ...S, cur, tL, tOff, tR, tIv, tHt, sep, todayExtra, sw, shHead }; }
 /* 1か月のカレンダー（確定した月） */
