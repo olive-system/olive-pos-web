@@ -30,7 +30,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
   const stOf=(x,d)=>x.status==='done'?'done':x.status==='skip'?'skip':d>today?'fut':'open';
   const CHS={done:'background:var(--gold-soft)',skip:'background:var(--soft);color:var(--muted)',open:'background:var(--warn-soft);color:var(--warn);font-weight:700',fut:'background:#fff;border:1px solid var(--line)'};
   const D=M[todoDay]||[], hm=hmJst;
-  const wdN=wdJ, cnt=k=>D.filter(x=>stOf(x,todoDay)===k).length;
+  const wdN=wdS, cnt=k=>D.filter(x=>stOf(x,todoDay)===k).length;
   const badge=k=>`<span style="font-size:12px;border-radius:999px;padding:1px 8px;white-space:nowrap;${CHS[k]}">${({done:'完了',skip:'できない',open:'未完了',fut:'これから'})[k]}</span>`;
   const dayCard=`<div class="card"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px"><b style="font-size:20px">${Number(todoDay.slice(5,7))}/${Number(todoDay.slice(8))}（${wdN(todoDay)}）${todoDay===today?'　本日':''}</b><span class="muted" style="font-size:13px">TODO ${D.length}件${D.length?`　完了 ${cnt('done')}・できない ${cnt('skip')}・未完了 ${cnt('open')}`:''}</span></div>
     ${(()=>{ const row=(x,i)=>{ const k=stOf(x,todoDay); return `<div style="border-top:1px solid var(--line);padding:9px 0"><div style="display:flex;gap:8px;align-items:center">${badge(k)}<b style="flex:1;font-weight:500;${ed&&byId[x.id]?'cursor:pointer':''}" ${ed&&byId[x.id]?`data-tde="${x.id}"`:''}>${esc(x.name)}</b><span class="muted" style="font-size:12px;white-space:nowrap">${esc(TODO_SLOT[x.slot]&&x.slot!=='none'?TODO_SLOT[x.slot]:'')}${x.by?'　'+esc(x.by):''}${x.at?' '+hm(x.at):''}</span>${ed&&byId[x.id]?`<button class="ghost sm" data-tde="${x.id}" style="padding:0 8px">変更</button>`:''}</div>

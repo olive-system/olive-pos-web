@@ -3,7 +3,7 @@
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
 const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
 const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
-const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`, mdDay = s => { const x = jd(s); return `${x.getMonth()+1}/${x.getDate()}`; }, mdW = s => mdWD(jd(s));
+const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`, mdDay = s => { const x = jd(s); return `${x.getMonth()+1}/${x.getDate()}`; };
 /* お客様のフリガナで検索（ひらがな・カタカナどちらでも。空白は無視） */
 const DRESS = '<img src="../icons/dress.svg" alt="黒ドレス" style="width:15px;height:15px;vertical-align:-2px;margin-left:2px">'; /* 黒ドレスの着用者の名前の横（オーナー「イ 黒いドレスの形」。Phosphor） */
 const HM = h => { const t=Math.round(Number(h||0)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
@@ -25,10 +25,10 @@ async function todoPhotosUp(ids, files, done){ await upPool(files.length, async 
 
 // ---- 画面の共通の部品（どの画面も使う：小窓・画面の入れ替え・表示できない時・戻る・読めなかった時の1行） ----
 // 確認・お知らせは画面の中の窓で出す（ブラウザの窓にはサイトのアドレスが出るため。オーナー）
-function dlg(msg, ok, cancel, html){ if(!html) msg = jaNet(msg); /* html は呼ぶ側でエスケープ済み（黒ドレスのしるしを出す小窓） */ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
-  d.innerHTML = `<div class="box"><p>${html ? msg : esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn" data-k="ok">${esc(ok)}</button></div></div>`;
+function dlg(msg, ok, cancel, html, cls){ if(!html) msg = jaNet(msg); /* html は呼ぶ側でエスケープ済み（黒ドレスのしるしを出す小窓） */ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg';
+  d.innerHTML = `<div class="box"><p>${html ? msg : esc(msg)}</p><div class="bt">${cancel?'<button class="btn g" data-k="no">キャンセル</button>':''}<button class="btn${cls === 'danger' ? ' d' : ''}" data-k="ok">${esc(ok)}</button></div></div>`;
   document.body.appendChild(d); d.querySelector('[data-k=ok]').onclick = () => { d.remove(); res(true); }; const n = d.querySelector('[data-k=no]'); if(n) n.onclick = () => { d.remove(); res(false); }; }); }
-UI.box = o => dlg(o.msg, o.ok, o.cancel); /* 知らせの箱の見た目（マイページの小窓）。uiAlert・uiConfirm は lib/olive/core.js */
+UI.box = o => dlg(o.msg, o.ok, o.cancel, false, o.cancel ? o.cls : null); /* 消す操作は赤（uiConfirm(文,'削除','danger')）。ほかのサイトと同じ */ /* 知らせの箱の見た目（マイページの小窓）。uiAlert・uiConfirm は lib/olive/core.js */
 // 見るだけの小窓は OK ではなく右上の × で閉じる（オーナー「閉じるんだったら×でいいよね」）。inner は呼ぶ側でエスケープ済み
 function xBox(inner, done){ const d = document.createElement('div'); d.className = 'dlg'; d.innerHTML = `<div class="box xv"><button class="xb dx" data-k="x" aria-label="閉じる">×</button>${inner}</div>`;
   document.body.appendChild(d); d.querySelector('[data-k=x]').onclick = () => { d.remove(); if(done) done(); }; return d; }

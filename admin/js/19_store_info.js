@@ -13,7 +13,7 @@ async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed
     $('siLogoF').onchange=async e=>{ const fl=e.target.files[0]; e.target.value=''; if(!fl) return; let url;
       try{ url=await siLogoPng(fl); }catch(err){ await uiAlert('画像を読み込めません：'+(err?.message||err)); return; }
       const x=await rpc('admin_save_receipt_logo',{p_store:st,p_logo:url}); if(!x.ok) return; toast('領収書ロゴを保存しました'); siRender(); };
-    if($('siLogoX')) $('siLogoX').onclick=async()=>{ if(!await uiConfirm('領収書ロゴを削除しますか？','削除')) return; const x=await rpc('admin_save_receipt_logo',{p_store:st,p_logo:null}); if(!x.ok) return; toast('領収書ロゴを削除しました'); siRender(); }; }
+    if($('siLogoX')) $('siLogoX').onclick=async()=>{ if(!await uiConfirm('領収書ロゴを削除しますか？','削除','danger')) return; const x=await rpc('admin_save_receipt_logo',{p_store:st,p_logo:null}); if(!x.ok) return; toast('領収書ロゴを削除しました'); siRender(); }; }
   siSaveWire(st,d); }
 
 

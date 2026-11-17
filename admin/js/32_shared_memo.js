@@ -26,7 +26,7 @@ function amSaveWire(M,st){
     const q=await sb.rpc('admin_memo_save',{p_id:M?.id||null,p_store:st,p_title:$('amT').value,p_body:$('amB').value,p_link_name:$('amLn').value,p_link_url:$('amLu').value,
       p_has_password:$('amPw').checked,p_files:amFiles,p_members:[...$('main').querySelectorAll('[data-amh]')].filter(x=>x.checked).map(x=>x.dataset.amh)});
     if(q.error){ await uiAlert(q.error.message); return; } toast('保存しました'); amList(); });
-  if($('amDel')) $('amDel').onclick=async()=>{ if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`,'削除')) return;
+  if($('amDel')) $('amDel').onclick=async()=>{ if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`,'削除','danger')) return;
     const q=await sb.rpc('admin_memo_delete',{p_id:M.id}); if(q.error){ await uiAlert(q.error.message); return; } toast('削除しました'); amList(); };
   $('amBk').onclick=()=>amList();
 }

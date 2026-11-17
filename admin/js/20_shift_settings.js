@@ -1,27 +1,18 @@
 // ---------- シフト設定（目安人数（曜日別・日別）・休み希望の上限（曜日別）・定休日・祝日） ----------
 // シフト設定（曜日別の目安人数を店・月ごとに。日ごとの目安はシフトのカレンダーで日を押して変更）。イベント日の登録も（オーナー）
 let setMonth=null;
-// 日本の祝日（シフト設定のカレンダーに「祝」と出すだけ。休にするかは押して決める）
-function jpHolidays(y){ const H=new Set(), k=(m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, nthMon=(m,n)=>{ const f=new Date(y,m-1,1).getDay(); return 1+((8-f)%7)+(n-1)*7; };
-  [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[8,11],[11,3],[11,23]].forEach(([m,d])=>H.add(k(m,d)));
-  H.add(k(1,nthMon(1,2))); H.add(k(7,nthMon(7,3))); H.add(k(9,nthMon(9,3))); H.add(k(10,nthMon(10,2)));
-  const q=Math.floor((y-1980)/4); H.add(k(3,Math.floor(20.8431+0.242194*(y-1980)-q))); H.add(k(9,Math.floor(23.2488+0.242194*(y-1980)-q)));
-  const ds=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  for(let d=new Date(y,8,1);d.getMonth()===8;d.setDate(d.getDate()+1)){ const a=new Date(d), b=new Date(d); a.setDate(a.getDate()-1); b.setDate(b.getDate()+1); if(!H.has(ds(d))&&d.getDay()!==0&&H.has(ds(a))&&H.has(ds(b))) H.add(ds(d)); } // 国民の休日
-  [...H].sort().forEach(x=>{ const d=new Date(x+'T00:00:00'); if(d.getDay()===0){ do d.setDate(d.getDate()+1); while(H.has(ds(d))); H.add(ds(d)); } }); // 振替休日
-  return H; }
 let ssMode='ev';
 // 定休日（毎週）と、日ごとの休・営業（祝日・年末年始・定休日でも営業する日）。カレンダーは「イベント」「休」を選んで日を押す（オーナー）
 document.addEventListener('click',async e=>{ if(e.target&&e.target.id==='ssBack'){ if(!await leaveOk()) return; go('shift'); } }); // シフト設定から シフトに戻る
 PAGES.set_shift=async()=>{ const st=storeId, ed=perm('set_shift')==='edit'||perm('shift')==='edit', now=csNowMonth(); if(!setMonth) setMonth=csAddMonth(now,1); const m=setMonth;
   const head=`<div class="row" style="margin-bottom:12px;align-items:center"><button class="ghost" id="ssBack">← シフト</button><h1 style="margin:0">シフト設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1></div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const [r,mr,dr]=await Promise.all([sb.rpc('admin_shift_settings_get',{p_store:st,p_month:m}),sb.rpc('admin_meeting_get',{p_store:st,p_month:m}),sb.rpc('admin_shift_day_targets',{p_store:st,p_month:m})]); if(page!=='set_shift'||storeId!==st||setMonth!==m) return;
+  const [r,mr,dr,hr]=await Promise.all([sb.rpc('admin_shift_settings_get',{p_store:st,p_month:m}),sb.rpc('admin_meeting_get',{p_store:st,p_month:m}),sb.rpc('admin_shift_day_targets',{p_store:st,p_month:m}),sb.rpc('admin_jp_holidays',{p_month:m})]); if(page!=='set_shift'||storeId!==st||setMonth!==m) return;
   if(r.error||dr.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc((r.error||dr.error).message)}</div>`; return; }
   const DT=dr.data||{}; /* 日ごとの目安人数 */
   const MT=mr.error?null:mr.data, MD=new Set(MT?.days||[]), hm=v=>v?String(v).replace(/^0(\d)/,'$1'):''; // ミーティング（月初の営業日2日・時間帯は店で1つ）
   const NC=r.data?.ng_caps||null /* 休み希望の上限（日〜土）。SQL 515 の前は出さない */, T=r.data?.targets||{}, EVs=new Set(r.data?.events||[]), OFF=new Set(r.data?.offs||[]), DOW=new Set(r.data?.off_dows||[]), opts=[now,csAddMonth(now,1),csAddMonth(now,2),csAddMonth(now,3)];
-  const {y,mo,first,nd,iso}=calMonth(m), HOL=jpHolidays(y);
+  const {y,mo,first,nd,iso}=calMonth(m), HOL=new Set(hr.error?[]:hr.data||[]); /* カレンダーの「祝」。計算はデータベースの jp_holiday の1か所（休みの決まり store_is_off と同じ物）。読めない時は「祝」を出さないだけ */
   const bx='border:1px solid var(--line);border-radius:6px;padding:6px 0;font:inherit;font-size:14px;line-height:1.25';
   const dOff=k=>OFF.has(k)||DOW.has(new Date(k+'T00:00:00').getDay()), dVal=k=>DT[k]??T[String(new Date(k+'T00:00:00').getDay())]??'';
   /* 目安人数は日ごと（現場の要望・オーナー「設定を日付のカレンダーに」）。曜日別はまとめて入力する欄（変更するとその曜日の日に入る） */

@@ -72,7 +72,7 @@ function memoSaveWire(M, own, store){
       p_has_password: own ? $('mmPw').checked : ($('mmPw').checked || null), p_files: MEMO_FILES, p_members: own ? [...$('main').querySelectorAll('[data-mh]')].filter(x => x.checked).map(x => x.dataset.mh) : null });
     if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
     MEMO_ST = store; memoView(q.data.id); };
-  if($('mmDel')) $('mmDel').onclick = async () => { if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`, '削除')) return;
+  if($('mmDel')) $('mmDel').onclick = async () => { if(!await uiConfirm(`${M.title}\n共有メモを削除しますか？`, '削除', 'danger')) return;
     const q = await sb.rpc('cast_memo_delete', { p_token: TOKEN, p_id: M.id }); if(q.error){ await uiAlert(q.error.message); return; } memoList(store); };
 }
 function memoEdit(M, D){

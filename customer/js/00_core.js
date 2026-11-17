@@ -97,5 +97,5 @@ if(EMB) $('menuBtn').style.display='none'; /* 管理サイトの中ではメニ�
 $('menuBtn').onclick=()=>sheet(`<button class="xb dx" data-x aria-label="閉じる">×</button><h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div>`,(s,done)=>{
   s.querySelector('[data-x]').onclick=()=>done(); s.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; done();
     if(a==='reload') await loadList(); /* 「編集パスワードを入力」「編集モードを終了」は外した */
-    else if(a==='out'){ if(!await uiConfirm('ログアウトしますか？\n次に開く時はパスワードが必要です。','ログアウト','danger')) return; try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(); } }); });
+    else if(a==='out'){ if(!await uiConfirm('ログアウトしますか？\n次に開く時はパスワードが必要です。','ログアウト')) return; try{ await rpc('cs_logout',{p_token:token}); }catch(e){} logoutLocal(); showLogin(); } }); });
 
