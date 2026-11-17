@@ -237,7 +237,7 @@ function hcWireKimono(H, again){ const {x, ph, r, k, D, td, sv} = H;
   $('main').querySelectorAll('[data-km]').forEach(b => b.onclick = async () => { const c = D[+b.dataset.km]; b.disabled = true;
     const z = await sb.rpc('hall_close_kimono', { p_token: TOKEN, p_task: x.id, p_staff: c.id, p_on: !c.kimono }); if(z.error){ await uiAlert(z.error.message); } again(); });
 }
-/* 本日ボトル提案の振り返り（SQL 582・銀座）：その日に本日ボトル提案が出て、ニューボトルが入らなかった卓に理由を1つ選ぶ。ボトルの残りの下に出す。
+/* 本日ボトル提案の振り返り（SQL 589・銀座）：その日に本日ボトル提案が出て、ニューボトルが入らなかった卓に理由を1つ選ぶ。ボトルの残りの下に出す。
    全部選ぶまで［保存］は出さない（押しても完了にならないため）。帰りの残りは、上で選んでいる残りをそのまま出す */
 async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s) return; s.style.display = 'none';
   const r = await sb.rpc('hall_kpb_review_list', { p_token: TOKEN, p_task: x.id }); const L = r.error ? [] : (r.data || []);

@@ -113,7 +113,7 @@ async function tsukeLoad(){ tsukeCp=tsukeCpNow(); const r=await sb.rpc('pos_tsuk
 async function tsukeOut(){ const ag=S.tsuke?.agari||[]; if(!ag.length) return;
   const r=await sb.from('attendance_events').select('staff_id').in('staff_id',ag.map(a=>a.staff_id)).in('event_type',['clock_out','after']).gte('event_at',S.tsuke.at); if(r.error) return;
   const out=new Set((r.data||[]).map(e=>e.staff_id)); if(out.size) S.tsuke.agari=ag.filter(a=>!out.has(a.staff_id)); }
-/* 本日ボトル提案（SQL 582）：入店の時から（途中で開けたボトルは空く見込みの30分前から）札の上をオリーブの帯に。時刻は kpb_due で、1分ごとの描き直しで出す */
+/* 本日ボトル提案（SQL 589）：入店の時から（途中で開けたボトルは空く見込みの30分前から）札の上をオリーブの帯に。時刻は kpb_due で、1分ごとの描き直しで出す */
 const tsukeKpbOn=(id,now)=>{ const t=(S.tsuke?.tables||[]).find(x=>x.bill_id===id); return !!t&&(t.kpb||(!!t.kpb_due&&new Date(t.kpb_due)<=now)); };
 function tsukeNameHtml(id,name,now){ return tsukeKpbOn(id,now)?`<div class="name kb">${esc(name)}<span>本日ボトル提案</span></div>`:`<div class="name">${esc(name)}</div>`; }
 /* 新しい卓が入ったら、5分を待たずに読む（入店の時から出すため） */
