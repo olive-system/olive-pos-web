@@ -5,7 +5,7 @@ function renderNew(){ $('nCount').textContent=newN; $('nCust').textContent=newCu
 $('nPlus').onclick=()=>{ if(newN<50) newN++; renderNew(); };
 $('nMinus').onclick=()=>{ if(newN>0) newN--; renderNew(); };
 $('nBack').onclick=()=>{ loadHall(); show('v-hall'); };
-$('nCust').onclick=()=>{ $('custCancel').textContent='閉じる'; S.custPick=c=>{ newCust=c; renderNew(); }; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); };
+$('nCust').onclick=()=>{ S.custPick=c=>{ newCust=c; renderNew(); }; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); };
 $('nNext').onclick=guard($('nNext'),async()=>{ if(newN<1){ toast('お客様の人数を入力してください'); return; } await createBill(newT, newN, newCust); });
 async function createBill(t, n, c){ const normal=S.modes.find(m=>m.code==='normal');
   const ex=await sb.from('bills').select('id').eq('table_id',t.id).eq('status','open').limit(1); if(ex.data?.length){ toast('この卓はすでに伝票があります'); await openBill(ex.data[0].id); return; }

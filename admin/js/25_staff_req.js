@@ -25,7 +25,7 @@ PAGES.o_shiftreq=async()=>{ const st=storeId, head=`<h1>出勤希望 <small clas
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_waive_get',{p_store:st}); if(page!=='o_shiftreq'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
-  const D=r.data; if(!D.shift){ $('main').innerHTML=head+'<div class="card err">SQL 321 が未実行です</div>'; return; }
+  const D=r.data;
   $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>オーナーのLINE連携</b>${D.owner_linked?'<span class="badge">連携済</span>':'<span class="badge gray">未連携</span>'}</div>
     <div class="muted" style="font-size:13px;margin-top:4px">オーナーにはいつも届きます。${D.owner_linked?'':'LINE連携は「罰金免除申請」の画面で行います'}</div></div>
     <div class="card"><b>承認者</b><div class="muted" style="font-size:13px;margin-top:4px">LINEマイページの予約の出勤希望が届きます</div>

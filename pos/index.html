@@ -2,18 +2,18 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<script src="../lib/olive/err.js?v=v14.02"></script><!-- 画面のエラーを送る（一番初めに読む） -->
-<script src="../lib/olive/core.js?v=v14.02"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
-<script src="../lib/olive/customer.js?v=v14.02"></script><!-- POS の顧客画面と顧客サイトで同じ部品 -->
-<script src="../lib/olive/photo.js?v=v14.02"></script><!-- 写真を小さくする -->
-<script src="../lib/olive/sheet.js?v=v14.02"></script><!-- ヒアリングシートの項目 -->
-<script src="../lib/olive/contract.js?v=v14.02"></script><!-- 契約書の中身（マイページの PDF・POS と管理サイトの書類で同じ） -->
-<script src="../lib/olive/staff_docs.js?v=v14.02"></script><!-- スタッフの書類（管理サイトと同じ） -->
+<script src="../lib/olive/err.js?v=v14.06"></script><!-- 画面のエラーを送る（一番初めに読む） -->
+<script src="../lib/olive/core.js?v=v14.06"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
+<script src="../lib/olive/customer.js?v=v14.06"></script><!-- POS の顧客画面と顧客サイトで同じ部品 -->
+<script src="../lib/olive/photo.js?v=v14.06"></script><!-- 写真を小さくする -->
+<script src="../lib/olive/sheet.js?v=v14.06"></script><!-- ヒアリングシートの項目 -->
+<script src="../lib/olive/contract.js?v=v14.06"></script><!-- 契約書の中身（マイページの PDF・POS と管理サイトの書類で同じ） -->
+<script src="../lib/olive/staff_docs.js?v=v14.06"></script><!-- スタッフの書類（管理サイトと同じ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>OLIVE 会計</title><!-- v14.02 -->
+<title>OLIVE 会計</title><!-- v14.06 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
-<link rel="stylesheet" href="../lib/olive/olive.css?v=v14.02"><link rel="stylesheet" href="pos.css?v=v14.02"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
+<link rel="stylesheet" href="../lib/olive/olive.css?v=v14.06"><link rel="stylesheet" href="pos.css?v=v14.06"><!-- 2026-10-19：見た目は pos.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
 <body>
 <div class="login" id="login"><form id="loginForm" class="waiting">
@@ -137,21 +137,19 @@
 </div></section>
 </main>
 
-<div class="modal" id="custModal"><div class="box" style="width:520px">
+<div class="modal" id="custModal"><div class="box" style="width:520px"><button class="xb dx" id="custCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)">お客様を追加</h2>
   <div style="display:flex;gap:8px"><input id="custSearch" placeholder="名前・フリガナで検索" style="flex:1"><button id="custNew">新規登録</button></div>
   <div class="chips" id="custList" style="margin-top:10px"></div>
-  <div class="bar"><button class="ghost" id="custCancel">伝票へ戻る</button></div>
 </div></div>
 
-<div class="modal" id="castModal"><div class="box" style="width:640px">
+<div class="modal" id="castModal"><div class="box" style="width:640px"><button class="xb dx" id="castCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)" id="castAddTtl">係／同伴を追加</h2>
   <div class="chips" id="castRole" style="margin-bottom:10px"><button class="chip on" data-cr="kakari" style="font-size:18px;padding:10px 22px">係</button><button class="chip" data-cr="douhan" style="font-size:18px;padding:10px 22px">同伴</button><button class="chip" data-cr="after" style="font-size:18px;padding:10px 22px">アフター</button></div>
   <div class="chips hidden" id="castNone" style="margin-bottom:6px"><button class="chip" id="castNoneBtn">なし</button></div>
   <div class="muted">出勤中</div><div class="chips" id="castList"></div>
   <button class="ghost sm" id="castMoreBtn" style="margin-top:10px">出勤していないキャストから選ぶ ▾</button>
   <div class="chips hidden" id="castListAll" style="margin-top:8px"></div>
-  <div class="bar"><button class="ghost" id="castCancel">伝票へ戻る</button></div>
 </div></div>
 
 <div class="modal" id="splitModal"><div class="box">
@@ -166,61 +164,59 @@
   <div class="bar" style="justify-content:flex-end"><button class="ghost" id="uiDlgNo">キャンセル</button><button class="primary" id="uiDlgOk">OK</button></div>
 </div></div>
 
-<div class="modal" id="svcModal"><div class="box" style="width:460px">
+<div class="modal" id="svcModal"><div class="box" style="width:460px"><button class="xb dx" id="svcCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)">サービス料</h2>
   <div class="muted" id="svcNow" style="margin-bottom:10px"></div>
   <div class="form">
     <label>率の変更（%）<div style="display:flex;gap:8px"><input id="svcRate" type="number" step="1" style="flex:1;font-size:22px;text-align:right"><button class="primary" id="svcRateOk">適用</button></div></label>
     <button id="svcNormal">既定の率に戻す</button>
   </div>
-  <div class="bar"><button class="ghost" id="svcCancel">伝票へ戻る</button></div>
 </div></div>
 
-<div class="modal" id="tagModal"><div class="box" style="width:520px">
+<div class="modal" id="tagModal"><div class="box" style="width:520px"><button class="xb dx" id="tagCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)">お預かりタグ</h2>
   <div class="list" id="tagList" style="margin-bottom:12px"></div>
   <div class="chips" id="tagKinds"></div>
   <div style="display:flex;gap:8px;margin-top:10px"><input id="tagNo" placeholder="タグ番号" style="width:120px"><input id="tagMemo" placeholder="メモ（色・特徴など）" style="flex:1"><button class="primary" id="tagAdd">追加</button></div>
-  <div class="bar"><button class="ghost" id="tagCancel">伝票へ戻る</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
 <div id="printArea"></div>
 
 <script src="../lib/supabase-js@2.116.0.js"></script>
-<script src="js/00_core.js?v=v14.02"></script>
-<script src="js/02_hall.js?v=v14.02"></script>
-<script src="js/03_log.js?v=v14.02"></script>
-<script src="js/04_casts.js?v=v14.02"></script>
-<script src="js/04_cast_form.js?v=v14.02"></script>
-<script src="js/04_cast_docs.js?v=v14.02"></script>
-<script src="js/04_cast_trial.js?v=v14.02"></script>
-<script src="js/04_cast_punch.js?v=v14.02"></script>
-<script src="js/04_new_bill.js?v=v14.02"></script>
-<script src="js/04_cast_leave.js?v=v14.02"></script>
-<script src="js/04_cast_join.js?v=v14.02"></script>
-<script src="js/05_bill.js?v=v14.02"></script>
-<script src="js/05_fine.js?v=v14.02"></script>
-<script src="js/05_today.js?v=v14.02"></script>
-<script src="js/05_bill_ops.js?v=v14.02"></script>
-<script src="js/06_tags.js?v=v14.02"></script>
-<script src="js/07_print.js?v=v14.02"></script>
-<script src="js/08_cust_modal.js?v=v14.02"></script>
-<script src="js/09_cast_modal.js?v=v14.02"></script>
-<script src="js/10_order.js?v=v14.02"></script>
-<script src="js/11_split.js?v=v14.02"></script>
-<script src="js/12_pay.js?v=v14.02"></script>
-<script src="js/13_settings.js?v=v14.02"></script>
-<script src="js/14_bottles.js?v=v14.02"></script>
-<script src="js/15_customers.js?v=v14.02"></script>
-<script src="js/15_cust_form.js?v=v14.02"></script>
-<script src="js/15_cust_bottle.js?v=v14.02"></script>
-<script src="js/15_cust_side.js?v=v14.02"></script>
-<script src="js/16_closing.js?v=v14.02"></script>
-<script src="js/17_chorei.js?v=v14.02"></script>
-<script src="js/18_close_work.js?v=v14.02"></script>
-<script src="js/19_close_receipt.js?v=v14.02"></script>
-<script src="js/20_settings_list.js?v=v14.02"></script>
-<script src="js/90_start.js?v=v14.02"></script>
+<script src="js/00_core.js?v=v14.06"></script>
+<script src="js/02_hall.js?v=v14.06"></script>
+<script src="js/03_log.js?v=v14.06"></script>
+<script src="js/04_casts.js?v=v14.06"></script>
+<script src="js/04_cast_form.js?v=v14.06"></script>
+<script src="js/04_cast_docs.js?v=v14.06"></script>
+<script src="js/04_cast_trial.js?v=v14.06"></script>
+<script src="js/04_cast_punch.js?v=v14.06"></script>
+<script src="js/04_new_bill.js?v=v14.06"></script>
+<script src="js/04_cast_leave.js?v=v14.06"></script>
+<script src="js/04_cast_join.js?v=v14.06"></script>
+<script src="js/05_bill.js?v=v14.06"></script>
+<script src="js/05_fine.js?v=v14.06"></script>
+<script src="js/05_today.js?v=v14.06"></script>
+<script src="js/05_bill_ops.js?v=v14.06"></script>
+<script src="js/06_tags.js?v=v14.06"></script>
+<script src="js/07_print.js?v=v14.06"></script>
+<script src="js/08_cust_modal.js?v=v14.06"></script>
+<script src="js/09_cast_modal.js?v=v14.06"></script>
+<script src="js/10_order.js?v=v14.06"></script>
+<script src="js/11_split.js?v=v14.06"></script>
+<script src="js/12_pay.js?v=v14.06"></script>
+<script src="js/13_settings.js?v=v14.06"></script>
+<script src="js/14_bottles.js?v=v14.06"></script>
+<script src="js/15_customers.js?v=v14.06"></script>
+<script src="js/15_cust_form.js?v=v14.06"></script>
+<script src="js/15_cust_bottle.js?v=v14.06"></script>
+<script src="js/15_cust_side.js?v=v14.06"></script>
+<script src="js/16_closing.js?v=v14.06"></script>
+<script src="js/17_chorei.js?v=v14.06"></script>
+<script src="js/18_close_work.js?v=v14.06"></script>
+<script src="js/19_close_receipt.js?v=v14.06"></script>
+<script src="js/20_settings_list.js?v=v14.06"></script>
+<script src="js/90_start.js?v=v14.06"></script>
 </body>
 </html>

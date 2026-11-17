@@ -25,7 +25,7 @@ async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').class
 async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev={}, rcp={}, fixN={}, finT={}, finP={}, clDone=false;
   { const bd=businessDate();
   const [ra,re,rc,rr,rf,hl]=await Promise.all([ sb.from('daily_advances').select('*').eq('business_date',bd), sb.from('attendance_events').select('*').eq('business_date',bd).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at'), sb.from('register_closings').select('id').eq('store_id',S.store.id).eq('business_date',bd), sb.from('trial_receipts').select('id,staff_id,business_date,amount,calc,signed_at').eq('business_date',bd), sb.from('staff_fines').select('*').eq('store_id',S.store.id).eq('business_date',bd), hallLateRows(bd,bd) ]);
-  if(rf.error) toast('SQL 041 が未適用です：'+rf.error.message);
+  if(rf.error) toast('罰金を読み込めません：'+rf.error.message);
   { const e=[ra,re,rc,rr].find(x=>x.error);
   if(e) toast('打刻・日払いを読み込めません。再度開いてください：'+e.error.message);
   } /* 通しチェック3：読めないと全員「打刻なし・日払い0円」に見えた */ (hl||[]).forEach(x=>{ finT[x.staff_id]=(finT[x.staff_id]||0)+x.amount; }); /* 月給の黒服の遅刻（給与から減算する額）も罰金の欄に（オーナー「ア 出す」・SQL 580） */ (rf.data||[]).forEach(x=>{ if(!x.is_void){ finT[x.staff_id]=(finT[x.staff_id]||0)+Number(x.amount||0);
@@ -33,7 +33,8 @@ async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev=
   } });
   (rr.data||[]).forEach(x=>{ rcp[x.staff_id]=x;
   });
-  (ra.data||[]).forEach(a=>{ adv[a.staff_id]=a.amount;
+  S.advT={}; /* amount は日払と立替の合計（控除・出金の計算は今までどおり amount だけを見る）。在籍リストは日払＝amount−立替 で出す */
+  (ra.data||[]).forEach(a=>{ S.advT[a.staff_id]=a.tatekae||0; adv[a.staff_id]=(a.amount||0)-(a.tatekae||0);
   advX[a.staff_id]=a.extra||0;
   advN[a.staff_id]=a.calc_note||'';
   advA[a.staff_id]=a.allowance||0;
@@ -88,7 +89,9 @@ function caKitB(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,f
   // 体験も出・退の時刻を出す。受領のサインの前は押して修正でき、報酬は自動で計算し直す。サインの後は表示のみ（オーナー「サインをまだやってないのに退勤時間を編集できない」）
   const tmHtml=(s,ro)=>{ const c=tmCalc(s), fx=k=>ro?'style="padding:2px 4px;border-bottom:1px solid transparent;':`data-${k}="${s.id}" style="cursor:pointer;padding:2px 4px;border-bottom:1px dotted var(--line);`; /* ro：体験のサインの後は表示のみ（オーナー「時刻はそのまま出して、編集はできないように」） */ return `<span style="font-size:14px;white-space:nowrap"><span ${fx('fixin')}${tev[s.id]?.inFix?'color:var(--warn)':''}">${PL_IN}${orgH(tev[s.id]?.inO,c.i)}${hmx(c.i)}</span>${phBtn(tev[s.id]?.inPh)} <span ${fx('fixout')}${tev[s.id]?.outFix?'color:var(--warn)':''}">${tev[s.id]?.after?PL_AF:PL_OUT}${orgH(tev[s.id]?.outO,c.o)}${hmx(c.o)}</span>${phBtn(tev[s.id]?.outPh)}</span>`; };
   // 日払（立替）と罰金は1つのプルダウンで切り替え（最初は日払（立替）。切り替えはその端末で画面を開き直すまで）。値はそれぞれ今までどおり保存（オーナー「スペース節約」・見本 作業場/在籍_プルダウン_案2.png）
-  const advFineHtml=s=>{ const fm=S.afMode[s.id]==='fine'; return `<span class="lp"><select data-afk="${s.id}" style="width:auto;font-size:14px;padding:2px 4px;min-height:0;height:36px"><option value="adv">日払（立替）</option><option value="fine" ${fm?'selected':''}>罰金</option></select>${fm?fineInp(s):`<input type="number" class="adv" data-adv="${s.id}" value="${adv[s.id]||''}" placeholder="0" ${clDone?'disabled':''} style="width:84px;font-size:16px;text-align:right">`}</span>`; };
+  // キャストは 日払・立替・罰金 の3つ（オーナー「日払いは1万円までだけど、立替は3万円までできるようにしたい」）。黒服は 日払（立替）・罰金 のまま。体験は報酬を自動で日払に書くので分けない
+  const advFineHtml=s=>{ const md=S.afMode[s.id]||'adv', hall=s.kind==='hall'||s.is_trial, inp=(k,v)=>`<input type="number" class="adv" data-${k}="${s.id}" value="${v||''}" placeholder="0" ${clDone?'disabled':''} style="width:84px;font-size:16px;text-align:right">`;
+    return `<span class="lp"><select data-afk="${s.id}" style="width:auto;min-width:${hall?0:110}px;font-size:14px;padding:2px 4px;min-height:0;height:36px"><option value="adv">${hall?'日払（立替）':'日払'}</option>${hall?'':`<option value="tat" ${md==='tat'?'selected':''}>立替</option>`}<option value="fine" ${md==='fine'?'selected':''}>罰金</option></select>${md==='fine'?fineInp(s):md==='tat'&&!hall?inp('tat',S.advT?.[s.id]):inp('adv',adv[s.id])}</span>`; };
   // 日払（立替）の欄は全員に出す（日払が不可の人も、立替は必ずできる）
   // 本名が未入力の人（住民票の提出がない＝報酬を渡せない）。在籍中で、係専用（店・ママ）以外。名前の横と一覧の上に赤で出す（オーナー）
   const noReal=s=>s.is_active&&!s.kakari_only&&!(s.real_name||'').trim();
@@ -143,7 +146,7 @@ async function caSaveAlw(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rcp
   renderCasts();
   return;
   } } /* 書く前に今の手当を読み、ほかで変わっていたら上書きしないで読み直す */ const r=await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:S.store.id,staff_id:id,business_date:businessDate(),allowance:a,allowance_memo:m||null},p_conflict:'staff_id,business_date'});
-  if(r.error){ toast(r.error.message.includes('allowance')?'SQL 024 が未適用です：'+r.error.message:'保存エラー：'+r.error.message);
+  if(r.error){ toast('保存エラー：'+r.error.message);
   return;
   } await logOp('手当',{name:st?.display_name,amount:a,before:advA[id]||0,memo:m||null},null,true);
   advA[id]=a;
@@ -164,12 +167,12 @@ async function caAlwPoint(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rc
     const au=S.RW.types.filter(t=>t.kind==='point'&&t.auto==='contact').map(t=>Number(S.RW.auto[id]||0)?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${esc(t.name)}×${S.RW.auto[id]}<small class="muted">　自動</small></span><span>${(Number(t.value||0)*Number(S.RW.auto[id])).toLocaleString()}P</span></div>`:'').join('');
     const cur=(au||L.length)?`<div style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:10px">${au}${L.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span>${esc(x.name)}×${Number(x.qty)}</span><span>${Number(x.points).toLocaleString()}P <button class="ghost sm" data-rv="${x.id}">取消</button></span></div>`).join('')}</div>`:'';
     const t=await rwPick(id,'ポイント',T,cur); if(!t) return;
-    if(t.void){ if(!await uiConfirm('このポイントを取り消しますか？')) return; const r=await sb.rpc('pos_reward_void',{p_id:t.void}); if(r.error){ toast(r.error.message); return; } toast('取り消しました'); return; }
+    if(t.void){ if(!await uiConfirm('このポイントを取り消しますか？','取消')) return; const r=await sb.rpc('pos_reward_void',{p_id:t.void}); if(r.error){ toast(r.error.message); return; } toast('取り消しました'); return; }
     let name, val;
     if(t==='x'){ const m0=await uiDlg(`${st?.display_name||''}　ポイントの理由`,true,'','理由を入力してください'); if(m0==null||!m0.trim()) return; name=m0.trim(); const v0=await uiPrompt(`${st?.display_name||''}　${name}\nポイント（1回）`,''); if(v0==null) return; val=numIn(v0); if(!(val>0)) return; }
     else { name=t.name; val=Number(t.value); }
     const q0=await uiPrompt(`${st?.display_name||''}　${name}\n回数（1回 ${val.toLocaleString()}P）`,'1'); if(q0==null) return; const n=numIn(q0); if(!(n>0)) return;
-    const r=await sb.rpc('pos_reward_add',{p_staff:id,p_day:businessDate(),p_name:name,p_qty:n,p_value:val}); if(r.error){ toast(/pos_reward_add/.test(r.error.message)?'SQL 140 が未実行です：'+r.error.message:r.error.message); return; } toast(`${(n*val).toLocaleString()}P を付けました`);
+    const r=await sb.rpc('pos_reward_add',{p_staff:id,p_day:businessDate(),p_name:name,p_qty:n,p_value:val}); if(r.error){ toast(r.error.message); return; } toast(`${(n*val).toLocaleString()}P を付けました`);
 }
 /* 押した時の動き：手当・ポイント・罰金・写真・打刻の修正 */
 function caBindA(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
@@ -181,10 +184,17 @@ function caBindA(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,
   $('cList').querySelectorAll('[data-ph]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); showSelfie(b.dataset.ph); });
   $('cList').querySelectorAll('[data-fixin]').forEach(b=>b.onclick=()=>punchFix(b.dataset.fixin,'clock_in')); $('cList').querySelectorAll('[data-fixout]').forEach(b=>b.onclick=async()=>{ const id=b.dataset.fixout, t=tev[id]; /* まちがえて押した退勤は取り消せる（閉店作業の精算の前まで。理由は聞かない。オーナー） */
     if(t?.out&&!t.after&&!clDone){ const nm=snm(id); const k=await uiPick(`${nm}　退勤 ${hmJst(t.out)}`,[{label:'時刻を直す',value:'fix'},{label:'退勤を取り消す',value:'cancel'}]); if(!k) return;
-      if(k==='cancel'){ const r=await sb.rpc('punch_cancel_out',{p_staff_id:id}); if(r.error){ await uiAlert(/punch_cancel_out/.test(r.error.message)?'SQL 160 が未実行です':r.error.message); return; } await logOp('退勤の取消',{name:nm,out:hmJst(t.out)},null,true); toast(`${nm} の退勤を取り消しました`); renderCasts(); return; } }
+      if(k==='cancel'){ const r=await sb.rpc('punch_cancel_out',{p_staff_id:id}); if(r.error){ await uiAlert(r.error.message); return; } await logOp('退勤の取消',{name:nm,out:hmJst(t.out)},null,true); toast(`${nm} の退勤を取り消しました`); renderCasts(); return; } }
     punchFix(id,'clock_out'); });
 }
 /* 押した時の動き：体験の出勤・編集・退店・復元・体験の手当・日払・並べ替え */
+// 日払・立替は pos_advance_set で保存（上限はデータベースでも確かめる）。黒服は日払（立替）の1つの欄のまま
+function caAdvSave(inp,kind,adv){ return async()=>{ const id=inp.dataset[kind], st=S.staffAll.find(x=>x.id===id), hall=st?.kind==='hall'||st?.is_trial, v=parseInt(inp.value||'0',10)||0, old=kind==='tat'?S.advT?.[id]:adv[id];
+  const nm=hall?'日払（立替）':kind==='tat'?'立替':'日払', cap=Number(kind==='tat'?(S.settings?.tatekae_cap_cast??30000):st?.kind==='hall'?(S.settings?.advance_cap_hall??5000):(S.settings?.advance_cap_cast??10000));
+  if(v<0||v>cap){ if(v>cap) toast(`${nm}の上限は ${cap.toLocaleString()}円 です`+(kind==='adv'&&!hall?'。超える分は［立替］に入力してください':'')); inp.value=old||''; return; }
+  const { data, error } = await sb.rpc('pos_advance_set',{p_store:S.store.id,p_staff:id,p_day:businessDate(),p_kind:kind,p_amount:v});
+  if(error){ toast(nm+'の保存エラー：'+error.message); inp.value=old||''; return; }
+  if(kind==='tat') S.advT[id]=v; else adv[id]=v; await logOp(kind==='tat'?'立替':'日払い',{name:snm(id),amount:v,total:data?.amount},null,true); toast(`${nm} ${v.toLocaleString()}円 を保存しました`); }; }
 function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pin,'clock_in')); $('cList').querySelectorAll('[data-pout]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pout,'clock_out')); $('cList').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{ const s=S.staffAll.find(x=>x.id===b.dataset.show); if(s) openTrialPay(s,tcalc[s.id],tev[s.id]||{},advX[s.id]||0,rcp[s.id]||null); });
   $('cList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ S.cSel=S.staffAll.find(s=>s.id===b.dataset.edit); renderCastForm(); castFormShow(); });
@@ -192,6 +202,7 @@ function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-ldone]').forEach(b=>b.onclick=()=>leaveDone(S.staffAll.find(x=>x.id===b.dataset.ldone)));
   $('cList').querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{ const { error } = await sb.rpc('pos_row_update',{p_table:'staff',p_id:b.dataset.restore,p:{is_active:true}}); if(!error) await logOp('キャストを戻す',{name:snm(b.dataset.restore)},null,true); toast(error?error.message:'戻しました'); renderCasts(); });
   $('cList').querySelectorAll('[data-extra]').forEach(inp=>inp.onchange=async()=>{ const s=S.staffAll.find(x=>x.id===inp.dataset.extra); const ex=Math.max(0,parseInt(inp.value||'0',10)||0); const c=trialCalc(s,tev[s.id]||{},ex); const r=await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:S.store.id,staff_id:s.id,business_date:businessDate(),amount:c.ready?c.pay:(adv[s.id]||0),extra:ex,calc_note:c.note},p_conflict:'staff_id,business_date'}); if(r.error){ toast('保存エラー：'+r.error.message); return; } await logOp('日払い（体験・手当の変更）',{name:s.display_name,extra:ex,amount:c.ready?c.pay:null,calc:c.note},null,true); toast('手当を保存しました'); renderCasts(); });
-  $('cList').querySelectorAll('[data-adv]').forEach(inp=>inp.onchange=async()=>{ const v=parseInt(inp.value||'0',10)||0; const st=S.staffAll.find(x=>x.id===inp.dataset.adv); const cap=Number(st?.kind==='hall'?(S.settings?.advance_cap_hall??5000):(S.settings?.advance_cap_cast??10000)); if(v>cap){ toast(`日払（立替）の上限は ${cap.toLocaleString()}円 です`); inp.value=adv[inp.dataset.adv]??''; return; } if(v<0){ inp.value=adv[inp.dataset.adv]??''; return; } adv[inp.dataset.adv]=v; const { error } = await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:S.store.id,staff_id:inp.dataset.adv,business_date:businessDate(),amount:v},p_conflict:'staff_id,business_date'}); if(!error) await logOp('日払い',{name:snm(inp.dataset.adv),amount:v},null,true); toast(error?('日払（立替）保存エラー：'+error.message):`日払（立替） ${v.toLocaleString()}円 を保存しました`); });
+  $('cList').querySelectorAll('[data-adv]').forEach(inp=>inp.onchange=caAdvSave(inp,'adv',adv));
+  $('cList').querySelectorAll('[data-tat]').forEach(inp=>inp.onchange=caAdvSave(inp,'tat',adv));
   if (cSorting) dragSort($('cList'),'.rrow',async ids=>{ const rs=[await sb.rpc('pos_staff_sort',{p_ids:ids})]; const er=rs.find(r=>r.error); toast(er?('並び順を保存できませんでした：'+er.error.message):'並び順を保存しました'); renderCasts(); });
 }

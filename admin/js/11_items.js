@@ -37,7 +37,7 @@ const fineTxt=c=>!c?'なし':c.calc==='yen'?`${Number(c.value||0).toLocaleString
 const fineSame=(a,b)=>!!a&&!!b&&a.calc===b.calc&&(a.value??null)===(b.value??null);
 // 所定時間の保存も箱の右下（オーナー「ちぐはぐやめて」）
 function fineCard(rows,ed,hours){ FINES=fineGroup(rows); FINES0=rows.map(r=>({name:r.name,target:r.target,calc:r.calc,value:r.value,per_unit:r.per_unit})); return foldCard('fines','罰金の種類','',`${FINES.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS の在籍リストの「＋罰金」で選びます。${ed?'押すと変えられます':''}</div>
-  <div class="row" style="margin-bottom:10px;font-size:14px">日給の人の所定時間<input id="dHours" inputmode="decimal" value="${hours??''}" ${ed&&hours!=null?'':'disabled'} style="width:80px;text-align:right">時間${hours==null?'<span class="muted" style="font-size:13px">SQL 053 が未実行です</span>':''}</div>
+  <div class="row" style="margin-bottom:10px;font-size:14px">日給の人の所定時間<input id="dHours" inputmode="decimal" value="${hours??''}" ${ed&&hours!=null?'':'disabled'} style="width:80px;text-align:right">時間</div>
   <div id="fnList">${fineListHtml(ed)}</div>${ed?`<div class="fend"><button class="ghost sm" data-fadd>＋ 罰金を追加</button><span class="sp"></span>${hours!=null?'<button class="primary sm" id="dHoursSave">保存</button>':''}</div>`:''}`,'data-fines'); }
 function fineListHtml(ed){ return `<div style="border:1px solid var(--line);border-radius:10px;background:#fff">${FINES.map((g,i)=>{ const same=fineSame(g.h,g.d); /* 点検 日給の人が「かからない」（d が無い）を「時給の人と同じ」と読んでいた */
     return `<div ${ed?`data-fi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(g.name)}</span><span style="text-align:right">${!g.h?`<b>${fineTxt(g.d)}</b><br><span class="muted" style="font-size:12px">日給のみ</span>`:`<b>${fineTxt(g.h)}</b>${same?'':`<br><span class="muted" style="font-size:12px">${g.d&&g.d.calc==='daily_pct'?fineTxt(g.d):'日給 '+fineTxt(g.d)}</span>`}`}</span></div>`; }).join('')||'<div class="muted" style="padding:10px 14px">まだ入っていません</div>'}</div>`; }
@@ -79,7 +79,7 @@ function fineListWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-f
 const closeTxt=c=>{ const m=String(c||'01:00').match(/^(\d{1,2}):(\d{2})/); return m?`${+m[1]<12?'翌':''}${+m[1]}:${m[2]}`:String(c); };
 function afterCard(ax,ed){ const T='アフターの延長', h='<div class="muted" style="font-size:13px;margin-bottom:10px">アフターの打刻（退勤の代わり）で、時給を付ける時間を延ばします</div>';
   if(ax.error) return foldCard('after',T,'','',`<div class="err">読み込めません：${esc(ax.error.message)}</div>`);
-  const a=ax.data||{}; if(a.minutes==null) return foldCard('after',T,'','','<div class="err">SQL 055 が未実行です</div>');
+  const a=ax.data||{};
   const on=!!a.on, dis=ed?'':'disabled', cl=closeTxt(a.close);
   return foldCard('after',T,'',on?`する・閉店の${esc(String(a.minutes))}分前から`:'しない',`${h}<div class="row"><span class="seg" id="afOn">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${on===v?'on':''}" ${dis}>${n}</button>`).join('')}</span></div>
     <div class="row" style="margin-top:10px;font-size:14px">閉店（${esc(cl)}）の<input id="afM" inputmode="numeric" value="${esc(String(a.minutes))}" ${dis} style="width:80px;text-align:right">分前を過ぎたアフターは、閉店（${esc(cl)}）まで働いたことにする</div>

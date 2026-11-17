@@ -62,7 +62,7 @@ function csCastPrep(K){ const {box,st,ed,m,sf,tm,ft,nt,stb}=K;
   const inp=csInp;
   const yn=v=>v==null?'—':v;
   const PT={hourly:'時給',daily:'日給',seppan:'折半'};
-  const HD=['担当黒服','報酬','スライド表','保証日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払（立替）','契約書','メモ'];
+  const HD=['担当黒服','報酬','スライド表','保証日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払','契約書','メモ'];
   return {...K,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD}; }
 /* 1人の行（見る時と編集する時） */
 function csCastCell(K,{s,t}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const sp=t.pay_type==='seppan', daily=t.pay_type==='daily';
@@ -92,7 +92,7 @@ function csCastHtml(K){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tb
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${E?esc(r.s.display_name):`<a data-open="${r.s.id}">${esc(r.s.display_name)}</a>`}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}<td>${nc[r.s.id]?nc[r.s.id]+'件':'—'}</td></tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍のキャストがいません</div>'}
-  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'担当黒服・日払（立替）・契約書以外を変更すると、保存の時に「○月以降／○月のみ」を選びます':'名前を押すと、メモと個別設定が開きます'}${ed&&!E?'。修正は「編集」から':''}</div>`; }
+  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'担当黒服・日払・契約書以外を変更すると、保存の時に「○月以降／○月のみ」を選びます':'名前を押すと、メモと個別設定が開きます'}${ed&&!E?'。修正は「編集」から':''}</div>`; }
 /* 押した時の動き：名前・編集・キャンセル・行の中の欄・保存 */
 function csCastBind(K){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K;
   box.querySelectorAll('[data-open]').forEach(a=>a.onclick=()=>{ const s=casts.find(x=>x.id===a.dataset.open); csDetail={store:st,s}; csTab='memo'; PAGES.set_cast(); }); // メモを最初に開く
@@ -219,6 +219,7 @@ async function csShiftSave(box,st,rows){
 async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const halls=(q.data||[]).filter(x=>x.kind==='hall'&&(!s||x.id!==s.id));
   // 折半は区分ではなく報酬（オーナー「折半の場合は時給も日給もない。時給か日給か折半と言う選択肢が正しい」）
   const k0=s?(s.kind==='hall'?'hall':s.kakari_only?'kakari':s.is_trial?'trial':'cast'):(kd==='seppan'?'cast':kd);
+  /* 体験は応募者の台帳から（管理サイトの応募者・マイページのシフト）。ここで新しく体験にしない（台帳につながらない体験の子ができるため）。今の体験の子だけ表示 */
   const KD=[['cast','キャスト'],['hall','黒服'],['trial','体験'],['kakari',`${KL}専用（店・ママなど。タイムカードに出ない）`]];
   const md=mkModal(null,staffEditHtml(s,isNew,kd,k0,KD,halls));
   const v=id=>md.querySelector('#'+id), paint=()=>{ const k=v('seK').value; v('sePay').style.display=k==='cast'?'grid':'none'; v('seDwB').style.visibility=isNew&&v('seP').value==='daily'?'':'hidden'; v('seTr').style.display=k==='trial'?'grid':'none'; v('seMgB').style.display=k==='hall'||k==='kakari'?'none':''; };
@@ -236,7 +237,7 @@ async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const hal
 function staffEditHtml(s,isNew,kd,k0,KD,halls){
   return `<h2 style="margin:0">${isNew?(kd==='hall'?'黒服の追加':'キャストの追加'):esc(s.display_name)+'　基本情報'}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>源氏名<input id="seN" value="${esc(s?.display_name||'')}"></label><label>本名<input id="seR" value="${esc(s?.real_name||'')}"></label></div>
-    <label>区分<select id="seK">${KD.map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
+    <label>区分<select id="seK">${KD.filter(([v])=>v!=='trial'||k0==='trial').map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
     <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬${isNew?'<select id="seP"><option value="hourly">時給</option><option value="daily">日給</option></select>':`<input value="${s.is_seppan?'折半':s.pay_type==='daily'?'日給':'時給'}" disabled>`}</label><label id="seDwB">保証日給（円）<input id="seDw" inputmode="numeric"></label></div>
     <div id="seTr" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>体験の報酬<select id="seTp"><option value="hourly" ${s?.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s?.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input id="seTa" inputmode="numeric" value="${s?.trial_pay_amount||''}"></label></div>
     <label id="seMgB">担当黒服<select id="seMg"><option value="">未選択</option>${halls.filter(h=>h.is_active).map(h=>`<option value="${h.id}" ${s?.manager_staff_id===h.id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select></label>
