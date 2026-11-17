@@ -15,27 +15,79 @@ async function salesHome(){
     <button class="btn" id="slNext">次へ（連絡済リスト共有）</button>`);
   $('slNext').onclick = salesPick;
 }
-// 連絡済リストの画面の文（選んだお客様・一覧にないお客様・検索）
-function slPickHtml(on, extra, q){
-  return `<div class="ttl">連絡済リスト</div><div class="card"><div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${on.size + extra.length}名</span></div>
-      ${SALES.contacts.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${SALES.contacts.map(c => `<button class="btn g" data-sc="${c.id}" data-kn="${esc(kanaKey(c.kana))}" style="padding:9px 6px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${on.has(c.id)?'background:var(--ink);color:#fff;border-color:var(--ink)':''}">${esc(c.name)}</button>`).join('')}</div>`:'<div class="muted sm">連絡先交換の提出がありません</div>'}
+// 連絡済リストの画面の文（スクショ読取・選んだお客様・一覧にないお客様・検索）
+const slBtn = (attr, name, v) => `<button class="btn g" ${attr} style="padding:9px 6px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${v?'background:var(--ink);color:#fff;border-color:var(--ink)':''}">${esc(name)}</button>`;
+function slPickHtml(on, extra, q, rd){
+  const cName = id => (SALES.contacts.find(c => c.id === id) || {}).name || '';
+  return `<div class="ttl">連絡済リスト</div><div class="card">
+      <label class="btn g" style="display:block;text-align:center;margin-bottom:10px"><span id="slRt">スクショ読取</span><input type="file" id="slR" accept="image/*" multiple style="display:none"></label>
+      ${rd?`<div class="muted sm" style="margin-bottom:6px">読取 ${rd.n}枚　一致 ${rd.hits.length}名</div>
+        ${rd.hits.length?`<div style="${g2};margin-bottom:10px">${rd.hits.map(h => h.id ? slBtn(`data-sc="${h.id}"`, cName(h.id), on.has(h.id)) : slBtn(`data-sxh="${esc(h.name)}"`, h.name, extra.includes(h.name))).join('')}</div>`:''}
+        ${rd.cands.length?`<div class="muted sm" style="display:flex;border-bottom:1px solid var(--line);padding-bottom:4px"><span style="flex:1">候補 ${rd.cands.length}名${rd.cands.every(c => !c.id)?'（前回の手打ち）':''}</span><span>読取／名前</span></div>
+          ${rd.cands.map((c, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="muted" style="flex:none;width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.read)}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span><button class="btn g" data-sca="${i}" style="width:auto;padding:0 16px;height:44px;margin:0">追加</button></div>`).join('')}<div style="height:10px"></div>`:''}`:''}
+      <div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${on.size + extra.length}名</span></div>
+      ${SALES.contacts.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${SALES.contacts.map(c => slBtn(`data-sc="${c.id}" data-kn="${esc(kanaKey(c.kana))}"`, c.name, on.has(c.id))).join('')}</div>`:'<div class="muted sm">連絡先交換の提出がありません</div>'}
       <div class="gh" style="margin-top:12px">一覧にないお客様</div>
       ${extra.length?`<div style="${g2};margin-bottom:6px">${extra.map((n, i) => `<button class="btn g" data-sx="${i}" style="padding:9px 6px;font-size:14px;background:var(--ink);color:#fff;border-color:var(--ink)">${esc(n)}</button>`).join('')}</div>`:''}
       <div style="display:flex;gap:8px"><input id="slX" maxlength="30" placeholder="フルネーム" style="flex:1;min-width:0;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)"><button class="btn g" id="slAdd" style="width:auto;padding:0 16px">追加</button></div></div>
       <button class="btn" id="slGo">連絡済リスト共有</button>`;
 }
+/* スクショ読取（2026-11-17 オーナー）：LINE のトーク一覧の表示名（ニックネーム・記号・絵文字まじり）を、その子の一覧・前の手打ちの名前・覚えた表示名と照らす。
+   同じ名前（記号・敬称を除く）か覚えた表示名＝一致（選択済みにする）。名字だけ・名前だけ＝候補（本人が［追加］で決め、次から一致になるよう覚える）。合わない名前は出さない */
+const slNorm = v => String(v || '').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, '').replace(/(様|さま|さん|くん|君|ちゃん)$/, '').toLowerCase();
+function slMatch(rows, info){
+  const C = SALES.contacts.map(c => ({ id: c.id, name: c.name, k: slNorm(c.name), kn: kanaKey(c.kana) })), T = (info.typed || []).map(n => ({ name: n, k: slNorm(n) }));
+  const A = {}; (info.alias || []).forEach(a => { A[a.read] = a; });
+  const hits = [], cands = [], seen = new Set();
+  const hit = h => { const key = h.id || 'x:' + h.name; if(seen.has(key)) return; seen.add(key); hits.push(h); };
+  rows.forEach(r => { const k = slNorm(r.name), kn = kanaKey(r.kana); if(!k) return;
+    const a = A[k]; if(a && (!a.id || C.some(c => c.id === a.id))){ hit(a.id ? { id: a.id } : { name: a.name }); return; }
+    const c1 = C.filter(c => c.k === k); if(c1.length === 1){ hit({ id: c1[0].id }); return; }
+    const t1 = T.find(t => t.k === k); if(t1){ hit({ name: t1.name }); return; }
+    const c2 = kn.length >= 4 ? C.filter(c => c.kn && c.kn === kn) : []; if(c2.length === 1){ hit({ id: c2[0].id }); return; }
+    if(k.length < 2) return;
+    const part = x => x.k !== k && (x.k.startsWith(k) || x.k.endsWith(k));
+    C.filter(c => part(c) || (kn.length >= 2 && c.kn && c.kn !== kn && (c.kn.startsWith(kn) || c.kn.endsWith(kn)))).slice(0, 3).forEach(c => cands.push({ read: r.name, key: k, id: c.id, name: c.name }));
+    T.filter(part).slice(0, 3).forEach(t => cands.push({ read: r.name, key: k, name: t.name }));
+  });
+  return { hits, cands: cands.filter((c, i) => !seen.has(c.id || 'x:' + c.name) && cands.findIndex(x => x.key === c.key && (x.id || x.name) === (c.id || c.name)) === i) };
+}
+const slB64 = blob => new Promise((ok, ng) => { const f = new FileReader(); f.onload = () => ok(String(f.result).split(',')[1]); f.onerror = ng; f.readAsDataURL(blob); });
 function salesPick(){
   setBack(salesHome);
-  const on = new Set(), extra = []; let q = ''; // 名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」。読みが無いので、あいうえお順ではなく文字で絞り込む）
+  const on = new Set(), extra = []; let q = '', rd = null; // 名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」。読みが無いので、あいうえお順ではなく文字で絞り込む）
   const nz = v => String(v||'').replace(/[\s　]+/g, '');
-  const filt = () => { const k = nz(q); let n = 0; $('main').querySelectorAll('[data-sc]').forEach(b => { const hit = !k || nz(b.textContent).includes(k) || (!!kanaKey(q) && (b.dataset.kn || '').includes(kanaKey(q))); b.style.display = hit ? '' : 'none'; if(hit) n++; }); const z = $('slNone'); if(z) z.style.display = n ? 'none' : ''; };
+  const filt = () => { const k = nz(q); let n = 0; $('main').querySelectorAll('[data-kn]').forEach(b => { const hit = !k || nz(b.textContent).includes(k) || (!!kanaKey(q) && (b.dataset.kn || '').includes(kanaKey(q))); b.style.display = hit ? '' : 'none'; if(hit) n++; }); const z = $('slNone'); if(z) z.style.display = n ? 'none' : ''; };
+  const repaint = () => { const y = window.scrollY; paint(); window.scrollTo(0, y); };
+  const read = async files => {
+    if(!files.length) return;
+    $('slRt').textContent = '読取中…'; $('slR').disabled = true;
+    try{
+      const images = []; for(const f of files.slice(0, 6)) images.push(await slB64(await shrinkJpeg(f)));
+      const [r, inf] = await Promise.all([sb.functions.invoke('contact-read', { body: { token: TOKEN, images } }), sb.rpc('cast_contact_read_info', { p_token: TOKEN })]);
+      if(inf.error) throw inf.error;
+      let why = r.data?.reason || ''; if(r.error && r.error.context?.json) why = await r.error.context.json().then(j => j.reason || '').catch(() => '');
+      if(r.error || !Array.isArray(r.data?.rows) || why){ await uiAlert(/まで/.test(why) ? why : 'スクショの読取に失敗しました。再度お試しください'); repaint(); return; }
+      rd = { n: images.length, ...slMatch(r.data.rows, inf.data) };
+      rd.hits.forEach(h => { if(h.id) on.add(h.id); else if(!extra.includes(h.name)) extra.push(h.name); });
+      repaint();
+      if(!r.data.rows.length) await uiAlert('本日のトークが見つかりません');
+    }catch(e){ await uiAlert(e.message || String(e)); repaint(); }
+  };
   const paint = () => {
-    show(slPickHtml(on, extra, q));
-    $('main').querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { const id = b.dataset.sc; on.has(id) ? on.delete(id) : on.add(id); /* 押したボタンと数だけ直す（前は一覧を全部作り直していた） */
-      const v = on.has(id); b.style.background = v ? 'var(--ink)' : ''; b.style.color = v ? '#fff' : ''; b.style.borderColor = v ? 'var(--ink)' : ''; $('slCnt').textContent = `選択 ${on.size + extra.length}名`; });
+    show(slPickHtml(on, extra, q, rd));
+    const cnt = () => { $('slCnt').textContent = `選択 ${on.size + extra.length}名`; };
+    $('main').querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { const id = b.dataset.sc; on.has(id) ? on.delete(id) : on.add(id); /* 押したボタンと数だけ直す（前は一覧を全部作り直していた）。読取の一致と一覧の同じお客様は一緒に */
+      const v = on.has(id); $('main').querySelectorAll(`[data-sc="${id}"]`).forEach(x => { x.style.background = v ? 'var(--ink)' : ''; x.style.color = v ? '#fff' : ''; x.style.borderColor = v ? 'var(--ink)' : ''; }); cnt(); });
+    $('main').querySelectorAll('[data-sxh]').forEach(b => b.onclick = () => { const n = b.dataset.sxh, i = extra.indexOf(n); i >= 0 ? extra.splice(i, 1) : extra.push(n); repaint(); });
+    $('main').querySelectorAll('[data-sca]').forEach(b => b.onclick = async () => { const c = rd.cands[+b.dataset.sca]; b.disabled = true;
+      const s = await sb.rpc('cast_contact_alias_save', { p_token: TOKEN, p_read: c.key, p_contact: c.id || null, p_name: c.name }); if(s.error){ b.disabled = false; await uiAlert(s.error.message); return; }
+      rd.hits.push(c.id ? { id: c.id } : { name: c.name }); if(c.id) on.add(c.id); else if(!extra.includes(c.name)) extra.push(c.name);
+      rd.cands = rd.cands.filter(x => x.key !== c.key && (x.id || 'x:' + x.name) !== (c.id || 'x:' + c.name)); repaint(); });
+    $('slR').onchange = () => read([...$('slR').files]);
     const qi = $('slQ'); if(qi) qi.oninput = () => { q = qi.value; filt(); }; filt();
-    $('main').querySelectorAll('[data-sx]').forEach(b => b.onclick = () => { extra.splice(+b.dataset.sx, 1); const y = window.scrollY; paint(); window.scrollTo(0, y); });
-    $('slAdd').onclick = () => { const v = $('slX').value.trim().replace(/[\s　]+/g, ' '); if(!v) return; extra.push(v); const y = window.scrollY; paint(); window.scrollTo(0, y); };
+    $('main').querySelectorAll('[data-sx]').forEach(b => b.onclick = () => { extra.splice(+b.dataset.sx, 1); repaint(); });
+    $('slAdd').onclick = () => { const v = $('slX').value.trim().replace(/[\s　]+/g, ' '); if(!v) return; extra.push(v); repaint(); };
     $('slGo').onclick = async () => {
       const n = on.size + extra.length; if(!n){ await uiAlert('連絡したお客様を選んでください'); return; }
       if(!await uiConfirm(`連絡済リスト ${n}名を共有しますか？`)) return;
