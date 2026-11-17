@@ -40,7 +40,7 @@ async function setBills(def){ $('setAdd').style.display='none'; $('setEdit').sty
 async function setAudit(def){ $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML='';
     const ad=S.auDate||(S.auDate=businessDate()), an=new Date(ad+'T00:00:00'); an.setDate(an.getDate()+1); const ad2=`${an.getFullYear()}-${String(an.getMonth()+1).padStart(2,'0')}-${String(an.getDate()).padStart(2,'0')}`; // 営業日（朝8時で区切る）を選んで、その日の分を全部
     const { data, error } = await sbAll(()=>sb.from('pos_audit_log').select('*').eq('store_id',S.store.id).gte('created_at',bdStart(ad)).lt('created_at',bdStart(ad2)).order('created_at',{ascending:false}).order('id'));
-    if(error){ $('setList').innerHTML=`<div class="muted">操作ログを読めません（SQL 010 が未適用の可能性）：${esc(error.message)}</div>`; return; }
+    if(error){ $('setList').innerHTML=`<div class="muted">操作ログを読み込めません：${esc(error.message)}</div>`; return; }
     const f=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; };
     const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作者',date:'営業日',memo:'摘要'}; // 管理サイトの現金管理から入れた操作は「操作者：管理サイト：名前」
     const vj=v=>v===true?'はい':v===false?'いいえ':Array.isArray(v)?v.join('、'):(typeof v==='number'?v.toLocaleString():v);
