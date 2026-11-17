@@ -15,7 +15,7 @@ async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false)
   if(seq!==hallSeq){ if(full) hallFullAt=0; return; } /* 1分ごと・知らせ・画面に戻った時の読み直しが重なった時は、後から頼んだ方だけ使う（古い返事が後に着くと、新しい卓が出なかった） */
   if (error) { toast(error.message); return; }
   if(full){ hallFullAt=Date.now(); hallDropAll(); checkPwAlert(); attDrop(); } else if(S.cur) hallDrop(S.cur.id); /* この端末で触った伝票は計算し直す */
-  S.openBills = data||[]; if(full||tsukeCpChanged()) tsukeLoad(); await autoExtend(); await Promise.all([side?loadOki():null, side?loadHand():null, hallTotals()]); /* 置き・お預かり品・金額は互いに使わないので同時に読む（前は1つずつ待ち、開くのが遅かった） */
+  S.openBills = data||[]; if(full||tsukeCpChanged()) tsukeLoad(); else await tsukeOut(); await autoExtend(); await Promise.all([side?loadOki():null, side?loadHand():null, hallTotals()]); /* 置き・お預かり品・金額は互いに使わないので同時に読む（前は1つずつ待ち、開くのが遅かった） */
   renderHall(hallTot);
 }
 /* 1分ごと：画面を開いている時だけ。開いている伝票の一覧は今までどおり1分ごとに読む（知らせが届かない時も、ほかの端末の新しい卓が1分で出る）。金額は変わった伝票だけ。5分ごとに全部読み直す */
@@ -103,12 +103,16 @@ async function updateCastBadge(){ const s=await attendedOn(businessDate()); /* 2
 $('navHall').onclick=()=>{ S.billFrom='hall'; loadHall(); show('v-hall'); };
 $('navOrder').onclick=()=>{ if(S.cur&&S.cur.status==='open'){ openOrder(); } else { toast('卓を選んでください'); loadHall(); show('v-hall'); } };
 
-/* ---------- 付け回し（SQL 550）：上がり判断（23:30・0:00・0:30 から）と次キープボトル提案（銀座）。計算はデータベースの tsuke_calc 1か所。5分ごとの読み直しと、23:30・0:00・0:30 をまたいだ時に読む ---------- */
+/* ---------- 付け回し（SQL 550）：上がり判断（23:30・0:00・0:30 から）と次キープボトル提案（銀座）。計算はデータベースの tsuke_calc 1か所。5分ごとの読み直しと、23:30・0:00・0:30 をまたいだ時に読む。その間の1分ごとの読み直しでは、退勤した子だけを外す ---------- */
 S.tsuke=null; let tsukeCp='-';
 const tsukeCpNow=()=>{ const d=new Date(), m=d.getHours()*60+d.getMinutes(); return m>=1410?'2330':m<30?'0000':m<480?'0030':''; };
 const tsukeCpChanged=()=>tsukeCpNow()!==tsukeCp;
 async function tsukeLoad(){ tsukeCp=tsukeCpNow(); const r=await sb.rpc('pos_tsuke'); S.tsuke=r.error?null:r.data; /* 関数が無い時（SQL 550 の前）は出さない */
   if(!r.error&&(S.tsuke?.agari||[]).length) await caRatio(); if(S.hallOn) renderHall(hallTot); }
+/* 退勤・アフターの打刻はタイムカードの端末で入り、ここには知らせが来ない。1分ごとの読み直しの時に、上がり判断の子が計算の後に退勤していないかだけを見て、行から外す */
+async function tsukeOut(){ const ag=S.tsuke?.agari||[]; if(!ag.length) return;
+  const r=await sb.from('attendance_events').select('staff_id').in('staff_id',ag.map(a=>a.staff_id)).in('event_type',['clock_out','after']).gte('event_at',S.tsuke.at); if(r.error) return;
+  const out=new Set((r.data||[]).map(e=>e.staff_id)); if(out.size) S.tsuke.agari=ag.filter(a=>!out.has(a.staff_id)); }
 function tsukeKpbHtml(id){ const t=(S.tsuke?.tables||[]).find(x=>x.bill_id===id); return t&&t.kpb?'<div class="kpb">次キープボトル提案</div>':''; }
 function tsukeAgariHtml(){ const ag=S.tsuke?.agari||[]; if(!ag.length) return ''; const kr=caKr.m||{}, pct=(t,v)=>Number(v)>0?(Math.round(Number(t)/Number(v)*1000)/10).toFixed(1)+'%':'—';
   const keep=(S.tsuke.tables||[]).filter(t=>t.kpb&&t.hold==='keep').map(t=>{ const b=S.openBills.find(x=>x.id===t.bill_id); const c=b?(b.bill_customers||[]).map(x=>S.customers.find(y=>y.id===x.customer_id)?.name).filter(Boolean).join('・'):''; return `<div class="agn">${esc(t.table_name||'')}　${c?esc(c)+'様　':''}次キープボトル提案（${t.target}人のまま）</div>`; }).join('');
