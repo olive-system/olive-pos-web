@@ -165,7 +165,7 @@ function hallPayRow(x,{own,PA,N,neg,y0,ms,mn,share,nf}){
 /* 月給の黒服の遅刻の日（見るだけの小窓）。罰金の一覧と同じく、日・理由・金額を1行ずつ（オーナー「ア 出す」）。金額は計算の答え（late_days）のまま */
 function hallLateView(x,m){ const N=v=>Number(v||0), ld=x.late_days||[], lt=ld.reduce((a,z)=>a+N(z.amount),0), md2=d=>{ const t=String(d).slice(5).split('-'); return (+t[0])+'/'+(+t[1]); };
   const ln=(a,b,c)=>`<div style="display:flex;gap:12px;padding:7px 2px;border-bottom:1px solid var(--line)"><span class="muted" style="flex:none;width:4em">${a}</span><span style="flex:1">${b}</span><span style="flex:none;text-align:right;color:var(--warn)">${c}</span></div>`;
-  const md=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">${esc(x.name)}　${csMLabel(m)}の遅刻・早退 −${N(x.late_deduct).toLocaleString('ja-JP')}円</h2>
+  const md=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">${esc(x.name)}　遅刻・早退（${csMLabel(m)} −${N(x.late_deduct).toLocaleString('ja-JP')}円）</h2>
     <div style="font-size:15px">${ld.map(z=>ln(md2(z.d),`${z.nocontact?'無断遅刻':'遅刻'}（${N(z.min)}分）`,N(z.amount).toLocaleString('ja-JP')+'円')).join('')}${!x.late_fixed&&N(x.early_min)?ln('',`早退（${N(x.early_min)}分）`,(N(x.late_deduct)-lt).toLocaleString('ja-JP')+'円'):''}</div>${x.late_fixed?'<div class="muted" style="font-size:13px">［修正］で入力した減算額です</div>':''}`);
   md.querySelector('[data-k=ok]').onclick=()=>md.remove(); }
 /* 黒服の報酬の修正の小窓（遅刻・早退の減算額・ボーナス・連絡なし） */
