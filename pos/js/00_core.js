@@ -104,8 +104,10 @@ async function loadMasters(withCust,quiet){ /* お客様は最初だけ全部読
 // 体験キャストは1日限り：登録した営業日の翌営業日になったら自動で「削除済」にする（記録は残る）
 // マイページのシフトから前もって登録した体験の人は、体験の日（trial_day）に在籍に出し、その次の営業日に削除済にする
 let trialSweepDay=null; S.salesM={};
-async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!S.store) return; try{ { const a=await sb.rpc('pos_trial_activate',{p_bd:bd}); for(const x of (a.data||[])) await logOp('体験キャストの在籍',{name:x.display_name,day:bd},null,true); }
-  const r=await sb.from('staff').select('id,display_name,created_at,trial_day').eq('is_trial',true).eq('is_active',true); if(r.error) return; const old=(r.data||[]).filter(x=>(x.trial_day||businessDate(new Date(x.created_at)))!==bd); /* 再体入で体験の日が先になった子も、出勤した日の次の営業日に外す（新しい体験の日に pos_trial_activate が戻す） */ const done=[]; for(const x of old){ const u=await sb.rpc('pos_row_update',{p_table:'staff',p_id:x.id,p:{is_active:false}}); if(!u.error){ done.push(x.id); await logOp('体験キャストの自動削除',{name:x.display_name,registered:businessDate(new Date(x.created_at))},null,true); } } if(done.length) S.staff=S.staff.filter(z=>!done.includes(z.id)); trialSweepDay=bd; }catch(e){ console.warn('expireTrials',e); } }
+async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!S.store) return; try{ /* 在籍と自動削除は1回の関数でまとめて（2台の iPad が同時に開いても1回で済む。SQL 600） */
+  const r=await sb.rpc('pos_trial_sweep',{p_bd:bd}); if(r.error) return; const done=[];
+  for(const x of (r.data||[])){ if(x.kind==='on') await logOp('体験キャストの在籍',{name:x.display_name,day:bd},null,true); else { done.push(x.id); await logOp('体験キャストの自動削除',{name:x.display_name,registered:x.registered},null,true); } }
+  if(done.length) S.staff=S.staff.filter(z=>!done.includes(z.id)); trialSweepDay=bd; }catch(e){ console.warn('expireTrials',e); } }
 
 // ---------- リアルタイム 設定・伝票がほかで変わったら、すぐ読み直す（つながらない時は、これまでどおり1分ごと） ----------
 // 設定：ホール・伝票を見ている時に読み直す（メニュー登録・注文・設定・顧客の画面の間は、ホールに戻った時）。伝票：ホールは読み直し、開いている伝票は
