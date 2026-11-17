@@ -60,7 +60,7 @@ async function fineDraw(F){ const {id,nm,bd,m,close}=F; const pickView=()=>fineP
     m.querySelector('[data-fc]').onclick=close;
     m.querySelector('[data-fa]').onclick=pickView;
     m.querySelectorAll('[data-fe]').forEach(b=>b.onclick=async()=>{ const x=L.find(z=>z.id===b.dataset.fe); const q=await ask(x.reason,x.amount); if(!q||(q.a===Number(x.amount)&&q.rs===x.reason)) return; const e=(await sb.rpc('pos_fine_edit',{p_id:x.id,p_amount:q.a,p_reason:q.rs})).error; if(e){ toast('保存エラー：'+e.message); return; } await logOp('罰金の変更',{name:nm,before:{amount:x.amount,reason:x.reason},amount:q.a,reason:q.rs},null,true); toast('変更しました'); draw(); });
-    m.querySelectorAll('[data-fv]').forEach(b=>b.onclick=async()=>{ const x=L.find(z=>z.id===b.dataset.fv); if(!await uiConfirm('この罰金を取り消しますか？')) return; const by=await askBy(); if(by===null) return; /* 取り消した黒服を操作ログに */ const e=(await sb.rpc('pos_fine_void',{p_id:x.id,p_by:by||null})).error; if(e){ toast('保存エラー：'+e.message); return; } if(!S.DBLOG) await logOp('罰金の取消',{name:nm,amount:x.amount,reason:x.reason,...(x.wage_pct?{wage_pct:x.wage_pct}:{})},null,true); toast('取り消しました'); draw(); });
+    m.querySelectorAll('[data-fv]').forEach(b=>b.onclick=async()=>{ const x=L.find(z=>z.id===b.dataset.fv); if(!await uiConfirm('この罰金を取り消しますか？','取消')) return; const by=await askBy(); if(by===null) return; /* 取り消した黒服を操作ログに */ const e=(await sb.rpc('pos_fine_void',{p_id:x.id,p_by:by||null})).error; if(e){ toast('保存エラー：'+e.message); return; } if(!S.DBLOG) await logOp('罰金の取消',{name:nm,amount:x.amount,reason:x.reason,...(x.wage_pct?{wage_pct:x.wage_pct}:{})},null,true); toast('取り消しました'); draw(); });
 }
 // 罰金の一覧（日付・理由・金額）。在籍キャストの詳細で今月／累計をタップして開く
 // 罰金免除申請のしるし（免除申請中／免除／却下）

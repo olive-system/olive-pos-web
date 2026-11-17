@@ -52,7 +52,7 @@ async function cufDelete(c){ /* 来店履歴があれば先に知らせる。ボ
     /* ほかの店舗に来店・ボトルの記録があるお客様は削除できない */ const ot=await sb.rpc('pos_cust_others',{p_customer:c.id}); if(ot.error){ toast('削除できません：'+ot.error.message); return; } /* 読めないまま進むと、先にこの店のボトルだけ消えてお客様が残ることがある */ if(ot.data?.others_all){ await uiAlert(`「${c.name}」様はほかの店舗に来店・ボトルの記録があるので削除できません`); return; }
     const [vc,bc]=await Promise.all([ sb.from('bill_customers').select('bill_id',{count:'exact',head:true}).eq('customer_id',c.id), sb.from('customer_bottles').select('id',{count:'exact',head:true}).eq('customer_id',c.id) ]); if(vc.error||bc.error){ toast('削除できません：'+(vc.error||bc.error).message); return; }
     if(vc.count){ await uiAlert(`「${c.name}」様は来店履歴があるので削除できません`); return; }
-    if(!await uiConfirm(`「${c.name}」を削除しますか？${bc.count?`\nボトルの記録（${bc.count}本・飲み切りや期限切れも含む）も一緒に消えます。`:''}`))return;
+    if(!await uiConfirm(`「${c.name}」を削除しますか？${bc.count?`\nボトルの記録（${bc.count}本・飲み切りや期限切れも含む）も一緒に消えます。`:''}`,'削除','danger'))return;
     /* ボトルとお客様は pos_customer_del の1回で消す（SQL 585。途中で止まった時は、どちらも消えない） */
     const { error } = await sb.rpc('pos_customer_del',{p_id:c.id}); if(error){ toast('削除できません：'+error.message); renderCuSide(c); return; } await logOp('顧客削除',{name:c.name},null,true); S.customers=S.customers.filter(x=>x.id!==c.id); S.cuSel=null; renderCuList(); renderCuForm();
 }
