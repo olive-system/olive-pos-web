@@ -139,14 +139,11 @@ async function caSaveAlw(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rcp
   if(a0==null) return;
   const a=numIn(a0);
   if(a===(advA[id]||0)&&m===(advM[id]||'')) return;
-  { const now=await sb.from('daily_advances').select('allowance,allowance_memo').eq('staff_id',id).eq('business_date',businessDate()).maybeSingle();
-  if(now.error){ toast('保存エラー：'+now.error.message);
-  return;
-  } if((now.data?.allowance||0)!==(advA[id]||0)||(now.data?.allowance_memo||'')!==(advM[id]||'')){ toast('ほかの端末で変更されました');
-  renderCasts();
-  return;
-  } } /* 書く前に今の手当を読み、ほかで変わっていたら上書きしないで読み直す */ const r=await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:S.store.id,staff_id:id,business_date:businessDate(),allowance:a,allowance_memo:m||null},p_conflict:'staff_id,business_date'});
+  /* 今の手当が画面で見た値と同じ時だけ書く（確かめと書き込みを1回で。SQL 605） */ const r=await sb.rpc('pos_allowance_set',{p_staff:id,p_day:businessDate(),p_old:advA[id]||0,p_old_memo:advM[id]||'',p_amount:a,p_memo:m||null});
   if(r.error){ toast('保存エラー：'+r.error.message);
+  return;
+  } if(r.data===false){ toast('ほかの端末で変更されました');
+  renderCasts();
   return;
   } await logOp('手当',{name:st?.display_name,amount:a,before:advA[id]||0,memo:m||null},null,true);
   advA[id]=a;
