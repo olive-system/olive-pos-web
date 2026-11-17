@@ -9,7 +9,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   const tgtR=me?.is_owner?await sb.rpc('admin_sales_target',{p_store:st}):null, tgt=tgtR?.data??null, tgtErr=!!tgtR?.error; /* 読めない時に空欄のまま保存すると目標が消えるので、その時は押せなくする */ /* 売上目標（朝礼・日報メールの売上予測。オーナーのみ） */
   if(page!=='set_pos'||storeId!==st) return;
   const er=ps.error||tb.error; if(er){ $('main').innerHTML=`<h1>POS設定</h1><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
-  const d=ps.data||{}; if(!('auto_hc_amount' in d)){ $('main').innerHTML=`<h1>POS設定</h1><div class="card err">SQL 062 が未実行です</div>`; return; }
+  const d=ps.data||{};
   const num=(id,label,v)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${dis}></label>`;
   const amt=(id,label,v)=>`<label>${label}<select id="${id}" ${dis}>${HCBC_OPTS.map(([a,n])=>`<option value="${a??''}" ${(v??null)===a?'selected':''}>${n}</option>`).join('')}</select></label>`;
   const tables=tb.data||[];
@@ -26,11 +26,11 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   <div class="card"><h2>伝票</h2>
     <label class="ck"><input type="checkbox" id="psDk" ${d.douhan_is_kakari?'checked':''} ${dis}>同伴の人を自動で${KL}にする</label>
     <label class="ck"><input type="checkbox" id="psCk" ${d.cust_auto_kakari!==false?'checked':''} ${dis}>お客様を登録したら、そのお客様の${KL}を自動で入れる</label>
-    ${'sales_shot_manager' in d?`<label class="ck"><input type="checkbox" id="psSm" ${d.sales_shot_manager?'checked':''} ${dis}>アプローチのスクショは、お客様の${KL}ではなく、いつも担当黒服に送る</label>`:''}${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
+    <label class="ck"><input type="checkbox" id="psSm" ${d.sales_shot_manager?'checked':''} ${dis}>アプローチのスクショは、お客様の${KL}ではなく、いつも担当黒服に送る</label>${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
   <div class="card"><h2>入金・出金の項目</h2><div class="muted" style="font-size:13px;margin-bottom:8px">POS の現金管理で、入金・出金する時に選ぶ項目です。「その他」はいつも出ます（自由に書けます）</div>
-    ${'cash_out_items' in d?`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">${[['in','入金'],['out','出金']].map(([k,l])=>`<div style="flex:1 1 280px;min-width:0"><div style="font-weight:700;margin-bottom:6px">${l}</div><div class="ci-list" data-ci="${k}">${k==='out'?'<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex">領収書精算</span>':''}${(d['cash_'+k+'_items']||[]).filter(x=>k!=='out'||!String(x).includes('領収書')).map(x=>`<span class="badge gray ci" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex;gap:6px;align-items:center"><span>${esc(x)}</span>${ed?'<a data-cirm style="cursor:pointer;color:var(--muted)">×</a>':''}</span>`).join('')}</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">${[['in','入金'],['out','出金']].map(([k,l])=>`<div style="flex:1 1 280px;min-width:0"><div style="font-weight:700;margin-bottom:6px">${l}</div><div class="ci-list" data-ci="${k}">${k==='out'?'<span class="badge gray" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex">領収書精算</span>':''}${(d['cash_'+k+'_items']||[]).filter(x=>k!=='out'||!String(x).includes('領収書')).map(x=>`<span class="badge gray ci" style="background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex;gap:6px;align-items:center"><span>${esc(x)}</span>${ed?'<a data-cirm style="cursor:pointer;color:var(--muted)">×</a>':''}</span>`).join('')}</div>
       ${ed?`<div class="row" style="margin-top:4px"><input data-ciin="${k}" maxlength="20" placeholder="${l}の項目（20字まで）" style="flex:1"><button class="ghost" data-ciadd="${k}">追加</button></div>`:''}</div>`).join('')}</div>
-      ${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="ciSave">保存</button></div>':''}`:'<div class="err">SQL 077 が未実行です</div>'}</div>
+      ${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" id="ciSave">保存</button></div>':''}</div>
   <div class="card"><h2>VIP料金</h2>
     <div class="muted" style="font-size:13px;margin-bottom:6px">VIP代は部屋に1回、VIP延長は延長ごと。人数は掛けません。ここに無い卓は通常卓（0円）です</div>
     <table class="t vip" id="vipT"><tr><th>卓</th><th>VIP代（円）</th><th>VIP延長（円）</th>${ed?'<th></th>':''}</tr>
