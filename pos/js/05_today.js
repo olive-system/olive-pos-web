@@ -1,5 +1,12 @@
 // ---------- 上部バーの［本日］（本日の売上・来店） ----------
 // 本日の売上・来店（上部バーの［本日］をタップした時だけ表示。再度タップで閉じる）。数え方は伝票一覧と同じ（置きは全額入金の日）
+/* 伝票の金額を営業日ごとに1回でまとめて読む（calc_bills は calc_bill と同じ式＝SQL 091。前は伝票1枚ごとに1回の通信で、閉店の前は数十回）。
+   まとめて読めなかった伝票だけ1枚ずつ読む。読めない伝票は null */
+async function billDues(bills){ const m={}; const days=[...new Set(bills.map(b=>b.business_date).filter(Boolean))];
+  const rs=await Promise.all(days.map(d=>sb.rpc('calc_bills',{p_store:S.store.id,p_from:d,p_to:d})));
+  rs.forEach(r=>{ if(!r.error) (r.data||[]).forEach(x=>{ m[x.bill_id]=x.j; }); });
+  await Promise.all(bills.filter(b=>!(b.id in m)).map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); m[b.id]=r.error?null:r.data; }));
+  return m; }
 async function todayBills(BSEL,today,byStore){ const bySq=q=>byStore?q.eq('store_id',S.store.id):q;
   const q1=await bySq(sb.from('bills').select(BSEL)).eq('business_date',today).order('opened_at',{ascending:false}); if(q1.error) return {error:q1.error};
   const pr=await sb.from('payments').select('bill_id').eq('revenue_date',today).gt('amount',0).not('received_at','is',null); if(pr.error) return {error:pr.error};
@@ -8,7 +15,7 @@ async function todayBills(BSEL,today,byStore){ const bySq=q=>byStore?q.eq('store
   return {q1:q1.data||[],all:[...(q1.data||[]),...(q2.data||[])]}; }
 async function todaySum(){ const el=$('tdSum'); el.textContent='…'; const today=businessDate(); const BSEL='id,status,guest_count,business_date,payments(method,amount,received_at,revenue_date)';
   const tb=await todayBills(BSEL,today,true); if(tb.error){ el.textContent='—'; return; } const all=tb.all; const sales=all.filter(b=>b.status==='closed'&&!(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)&&billDay(b)===today); const open=all.filter(b=>b.status==='open'&&b.business_date===today);
-  const vis=tb.q1.filter(b=>b.status!=='void'); const tot={}; let miss=false; await Promise.all([...sales,...open].map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); if(r.error) miss=true; tot[b.id]=r.data?.amount_due||0; }));
+  const vis=tb.q1.filter(b=>b.status!=='void'); const tot={}; let miss=false; { const d=await billDues([...sales,...open]); [...sales,...open].forEach(b=>{ if(!d[b.id]) miss=true; tot[b.id]=d[b.id]?.amount_due||0; }); }
   if(miss){ el.textContent='—'; return; } /* 1枚でも金額が読めない時は、少ない売上を出さない */
   const s=sales.reduce((a,b)=>a+tot[b.id],0), o=open.reduce((a,b)=>a+tot[b.id],0); if(el.style.display==='none') return;
   el.innerHTML=`売上 <b>${yen(s)}</b>${o?` <small style="opacity:.75">（営業中 ${yen(o)}）</small>`:''}　来店 <b>${vis.length}</b>組 <b>${vis.reduce((a,b)=>a+(b.guest_count||0),0)}</b>名`; }
