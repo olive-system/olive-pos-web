@@ -25,7 +25,7 @@ async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').class
 async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev={}, rcp={}, fixN={}, finT={}, finP={}, clDone=false;
   { const bd=businessDate();
   const [ra,re,rc,rr,rf,hl]=await Promise.all([ sb.from('daily_advances').select('*').eq('business_date',bd), sb.from('attendance_events').select('*').eq('business_date',bd).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at'), sb.from('register_closings').select('id').eq('store_id',S.store.id).eq('business_date',bd), sb.from('trial_receipts').select('id,staff_id,business_date,amount,calc,signed_at').eq('business_date',bd), sb.from('staff_fines').select('*').eq('store_id',S.store.id).eq('business_date',bd), hallLateRows(bd,bd) ]);
-  if(rf.error) toast('SQL 041 が未適用です：'+rf.error.message);
+  if(rf.error) toast('罰金を読み込めません：'+rf.error.message);
   { const e=[ra,re,rc,rr].find(x=>x.error);
   if(e) toast('打刻・日払いを読み込めません。再度開いてください：'+e.error.message);
   } /* 通しチェック3：読めないと全員「打刻なし・日払い0円」に見えた */ (hl||[]).forEach(x=>{ finT[x.staff_id]=(finT[x.staff_id]||0)+x.amount; }); /* 月給の黒服の遅刻（給与から減算する額）も罰金の欄に（オーナー「ア 出す」・SQL 580） */ (rf.data||[]).forEach(x=>{ if(!x.is_void){ finT[x.staff_id]=(finT[x.staff_id]||0)+Number(x.amount||0);
@@ -146,7 +146,7 @@ async function caSaveAlw(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rcp
   renderCasts();
   return;
   } } /* 書く前に今の手当を読み、ほかで変わっていたら上書きしないで読み直す */ const r=await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:S.store.id,staff_id:id,business_date:businessDate(),allowance:a,allowance_memo:m||null},p_conflict:'staff_id,business_date'});
-  if(r.error){ toast(r.error.message.includes('allowance')?'SQL 024 が未適用です：'+r.error.message:'保存エラー：'+r.error.message);
+  if(r.error){ toast('保存エラー：'+r.error.message);
   return;
   } await logOp('手当',{name:st?.display_name,amount:a,before:advA[id]||0,memo:m||null},null,true);
   advA[id]=a;
@@ -167,12 +167,12 @@ async function caAlwPoint(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rc
     const au=S.RW.types.filter(t=>t.kind==='point'&&t.auto==='contact').map(t=>Number(S.RW.auto[id]||0)?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${esc(t.name)}×${S.RW.auto[id]}<small class="muted">　自動</small></span><span>${(Number(t.value||0)*Number(S.RW.auto[id])).toLocaleString()}P</span></div>`:'').join('');
     const cur=(au||L.length)?`<div style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:10px">${au}${L.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span>${esc(x.name)}×${Number(x.qty)}</span><span>${Number(x.points).toLocaleString()}P <button class="ghost sm" data-rv="${x.id}">取消</button></span></div>`).join('')}</div>`:'';
     const t=await rwPick(id,'ポイント',T,cur); if(!t) return;
-    if(t.void){ if(!await uiConfirm('このポイントを取り消しますか？')) return; const r=await sb.rpc('pos_reward_void',{p_id:t.void}); if(r.error){ toast(r.error.message); return; } toast('取り消しました'); return; }
+    if(t.void){ if(!await uiConfirm('このポイントを取り消しますか？','取消')) return; const r=await sb.rpc('pos_reward_void',{p_id:t.void}); if(r.error){ toast(r.error.message); return; } toast('取り消しました'); return; }
     let name, val;
     if(t==='x'){ const m0=await uiDlg(`${st?.display_name||''}　ポイントの理由`,true,'','理由を入力してください'); if(m0==null||!m0.trim()) return; name=m0.trim(); const v0=await uiPrompt(`${st?.display_name||''}　${name}\nポイント（1回）`,''); if(v0==null) return; val=numIn(v0); if(!(val>0)) return; }
     else { name=t.name; val=Number(t.value); }
     const q0=await uiPrompt(`${st?.display_name||''}　${name}\n回数（1回 ${val.toLocaleString()}P）`,'1'); if(q0==null) return; const n=numIn(q0); if(!(n>0)) return;
-    const r=await sb.rpc('pos_reward_add',{p_staff:id,p_day:businessDate(),p_name:name,p_qty:n,p_value:val}); if(r.error){ toast(/pos_reward_add/.test(r.error.message)?'SQL 140 が未実行です：'+r.error.message:r.error.message); return; } toast(`${(n*val).toLocaleString()}P を付けました`);
+    const r=await sb.rpc('pos_reward_add',{p_staff:id,p_day:businessDate(),p_name:name,p_qty:n,p_value:val}); if(r.error){ toast(r.error.message); return; } toast(`${(n*val).toLocaleString()}P を付けました`);
 }
 /* 押した時の動き：手当・ポイント・罰金・写真・打刻の修正 */
 function caBindA(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
@@ -184,7 +184,7 @@ function caBindA(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,
   $('cList').querySelectorAll('[data-ph]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); showSelfie(b.dataset.ph); });
   $('cList').querySelectorAll('[data-fixin]').forEach(b=>b.onclick=()=>punchFix(b.dataset.fixin,'clock_in')); $('cList').querySelectorAll('[data-fixout]').forEach(b=>b.onclick=async()=>{ const id=b.dataset.fixout, t=tev[id]; /* まちがえて押した退勤は取り消せる（閉店作業の精算の前まで。理由は聞かない。オーナー） */
     if(t?.out&&!t.after&&!clDone){ const nm=snm(id); const k=await uiPick(`${nm}　退勤 ${hmJst(t.out)}`,[{label:'時刻を直す',value:'fix'},{label:'退勤を取り消す',value:'cancel'}]); if(!k) return;
-      if(k==='cancel'){ const r=await sb.rpc('punch_cancel_out',{p_staff_id:id}); if(r.error){ await uiAlert(/punch_cancel_out/.test(r.error.message)?'SQL 160 が未実行です':r.error.message); return; } await logOp('退勤の取消',{name:nm,out:hmJst(t.out)},null,true); toast(`${nm} の退勤を取り消しました`); renderCasts(); return; } }
+      if(k==='cancel'){ const r=await sb.rpc('punch_cancel_out',{p_staff_id:id}); if(r.error){ await uiAlert(r.error.message); return; } await logOp('退勤の取消',{name:nm,out:hmJst(t.out)},null,true); toast(`${nm} の退勤を取り消しました`); renderCasts(); return; } }
     punchFix(id,'clock_out'); });
 }
 /* 押した時の動き：体験の出勤・編集・退店・復元・体験の手当・日払・並べ替え */
