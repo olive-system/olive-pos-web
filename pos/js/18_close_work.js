@@ -189,7 +189,7 @@ async function clRenderWarn(d,after){ const el=$('clWarn'); if(!el) return; cons
     sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',S.store.id).gt('business_date',from).lt('business_date',d).order('id')),
     sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',S.store.id).gte('paid_at',bdStart(from)).lt('paid_at',bdStart(d)).order('id')),
     sb.from('register_closings').select('business_date').eq('store_id',S.store.id).gt('business_date',from).lt('business_date',d) ]);
-  if($('clWarn')!==el||S.clDate!==d) return; const done=new Set((cl.data||[]).map(r=>r.business_date)); const act=new Set();
+  if($('clWarn')!==el||S.clDate!==d) return; { const er=mv.error||adv.error||pay.error||cl.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; } } /* 読めないまま数えると、未精算の日を出しそこねる・精算した日を未精算と出す */ const done=new Set((cl.data||[]).map(r=>r.business_date)); const act=new Set();
   (mv.data||[]).forEach(r=>act.add(r.business_date)); (adv.data||[]).filter(r=>r.amount>0).forEach(r=>act.add(r.business_date));
   (pay.data||[]).filter(p=>p.bills&&p.bills.store_id===S.store.id&&p.bills.status!=='void'&&p.amount).forEach(p=>{ const b=businessDate(new Date(p.paid_at)); if(b>from&&b<d) act.add(b); });
   const days=[...act].filter(x=>!done.has(x)).sort(); if(!days.length){ el.innerHTML=''; return; }
@@ -200,7 +200,7 @@ async function clRenderMonth(){ const el=$('clMonthBox'); if(!el) return; const 
   const [r,pv,cd]=await Promise.all([ sb.from('register_closings').select('*').eq('store_id',S.store.id).gte('business_date',d1).lte('business_date',dN),
     sb.from('register_closings').select('next_float').eq('store_id',S.store.id).lt('business_date',d1).order('business_date',{ascending:false}).limit(1),
     sb.rpc('cash_days',{p_store:S.store.id,p_from:d1,p_to:dN}) ]); /* 日ごとの現金の動きは、データベースの cash_days 1つで（管理サイトの現金管理・P/L の日と同じ。SQL 524） */
-  if(!$('clMonthBox')) return; const er=r.error||cd.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; }
+  if(!$('clMonthBox')) return; const er=r.error||pv.error||cd.error; /* 前の精算の釣銭（pv）が読めないと 0円から数えて、月の表の理論値がずれる（管理サイトの現金管理と同じに止める） */ if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; }
   const byD={}; (r.data||[]).forEach(x=>byD[x.business_date]=x); const sum={}; (cd.data||[]).forEach(x=>{ sum[x.business_date]={sales:Number(x.sales)||0,cin:Number(x.cash_in)||0,cout:(Number(x.cash_out)||0)+(Number(x.advances)||0)}; });
   const today=businessDate(); const td='style="padding:6px 5px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap"'; const C=v=>`<td ${td}>${v}</td>`; const CS=v=>`<td style="padding:6px 5px;border-bottom:1px solid var(--line);font-size:12px;white-space:nowrap;line-height:1.3">${v}</td>`; // 状態の列は折り返して全部見せる
   const rows=clMonthRows(last,today,byD,sum,pv,C,CS);
