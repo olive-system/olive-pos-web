@@ -11,7 +11,7 @@
 <style>
   :root{
     --bg:#f6f5f2; --card:#fff; --ink:#1a1a1a; --muted:#7a7a7a; --line:#e3e1dc;
-    --douhan:#e0a32a; --after:#7b61c9; --in:#3f9d5a; --out:#d9534f;
+    --in:#3f9d5a; --out:#d9534f;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;overflow:hidden}
@@ -36,7 +36,6 @@
   .types.picked .type:not(.on){opacity:.3}
   .grid:not(.locked) .staff{border:2px solid var(--sel,var(--line));color:var(--sel,var(--ink))}
   .grid.locked .staff{color:#b5b5b5}
-  .type.douhan{background:var(--douhan)} .type.after{background:var(--after)}
   .type.in{background:var(--in)} .type.out{background:var(--out)}
 
   .guide{text-align:center;color:var(--muted);font-size:16px;height:20px}
@@ -82,23 +81,6 @@
   .fx.late .msg .big{font-size:44px;line-height:1.35}
   .fx.late .msg .sub{font-size:26px;margin-top:18px;line-height:1.5}
   .fx.late button{margin-top:36px;height:64px;padding:0 48px;border:none;border-radius:32px;background:#fff;color:#c62828;font-size:22px;font-weight:700}
-  /* 同伴：キラキラ＋紙吹雪 */
-  .fx.douhan{background:radial-gradient(circle at 50% 40%,#ffd86b 0%,#f5a623 45%,#d97706 100%)}
-  .spark{position:absolute;width:14px;height:14px;background:#fff;clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);animation:twinkle 1.2s ease-in-out infinite}
-  @keyframes twinkle{0%,100%{transform:scale(.2) rotate(0);opacity:0}50%{transform:scale(1.3) rotate(45deg);opacity:1}}
-  .confetti{position:absolute;top:-20px;width:10px;height:18px;border-radius:2px;animation:fall linear forwards}
-  @keyframes fall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:.8}}
-
-  /* アフター：夜空＋流れ星＋月 */
-  .fx.after{background:linear-gradient(180deg,#1b1740 0%,#3a2f78 60%,#5b48a8 100%)}
-  .moon{position:absolute;right:12%;top:12%;width:110px;height:110px;border-radius:50%;background:#fff5c9;box-shadow:0 0 60px 20px rgba(255,245,201,.45);animation:glow 2.4s ease-in-out infinite}
-  @keyframes glow{0%,100%{box-shadow:0 0 60px 20px rgba(255,245,201,.35)}50%{box-shadow:0 0 90px 30px rgba(255,245,201,.6)}}
-  .star{position:absolute;width:4px;height:4px;background:#fff;border-radius:50%;animation:blink ease-in-out infinite}
-  @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
-  .shoot{position:absolute;width:160px;height:2px;background:linear-gradient(90deg,#fff,transparent);transform:rotate(-30deg);animation:shoot 1.6s ease-out forwards}
-  @keyframes shoot{0%{transform:translate(0,0) rotate(-30deg);opacity:0}10%{opacity:1}100%{transform:translate(-500px,300px) rotate(-30deg);opacity:0}}
-  .heart{position:absolute;bottom:-40px;font-size:28px;animation:float linear forwards}
-  @keyframes float{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:translateY(-110vh) scale(1.1);opacity:0}}
 
   /* login */
   .login{position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:30}
@@ -171,7 +153,7 @@
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ lock: async (n, t, fn) => await fn() /* 2026-10-22：裏で開いたままのタブがあってもログインが止まらないように（札はタブごと） */, storage:dualStore, storageKey:'olive-tc-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* 2026-10-18：POS とタイムカードを同じブラウザで同時に使えるように */;
 // 名前などを画面に入れる時は、タグとして動かないように必ずこれを通す
 
-const TYPE_LABEL = { douhan:'同伴', after:'アフター', clock_in:'出勤', clock_out:'退勤' };
+const TYPE_LABEL = { clock_in:'出勤', clock_out:'退勤' };
 let currentType = null;   // 未選択が初期状態
 let store = null;
 let busy = false;
@@ -304,7 +286,7 @@ function setType(t){
   currentType = t;
   document.querySelectorAll('.type').forEach(x => x.classList.toggle('on', x.dataset.type === t));
   document.querySelector('.types').classList.toggle('picked', !!t);
-  document.getElementById('grid').style.setProperty('--sel', t==='clock_in'?'var(--in)':t==='clock_out'?'var(--out)':t==='after'?'var(--after)':'var(--line)');
+  document.getElementById('grid').style.setProperty('--sel', t==='clock_in'?'var(--in)':t==='clock_out'?'var(--out)':'var(--line)');
   const g = document.getElementById('guide');
   g.classList.remove('warn');
   document.getElementById('grid').classList.toggle('locked', !t);
@@ -369,10 +351,8 @@ async function punch(staff){
     if (error && await tcIsStale()) { await tcStale(); return; }
     if (error) throw error;
 
-    if (type === 'douhan')      await fxDouhan(staff.display_name);
-    else if (type === 'after')  await fxAfter(staff.display_name);
-    else { await showToast(`${esc(staff.display_name)}　${TYPE_LABEL[type]}`, photoPath ? '記録しました' : '記録しました（写真なし）', 1500);
-      if (type === 'clock_in') await checkDouhanLate(staff); }
+    await showToast(`${esc(staff.display_name)}　${TYPE_LABEL[type]}`, photoPath ? '記録しました' : '記録しました（写真なし）', 1500);
+    if (type === 'clock_in') await checkDouhanLate(staff);
   } catch (e) {
     showToast('エラー', esc(e.message || String(e)), 2500);
   } finally {
@@ -444,56 +424,6 @@ function fxLate(limit){
   fx.querySelectorAll(':scope > :not(.msg)').forEach(n => n.remove());
   document.getElementById('fxMsg').innerHTML = `<div class="big">お客様の着席から${limit}分以上たっています</div><div class="sub">次回は早めの準備をお願いします</div><button id="lateOk">確認</button>`;
   return new Promise(r => { let done=false; const end=()=>{ if(done) return; done=true; fx.className='fx'; r(); }; document.getElementById('lateOk').onclick=end; setTimeout(end, 20000); });
-}
-
-// ---------- 演出 ----------
-const rnd = (a,b) => a + Math.random()*(b-a);
-function fxShow(kind, html, ms){
-  const fx = document.getElementById('fx');
-  fx.className = 'fx show ' + kind;
-  fx.querySelectorAll(':scope > :not(.msg)').forEach(n => n.remove());
-  document.getElementById('fxMsg').innerHTML = html;
-  return new Promise(r => setTimeout(() => { fx.className = 'fx'; r(); }, ms));
-}
-function fxDouhan(name){
-  const fx = document.getElementById('fx');
-  const colors = ['#fff','#ffe9a8','#ff7b9c','#7bd3ff','#b8ff7b'];
-  for (let i=0;i<40;i++){
-    const s = document.createElement('div'); s.className='spark';
-    s.style.left = rnd(0,100)+'%'; s.style.top = rnd(0,100)+'%';
-    s.style.animationDelay = rnd(0,1.2)+'s'; s.style.transform = `scale(${rnd(.5,1.6)})`;
-    fx.appendChild(s);
-  }
-  for (let i=0;i<80;i++){
-    const c = document.createElement('div'); c.className='confetti';
-    c.style.left = rnd(0,100)+'%'; c.style.background = colors[i%colors.length];
-    c.style.animationDuration = rnd(2.2,3.6)+'s'; c.style.animationDelay = rnd(0,1)+'s';
-    fx.appendChild(c);
-  }
-  return fxShow('douhan',
-    `<div class="big">${FX('partypopper',44)} おめでとう！ ${FX('partypopper',44)}</div><div class="name">${esc(name)} さん、同伴お疲れさま</div><div class="sub">今日も素敵な一日に</div>`, 3200);
-}
-function fxAfter(name){
-  const fx = document.getElementById('fx');
-  const moon = document.createElement('div'); moon.className='moon'; fx.appendChild(moon);
-  for (let i=0;i<60;i++){
-    const s = document.createElement('div'); s.className='star';
-    s.style.left = rnd(0,100)+'%'; s.style.top = rnd(0,100)+'%';
-    s.style.animationDuration = rnd(1.2,3)+'s'; s.style.animationDelay = rnd(0,2)+'s';
-    fx.appendChild(s);
-  }
-  for (let i=0;i<3;i++){
-    const sh = document.createElement('div'); sh.className='shoot';
-    sh.style.left = rnd(50,95)+'%'; sh.style.top = rnd(5,30)+'%'; sh.style.animationDelay = rnd(0,1.5)+'s';
-    fx.appendChild(sh);
-  }
-  for (let i=0;i<14;i++){
-    const h = document.createElement('div'); h.className='heart'; h.innerHTML = FX(['heartpurple','sparkles','dizzy'][i%3],28);
-    h.style.left = rnd(0,100)+'%'; h.style.animationDuration = rnd(3,5)+'s'; h.style.animationDelay = rnd(0,1.5)+'s';
-    fx.appendChild(h);
-  }
-  return fxShow('after',
-    `<div class="big">遅くまでありがとう</div><div class="name">${esc(name)} さん</div><div class="sub">気をつけて帰ってね</div>`, 3200);
 }
 
 // 起動時：既にログイン済ならそのまま開く
