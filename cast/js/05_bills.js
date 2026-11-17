@@ -112,7 +112,7 @@ function hallCs(){
   if(csMsg) window.removeEventListener('message', csMsg);
   csMsg = async e => { const f = $('csFrame'); if(!f || e.source !== f.contentWindow || e.origin !== location.origin || !e.data || e.data.type !== 'olive-cs-need') return;
     const r = await sb.rpc('hall_cs_session', { p_token: TOKEN }); if(!$('csFrame')) return;
-    const d = r.error ? { error: /hall_cs_session/.test(r.error.message) ? '準備中です（SQL 218 が未実行）' : r.error.message } : (r.data || {});
+    const d = r.error ? { error: r.error.message } : (r.data || {});
     f.contentWindow.postMessage({ type: 'olive-cs-auth', ...d }, location.origin); };
   window.addEventListener('message', csMsg);
 }

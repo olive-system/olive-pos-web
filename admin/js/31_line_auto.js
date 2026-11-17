@@ -13,7 +13,7 @@ const LA_HEAD='<colgroup><col style="width:22%"><col style="width:15%"><col styl
 PAGES.o_line_auto=async()=>{ const st=storeId, head=`<h1>LINE自動送信 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const [r,rk]=await Promise.all([sb.rpc('admin_reminder_get',{p_store:st}),sb.rpc('admin_get_rank_settings',{p_store:st})]); if(page!=='o_line_auto'||storeId!==st) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_reminder_get/.test(r.error.message)?'SQL 341 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, R=D.rows||{}, dr=D.dress||{}, K=rk.error?null:(rk.data||{});
   const due={shift:'毎月10日',dress:dr.enabled?`毎月${dr.due_day}日`:'',meeting:'月末'};
   const row=(k,n)=>{ const x=R[k]||{enabled:true,days_before:0,at_time:'13:00'};

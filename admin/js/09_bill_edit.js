@@ -42,7 +42,7 @@ function billViewLines(C,L,N,pn,its,voids,exts,extMin,adjs,pays){
 async function beAfterLoad(id){ const ar=await sb.from('after_bills').select('staff_id').eq('bill_id',id); return (ar.data||[]).map(x=>x.staff_id); }
 async function beAfterSave(id,afA,afD){ for(const [L,on] of [[afA,true],[afD,false]]) for(const sid of L){ const a=await rpc('admin_after_set',{p_bill:id,p_staff:sid,p_on:on}); if(!a.ok) return false; } return true; }
 async function billEdit(id){
-  const r=await sb.rpc('admin_bill_get',{p_bill:id}); if(r.error){ await uiAlert(/admin_bill_get/.test(r.error.message)?'SQL 071 が未実行です：'+r.error.message:r.error.message); return; }
+  const r=await sb.rpc('admin_bill_get',{p_bill:id}); if(r.error){ await uiAlert(r.error.message); return; }
   const O=r.data; O.custs=O.custs||[]; O.after=await beAfterLoad(id); const S=JSON.parse(JSON.stringify(O)), st=O.settings||{}, B=S.bill, att=new Set(O.attended||[]), bd=O.bill.business_date;
   const ST=O.staff||[], sn=sid=>ST.find(x=>x.id===sid)?.name||'（不明）', pn=pid=>(O.products||[]).find(p=>p.id===pid);
   const live=it=>!it.is_void, hcId=st.auto_hc_product_id, bcId=st.auto_bc_product_id;

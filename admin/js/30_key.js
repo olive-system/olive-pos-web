@@ -7,7 +7,7 @@ const KEY_URL=new URL('../key/',location.href).href, KEY_WD_ORDER=[1,2,3,4,5,6,0
 PAGES.o_key=async()=>{ const st=storeId, head=`<h1>セサミ連携 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_key_get',{p_store:st}); if(page!=='o_key'||storeId!==st) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_key_get/.test(r.error.message)?'SQL 326 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data, L=D.locks||[];
   if(!L.length){ $('main').innerHTML=head+'<div class="card muted">鍵なし</div>'; return; }
   const who=k=>L.filter(l=>l[k]).map(l=>l.name).join('・');

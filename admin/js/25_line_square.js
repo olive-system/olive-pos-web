@@ -3,7 +3,7 @@
 PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_square_get',{p_store:st}); if(page!=='o_square'||storeId!==st) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_square_get/.test(r.error.message)?'SQL 131 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data;
   $('main').innerHTML=head+`<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>状態</b>${D.set?`<span class="badge k">連携済</span><span>${D.location_name?'店舗：'+esc(D.location_name):'<span class="badge warnb">店舗が未選択</span>'}</span><small class="muted">${fmtDT(D.updated_at)}</small>`:'<span class="badge warnb">未連携</span>'}</div>
       <div id="sqLoc" style="margin-top:10px"></div>
@@ -26,7 +26,7 @@ PAGES.o_square=async()=>{ const st=storeId, head=`<h1>Square 連携 <small class
 PAGES.o_line=async()=>{ const st=storeId, head=`<h1>LINE メニュー <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_richmenu_get',{p_store:st}); if(page!=='o_line'||storeId!==st) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_richmenu_get/.test(r.error.message)?'SQL 219 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data; /* キャストのリッチメニューも（D.cast。オーナー） */
   const K={hall:{nm:'黒服',img:'richmenu_hall.png',on:D.on,made:D.made,linked:D.linked,note:'開店・閉店作業：22時から朝8時までは閉店作業、それ以外は開店作業が開きます'},
     cast:{nm:'キャスト',img:'richmenu_cast.png',on:D.cast?.on,made:D.cast?.made,linked:D.cast?.linked,note:'連絡先交換：LINE のお知らせと同じく、入力の画面が開きます',sql:!D.cast},

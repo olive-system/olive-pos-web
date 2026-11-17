@@ -4,7 +4,7 @@
 // 店名は全部のサイト（POS・顧客サイト・タイムカード）に出る。住所・電話・インボイス番号は POS の領収書に出る。領収書メールの宛先は POS の閉店作業で使う。開店時間は登録するだけ
 async function siRender(){ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'':'disabled', box=()=>$('siBox');
   const [r,lr]=await Promise.all([sb.rpc('admin_get_store_info',{p_store:st}),sb.rpc('admin_get_receipt_logo',{p_store:st})]); if(page!=='set_pos'||storeId!==st||!box()) return;
-  if(r.error){ box().innerHTML=`<div class="card err">${esc(/admin_get_store_info/.test(r.error.message)?'SQL 060 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ box().innerHTML=`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const d=r.data||{};
   box().innerHTML=siHtml(d,lr,ed,dis);
   if(!ed) return;
@@ -28,7 +28,7 @@ function siHtml(d,lr,ed,dis){ const siFld=(id,label,v,o={})=>`<label>${label}<in
     ${siFld('siTel','電話番号',d.phone,{type:'tel',ph:'03-0000-0000'})}
     ${siFld('siMail','メールアドレス',d.email,{type:'email',ph:'info@example.com'})}
     ${siFld('siInv','インボイス番号',d.invoice,{ph:'T1234567890123',ml:20})}
-    <div><label>領収書ロゴ</label><div class="sit"><span id="siLogo" style="flex:1;min-width:0;height:var(--h);border:1px solid var(--line);border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;padding:4px 8px;overflow:hidden">${lr.error?`<span class="muted" style="font-size:13px">${esc(/admin_get_receipt_logo/.test(lr.error.message)?'SQL 410 が未実行です':lr.error.message)}</span>`:lr.data?`<img src="${esc(lr.data)}" alt="領収書ロゴ" style="max-width:100%;max-height:100%">`:'<span class="muted" style="font-size:13px">なし</span>'}</span>${ed&&!lr.error?`<button type="button" class="ghost sm" id="siLogoPick">選択</button><input type="file" id="siLogoF" accept="image/png,image/jpeg" style="display:none">${lr.data?'<button type="button" class="xb" id="siLogoX" aria-label="削除">×</button>':''}`:''}</div></div>
+    <div><label>領収書ロゴ</label><div class="sit"><span id="siLogo" style="flex:1;min-width:0;height:var(--h);border:1px solid var(--line);border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;padding:4px 8px;overflow:hidden">${lr.error?`<span class="muted" style="font-size:13px">${esc(lr.error.message)}</span>`:lr.data?`<img src="${esc(lr.data)}" alt="領収書ロゴ" style="max-width:100%;max-height:100%">`:'<span class="muted" style="font-size:13px">なし</span>'}</span>${ed&&!lr.error?`<button type="button" class="ghost sm" id="siLogoPick">選択</button><input type="file" id="siLogoF" accept="image/png,image/jpeg" style="display:none">${lr.data?'<button type="button" class="xb" id="siLogoX" aria-label="削除">×</button>':''}`:''}</div></div>
     <label>振込先（請求書に出る）<textarea id="siBank" rows="3" maxlength="200" placeholder="振込銀行　◯◯銀行　◯◯支店&#10;口座番号　（普通）0000000&#10;口座名　　株式会社OLIVE" style="width:100%;font:inherit;font-size:16px;line-height:1.5;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" ${dis}>${esc(d.bank||'')}</textarea></label>
     ${siFld('siRcpt','領収書メールの宛先',d.receipt_mail,{type:'email'})}
     <label>顧客管理<select id="siCM" ${dis}>${[['kakari','係制'],['yukyaku','誘客制']].map(([k,n])=>`<option value="${k}" ${(curStore()?.customer_mode||'kakari')===k?'selected':''}>${n}</option>`).join('')}</select></label>
@@ -49,7 +49,7 @@ function siSaveWire(st,d){
     const cm=$('siCM').value, c0=curStore()?.customer_mode||'kakari'; if(cm!==c0) chg.push(`顧客管理「${cm==='yukyaku'?'誘客制':'係制'}」（全部のサイトの表示が変わります）`);
     if(!await uiConfirm('店の情報を保存しますか？'+(chg.length?'\n'+chg.map(x=>'・'+x).join('\n'):''))) return;
     const x=await rpc('admin_save_store_info',{p_store:st,p_name:name,p_open:op||null,p_close:cl,p_address:v('siAddr'),p_phone:v('siTel'),p_email:v('siMail'),p_invoice:iv,p_receipt_mail:v('siRcpt'),p_bank:$('siBank').value}); if(!x.ok) return;
-    if(kn!==k0){ rtOwn=Date.now(); const y=await sb.rpc('admin_save_kakari_label',{p_store:st,p_label:kn}); rtOwn=Date.now(); if(y.error){ await uiAlert(/admin_save_kakari_label/.test(y.error.message)?'SQL 080 が未実行です（係/担当/指名はまだ保存できません。ほかの項目は保存しました）':y.error.message); } }
+    if(kn!==k0){ rtOwn=Date.now(); const y=await sb.rpc('admin_save_kakari_label',{p_store:st,p_label:kn}); rtOwn=Date.now(); if(y.error){ await uiAlert(y.error.message); } }
     if(cm!==c0){ rtOwn=Date.now(); const y=await sb.rpc('admin_save_customer_mode',{p_store:st,p_mode:cm}); rtOwn=Date.now(); if(y.error){ await uiAlert(y.error.message); } }
     unsavedBtns.delete(sv); toast('保存しました'); me=await loadMe()||me; renderStoreSel(); renderAll(); });
 }

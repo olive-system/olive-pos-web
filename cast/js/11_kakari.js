@@ -164,7 +164,7 @@ async function rvCheck(R){
   if(!d || !t){ await uiAlert('来店日と来店時刻を入力してください'); return null; }
   if(R.offs.has(d)){ await uiAlert(`${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はお店の休みです。ほかの日を選んでください`); return null; }
   if(!c){ await uiAlert('お客様のフルネームを入力してください'); return null; }
-  if(!NK && !R.cid){ const w = await sb.rpc('cast_customer_same_name', { p_token: TOKEN, p_name: c }); /* 同じ名前の顧客がいる時は候補から選ぶ（係を台帳の係にするため。広島は今まで通り） */
+  if(!NK && !R.cid){ const w = await sb.rpc('cast_customer_same_name', { p_token: TOKEN, p_name: c }); if(w.error){ await uiAlert(w.error.message); return null; } /* 読めないまま進むと、同じ名前のお客様を2人作ってしまう */ /* 同じ名前の顧客がいる時は候補から選ぶ（係を台帳の係にするため。広島は今まで通り） */
     if(w.data === true){ await uiAlert('同じ名前の顧客がいます。\n顧客の候補から選択してください'); $('rvC').dispatchEvent(new Event('input')); return null; } }
   if(!k){ await uiAlert(KL + 'を選んでください'); return null; }
   if(!(n >= 1)){ await uiAlert('人数を入力してください'); return null; }

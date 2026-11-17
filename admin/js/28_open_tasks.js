@@ -15,7 +15,7 @@ async function taskPage(pg){ const [ph,nm]=TASK_PG[pg], st=storeId, ed=perm(pg)=
   const head=`<h1>${nm} <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`, again=()=>taskPage(pg);
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_tasks',{p_store:st,p_day:d,p_phase:ph}); if(page!==pg||storeId!==st||openDay!==d) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_tasks/.test(r.error.message)?'SQL 209 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, I=D.items||[], T=D.day||[], hm=hmJst;
   const wd=wdS, nd=T.filter(x=>x.status==='done').length;
   const seg=(k,i,cur,os)=>`<span class="seg">${os.map(([v,n])=>`<button data-${k}="${i}" data-v="${v}" class="${cur===v?'on':''}">${n}</button>`).join('')}</span>`;

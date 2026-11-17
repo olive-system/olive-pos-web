@@ -18,7 +18,7 @@ const aplDtW=iso=>{ if(!iso) return '未定'; const d=new Date(new Date(iso).get
 PAGES.applicants=async()=>{ const st=storeId;
   $('main').innerHTML=`<h1>応募者 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
   const r=await sb.rpc('admin_ap_list',{p_store:st}); if(page!=='applicants'||storeId!==st) return;
-  if(r.error){ $('main').querySelector('.card').outerHTML=`<div class="card err">${/admin_ap_list/.test(r.error.message)?'SQL 488 が未実行です':'表示できません：'+esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').querySelector('.card').outerHTML=`<div class="card err">${'表示できません：'+esc(r.error.message)}</div>`; return; }
   const L=r.data||[], cnt=k=>L.filter(x=>aplHit(x,k)).length;
   $('main').innerHTML=`<h1>応募者 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
   <div class="row" style="margin-bottom:12px;gap:10px;flex-wrap:wrap"><span class="seg">${APL_SEG.map(([k,n])=>`<button data-aps="${k}" class="${k===aplSeg?'on':''}">${n} ${cnt(k)}</button>`).join('')}</span><input id="aplQ" placeholder="名前検索" value="${esc(aplQ)}" style="width:180px"></div>

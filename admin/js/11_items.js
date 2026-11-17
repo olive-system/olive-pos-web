@@ -78,7 +78,7 @@ function fineListWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-f
 // アフターの延長（attendance_rules。タイムカードの打刻の時に round_punch が使う）。閉店の○分前を過ぎたアフターは、閉店まで働いたことにする。閉店時間は店舗設定で決める
 const closeTxt=c=>{ const m=String(c||'01:00').match(/^(\d{1,2}):(\d{2})/); return m?`${+m[1]<12?'翌':''}${+m[1]}:${m[2]}`:String(c); };
 function afterCard(ax,ed){ const T='アフターの延長', h='<div class="muted" style="font-size:13px;margin-bottom:10px">アフターの打刻（退勤の代わり）で、時給を付ける時間を延ばします</div>';
-  if(ax.error) return foldCard('after',T,'','',`<div class="err">${esc(/after_ext|minutes|close/.test(ax.error.message)||/find|exist|schema cache/.test(ax.error.message)?'SQL 055 が未実行です：':'読み込めません：')}${esc(ax.error.message)}</div>`);
+  if(ax.error) return foldCard('after',T,'','',`<div class="err">読み込めません：${esc(ax.error.message)}</div>`);
   const a=ax.data||{}; if(a.minutes==null) return foldCard('after',T,'','','<div class="err">SQL 055 が未実行です</div>');
   const on=!!a.on, dis=ed?'':'disabled', cl=closeTxt(a.close);
   return foldCard('after',T,'',on?`する・閉店の${esc(String(a.minutes))}分前から`:'しない',`${h}<div class="row"><span class="seg" id="afOn">${[[true,'する'],[false,'しない']].map(([v,n])=>`<button data-v="${v}" class="${on===v?'on':''}" ${dis}>${n}</button>`).join('')}</span></div>
