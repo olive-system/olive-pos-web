@@ -99,8 +99,8 @@ const pnNum=(id,label,v,ed)=>`<label>${label}<input id="${id}" inputmode="decima
 const pnSaveBtn=ed=>ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pnsave>保存</button></div>':'';
 const pnYen=v=>v==null?'—':Number(v).toLocaleString('ja-JP')+'円';
 function payAdvCard(pos,ed){ const d=pos.data||{};
-  return foldCard('payadv','日払（立替）の上限・同伴の準備時間','',`キャスト ${pnYen(d.advance_cap_cast)}・黒服 ${pnYen(d.advance_cap_hall)}・${d.douhan_punch_limit_min??'—'}分`,`<div class="grid2">
-    ${pnNum('pnCapC','日払（立替）の上限・キャスト（円）',d.advance_cap_cast,ed)}${pnNum('pnCapH','日払（立替）の上限・黒服（円）',d.advance_cap_hall,ed)}
+  return foldCard('payadv','日払・立替の上限・同伴の準備時間','',`キャスト 日払 ${pnYen(d.advance_cap_cast)}・立替 ${pnYen(d.tatekae_cap_cast)}・黒服 ${pnYen(d.advance_cap_hall)}・${d.douhan_punch_limit_min??'—'}分`,`<div class="grid2">
+    ${pnNum('pnCapC','日払の上限・キャスト（円）',d.advance_cap_cast,ed)}${pnNum('pnCapT','立替の上限・キャスト（円）',d.tatekae_cap_cast,ed)}${pnNum('pnCapH','日払（立替）の上限・黒服（円）',d.advance_cap_hall,ed)}
     ${pnNum('pnDh','同伴の準備時間（分・0＝警告なし）',d.douhan_punch_limit_min,ed)}</div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">同伴の準備時間：伝票の立ち上げから出勤の打刻まで<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">これを超えると、タイムカードで本人に警告します</div></div>${pnSaveBtn(ed)}`,'data-paynum'); }
 function payPtCard(pos,ed){ const d=pos.data||{};
@@ -124,14 +124,14 @@ function sptWire(){ const box=$('sptBox'); if(!box) return; sptRest();
   const ad=$('sptAdd'); if(ad) ad.onclick=()=>{ $('sptBody').insertAdjacentHTML('beforeend',sptRow({},true)); sptRest(); }; }
 function sptVals(){ return [...document.querySelectorAll('#sptBody [data-spt]')].map(tr=>({upto:slNum(tr.querySelector('[data-tu]').value),p:slNum(tr.querySelector('[data-tp]').value)})); }
 function payNumWire(st){ $('main').querySelectorAll('[data-pnsave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
-  const g=id=>slNum($(id).value), v={advance_cap_cast:g('pnCapC'),advance_cap_hall:g('pnCapH'),trial_withholding_rate:g('pnTw'),set_point:g('pnSp'),ext_point:g('pnEp'),douhan_punch_limit_min:g('pnDh')};
+  const g=id=>slNum($(id).value), v={advance_cap_cast:g('pnCapC'),tatekae_cap_cast:g('pnCapT'),advance_cap_hall:g('pnCapH'),trial_withholding_rate:g('pnTw'),set_point:g('pnSp'),ext_point:g('pnEp'),douhan_punch_limit_min:g('pnDh')};
   if(Object.values(v).some(x=>x==null||!Number.isFinite(x)||x<0)){ await uiAlert('全部の欄に0以上の数を入力してください'); return; }
   if(v.trial_withholding_rate>100){ await uiAlert('体験入店の源泉は100%までです'); return; }
   const isPt=sv.closest('[data-fold]').dataset.fold==='paypt', ts=isPt&&$('sptBox')?sptVals():null, tf=ts?$('sptFrom').value:null;
   if(ts){ if(ts.some(t=>!Number.isInteger(t.upto)||t.upto<1||t.p==null||!Number.isFinite(t.p)||t.p<0)){ await uiAlert('段の人数は1以上の整数、ポイントは0以上の数を入力してください'); return; }
     ts.sort((x,y)=>x.upto-y.upto); if(ts.some((t,i)=>i&&t.upto===ts[i-1].upto)){ await uiAlert('段の人数が重複しています'); return; }
     if(ts.length&&!tf){ await uiAlert('適用開始を入力してください'); return; } }
-  if(!await uiConfirm(sv.closest('[data-fold]').dataset.fold==='paypt'?'ポイント・体験入店の設定を保存しますか？':'日払（立替）の上限・同伴の準備時間を保存しますか？')) return;
+  if(!await uiConfirm(sv.closest('[data-fold]').dataset.fold==='paypt'?'ポイント・体験入店の設定を保存しますか？':'日払・立替の上限・同伴の準備時間を保存しますか？')) return;
   const r=await rpc('admin_save_pay_settings',{p_store:st,p_vals:v}); if(!r.ok) return;
   if(ts){ const r2=await rpc('admin_save_set_point_tiers',{p_store:st,p_tiers:ts,p_from:tf||null}); if(!r2.ok) return; }
   toast('保存しました'); PAGES.set_pay(); })); sptWire(); }

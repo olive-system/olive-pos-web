@@ -13,7 +13,7 @@ function slipHtml(P){
   return `<div class="card"><div class="ttl">報酬支払明細書</div><div class="muted sm" style="text-align:center;margin-bottom:6px">${y}年${mo}月分　${esc(P.store_name)}　${esc(P.name)}${P.real_name?'/'+esc(P.real_name):''}</div>
       ${L('稼働日数', `${N(x.days)}日`)}${L('稼働時間', HM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給', x.wage?yen(x.wage):'--')}</div>
     <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
-    <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${L('日払（立替）', cm(x.advance))}${N(x.prev_adjust)?L('前月精算', (N(x.prev_adjust)<0?'−':'')+Math.abs(N(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
+    <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${'tatekae' in x ? L('日払', cm(N(x.advance)-N(x.tatekae)))+L('立替', cm(x.tatekae)) : L('日払（立替）', cm(x.advance))}${N(x.prev_adjust)?L('前月精算', (N(x.prev_adjust)<0?'−':'')+Math.abs(N(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
 }
 function hallSlipHtml(P){
   const x = P.slip, L = (k, v, c='') => `<div class="row ${c}"><span>${esc(k)}</span><b>${v}</b></div>`, PT = { monthly:'月給', hourly:'時給', daily:'日給' };
@@ -29,7 +29,10 @@ function hallSlipHtml(P){
 
 // 明細・日払・罰金を1つの枠に（オーナー「ジャンルごとに枠があって、スペースをくうし、見にくい」）。マイページと、毎月1日の PDF（Edge Function monthly-export がこのファイルを読む）で同じものを使う
 function slipOne(P){
-  const adv = (P.advances||[]).map(a => `<div class="row"><span>${mdW(a.date)}</span><b>${yen(a.amount)}</b></div>`).join('');
+  // 日払と立替は分けて出す（tatekae＝その日の立替。amount は日払と立替の合計）。分ける前に固めた明細と黒服は「日払（立替）」の1つのまま
+  const two = !P.hall && 'tatekae' in (P.slip||{}), A = P.advances||[], row = (d, v) => `<div class="row"><span>${mdW(d)}</span><b>${yen(v)}</b></div>`;
+  const adv = A.map(a => two ? (N(a.amount)-N(a.tatekae) ? row(a.date, N(a.amount)-N(a.tatekae)) : '') : row(a.date, a.amount)).join('');
+  const tat = two ? A.map(a => N(a.tatekae) ? row(a.date, a.tatekae) : '').join('') : '';
   const fl = (P.fines||[]).map(f => `<div class="row"><span>${mdDay(f.date)} ${esc(f.reason||'')}</span><b>${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</b></div>`).join('');
-  return `<div class="card one">${(slipHtml(P) + `<div class="card"><div class="gh">日払（立替）</div>${adv||'<div class="muted sm">なし</div>'}</div><div class="card"><div class="gh">罰金</div>${fl||'<div class="muted sm">なし</div>'}</div>`).replace(/class="card"/g, 'class="sec"')}</div>`;
+  return `<div class="card one">${(slipHtml(P) + `<div class="card"><div class="gh">${two?'日払':'日払（立替）'}</div>${adv||'<div class="muted sm">なし</div>'}</div>${two?`<div class="card"><div class="gh">立替</div>${tat||'<div class="muted sm">なし</div>'}</div>`:''}<div class="card"><div class="gh">罰金</div>${fl||'<div class="muted sm">なし</div>'}</div>`).replace(/class="card"/g, 'class="sec"')}</div>`;
 }

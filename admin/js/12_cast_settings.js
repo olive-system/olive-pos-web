@@ -62,7 +62,7 @@ function csCastPrep(K){ const {box,st,ed,m,sf,tm,ft,nt,stb}=K;
   const inp=csInp;
   const yn=v=>v==null?'—':v;
   const PT={hourly:'時給',daily:'日給',seppan:'折半'};
-  const HD=['担当黒服','報酬','スライド表','保証日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払（立替）','契約書','メモ'];
+  const HD=['担当黒服','報酬','スライド表','保証日給','保証時給','保証の期限','同伴ノルマ','小計バック','源泉徴収','消費税','厚生費','罰金の免除','日払','契約書','メモ'];
   return {...K,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD}; }
 /* 1人の行（見る時と編集する時） */
 function csCastCell(K,{s,t}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; const sp=t.pay_type==='seppan', daily=t.pay_type==='daily';
@@ -92,7 +92,7 @@ function csCastHtml(K){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tb
   ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${E?esc(r.s.display_name):`<a data-open="${r.s.id}">${esc(r.s.display_name)}</a>`}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}<td>${nc[r.s.id]?nc[r.s.id]+'件':'—'}</td></tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍のキャストがいません</div>'}
-  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'担当黒服・日払（立替）・契約書以外を変更すると、保存の時に「○月以降／○月のみ」を選びます':'名前を押すと、メモと個別設定が開きます'}${ed&&!E?'。修正は「編集」から':''}</div>`; }
+  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'担当黒服・日払・契約書以外を変更すると、保存の時に「○月以降／○月のみ」を選びます':'名前を押すと、メモと個別設定が開きます'}${ed&&!E?'。修正は「編集」から':''}</div>`; }
 /* 押した時の動き：名前・編集・キャンセル・行の中の欄・保存 */
 function csCastBind(K){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K;
   box.querySelectorAll('[data-open]').forEach(a=>a.onclick=()=>{ const s=casts.find(x=>x.id===a.dataset.open); csDetail={store:st,s}; csTab='memo'; PAGES.set_cast(); }); // メモを最初に開く
