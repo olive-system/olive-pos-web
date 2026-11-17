@@ -91,7 +91,7 @@ function clBindA(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
   if($('clDepIn')) $('clDepIn').oninput=e=>{ S.clDeposit=clNum(e.target.value); clRecalc(); };
   if($('clOpenIn')) $('clOpenIn').oninput=e=>{ S.clOpening=clNum(e.target.value); clRecalc(); };
   // 入金・出金の項目は管理サイトの POS設定 で決める（「その他」は自由に書ける）
-  if($('clKind')){ const items=k=>{ const v=S.settings?.['cash_'+k+'_items']; return Array.isArray(v)?v:(k==='out'?['領収書精算','支払い']:[]); };
+  if($('clKind')){ const items=k=>{ const v=S.settings?.['cash_'+k+'_items'], L=Array.isArray(v)?v:(k==='out'?['支払い']:[]); return k==='out'?[CL_RCPT,...L.filter(x=>!String(x).includes('領収書'))]:L; }; /* 領収書精算（撮影）は設定の項目名に頼らずいつも出す。管理サイトで項目名が変わると撮影が出ず、写真なしの出金になり領収書メールも0通になった */
     const fill=()=>{ const k=$('clKind').value; $('clMemoSel').innerHTML=items(k).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__other">その他</option>'; };
     const mv=()=>{ const out=$('clKind').value==='out', rc=out&&$('clMemoSel').value===CL_RCPT; /* 領収書精算の時は 金額・追加 のかわりに撮影だけ（オーナー「日払いの場合は撮影いらないよね」） */ $('clAmt').style.display=$('clAdd').style.display=rc?'none':''; $('clShot').style.display=rc?'':'none'; $('clMemo').style.display=$('clMemoSel').value==='__other'?'':'none'; $('clMemo').placeholder=out?'内容を入力':'内容（例：両替、釣銭補充）'; }; fill(); $('clKind').onchange=()=>{ fill(); mv(); };
     box.querySelectorAll('[data-clk]').forEach(b=>b.onclick=()=>{ $('clKind').value=b.dataset.clk; box.querySelectorAll('[data-clk]').forEach(x=>x.classList.toggle('on',x===b)); fill(); mv(); }); $('clMemoSel').onchange=()=>{ mv(); if($('clMemoSel').value==='__other') $('clMemo').focus(); }; mv(); }
