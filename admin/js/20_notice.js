@@ -8,7 +8,6 @@
 // 添付は送る時に置き場「notice-files」へ上げる（店のid/番号.jpg|pdf）。写真は 1600px の JPEG に縮める。お知らせの削除・予約の取消・添付を外した保存のあと、使われなくなったものを消す
 let ntEdit=null, ntSched=null, ntFiles=[], ntKey='', ntPick=new Set();
 const ntStoreName=s=>s?.short||s?.name||'';
-const ntWhen=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
 const NT_TO={all:'全員',cast:'キャストのみ',hall:'黒服のみ',hall_in:'黒服（出勤時）',pick:'個別'}; // 黒服（出勤時）：登録だけして、黒服が出勤の打刻をした時に届く（SQL 567・オーナー「打刻で送る形を作る」）
 const ntUrl=p=>sb.storage.from('notice-files').getPublicUrl(p).data.publicUrl;
 // 新しく足したものを上げて、[{p,n,t}] を返す（上げたものは up に入れる。失敗した時に消すため）
@@ -59,7 +58,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
       <div class="fend" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><label id="ntPl" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ntP" ${!SE||SE.push?'checked':''} style="width:auto">LINE 通知</label><span style="flex:1"></span>${SE?'<button class="ghost sm" id="ntX">キャンセル</button>':''}<button class="primary sm" id="ntS"></button></div></div>`;
   const stLbl=a=>a.length>1?'両店':ntStoreName(S.find(s=>s.id===a[0])||{});
   const sched=SL.length?`<div class="card"><b>送信予定</b>${SL.map(x=>`<div style="display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;margin-top:6px;flex-wrap:wrap">
-      <span style="width:9.5em;white-space:nowrap">${ntWhen(x.send_at)}</span><span style="width:6em;white-space:nowrap">${NT_TO[x.target]||''}</span><span style="width:2.5em;white-space:nowrap">${esc(stLbl(x.stores))}</span>
+      <span style="width:9.5em;white-space:nowrap">${mdwHm(x.send_at)}</span><span style="width:6em;white-space:nowrap">${NT_TO[x.target]||''}</span><span style="width:2.5em;white-space:nowrap">${esc(stLbl(x.stores))}</span>
       <b style="flex:1;min-width:8em">${esc(x.title)}${(x.attach||[]).length?` <small class="muted" style="font-weight:400">${ntCount(x.attach)}</small>`:''}${x.target==='pick'?`<br><small class="muted" style="font-weight:400">${x.names.map(esc).join('・')}</small>`:''}</b>${ed?`<button class="ghost sm" data-se="${x.id}">編集</button><button class="ghost sm" data-sc="${x.id}">取消</button>`:''}</div>`).join('')}</div>`:'';
   const list=L.map(x=>`<div class="card"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><b>${esc(x.title)}</b> <small class="muted">${day(x.at)} 掲載${x.pick?'・個別':''}${x.updated_at?'（修正済）':''}${x.pushed?`・LINE 通知 ${x.pushed}人`:''}</small></div>
       ${ed?`<button class="ghost sm" data-ne="${x.id}">編集</button><button class="xb" data-nd="${x.id}" aria-label="削除">×</button>`:''}</div>
@@ -72,7 +71,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   $('main').querySelectorAll('[data-se]').forEach(b=>b.onclick=()=>{ ntSched=b.dataset.se; ntEdit=null; PAGES.notice(); });
   $('main').querySelectorAll('[data-nd]').forEach(b=>b.onclick=guard(b,async()=>{ const x=L.find(z=>z.id===b.dataset.nd); if(!await uiConfirm(`「${x.title}」を削除しますか？${(x.attach||[]).length?'\n添付も削除します':''}`,'削除','danger')) return;
     const q=await rpc('admin_notice_delete',{p_store:st,p_id:x.id}); if(!q.ok) return; await ntRemove((x.attach||[]).map(f=>f.p)); toast('削除しました'); if(ntEdit===x.id) ntEdit=null; PAGES.notice(); }));
-  $('main').querySelectorAll('[data-sc]').forEach(b=>b.onclick=guard(b,async()=>{ const x=SL.find(z=>z.id===b.dataset.sc); if(!await uiConfirm(`「${x.title}」の予約を取り消しますか？\n送信時刻：${ntWhen(x.send_at)}`,'取消','danger')) return;
+  $('main').querySelectorAll('[data-sc]').forEach(b=>b.onclick=guard(b,async()=>{ const x=SL.find(z=>z.id===b.dataset.sc); if(!await uiConfirm(`「${x.title}」の予約を取り消しますか？\n送信時刻：${mdwHm(x.send_at)}`,'取消','danger')) return;
     const q=await rpc('admin_notice_sched_cancel',{p_id:x.id}); if(!q.ok) return; await ntRemove((x.attach||[]).map(f=>f.p)); toast('取り消しました'); if(ntSched===x.id) ntSched=null; PAGES.notice(); }));
   // 添付：並べる・［×］で外す・［追加］で選ぶ
   const paintA=()=>{ $('ntA').innerHTML=ntFiles.map((f,i)=>`<div style="position:relative">${f.t==='pdf'?`<div style="width:96px;height:64px;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;color:var(--pri)">PDF<small class="muted" style="font-weight:400;font-size:10px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.n)}</small></div>`
@@ -118,7 +117,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
     if(at&&new Date(whenIso).getTime()<=Date.now()){ await uiAlert('過去の時刻は指定できません'); return; }
     const lineMsg={all:push?'連携したキャスト・黒服全員に LINE で送信します':'',cast:push?'連携したキャスト全員に LINE で通知します':'',hall:'連携した黒服全員に LINE で送信します',pick:`選んだ ${ntPick.size}人に LINE で送信します`}[to];
     const att=ntFiles.length?`\n添付：${ntCount(ntFiles)}`:'';
-    const msg=at?`「${t}」を${SE?'保存':'予約'}しますか？\n送信時刻：${ntWhen(whenIso)}\n宛先：${NT_TO[to]}\n店舗：${sl}${att}${lineMsg?'\n'+lineMsg:''}`
+    const msg=at?`「${t}」を${SE?'保存':'予約'}しますか？\n送信時刻：${mdwHm(whenIso)}\n宛先：${NT_TO[to]}\n店舗：${sl}${att}${lineMsg?'\n'+lineMsg:''}`
       :`「${t}」を${to==='hall'||to==='pick'?'送信':'掲載'}しますか？\n宛先：${NT_TO[to]}\n店舗：${sl}${att}${lineMsg?'\n'+lineMsg:''}`;
     if(!await uiConfirm(msg)) return;
     const up=[]; let a; try{ a=await ntUpload(ids[0],up); }catch(e){ await ntRemove(up); await uiAlert('添付をアップロードできません：'+(e.message||e)); return; }

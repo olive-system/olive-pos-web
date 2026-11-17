@@ -59,7 +59,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   if(!ed) return;
   /* 休希望（オーナー「キャストからの休み希望を見れるボタンが欲しい」→ 並びは「休希望・自動作成・確定」）。提出した人を上、未提出を下 */
   $('shNg').onclick=()=>{ const by={}; (M.ng||[]).forEach(x=>(by[x.staff_id]=by[x.staff_id]||[]).push(x.day)); const pm=csAddMonth(m,-1);
-    const row=c=>`<div style="display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.6"><b style="min-width:4.5em">${esc(c.name)}</b>${c.submitted?`<span>${c.week?`週${c.week}日・`:''}出勤できない日：${(by[c.id]||[]).sort().map(d=>`${Number(d.slice(8))}（${wdJ(d)}）`).join('・')||'なし'}</span>`:'<span style="color:var(--warn)">未提出</span>'}</div>`;
+    const row=c=>`<div style="display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.6"><b style="min-width:4.5em">${esc(c.name)}</b>${c.submitted?`<span>${c.week?`週${c.week}日・`:''}出勤できない日：${(by[c.id]||[]).sort().map(d=>`${Number(d.slice(8))}（${wdS(d)}）`).join('・')||'なし'}</span>`:'<span style="color:var(--warn)">未提出</span>'}</div>`;
     const L=C.filter(c=>c.submitted).concat(C.filter(c=>!c.submitted));
     const w=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">${mo}月の休み希望</h2><div class="muted" style="font-size:13px">提出 ${sub}／${C.length}人（締切 ${Number(pm.slice(5,7))}/10）</div><div style="max-height:60vh;overflow:auto">${L.map(row).join('')||'<div class="muted">キャストがいません</div>'}</div>`);
     w.querySelector('[data-k=ok]').onclick=()=>w.remove(); };

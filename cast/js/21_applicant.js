@@ -8,7 +8,7 @@ const AP_FS = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padd
 const apRing = (name, id) => `<span data-ap="${id || ''}" style="white-space:nowrap;border-radius:999px;outline:1.5px solid var(--pri);outline-offset:2px;cursor:pointer">${esc(name)}</span>`;
 const apOpen = (id, store, back) => id ? apPage(id, store, back) : uiAlert('応募者ページはありません\n入店は POS「スタッフ」の［退店・体験］から');
 const apLegend = () => `<span style="margin-left:12px;font-weight:400;white-space:nowrap"><span style="display:inline-block;width:1.8em;height:1.1em;border:1.5px solid var(--pri);border-radius:999px;vertical-align:-0.2em;box-sizing:border-box"></span> 体験</span>`;
-const apDt = iso => { if(!iso) return '未定'; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
+const apDt = iso => iso ? mdwHm(iso) : '未定';
 const apIsoDay = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : '';
 const apIsoTime = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 16) : '20:00';
 // シフトの時刻と同じく 19:50 と 20:00〜23:00（PR #343）
