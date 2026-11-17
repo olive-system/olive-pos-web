@@ -40,7 +40,7 @@ async function cufUpdate(c,patch){
     if(!changed.length){ Object.assign(c,now.data); renderCuForm(); toast('ほかの人の変更と同じだったので、そのままにしました'); return; }
     const up={}; changed.forEach(k=>up[k]=patch[k]);
     /* 係はこの店舗の係として customer_kakari に保存（ほかの店舗の係は変わらない） */ const { kakari_staff_id:kk, ...cup }=up;
-    if(Object.keys(cup).length){ const { error } = await sb.rpc('pos_customer_save',{p_id:c.id,p:cup}); if(error){ toast(error.message.includes('column')?'SQL 011 が未適用です：'+error.message:error.message); return; } }
+    if(Object.keys(cup).length){ const { error } = await sb.rpc('pos_customer_save',{p_id:c.id,p:cup}); if(error){ toast(error.message); return; } }
     if('kakari_staff_id' in up){ const kr=kk?await sb.rpc('pos_kakari_set',{p_customer:c.id,p_store:S.store.id,p_staff:kk}):await sb.rpc('pos_kakari_set',{p_customer:c.id,p_store:S.store.id,p_staff:null}); if(kr.error){ toast(''+KL+'を保存できません：'+kr.error.message); return; } }
     await logOp('顧客変更',{name:c.name,fields:changed},null,true); const other=Object.keys(now.data).some(k=>!changed.includes(k)&&JSON.stringify(now.data[k]??null)!==JSON.stringify(c[k]??null)); Object.assign(c,now.data,up); toast(merged?'ほかの人の変更と合わせて保存しました':'保存しました'); renderCuList(); if(other) renderCuForm(); /* ほかの端末で変わった欄も最新にする */
 }
