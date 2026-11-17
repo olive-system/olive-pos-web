@@ -188,6 +188,13 @@ function caBindA(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,
     punchFix(id,'clock_out'); });
 }
 /* 押した時の動き：体験の出勤・編集・退店・復元・体験の手当・日払・並べ替え */
+// 日払・立替は pos_advance_set で保存（上限はデータベースでも確かめる）。黒服は日払（立替）の1つの欄のまま
+function caAdvSave(inp,kind,adv){ return async()=>{ const id=inp.dataset[kind], st=S.staffAll.find(x=>x.id===id), hall=st?.kind==='hall'||st?.is_trial, v=parseInt(inp.value||'0',10)||0, old=kind==='tat'?S.advT?.[id]:adv[id];
+  const nm=hall?'日払（立替）':kind==='tat'?'立替':'日払', cap=Number(kind==='tat'?(S.settings?.tatekae_cap_cast??30000):st?.kind==='hall'?(S.settings?.advance_cap_hall??5000):(S.settings?.advance_cap_cast??10000));
+  if(v<0||v>cap){ if(v>cap) toast(`${nm}の上限は ${cap.toLocaleString()}円 です`+(kind==='adv'&&!hall?'。超える分は［立替］に入力してください':'')); inp.value=old||''; return; }
+  const { data, error } = await sb.rpc('pos_advance_set',{p_store:S.store.id,p_staff:id,p_day:businessDate(),p_kind:kind,p_amount:v});
+  if(error){ toast(nm+'の保存エラー：'+error.message); inp.value=old||''; return; }
+  if(kind==='tat') S.advT[id]=v; else adv[id]=v; await logOp(kind==='tat'?'立替':'日払い',{name:snm(id),amount:v,total:data?.amount},null,true); toast(`${nm} ${v.toLocaleString()}円 を保存しました`); }; }
 function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pin,'clock_in')); $('cList').querySelectorAll('[data-pout]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pout,'clock_out')); $('cList').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{ const s=S.staffAll.find(x=>x.id===b.dataset.show); if(s) openTrialPay(s,tcalc[s.id],tev[s.id]||{},advX[s.id]||0,rcp[s.id]||null); });
   $('cList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ S.cSel=S.staffAll.find(s=>s.id===b.dataset.edit); renderCastForm(); castFormShow(); });
@@ -195,14 +202,7 @@ function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-ldone]').forEach(b=>b.onclick=()=>leaveDone(S.staffAll.find(x=>x.id===b.dataset.ldone)));
   $('cList').querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{ const { error } = await sb.rpc('pos_row_update',{p_table:'staff',p_id:b.dataset.restore,p:{is_active:true}}); if(!error) await logOp('キャストを戻す',{name:snm(b.dataset.restore)},null,true); toast(error?error.message:'戻しました'); renderCasts(); });
   $('cList').querySelectorAll('[data-extra]').forEach(inp=>inp.onchange=async()=>{ const s=S.staffAll.find(x=>x.id===inp.dataset.extra); const ex=Math.max(0,parseInt(inp.value||'0',10)||0); const c=trialCalc(s,tev[s.id]||{},ex); const r=await sb.rpc('pos_rows_upsert',{p_table:'daily_advances',p:{store_id:S.store.id,staff_id:s.id,business_date:businessDate(),amount:c.ready?c.pay:(adv[s.id]||0),extra:ex,calc_note:c.note},p_conflict:'staff_id,business_date'}); if(r.error){ toast('保存エラー：'+r.error.message); return; } await logOp('日払い（体験・手当の変更）',{name:s.display_name,extra:ex,amount:c.ready?c.pay:null,calc:c.note},null,true); toast('手当を保存しました'); renderCasts(); });
-  // 日払・立替は pos_advance_set で保存（上限はデータベースでも確かめる）。黒服は日払（立替）の1つの欄のまま
-  const advSave=(inp,kind)=>async()=>{ const id=inp.dataset[kind], st=S.staffAll.find(x=>x.id===id), hall=st?.kind==='hall'||st?.is_trial, v=parseInt(inp.value||'0',10)||0, old=kind==='tat'?S.advT?.[id]:adv[id];
-    const nm=hall?'日払（立替）':kind==='tat'?'立替':'日払', cap=Number(kind==='tat'?(S.settings?.tatekae_cap_cast??30000):st?.kind==='hall'?(S.settings?.advance_cap_hall??5000):(S.settings?.advance_cap_cast??10000));
-    if(v<0||v>cap){ if(v>cap) toast(`${nm}の上限は ${cap.toLocaleString()}円 です`+(kind==='adv'&&!hall?'。超える分は［立替］に入力してください':'')); inp.value=old||''; return; }
-    const { data, error } = await sb.rpc('pos_advance_set',{p_store:S.store.id,p_staff:id,p_day:businessDate(),p_kind:kind,p_amount:v});
-    if(error){ toast(nm+'の保存エラー：'+error.message); inp.value=old||''; return; }
-    if(kind==='tat') S.advT[id]=v; else adv[id]=v; await logOp(kind==='tat'?'立替':'日払い',{name:snm(id),amount:v,total:data?.amount},null,true); toast(`${nm} ${v.toLocaleString()}円 を保存しました`); };
-  $('cList').querySelectorAll('[data-adv]').forEach(inp=>inp.onchange=advSave(inp,'adv'));
-  $('cList').querySelectorAll('[data-tat]').forEach(inp=>inp.onchange=advSave(inp,'tat'));
+  $('cList').querySelectorAll('[data-adv]').forEach(inp=>inp.onchange=caAdvSave(inp,'adv',adv));
+  $('cList').querySelectorAll('[data-tat]').forEach(inp=>inp.onchange=caAdvSave(inp,'tat',adv));
   if (cSorting) dragSort($('cList'),'.rrow',async ids=>{ const rs=[await sb.rpc('pos_staff_sort',{p_ids:ids})]; const er=rs.find(r=>r.error); toast(er?('並び順を保存できませんでした：'+er.error.message):'並び順を保存しました'); renderCasts(); });
 }
