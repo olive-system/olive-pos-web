@@ -9,8 +9,15 @@ async function resvThanksById(id){
   if(r.error){ fail(r.error.message); return; }
   RESV = r.data || []; const x = RESV.find(v => v.id === id);
   if(!x){ await uiAlert('この予約は取消されたか、来店日を過ぎています'); resvList(); return; }
-  if(x.thanked){ await uiAlert('ありがとうは送信済です'); resvList(); return; }
+  if(x.thanked){ if(STORE === 'ginza') await thxSentView(x); else await uiAlert('ありがとうは送信済です'); resvList(); return; }
   resvThanks(x);
+}
+/* ありがとう 送信済み：送ったありがとうを小窓で（銀座。控えの文を LINE で送らない代わり。見本 作業場/見本の画像/同伴変更とありがとう_1枚のカード（11-17）.png のア） */
+function thxSentView(x){
+  const row = (k, v) => `<div style="display:flex;gap:12px;padding:8px 0;border-top:1px solid var(--line);text-align:left"><span class="muted" style="flex:none;width:4.5em">${k}</span><span style="min-width:0;white-space:pre-line">${v}</span></div>`;
+  const at = x.thanked_at ? new Date(x.thanked_at) : null, tm = at ? `${mdWD(at)} ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}` : '';
+  const names = String(x.name || '').split(/[、,]/).map(n => n.trim()).filter(Boolean).map(n => `${n} 様`).join('\n');
+  return new Promise(res => xBox(`<p style="font-weight:700;margin-bottom:6px">ありがとう 送信済み</p>${row('お客様', esc(`${resvLine(x).split('　')[0]}　${x.guests}名\n${names}`))}${row('送信先', '誘客 ' + esc(x.by || ''))}${tm ? row('送信', tm) : ''}${x.thanks_note ? row('ひとこと', esc(x.thanks_note)) : ''}`, res));
 }
 function resvThanks(x){
   setBack(resvList);
