@@ -38,7 +38,7 @@ function slReadHtml(P){
   const rd = P.rd, cName = id => (SALES.contacts.find(c => c.id === id) || {}).name || '';
   return `<div class="muted sm" style="margin-bottom:6px">読取 ${rd.n}枚　一致 ${rd.hits.length}名</div>
     ${rd.hits.length?`<div style="${g2};margin-bottom:10px">${rd.hits.map(h => h.id ? slBtn(`data-sc="${h.id}"`, cName(h.id), P.on.has(h.id)) : slBtn(`data-sxh="${esc(h.name)}"`, h.name, P.extra.includes(h.name))).join('')}</div>`:''}
-    ${rd.cands.length?`<div class="muted sm" style="display:flex;border-bottom:1px solid var(--line);padding-bottom:4px"><span style="flex:1">候補 ${rd.cands.length}名${rd.cands.every(c => !c.id)?'（前回の手打ち）':''}</span><span>読取／名前</span></div>
+    ${rd.cands.length?`<div class="muted sm" style="display:flex;border-bottom:1px solid var(--line);padding-bottom:4px"><span>候補 ${rd.cands.length}名${rd.cands.every(c => !c.id)?'（前回の手打ち）':''}</span></div>
       ${rd.cands.map((c, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="muted" style="flex:none;width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.read)}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span><button class="btn g" data-sca="${i}" style="width:auto;padding:0 16px;height:44px;margin:0">追加</button></div>`).join('')}<div style="height:10px"></div>`:''}`;
 }
 /* スクショ読取（2026-11-17 オーナー）：LINE のトーク一覧の表示名（ニックネーム・記号・絵文字まじり）を、その子の一覧・前の手打ちの名前・覚えた表示名と照らす。

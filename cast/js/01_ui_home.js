@@ -152,7 +152,7 @@ function perf(){
   const fl = fines.map(f=>`<div class="muted sm">${Number(String(f.date).slice(5,7))}/${Number(String(f.date).slice(8,10))} ${esc(f.reason||'')}　${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</div>`).join('');
   show(`<div class="subh">${m}月（${m}/${d} まで）</div>
     <div class="card">${r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
-    <div class="card">${r('給率', '—')}${r('提出率', '—')}<div class="muted sm" id="pfSub"></div></div>
+    <div class="card">${r('給率', '—')}${r('提出率', '—')}</div>
     <div class="card">${dhCard}</div>
     <div class="card">${r('出勤日数', `${Number(st.days||0)}日`)}${r('稼働時間', HM(st.hours))}${r('ポイント', `${Number(st.points||0)}`)}${r('反応◎', `${Number(st.reactions||0)}回`)}</div>
     <div class="card">${r('罰金（今月）', fines.length?yen(fsum):'なし')}${fl}</div>`);
@@ -161,7 +161,7 @@ function perf(){
 /* 今月の給率と提出率（2026-11-17 オーナー「マイページには、給率とその提出の割合、提出率を出そうか」）。数え方は POS・管理サイトと同じ（SQL 590 の cast_my_rate） */
 async function perfRate(){ const q = await sb.rpc('cast_my_rate', { p_token: TOKEN }); if(q.error) return; const z = q.data || {}, b = $('main').querySelectorAll('.card')[1]?.querySelectorAll('.row b'); if(!b || b.length < 2) return;
   b[0].textContent = z.ratio != null ? Number(z.ratio).toFixed(1) + '%' : '—'; b[1].textContent = Number(z.worked) > 0 ? Math.round(Number(z.submitted) / Number(z.worked) * 100) + '%' : '—';
-  const e = $('pfSub'); if(e) e.textContent = Number(z.worked) > 0 ? `出勤 ${z.worked}日・提出 ${z.submitted}日` : ''; }
+}
 
 
 // 受取待ち（退店した人。最後の報酬の受取確認まで）。報酬明細だけを出す
