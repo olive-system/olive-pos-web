@@ -22,7 +22,7 @@ async function plMonthPage(){ const st=storeId, now=csNowMonth(); if(!plMonth) p
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>'; let data=null;
   const wire=()=>{ $('plM').onchange=()=>{ plMonth=$('plM').value; PAGES.pl(); }; const x=$('plXls'); if(x&&data){ x.disabled=false; x.onclick=guard(x,()=>plExcel(data)); } $('main').querySelectorAll('[data-pld]').forEach(e=>e.onclick=()=>{ plDate=e.dataset.pld; PAGES.pl(); }); }; wire();
   const r=await sb.rpc('admin_pl_month',{p_store:st,p_month:m}); if(page!=='pl'||storeId!==st||plMonth!==m||plDate) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_pl_month|cast_month_calc/.test(r.error.message)?'SQL 070 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; wire(); return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; wire(); return; }
   data=r.data; const T=plTotals(data), cols=PL_COLS.flatMap(([g,cs])=>cs);
   const K=pmKit({st,m,mOpts,data,T,cols});
   $('main').innerHTML=head+K.phoneTop+pmHtml(K);
@@ -60,7 +60,7 @@ async function plExcel(d){ /* 請求書がある月は、フォルダのいち�
   // d-system と同じく ZIP（フォルダの中に 月次1つ＋日次をその月の全部の日。日次のタブは 出金・入金・伝票一覧・メモ）
   const ym=`${y}-${String(mo).padStart(2,'0')}`, base=`${curStore()?.name||'OLIVE'}_収支明細-${ym}`.replace(/[\\/:*?"<>|]/g,'_');
   try{ await ksLoad('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'); }catch(e){ await uiAlert(e.message); return; }
-  const ex=await sb.rpc('admin_pl_export',{p_store:storeId,p_month:d.month}); if(ex.error){ await uiAlert((/admin_pl_export/.test(ex.error.message)?'SQL 073 が未実行です：':'')+ex.error.message); return; }
+  const ex=await sb.rpc('admin_pl_export',{p_store:storeId,p_month:d.month}); if(ex.error){ await uiAlert(ex.error.message); return; }
   const E=ex.data||{}, zip=new JSZip(), dir=zip.folder(base), out=w=>XLSX.write(w,{bookType:'xlsx',type:'array'});
   dir.file(`月次収支明細-${ym}.xlsx`,out(wb));
   if(!await plInvoices(dir,d.month)) return;
@@ -83,7 +83,7 @@ function plDayBook(dd,E,sheet){ const w=XLSX.utils.book_new();
 // オーナーの今の請求書と同じ形。その月に「請求書」で会計した分を、売上日ごとに1行（ご飲食代）。宛先は POS で選んだ請求先（会社名・住所・宛名）。請求先ごとに1枚。請求先が無い前の会計は、お客様の会社名・会社住所
 // 画像（ロゴ）を入れるため、ここだけ ExcelJS で作る。ファイル名は 00_ で始めて、フォルダのいちばん上に並べる
 async function plInvoices(dir,month){
-  const r=await sb.rpc('admin_invoice_month',{p_store:storeId,p_month:month}); if(r.error){ await uiAlert((/admin_invoice_month/.test(r.error.message)?'SQL 171 が未実行です：':'')+r.error.message); return false; }
+  const r=await sb.rpc('admin_invoice_month',{p_store:storeId,p_month:month}); if(r.error){ await uiAlert(r.error.message); return false; }
   const I=r.data||{}, rows=I.rows||[]; if(!rows.length) return true;
   try{ await ksLoad('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'); }catch(e){ await uiAlert(e.message); return false; }
   let logo=null; try{ const b=new Uint8Array(await (await fetch('img/olive_logo.png')).arrayBuffer()); let t=''; for(let i=0;i<b.length;i+=8192) t+=String.fromCharCode(...b.subarray(i,i+8192)); logo=btoa(t); }catch(e){}
@@ -137,7 +137,7 @@ async function plDayPage(){ const st=storeId, d=plDate, ed=perm('pl')==='edit', 
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const wire=()=>{ $('plBack').onclick=()=>{ plMonth=m; plDate=null; PAGES.pl(); }; $('plPrev').onclick=()=>{ plDate=dayAdd(d,-1); PAGES.pl(); }; $('plNext').onclick=()=>{ plDate=dayAdd(d,1); PAGES.pl(); }; $('plDate').onchange=()=>{ if($('plDate').value){ plDate=$('plDate').value; PAGES.pl(); } }; }; wire();
   const [rm,rd]=await Promise.all([sb.rpc('admin_pl_month',{p_store:st,p_month:m}), sb.rpc('admin_pl_day',{p_store:st,p_date:d})]); if(page!=='pl'||storeId!==st||plDate!==d) return;
-  const er=rm.error||rd.error; if(er){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_pl_|cast_month_calc/.test(er.message)?'SQL 070 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; wire(); return; }
+  const er=rm.error||rd.error; if(er){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(er.message)}</div>`; wire(); return; }
   const D=(rm.data.days||[]).filter(x=>x.date<=d), today=D.find(x=>x.date===d)||{}, S=k=>D.reduce((a,x)=>a+Number(x[k]||0),0), open=D.filter(x=>Number(x.sales||0)>0||Number(x.groups||0)>0).length||1, X=rd.data;
   const P={st,d,ed,m,jd,head,wire,D,today,S,open,X}; Object.assign(P,plRep(P)); Object.assign(P,plCash(P)); Object.assign(P,plBills(P));
   $('main').innerHTML=head+plHtml(P);

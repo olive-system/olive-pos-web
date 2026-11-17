@@ -2,7 +2,7 @@
 let tcHasId=false; /* タイムカード専用の ID がもうある時は「作る」を出さない（1つの店に1つで足りる） */
 async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId;
   const r=await sb.rpc('admin_tc_list',{p_store:st}); if(page!=='pw'||storeId!==st||!$('tcBox')) return;
-  if(r.error){ box.innerHTML=`<h2>タイムカードの端末</h2><div class="err">${esc(/admin_tc_list/.test(r.error.message)?'SQL 063 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ box.innerHTML=`<h2>タイムカードの端末</h2><div class="err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const L=r.data||[];
   box.innerHTML=`<h2>タイムカードの端末</h2>    <table class="t"><tr><th>端末</th><th>状態</th><th>最終打刻</th><th></th></tr>
     ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>
@@ -13,7 +13,7 @@ async function tcCard(){ const box=$('tcBox'); if(!box) return; const st=storeId
   /* POS の ID もここで作る（ゲネプロ。広島に POS の ID が無かった） */
   await tcPosId(st);
   const ia=$('tcIdAdd'); if(ia) ia.onclick=guard(ia,async()=>{ if(!await uiConfirm('タイムカード専用IDを作成しますか？','作成')) return;
-    const x=await sb.rpc('admin_tc_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_tc_account_create/.test(x.error.message)?'SQL 084 が未実行です':x.error.message); return; }
+    const x=await sb.rpc('admin_tc_account_create',{p_store:st}); if(x.error){ await uiAlert(x.error.message); return; }
     await uiAlert(`IDを作成しました\n\nログイン用メール：${x.data.email}\nパスワード：${x.data.pw}`); if(page==='pw') PAGES.pw(); });
   const show=(label,code)=>termCodeShow(label,code,'この端末のタイムカードを開いて入力してください（30分有効・1回だけ使えます）');
   const add=$('tcAdd'); add.onclick=guard(add,async()=>{ const lb=$('tcLabel').value.trim(); if(!lb){ await uiAlert('端末名を入力してください'); return; }
@@ -29,7 +29,7 @@ function tcRowWire(box,st,show){
 /* 店の POS の ID（無ければ［作成］） */
 async function tcPosId(st){
   { const ph=await sb.rpc('admin_pos_account_has',{p_store:st}); if(!ph.error&&page==='pw'&&$('tcBox')){ const d=document.createElement('div'); d.style.cssText='margin-top:14px;display:flex;align-items:center;gap:10px'; d.innerHTML=`<span class="muted" style="font-size:13px">POS の ID</span>${ph.data?'<span class="badge k">作成済</span>':'<button class="ghost" id="posIdAdd">作成</button>'}`; $('tcBox').appendChild(d);
-    const pa=$('posIdAdd'); if(pa) pa.onclick=guard(pa,async()=>{ if(!await uiConfirm('この店の POS の ID を作成しますか？','作成')) return; const x=await sb.rpc('admin_pos_account_create',{p_store:st}); if(x.error){ await uiAlert(/admin_pos_account_create/.test(x.error.message)?'SQL 157 が未実行です':x.error.message); return; }
+    const pa=$('posIdAdd'); if(pa) pa.onclick=guard(pa,async()=>{ if(!await uiConfirm('この店の POS の ID を作成しますか？','作成')) return; const x=await sb.rpc('admin_pos_account_create',{p_store:st}); if(x.error){ await uiAlert(x.error.message); return; }
       await uiAlert(`POS の ID を作成しました\n\nログイン用メール：${x.data.email}\nパスワード：${x.data.pw}`); if(page==='pw') PAGES.pw(); }); } }
 }
 
@@ -37,7 +37,7 @@ async function tcPosId(st){
 // ---------- POS の端末 （オーナーだけ）：登録した端末だけ POS を開く（タイムカードと同じ形。オーナー） ----------
 async function ptCard(){ const box=$('ptBox'); if(!box) return; const st=storeId;
   const r=await sb.rpc('admin_pos_term_list',{p_store:st}); if(page!=='pw'||storeId!==st||!$('ptBox')) return;
-  if(r.error){ box.innerHTML=`<h2>POS の端末</h2><div class="err">${esc(/admin_pos_term_list/.test(r.error.message)?'SQL 186 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ box.innerHTML=`<h2>POS の端末</h2><div class="err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const L=r.data||[];
   box.innerHTML=`<h2>POS の端末</h2><table class="t"><tr><th>端末</th><th>状態</th><th>最後に開いた</th><th>店舗切替</th><th></th></tr>
     ${L.map(x=>`<tr><td>${esc(x.label)}</td><td>${x.registered?'<span class="badge k">登録済</span>':x.code_expires_at?`<span class="badge warnb">コード待ち</span><br><small class="muted">${esc(fmtDT(x.code_expires_at))} まで</small>`:'<span class="badge gray">未登録</span>'}</td>

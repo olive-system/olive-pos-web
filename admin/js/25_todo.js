@@ -16,7 +16,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
     <span class="seg"><button class="${todoView==='cal'?'on':''}" data-tv="cal">カレンダー</button><button class="${todoView==='items'?'on':''}" data-tv="items">項目</button></span>${ed&&todoView==='items'?'<button class="ghost sm" id="tdAdd">＋ TODO を追加</button>':''}</div>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const it=await sb.rpc('admin_todo_items',{p_store:st}); if(page!=='set_todo'||storeId!==st) return;
-  if(it.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_todo/.test(it.error.message)?'SQL 146 が未実行です：':'読み込めません：')}${esc(it.error.message)}</div>`; return; }
+  if(it.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(it.error.message)}</div>`; return; }
   const I=it.data||[], byId=Object.fromEntries(I.map(x=>[x.id,x]));
   const wire=()=>{ $('main').querySelectorAll('[data-tv]').forEach(b=>b.onclick=()=>{ todoView=b.dataset.tv; PAGES.set_todo(); }); const ad=$('tdAdd'); if(ad) ad.onclick=()=>todoEdit(st,null); };
   if(todoView==='items'){
@@ -24,7 +24,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
       <div style="border:1px solid var(--line);border-radius:10px;background:#fff">${I.map((x,i)=>`<div ${ed?`data-tdi="${i}"`:''} style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;${i?'border-top:1px solid var(--line);':''}${ed?'cursor:pointer':''}"><span>${esc(x.name)}</span><span class="muted" style="text-align:right;font-size:14px;white-space:nowrap">${todoWhen(x)}　${x.slot!=='none'?TODO_SLOT[x.slot]:''}${x.need_photo?'　写真':''}${x.need_note?'　書く':''}</span></div>`).join('')||'<div class="muted" style="padding:10px 14px">なし</div>'}</div></div>`;
     wire(); if(ed) $('main').querySelectorAll('[data-tdi]').forEach(e=>e.onclick=()=>todoEdit(st,I[+e.dataset.tdi])); return; }
   const mo=await sb.rpc('admin_todo_month',{p_store:st,p_month:todoMon+'-01'}); if(page!=='set_todo'||storeId!==st) return;
-  if(mo.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_todo_month/.test(mo.error.message)?'SQL 153 が未実行です：':'読み込めません：')}${esc(mo.error.message)}</div>`; return; }
+  if(mo.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(mo.error.message)}</div>`; return; }
   const M=mo.data||{}, today=businessDate();
   if(todoDay.slice(0,7)!==todoMon) todoDay=todoMon===today.slice(0,7)?today:todoMon+'-01';
   const stOf=(x,d)=>x.status==='done'?'done':x.status==='skip'?'skip':d>today?'fut':'open';

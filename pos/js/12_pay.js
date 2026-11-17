@@ -64,11 +64,11 @@ $('payAdd').onclick=guard($('payAdd'),async()=>{ const v=parseInt($('payAmount')
   const wasOki=isOki(S.cur); if(wasOki&&v>okiRemain(S.cur)){ toast(`置きの残額は ${yen(okiRemain(S.cur))} です`); return; }
   if(!wasOki){ const un=Math.max(0,S.cur.totals?.unpaid??0); if(v>un){ await uiAlert(`未収は ${yen(un)} です。これを超える入金はできません`); return; } } // 過入金は受け付けない（以前は超えた分を自動で値増にしていた）
   const inv=S.payMethod==='invoice', bt=inv&&billTo&&billTo.bill===S.cur.id?billTo:null; if(inv&&!bt){ await uiAlert('請求先を選んでください'); return; }
-  if(bt&&bt.fromCust&&bt.customer_id){ const r=await sb.rpc('pos_bill_to_add',{p_customer:bt.customer_id,p_company:bt.company,p_address:bt.address||null,p_attn:bt.attn||null}); if(r.error){ await uiAlert(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); return; } bt.id=r.data.id; bt.fromCust=false; btList.sig=''; }
+  if(bt&&bt.fromCust&&bt.customer_id){ const r=await sb.rpc('pos_bill_to_add',{p_customer:bt.customer_id,p_company:bt.company,p_address:bt.address||null,p_attn:bt.attn||null}); if(r.error){ await uiAlert(r.error.message); return; } bt.id=r.data.id; bt.fromCust=false; btList.sig=''; }
   const pay={bill_id:S.cur.id,method:S.payMethod,amount:v,revenue_date:S.cur.business_date,received_at:(S.payMethod==='cash'||S.payMethod==='card')?new Date().toISOString():null,...(bt?{bill_to_id:bt.id||null,bill_to_company:bt.company,bill_to_address:bt.address||null,bill_to_attn:bt.attn||null}:{})};
   /* 請求書は手数料 3,000円（税・切り上げ込み）を伝票に1回足し、増えた分を請求書の金額に乗せる。取消は pos_invoice_del（請求書が残らなければ手数料も消す） */
   const { data:pd, error } = await cashClosed(()=>inv?sb.rpc('pos_invoice_add',{p:pay}):sb.rpc('pos_rows_add',{p_table:'payments',p:pay}),`現金の会計（${tblName()} ${yen(v)}）`);
-  if(error){ if(error.cancel) return; if(await stale(error)) return; toast(/bill_to/.test(error.message)?'SQL 171 が未実行です：'+error.message:error.message);return;} if(split&&split.bill===S.cur.id) split.done++; await logOp(wasOki?'置きの入金':inv?'請求書にする':'入金',{method:METHOD[S.payMethod],amount:inv?Number(pd?.amount||v):v,...(bt?{bill_to:bt.company+(bt.attn?' '+bt.attn+' 様':'')}:{})}); await openBill(S.cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
+  if(error){ if(error.cancel) return; if(await stale(error)) return; toast(error.message);return;} if(split&&split.bill===S.cur.id) split.done++; await logOp(wasOki?'置きの入金':inv?'請求書にする':'入金',{method:METHOD[S.payMethod],amount:inv?Number(pd?.amount||v):v,...(bt?{bill_to:bt.company+(bt.attn?' '+bt.attn+' 様':'')}:{})}); await openBill(S.cur.id); if(await okiSync(wasOki)) return; renderPay(); show('v-pay'); });
 // 請求先（オーナー「請求の時に請求先を入力」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」「1回請求先にしたものは後で選べるように」）
 // 「請求書」を押すと、伝票のお客様の請求先（前に使ったもの・顧客サイトで足したもの）が並ぶ。選ぶか新しく入れないと「請求書にする」を押せない。会計には請求先の写しを残す
 let billTo=null, btList={bill:null,sig:'',rows:[]};
@@ -101,7 +101,7 @@ function btNew(){ const cs=btCusts(), c0=cs[0], m=mkModal(60);
   q('no').onclick=()=>m.remove();
   q('ok').onclick=guard(q('ok'),async()=>{ const company=q('company').value.trim(), address=q('address').value.trim(), attn=q('attn').value.trim(); if(!company){ await uiAlert('会社名を入力してください'); return; }
     const cid=cs.length>1?q('cust').value:(cs.length&&q('keep').checked?c0.id:''); let id=null;
-    if(cid){ const r=await sb.rpc('pos_bill_to_add',{p_customer:cid,p_company:company,p_address:address||null,p_attn:attn||null}); if(r.error){ await uiAlert(/customer_bill_tos/.test(r.error.message)?'SQL 171 が未実行です':r.error.message); return; } id=r.data.id; btList.rows.unshift(r.data); await logOp('請求先を足す',{customer:S.customers.find(c=>c.id===cid)?.name,company}); }
+    if(cid){ const r=await sb.rpc('pos_bill_to_add',{p_customer:cid,p_company:company,p_address:address||null,p_attn:attn||null}); if(r.error){ await uiAlert(r.error.message); return; } id=r.data.id; btList.rows.unshift(r.data); await logOp('請求先を足す',{customer:S.customers.find(c=>c.id===cid)?.name,company}); }
     billTo={id,customer_id:cid||null,company,address,attn,bill:S.cur.id}; m.remove(); btRender(); }); }
 // 割り勘（ゲネプロ #57。オーナー「足す」）。未収を人数で割った1人分を金額の欄に入れる。1人分は店の切り上げの単位で切り上げ、最後の人で合わせる。入金するたびに「あと n人」を出す
 let split=null;

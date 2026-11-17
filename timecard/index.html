@@ -234,7 +234,7 @@ async function start(fromLogin){
     if (error && !r.status) { document.getElementById('app').classList.add('hidden'); document.getElementById('reg').classList.add('hidden'); document.getElementById('login').classList.remove('hidden');
       document.getElementById('loginErr').textContent = '通信を確認しています…'; netDown(); clearTimeout(start.r); start.r = setTimeout(start, 5000); return; }
     clearTimeout(start.r); document.getElementById('loginErr').textContent = '';
-    if (error) { showReg(/tc_check/.test(error.message) ? 'SQL 063 が未実行です' : error.message); return; }
+    if (error) { showReg(error.message); return; }
     if (data && data.stale) { await tcStale(); return; } /* 点検 2026-11-02・SQL 313：パスワードが変わった後の古いログインはログイン画面へ（前は名前の一覧が空・店舗未設定になった） */
     if (!data || !data.ok) { showReg(); return; } }
   document.getElementById('app').classList.remove('hidden');

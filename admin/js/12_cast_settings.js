@@ -41,7 +41,7 @@ async function csCastPart(box,st,ed,m){
     sb.from('slide_tables').select('*').eq('store_id',st).order('sort_order')]);
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   const er=sf.error||tm.error||nt.error||(stb.error&&!/exist|schema cache/.test(stb.error.message)?stb.error:null); /* スライド表が読めないまま保存すると、選んであったスライド表が消える（SQL 058 の前の「表が無い」だけは空で通す） */
-  if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">キャスト</h2><div class="card err">${esc(/cast_terms|cast_notes|day_pay_ok/.test(er.message)&&/exist|schema cache/.test(er.message)?'SQL 056 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
+  if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">キャスト</h2><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
   const K=csCastPrep({box,st,ed,m,sf,tm,ft,nt,stb}); K.cell=r=>csCastCell(K,r);
   box.innerHTML=csCastHtml(K);
   csCastBind(K); };
@@ -176,7 +176,7 @@ const csLockTag=()=>`<span class="muted" style="font-size:13px">${({cast:'キャ
 async function csShiftPart(box,st,ed,m){
   const r=await sb.rpc('admin_shift_staff',{p_store:st});
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
-  if(r.error){ box.innerHTML=`<h2 style="margin:0 0 8px">シフト</h2><div class="card err">${esc(/admin_shift_staff/.test(r.error.message)?'SQL 127 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ box.innerHTML=`<h2 style="margin:0 0 8px">シフト</h2><div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const rows=r.data||[], E=csEdit==='shift', lock=!!csEdit&&!E;
   const sel=csSel;
   const cell=c=>!E?[c.week?`週 ${c.week}日`:'<span class="badge warnb">未設定</span>', c.earliest?`${c.earliest}〜`:'<span class="badge warnb">未設定</span>', c.ok_only?'出勤希望':'休み希望',

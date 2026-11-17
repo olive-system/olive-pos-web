@@ -4,7 +4,7 @@
 PAGES.o_waive=async()=>{ const st=storeId, head=`<h1>罰金免除申請 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_waive_get',{p_store:st}); if(page!=='o_waive'||storeId!==st) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_waive_get/.test(r.error.message)?'SQL 283 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data, P=[{id:'owner',name:'オーナー'},...(D.people||[])];
   const box=(sc,nm,note)=>`<div class="card"><b>承認者（${nm}）</b><div class="muted" style="font-size:13px;margin-top:4px">${note}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px">${P.map(p=>`<label class="ck" style="white-space:nowrap"><input type="checkbox" data-wsc="${sc}" value="${p.id}" ${(D[sc]||[]).includes(p.id)?'checked':''}>${esc(p.name)}${p.kind==='cast'?' <small class="muted">キャスト</small>':''}</label>`).join('')}</div></div>`;

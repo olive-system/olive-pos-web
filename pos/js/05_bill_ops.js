@@ -12,9 +12,9 @@ $('bMove').onclick=guard($('bMove'),async()=>{ if(!S.cur||S.cur.status!=='open')
   const at=new Map((ob.data||[]).map(x=>[x.table_id,x])); const list=S.tables.filter(t=>t.id!==S.cur.table_id&&t.is_active!==false&&(!t.store_id||t.store_id===S.store.id));
   const tid=await uiPick('どの卓へ移しますか？',list.map(t=>{ const x=at.get(t.id); const nm=x?.bill_customers?.[0]?.customers?.name; return {label:x?`${t.name}　${nm?nm+' 様 ':''}${x.guest_count}名`:`${t.name}　空席`,value:t.id}; })); if(!tid) return;
   const to=S.tables.find(t=>t.id===tid)?.name||'', x=at.get(tid);
-  if(!x){ if(!await uiConfirm(`${tk(from)} → ${tk(to)} に移しますか？`)) return; const r=await sb.rpc('pos_bill_move',{p_bill:S.cur.id,p_table:tid}); if(r.error){ await uiAlert(/pos_bill_move/.test(r.error.message)?'SQL 163 が未実行です':r.error.message); return; } toast(`${tk(to)}に移しました`); await openBill(S.cur.id); return; }
+  if(!x){ if(!await uiConfirm(`${tk(from)} → ${tk(to)} に移しますか？`)) return; const r=await sb.rpc('pos_bill_move',{p_bill:S.cur.id,p_table:tid}); if(r.error){ await uiAlert(r.error.message); return; } toast(`${tk(to)}に移しました`); await openBill(S.cur.id); return; }
   if(!await uiConfirm(`${tk(to)}にはお客様がいます。\n${tk(to)}の伝票とまとめますか？\n（${x.guest_count}名＋${S.cur.guest_count}名＝${x.guest_count+S.cur.guest_count}名。セットは${tk(to)}の来店の時刻のまま）`)) return;
-  const r=await sb.rpc('pos_bill_merge',{p_from:S.cur.id,p_to:x.id}); if(r.error){ await uiAlert(/pos_bill_merge/.test(r.error.message)?'SQL 163 が未実行です':r.error.message); return; } toast(`${tk(to)}の伝票にまとめました`); await openBill(x.id); });
+  const r=await sb.rpc('pos_bill_merge',{p_from:S.cur.id,p_to:x.id}); if(r.error){ await uiAlert(r.error.message); return; } toast(`${tk(to)}の伝票にまとめました`); await openBill(x.id); });
 $('gLeave').onclick=guard($('gLeave'),async()=>{ if(!S.cur||S.cur.status!=='open'||S.cur.guest_count<2) return; const gb=S.cur.guest_count, ru=Number(S.settings?.total_round_unit)||1000, up=x=>Math.ceil(x/ru)*ru; /* 店の「合計の切り上げ単位」（管理サイト POS設定。銀座 1000・広島 100） */ const due=up(S.cur.totals?.amount_due??0), unpaid=Math.max(0,S.cur.totals?.unpaid??0); let n=1; if(gb>2){ n=await uiPick('退店人数',Array.from({length:gb-1},(_,k)=>({label:`${k+1}名`,value:k+1}))); if(!n) return; } const share=Math.min(unpaid,up(unpaid/gb)*n);
   const av=await uiPrompt(`途中退店（${gb}名→${gb-n}名）\n今の請求額 ${yen(due)}\nお支払い金額`,share); if(av===null) return; const v=numIn(av); if(isNaN(v)||v<0){ toast('金額が正しくありません'); return; } if(v>unpaid){ toast(`未収は ${yen(unpaid)} です`); return; }
   let method=null; if(v>0){ method=await uiPick('お支払い方法',[{label:METHOD.cash,value:'cash'},{label:METHOD.card,value:'card'}]); if(!method) return; }
@@ -51,7 +51,7 @@ $('bTime').onclick=async()=>{ if(!S.cur||S.cur.status!=='open') return; const v=
   const nr=douhanRole(v); for(const c of (S.cur.bill_casts||[]).filter(c=>isDouhan(c.role)&&c.role!==nr)) await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(c.id)??null},p:{role:nr}});
   const b2={...S.cur,set_start:ceil5(v).toISOString()}; let ex=[...(S.cur.bill_extensions||[])]; const now=new Date();
   for(;;){ const last=[...ex].reverse().find(e=>e.is_auto); if(!last) break; const rest=ex.filter(e=>e!==last); if(billEnd({...b2,bill_extensions:rest})<now) break; const r=await sb.rpc('pos_rows_del',{p_table:'bill_extensions',p_where:{id:(last.id)??null}}); if(r.error) break; ex=rest; }
-  if(billEnd({...b2,bill_extensions:ex})<now){ const r=await sb.rpc('pos_auto_extend',{p_bill:S.cur.id}); if(r.error) toast(/pos_auto_extend/.test(r.error.message)?'SQL 067 が未実行です（自動延長）':r.error.message); } // 自動延長はデータベースで足す
+  if(billEnd({...b2,bill_extensions:ex})<now){ const r=await sb.rpc('pos_auto_extend',{p_bill:S.cur.id}); if(r.error) toast(r.error.message); } // 自動延長はデータベースで足す
   openBill(S.cur.id); };
 
 $('svcBtn').onclick=()=>{ const m=S.modes.find(x=>x.id===S.cur.pricing_mode_id); $('svcNow').textContent=`現在：${m?.name||'通常'}　サービス料 ${S.cur.totals.service_rate}%${S.cur.service_rate_override!=null?'（この伝票だけ変更中）':''}`; $('svcRate').value=S.cur.totals.service_rate; $('svcModal').classList.add('on'); };

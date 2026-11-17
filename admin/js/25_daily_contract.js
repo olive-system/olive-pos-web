@@ -3,7 +3,7 @@
 PAGES.o_daily=async()=>{ const st=storeId, head=`<h1>日報メール <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const r=await sb.rpc('admin_daily_mail_get',{p_store:st}); if(page!=='o_daily'||storeId!==st) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_daily_mail_get/.test(r.error.message)?'SQL 138 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, L=D.last;
   $('main').innerHTML=head+`<div class="card"><div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:center;max-width:560px">
       <span class="muted">送る時刻</span><span>毎朝 7:00（前の営業日の分）</span>

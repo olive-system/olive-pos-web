@@ -116,11 +116,11 @@ function clDayMemo(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,l
   // その日のメモ（店・営業日ごとに1つ。管理サイトの収支の Excel の日次「メモ」に入る）
   /* 読み終わるまでは保存しない。保存は「読んだ時のメモ」のままの時だけ。ほかで変わっていたら行ごとに合わせて（同じ行は両方残す）もう一度 */
   let dmLoaded=false, dmLast=null, dmTm=null;
-  sb.from('daily_memos').select('memo').eq('store_id',S.store.id).eq('business_date',d).maybeSingle().then(r=>{ if(S.setCur!=='closing'||S.clDate!==d||!$('clDayMemo')) return; if(r.error){ $('clDayMemo').placeholder=/daily_memos/.test(r.error.message)?'SQL 073 が未実行です':r.error.message; return; } const el=$('clDayMemo'), got=r.data?.memo||'', typed=el.value.trim(); dmLast=got; dmLoaded=true; if(typed){ const mg=memoMerge('',typed,got); el.value=memoMergeDone(mg,mg.conflicts.map(()=>'b')); dmTm=setTimeout(memoSave,1200); } else el.value=got; });
+  sb.from('daily_memos').select('memo').eq('store_id',S.store.id).eq('business_date',d).maybeSingle().then(r=>{ if(S.setCur!=='closing'||S.clDate!==d||!$('clDayMemo')) return; if(r.error){ $('clDayMemo').placeholder=r.error.message; return; } const el=$('clDayMemo'), got=r.data?.memo||'', typed=el.value.trim(); dmLast=got; dmLoaded=true; if(typed){ const mg=memoMerge('',typed,got); el.value=memoMergeDone(mg,mg.conflicts.map(()=>'b')); dmTm=setTimeout(memoSave,1200); } else el.value=got; });
   // その日のメモは打つと自動で保存（オーナー「メモを保存っていらないように」）
   const memoSave=async()=>{ clearTimeout(dmTm); const el=$('clDayMemo'); if(!el||!dmLoaded) return; let v=el.value.trim(); if(v===dmLast) return; const st=$('clDayMemoSt'); if(st) st.textContent='保存中…';
     for(let k=0;k<5;k++){ const r=await sb.rpc('pos_day_memo_save',{p_day:d,p_base:dmLast,p_memo:v});
-      if(r.error){ if($('clDayMemoSt')) $('clDayMemoSt').textContent=''; toast((/daily_memos/.test(r.error.message)?'SQL 073 が未実行です：':'')+r.error.message); return; }
+      if(r.error){ if($('clDayMemoSt')) $('clDayMemoSt').textContent=''; toast(r.error.message); return; }
       if(r.data?.ok){ dmLast=v; if($('clDayMemoSt')) $('clDayMemoSt').textContent='保存しました'; return; }
       const th=r.data?.memo??'', mg=memoMerge(dmLast,v,th), nv=memoMergeDone(mg,mg.conflicts.map(()=>'b')).trim(); dmLast=th;
       const e2=$('clDayMemo'); if(e2){ const now=e2.value.trim(); if(now===v) e2.value=nv; else { const m2=memoMerge(v,now,nv); e2.value=memoMergeDone(m2,m2.conflicts.map(()=>'b')); } } v=nv; } if($('clDayMemoSt')) $('clDayMemoSt').textContent=''; };
@@ -144,7 +144,7 @@ function clBindSave(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,
     if(r.error){ if(/もう1台/.test(r.error.message)){ await uiAlert(r.error.message);
     renderClosing();
     return;
-    } /* ほかの iPad で入出金・日払・現金の会計が入った時は、最新の金額で開き直す */ toast(/counted_by/.test(r.error.message)?'SQL 164 が未実行です':r.error.message);
+    } /* ほかの iPad で入出金・日払・現金の会計が入った時は、最新の金額で開き直す */ toast(r.error.message);
     $('clSave').disabled=false;
     return;
     } await logOp('レジ精算を保存',{date:d,expected:v.expected,counted:v.counted,diff:v.diff,deposit:v.deposit,next_float:v.next,...(cb?{by:cb}:{})},dw||null,true);

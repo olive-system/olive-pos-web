@@ -8,7 +8,7 @@ PAGES.product_sum=async()=>{ const st=storeId, now=csNowMonth(); if(!psMonth) ps
   $('main').innerHTML=psHead('product_sum')+`<div class="card"><select id="psM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel(x)}</option>`).join('')}</select><div id="psBox" class="muted" style="margin-top:10px">読み込み中…</div></div>`;
   $('psM').onchange=()=>{ psMonth=$('psM').value; PAGES.product_sum(); };
   const r=await sb.rpc('admin_product_sales',{p_store:st,p_month:m}); if(page!=='product_sum'||storeId!==st||psMonth!==m) return;
-  if(r.error){ $('psBox').innerHTML=`<span class="err">${esc(/admin_product_sales/.test(r.error.message)?'SQL 370 が未実行です：':'読み込めません：')}${esc(r.error.message)}</span>`; return; }
+  if(r.error){ $('psBox').innerHTML=`<span class="err">読み込めません：${esc(r.error.message)}</span>`; return; }
   const L=r.data||[], R='style="text-align:right;font-variant-numeric:tabular-nums"'; $('psBox').className='';
   if(!L.length){ $('psBox').innerHTML='<div class="muted">この月の注文はありません</div>'; return; }
   const cats=[...new Set(L.map(x=>x.cat))];

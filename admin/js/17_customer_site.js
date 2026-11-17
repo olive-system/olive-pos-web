@@ -22,7 +22,7 @@ PAGES.cust=()=>{ const st=storeId, today=businessDate(); if(!cdFrom){ cdFrom=tod
   if(csFrameMsg) window.removeEventListener('message',csFrameMsg);
   csFrameMsg=async e=>{ const f=$('csFrame'); if(!f||e.source!==f.contentWindow||e.origin!==location.origin||!e.data||e.data.type!=='olive-cs-need') return;
     const r=await sb.rpc('admin_cs_session',{p_store:st}); if(!$('csFrame')||storeId!==st) return;
-    const d=r.error?{error:/admin_cs_session/.test(r.error.message)?'SQL 076 が未実行です':r.error.message}:(r.data||{});
+    const d=r.error?{error:r.error.message}:(r.data||{});
     f.contentWindow.postMessage({type:'olive-cs-auth',...d},location.origin); };
   window.addEventListener('message',csFrameMsg);
   if($('cdXls')) $('cdXls').onclick=guard($('cdXls'),async()=>{ const a=$('cdF').value, b=$('cdT').value; if(!a||!b){ await uiAlert('期間を入力してください'); return; } if(b<a){ await uiAlert('期間が逆になっています'); return; }

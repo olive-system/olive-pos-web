@@ -23,7 +23,7 @@ function chFc(F){ const md=mdS, no='<span class="muted">—</span>', g=n=>n==nul
 async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class="muted">読み込み中…</div>';
   if(!S.staffAll?.length) await loadStaffAll(); const [cr,ar,sr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today')]);
   if(S.setCur!=='chorei') return;
-  if(cr.error){ box.innerHTML=`<div class="err">${/pos_chorei/.test(cr.error.message)?'SQL 129 が未実行です：':'読み込めません：'}${esc(cr.error.message)}</div>`; return; }
+  if(cr.error){ box.innerHTML=`<div class="err">読み込めません：${esc(cr.error.message)}</div>`; return; }
   const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g);
   box.innerHTML=chHtmlTop(V)+chHtmlSide(V);
   chBind(V,box);

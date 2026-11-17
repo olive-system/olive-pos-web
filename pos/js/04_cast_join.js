@@ -10,7 +10,7 @@ const joinInp=(id,w,ph)=>`<input id="${id}" inputmode="numeric" placeholder="${p
 async function joinOpen(s){
   if(!s) return;
   if(s.kind==='hall'){ if(!await uiConfirm(`${s.display_name}　入店`,'入店')) return; return joinSend(s,{},null); }
-  if(!joinInfo){ const r=await sb.rpc('pos_join_info'); if(r.error){ await uiAlert(/pos_join_info/.test(r.error.message)?'SQL 488 が未実行です':r.error.message); return; } joinInfo=r.data||{}; }
+  if(!joinInfo){ const r=await sb.rpc('pos_join_info'); if(r.error){ await uiAlert(r.error.message); return; } joinInfo=r.data||{}; }
   const sl=await sb.from('slide_tables').select('id,name,unit').eq('store_id',S.store.id).eq('is_active',true).order('sort_order'), tbls=sl.error?[]:(sl.data||[]);
   const m=joinBox(s,tbls);
   document.body.appendChild(m); joinBind(s,m,tbls);
@@ -67,6 +67,6 @@ async function joinCollect(jv){
 async function joinSend(s,set,m){
   const by=await askBy('入店処理した人'); if(by===null) return;
   const r=await sb.rpc('pos_staff_join',{p_staff:s.id||null,p_ap:s.ap_id||null,p_by:by||null,p_set:set});
-  if(r.error){ await uiAlert(/pos_staff_join/.test(r.error.message)?'SQL 488 が未実行です':r.error.message); return; }
+  if(r.error){ await uiAlert(r.error.message); return; }
   if(m) m.remove(); toast(`${r.data?.name||s.display_name}：入店しました`); await loadStaffAll(); renderCasts();
 }

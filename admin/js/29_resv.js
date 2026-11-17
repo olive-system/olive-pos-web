@@ -11,7 +11,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
   const [r,rt]=await Promise.all([sb.rpc('admin_resv_month',{p_store:st,p_month:m}), m===today.slice(0,8)+'01'?null:sb.rpc('admin_resv_month',{p_store:st,p_month:today.slice(0,8)+'01'})]);
   if(page!=='resv'||storeId!==st||rvMonth!==m) return;
-  if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_resv_month/.test(r.error.message)?'SQL 203 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, R=D.resv||[], S=D.staff||[], OFF=new Set(D.offs||[]); rvRooms=D.rooms||[];
   const RT=(rt&&!rt.error?rt.data.resv:R).filter(x=>x.day===today);
   const {y,mo,first,nd,iso}=calMonth(m);

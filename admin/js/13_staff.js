@@ -119,7 +119,7 @@ function cdSpBind(K){ const {st,s,ed,head,wire,t}=K;
       if(kind!=='text'&&(a==null||!Number.isInteger(a)||a<=0)){ await uiAlert('金額を1以上の整数で入力してください'); return; }
       if(to&&to<f){ await uiAlert('期間が逆になっています'); return; }
       rtOwn=Date.now(); const x=await sb.rpc('admin_add_cast_special',{p_store:st,p_staff:s.id,p_kind:kind,p_title:title,p_amount:kind==='text'?null:a,p_from:f,p_to:to}); rtOwn=Date.now();
-      if(x.error){ await uiAlert(kind==='wage'&&/種類が違います|cast_specials_kind_check/.test(x.error.message)?'SQL 079 が未実行です（「時給加算」はまだ使えません）':x.error.message); return; } toast('追加しました'); csDetailPage(); });
+      if(x.error){ await uiAlert(kind==='wage'&&x.error.message); return; } toast('追加しました'); csDetailPage(); });
 }
 /* 注文集計（その月、この人にバックが付いた注文を商品ごとに。取消は除く） */
 async function cdOrd(K){ const {st,s,ed,head,wire,t}=K;
@@ -127,7 +127,7 @@ async function cdOrd(K){ const {st,s,ed,head,wire,t}=K;
     $('main').innerHTML=head+`<div class="card"><select id="coM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===om?'selected':''}>${csMLabel(x)}</option>`).join('')}</select><div id="coBox" class="muted" style="margin-top:10px">読み込み中…</div></div>`; wire();
     $('coM').onchange=()=>{ csOrdM=$('coM').value; csDetailPage(); };
     const r=await sb.rpc('admin_cast_orders',{p_staff:s.id,p_month:om}); if(page!=='set_cast'||csDetail?.s!==s||csTab!==t||csOrdM!==om) return;
-    if(r.error){ $('coBox').innerHTML=`<span class="err">${esc(/admin_cast_orders/.test(r.error.message)?'SQL 073 が未実行です：':'読み込めません：')}${esc(r.error.message)}</span>`; return; }
+    if(r.error){ $('coBox').innerHTML=`<span class="err">読み込めません：${esc(r.error.message)}</span>`; return; }
     const L=r.data||[]; $('coBox').className=''; $('coBox').innerHTML=L.length?`<table class="t"><tr><th>商品</th><th style="text-align:right">数</th><th style="text-align:right">注文額</th></tr>${L.map(x=>`<tr><td>${esc(x.name)}</td><td style="text-align:right">${Number(x.qty)}</td><td style="text-align:right">${yen(x.amount)}</td></tr>`).join('')}<tr class="kst"><td>合計</td><td style="text-align:right">${L.reduce((a,x)=>a+Number(x.qty),0)}</td><td style="text-align:right">${yen(L.reduce((a,x)=>a+Number(x.amount),0))}</td></tr></table><div class="muted" style="font-size:13px;margin-top:6px">この人にバックが付いた注文（会計済）。何人かで分けた注文も、それぞれの人に全部の数が入ります</div>`:'<div class="muted">この月の注文はありません</div>';
 }
 /* メモ（分類つき・管理サイトだけで見る） */

@@ -6,7 +6,7 @@ const todayJst=()=>{ const x=new Date(Date.now()+9*3600000); return x.toISOStrin
 async function invRender(st){ const ed=perm('pl')==='edit', box=()=>$('invBox'), again=()=>invRender(st);
   const r=await sb.rpc('admin_invoice_list',{p_store:st}); if(page!=='pl'||storeId!==st||plDate||!box()) return;
   const head='<div style="font-size:15px;font-weight:700;margin:0 0 6px">請求書の未入金</div>'; // 見出しは小さく（画面の名前より大きくしない）
-  if(r.error){ box().innerHTML=head+`<div class="card err">${esc(/権限/.test(r.error.message)?'SQL 076 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ box().innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const all=r.data||[], un=all.filter(x=>!x.paid_on), pd=all.filter(x=>x.paid_on), list=invTab==='paid'?pd:un, sum=a=>a.reduce((t,x)=>t+Number(x.amount||0),0);
   box().innerHTML=head+`<div class="cs-tabs"><button data-it="unpaid" class="${invTab==='unpaid'?'on':''}">未入金（${un.length}件 ${yen(sum(un))}）</button><button data-it="paid" class="${invTab==='paid'?'on':''}">入金済（${pd.length}件）</button></div>
   <div class="card" style="margin-bottom:0"><table class="t"><tr><th>会計日</th><th>お客様</th><th>${KL}</th><th style="text-align:right">金額</th>${invTab==='paid'?'<th>入金日</th>':''}${ed?'<th></th>':''}</tr>

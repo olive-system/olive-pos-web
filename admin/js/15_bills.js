@@ -30,7 +30,7 @@ PAGES.bills=async()=>{ const st=storeId, own=!!me?.is_owner, today=businessDate(
   wire();
   const [r,ps]=await Promise.all([sb.rpc('admin_bill_list',{p_store:st,p_from:f,p_to:t}), sb.from('pos_settings').select('ext_minutes').eq('store_id',st).maybeSingle()]); if(page!=='bills'||storeId!==st||blFrom!==f||blTo!==t) return;
   const em=Number(ps?.data?.ext_minutes||0); blExtL=em>0?`${em}分延長`:'延長';
-  if(r.error){ $('blBox').innerHTML=`<div class="card err">${esc(/admin_bill_list/.test(r.error.message)?'SQL 078 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
+  if(r.error){ $('blBox').innerHTML=`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const all=(r.data||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.opened_at||'').localeCompare(String(a.opened_at||''))); let rows=[]; // 新しい順（オーナー）
   const pick=()=>{ const q=blQ.trim().toLowerCase(); return all.filter(x=>blFilt==='void'?x.status==='void':x.status!=='void'&&(blFilt==='all'||(blFilt==='open'?x.status==='open':Number(x[blFilt]||0)>0)))
     .filter(x=>!q||BL_XLS_COLS.some(([k])=>String(blVal(k,x)).toLowerCase().includes(q))); };

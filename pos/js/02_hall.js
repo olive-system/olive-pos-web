@@ -53,7 +53,7 @@ let extWarned=false;
 async function autoExtend(){ const now=new Date(); let added=false, called=false;
   for (const b of S.openBills) { const mode=S.modes.find(m=>m.id===b.pricing_mode_id); if (mode && !mode.include_set) continue; if (b.pay_open_at||billEnd(b)>=now) continue;
     const r=await sb.rpc('pos_auto_extend',{p_bill:b.id});
-    if (r.error) { if(!extWarned){ extWarned=true; toast(/pos_auto_extend/.test(r.error.message)?'SQL 067 が未実行です（自動延長）':r.error.message); } continue; }
+    if (r.error) { if(!extWarned){ extWarned=true; toast(r.error.message); } continue; }
     called=true; if (r.data>0){ added=true; hallDrop(b.id); } /* 延長した伝票は計算し直す */ }
   if (called&&!added) { const { data } = await sb.from('bills').select(HALL_SEL).eq('status','open'); if (data) S.openBills=data; } /* もう1台で延長済みの時は、手元の伝票を新しくする（毎分呼び続けない） */
   if (added) { const { data } = await sb.from('bills').select(HALL_SEL).eq('status','open'); if (data) S.openBills=data; toast('セット時間を過ぎた卓に延長を追加しました'); } }

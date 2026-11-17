@@ -8,18 +8,18 @@ PAGES.set_pay=async()=>{
     sb.from('slide_tables').select('*').eq('store_id',st).eq('is_active',true).order('sort_order'), sb.from('slide_rows').select('table_id,threshold,amount').eq('store_id',st).order('threshold'),
     sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).order('id')), sb.rpc('admin_reward_types',{p_store:st}), sb.from('staff').select('id').eq('store_id',st).eq('is_active',true) ]);
   if(page!=='set_pay'||storeId!==st) return;
-  const er=ps.error||hb.error||pos.error; if(er){ $('main').innerHTML=`<h1>報酬・罰金項目</h1><div class="card err">${esc(/hall_bonus_slides/.test(er.message)&&/does not exist|schema cache/.test(er.message)?'SQL 050 が未実行です：':'読み込めません：')}${esc(er.message)}</div>`; return; }
+  const er=ps.error||hb.error||pos.error; if(er){ $('main').innerHTML=`<h1>報酬・罰金項目</h1><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
   $('main').innerHTML=`<h1>報酬・罰金項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
   ${ed?'':'<div class="muted" style="margin-bottom:10px">閲覧のみ</div>'}
   <div class="psec">勤怠・日払</div>
   ${afterCard(ax,ed)}
   ${payAdvCard(pos,ed)}
   <div class="psec">罰金</div>
-  ${ft.error?`<div class="card err">${esc(/fine_types/.test(ft.error.message)&&/does not exist|schema cache/.test(ft.error.message)?'SQL 052 が未実行です：':'罰金の種類を読み込めません：')}${esc(ft.error.message)}</div>`:fineCard(ft.data||[],ed,pos.data?.daily_hours)}
+  ${ft.error?`<div class="card err">罰金の種類を読み込めません：${esc(ft.error.message)}</div>`:fineCard(ft.data||[],ed,pos.data?.daily_hours)}
   <div class="psec">報酬</div>
-  ${rwt.error?`<div class="card err">${esc(/admin_reward_types/.test(rwt.error.message)?'SQL 140 が未実行です：':'報酬の種類を読み込めません：')}${esc(rwt.error.message)}</div>`:rwCard(rwt.data||{},ed)}
+  ${rwt.error?`<div class="card err">報酬の種類を読み込めません：${esc(rwt.error.message)}</div>`:rwCard(rwt.data||{},ed)}
   <div class="psec">キャスト</div>
-  ${stb.error?`<div class="card err">${esc(/slide_tables/.test(stb.error.message)&&/does not exist|schema cache/.test(stb.error.message)?'SQL 058 が未実行です：':'スライド表を読み込めません：')}${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed,act.error?null:(act.data||[]).map(x=>x.id))}
+  ${stb.error?`<div class="card err">スライド表を読み込めません：${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed,act.error?null:(act.data||[]).map(x=>x.id))}
   ${payPtCard(pos,ed)}
   <div id="cardBox"></div>
   <div id="dressBox"></div>
