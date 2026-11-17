@@ -1,12 +1,13 @@
 // ---------- hall ----------
 const HALL_SEL='*, bill_casts(staff_id,role,is_kakari), after_bills(staff_id), bill_extensions(minutes,unit_price,qty,is_auto), bill_tags(id,kind,returned_at), bill_customers(customer_id)';
-/* 伝票の金額（calc_bill）は伝票ごとに覚えておき、変わった伝票だけ計算し直す（前は1分ごと・知らせのたびに全部の伝票を計算していた） */
+/* 伝票の金額は伝票ごとに覚えておき、変わった伝票だけ計算し直す（前は1分ごと・知らせのたびに全部の伝票を計算していた） */
 let hallTot={}, hallGen={}, hallEpoch=0, hallFullAt=0; S.hallOn=false;
 const hallDrop=id=>{ delete hallTot[id]; hallGen[id]=(hallGen[id]||0)+1; };
 const hallDropAll=()=>{ hallTot={}; hallEpoch++; };
 const hallPut=(id,v)=>{ hallGen[id]=(hallGen[id]||0)+1; hallTot[id]=v; };
 async function hallTotals(){ const ids=new Set(S.openBills.map(b=>b.id)); for(const k of Object.keys(hallTot)) if(!ids.has(k)) delete hallTot[k];
-  await Promise.all(S.openBills.filter(b=>!(b.id in hallTot)).map(async b=>{ const g=hallGen[b.id], e=hallEpoch; const r=await sb.rpc('calc_bill',{p_bill:b.id}); if(!r.error&&hallGen[b.id]===g&&hallEpoch===e) hallTot[b.id]=r.data; })); }
+  const need=S.openBills.filter(b=>!(b.id in hallTot)); if(!need.length) return; const g={}, e=hallEpoch; need.forEach(b=>{ g[b.id]=hallGen[b.id]; });
+  const d=await billDues(need); need.forEach(b=>{ if(d[b.id]&&hallGen[b.id]===g[b.id]&&hallEpoch===e) hallTot[b.id]=d[b.id]; }); }
 /* full＝5分ごと・最初・画面に戻った時（金額も置きも全部読み直す）。{side:false}＝置き・お預かり品は読まない */
 let hallSeq=0;
 async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false), seq=++hallSeq;

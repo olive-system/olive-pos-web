@@ -1,12 +1,5 @@
 // ---------- 上部バーの［本日］（本日の売上・来店） ----------
 // 本日の売上・来店（上部バーの［本日］をタップした時だけ表示。再度タップで閉じる）。数え方は伝票一覧と同じ（置きは全額入金の日）
-/* 伝票の金額を営業日ごとに1回でまとめて読む（calc_bills は calc_bill と同じ式＝SQL 091。前は伝票1枚ごとに1回の通信で、閉店の前は数十回）。
-   まとめて読めなかった伝票だけ1枚ずつ読む。読めない伝票は null */
-async function billDues(bills){ const m={}; const days=[...new Set(bills.map(b=>b.business_date).filter(Boolean))];
-  const rs=await Promise.all(days.map(d=>sb.rpc('calc_bills',{p_store:S.store.id,p_from:d,p_to:d})));
-  rs.forEach(r=>{ if(!r.error) (r.data||[]).forEach(x=>{ m[x.bill_id]=x.j; }); });
-  await Promise.all(bills.filter(b=>!(b.id in m)).map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); m[b.id]=r.error?null:r.data; }));
-  return m; }
 async function todayBills(BSEL,today,byStore){ const bySq=q=>byStore?q.eq('store_id',S.store.id):q;
   const q1=await bySq(sb.from('bills').select(BSEL)).eq('business_date',today).order('opened_at',{ascending:false}); if(q1.error) return {error:q1.error};
   const pr=await sb.from('payments').select('bill_id').eq('revenue_date',today).gt('amount',0).not('received_at','is',null); if(pr.error) return {error:pr.error};

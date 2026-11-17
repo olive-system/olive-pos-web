@@ -177,3 +177,10 @@ async function cuPull(delta){ if(!cuMax||(!delta&&Date.now()-cuFullAt>=600000)){
   const up=new Map(r.data.map(c=>[c.id,c])); const out=S.customers.map(c=>up.get(c.id)||c); const have=new Set(S.customers.map(c=>c.id)); r.data.forEach(c=>{ if(!have.has(c.id)) out.push(c); }); return {data:out,error:null}; }
 /* ほかの iPad で登録・変更したお客様を、変わった分だけ読む（お客様を追加・伝票を開く時。前は顧客の画面を開くまで届かず、同業の料金が戻る・同じ人を二重に登録することがあった） */
 async function cuFresh(){ const r=await cuPull(true); if(r&&r.data) S.customers=r.data; }
+/* 伝票の金額を営業日ごとに1回でまとめて読む（calc_bills は calc_bill と同じ式＝SQL 091。前は伝票1枚ごとに1回の通信で、閉店の前は数十回）。
+   まとめて読めなかった伝票だけ1枚ずつ読む。読めない伝票は null */
+async function billDues(bills){ const m={}; const days=bills.length>1?[...new Set(bills.map(b=>b.business_date).filter(Boolean))]:[]; /* 1枚だけなら calc_bill の方が軽い */
+  const rs=await Promise.all(days.map(d=>sb.rpc('calc_bills',{p_store:S.store.id,p_from:d,p_to:d})));
+  rs.forEach(r=>{ if(!r.error) (r.data||[]).forEach(x=>{ m[x.bill_id]=x.j; }); });
+  await Promise.all(bills.filter(b=>!(b.id in m)).map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); m[b.id]=r.error?null:r.data; }));
+  return m; }
