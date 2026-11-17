@@ -76,7 +76,7 @@ function chBind(V,box){ const {C,G,d,md,card,row,tag,left,TB,SH,abs,sl,todo,y,gu
     const q=await sb.rpc('pos_resv_seat',{p_id:id,p_table:x.value||null}); x.disabled=false; if(q.error){ x.value=was; await uiAlert(q.error.message); return; } if(g) g.seat=x.value||null; toast('保存しました'); }; });
   box.querySelectorAll('[data-chx]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const g=G.find(x=>String(x.id)===b.dataset.chx); /* 同伴の取消。同伴でない予約も（pos_resv_cancel） */
     const hs=S.staffAll.filter(x=>x.kind==='hall'&&x.is_active); const by=await uiPick('操作者（黒服）',hs.map(h=>({label:h.display_name,value:h.display_name}))); if(!by) return;
-    if(!await uiConfirm(g?.douhan?`${g?.name||''} 様の同伴を取り消しますか？\n申請した子と同伴の子に LINE で知らせます`:`${g?.name||''} 様の予約を取り消しますか？\n${S.store?.customer_mode==='yukyaku'?'申請した子':'申請した子と'+KL}に LINE で知らせます`)) return; b.disabled=true;
+    if(!await uiConfirm(g?.douhan?`${g?.name||''} 様の同伴を取り消しますか？\n申請した子と同伴の子に LINE で知らせます`:`${g?.name||''} 様の予約を取り消しますか？\n${S.store?.customer_mode==='yukyaku'?'申請した子':'申請した子と'+KL}に LINE で知らせます`,'取消')) return; b.disabled=true;
     const q=await sb.rpc('pos_resv_cancel',{p_id:b.dataset.chx,p_by:by}); if(q.error){ b.disabled=false; await uiAlert(q.error.message); return; } toast('取り消しました'); renderChorei(); });
   box.querySelectorAll('[data-chk],[data-chu]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const ok=!!b.dataset.chk, id=b.dataset.chk||b.dataset.chu; b.disabled=true;
     const q=await sb.rpc('pos_chorei_ok',{p_resv:id,p_ok:ok}); if(q.error){ b.disabled=false; await uiAlert(q.error.message); return; } if(ok) chOpen.delete(id); renderChorei(); });
