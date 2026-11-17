@@ -32,7 +32,7 @@ async function rpc(fn,args){
     if(c==='CS_NOTFOUND') throw new CsError(c,'見つかりません（削除された可能性があります）');
     if(c==='CS_LOCKED') throw new CsError(c,'パスワードの間違いが続いたため、15分間停止しています');
     if(c==='CS_NOEDITPW') throw new CsError(c,'編集パスワードがまだ設定されていません');
-    if((d&&d.code==='PGRST202')||/^Could not find the function/.test(m)) throw new CsError('SQL','準備中です（SQL 043 が未適用）'); /* 関数が本当に無い時だけ。関数の中のエラー（does not exist など）は本当の文を出す（点検 B3） */
+    if((d&&d.code==='PGRST202')||/^Could not find the function/.test(m)) throw new CsError('SQL','準備中です'); /* 関数が本当に無い時だけ。関数の中のエラー（does not exist など）は本当の文を出す（点検 B3） */
     throw new CsError('ERR',m||('エラー '+r.status)); }
   return d; }
 

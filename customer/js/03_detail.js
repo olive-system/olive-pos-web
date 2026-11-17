@@ -83,7 +83,7 @@ function rdBindAdd(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
     let o=cur0; if(!o){ o=document.createElement('option'); sel.insertBefore(o,sel.querySelector('option[value="__free"]')); }
     o.value='__name'; o.dataset.free=v; o.textContent=v; sel.value='__name'; btPrev='__name'; };
   $('btAdd').onclick=async()=>{ const pid=$('btSel').value; const fo=$('btSel').querySelector('option[data-free]'); const freeName=pid==='__name'&&fo?fo.dataset.free:''; const p=freeName?{name:freeName}:keep.find(z=>z.id===pid); if(!p){ toast('銘柄を選んでください'); return; } const rem=Number($('btRem').value); if(!await uiConfirm(`${c.name} 様に ${p.name}（残り ${rem}/10）を登録しますか？${freeName?'\n（リストに無い銘柄として登録します）':''}`,'登録')) return;
-    if(freeName){ try{ await rpc('cs_bottle_add_named',{p_token:token,p_customer:c.id,p_name:freeName,p_remaining:rem}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ if(e.code==='SQL') await uiAlert('準備中です（SQL 044 が未実行）'); else { await csFail(e); await reloadDetail(); } } return; }
+    if(freeName){ try{ await rpc('cs_bottle_add_named',{p_token:token,p_customer:c.id,p_name:freeName,p_remaining:rem}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ if(e.code==='SQL') await uiAlert('準備中です'); else { await csFail(e); await reloadDetail(); } } return; }
     try{ const bid=await rpc('cs_bottle_add',{p_token:token,p_customer:c.id,p_product:p.id}); if(rem!==10) await rpc('cs_bottle',{p_token:token,p_bottle:bid,p_action:'remaining',p_value:String(rem)}); toast('ボトルを登録しました'); await reloadDetail(); }catch(e){ await csFail(e); await reloadDetail(); } };
 }
 window.addEventListener('resize',()=>fitLine());
@@ -110,7 +110,7 @@ function reqForm(){ const c=cur.customer; const ppl=(boot.staff||[]).filter(s=>s
 // 請求先（オーナー「顧客サイトにも登録」「1人のお客様が会社を何個も持っていて、請求先が違う場合もある」）
 // POS で「請求書」にした時に選んだ・入れた請求先が並ぶ。ここで足す・直す・消すと、POS の請求先に出る。直しても消しても、もう会計した分の請求先は変わらない
 async function btcLoad(c){ const box=()=>$('dBt'); let rows; /* 説明を外し、1件を1〜2行に（オーナー「請求先に説明はいらない。もっとコンパクトに」）。「追加」は見出しの右 */
-  try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(e.code==='SQL'?'SQL 171 が未実行です':(e.message||'読み込めません'))/* 関数が無い時だけ SQL の番号。ほかは本当の文（点検 B3） */}</span>`; return; }
+  try{ rows=await rpc('cs_bill_tos',{p_token:token,p_customer:c.id}); }catch(e){ if(box()) box().innerHTML=`<span class="muted">${esc(e.code==='SQL'?'準備中です':(e.message||'読み込めません'))/* 関数が無い時だけ「準備中です」。ほかは本当の文（点検 B3） */}</span>`; return; }
   if(!cur||cur.customer.id!==c.id||!box()) return;
   box().innerHTML=rows.length?rows.map((x,i)=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;${i?'border-top:1px solid var(--line)':''}"><div style="flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere"><b>${esc(x.company)}</b>${x.attn?`　${esc(x.attn)} 様`:''}${x.address?`<div class="muted" style="font-size:13px;white-space:pre-line">${esc(x.address)}</div>`:''}</div>
     <button class="ghost sm" data-bte="${i}" style="flex:none">修正</button><button class="xb" data-btd="${i}" aria-label="削除">×</button></div>`).join('')
