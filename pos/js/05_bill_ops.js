@@ -23,7 +23,7 @@ $('gLeave').onclick=guard($('gLeave'),async()=>{ if(!S.cur||S.cur.status!=='open
   const p=await cashClosed(()=>sb.rpc('pos_mid_leave',{p_bill:S.cur.id,p_guests:gb,p_left:n,p_amount:v,p_method:method,p_due:due,p_share:share}),`途中退店の現金（${tblName()} ${yen(v)}）`); if(p.error){ if(p.error.cancel) return; if(await stale(p.error)) return; toast(p.error.message); return; }
   await logOp('途中退店',{before:gb,after:gb-n,left:n,total:due,amount:v,method:method?METHOD[method]:null}); openBill(S.cur.id); });
 // 来店時刻の変更：セットの終了・延長・同伴①②を新しい時刻で計算し直す
-function uiTimeHM(def,bd){ return new Promise(res=>{ const st=new Date(`${bd||businessDate()}T08:00:00+09:00`).getTime();
+function uiTimeHM(def,bd){ return new Promise(res=>{ const st=new Date(bdStart(bd||businessDate())).getTime();
   const d0=Math.max(st,new Date(def).getTime());
   const m=mkModal(60);
   m.innerHTML=`<div class="box" style="width:320px"><div style="display:flex;gap:8px;align-items:center;justify-content:center;font-size:20px"><select data-ut="h" style="font-size:22px"></select>時<select data-ut="m" style="font-size:22px"></select>分</div><div class="bar" style="justify-content:flex-end"><button class="ghost" data-ut="no">キャンセル</button><button class="primary" data-ut="ok">決定</button></div></div>`;

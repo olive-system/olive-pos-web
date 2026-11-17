@@ -68,7 +68,7 @@ PAGES.hist_del=async()=>{ const st=storeId; hiPeriod('hist_del','<select id="hiK
     <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm">日時</th><th style="text-align:left">操作</th><th style="text-align:left">卓</th><th style="text-align:left">理由</th><th style="text-align:left">内容</th></tr></thead><tbody>
     ${rows.map(x=>`<tr><td class="nm">${hiDT(x.created_at)}</td><td style="text-align:left"><b>${esc(actL(x.action))}</b></td><td style="text-align:left">${esc(x.detail?.table||'')}</td><td style="text-align:left;white-space:normal;min-width:120px;max-width:240px">${esc(x.reason||x.detail?.reason||'')}</td><td style="text-align:left;white-space:normal;min-width:220px;max-width:460px">${esc(hiDetail(x.detail))}</td></tr>`).join('')||'<tr><td colspan="5" class="muted" style="text-align:left">記録はありません</td></tr>'}</tbody></table></div>`; };
   $('hiK').onchange=()=>{ hiDelK=$('hiK').value; draw(); };
-  const q=()=>sb.from('pos_audit_log').select('id,action,detail,reason,created_at').eq('store_id',st).gte('created_at',f+'T08:00:00+09:00').lt('created_at',dayAdd(t,1)+'T08:00:00+09:00');
+  const q=()=>sb.from('pos_audit_log').select('id,action,detail,reason,created_at').eq('store_id',st).gte('created_at',bdStart(f)).lt('created_at',bdStart(dayAdd(t,1)));
   let r=await q().or('action.ilike.*削除*,action.ilike.*取消*,action.ilike.*取り消し*,action.ilike.*外す*').order('created_at',{ascending:false}).limit(1000);
   if(r.error) r=await q().order('created_at',{ascending:false}).limit(1000); // 絞り込みが通らない時は、全部読んでから画面で絞る
   if(page!=='hist_del'||storeId!==st||hiFrom!==f||hiTo!==t) return; if(r.error){ hiErr(r.error); return; }
