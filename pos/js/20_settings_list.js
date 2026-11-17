@@ -27,7 +27,7 @@ async function setBills(def){ $('setAdd').style.display='none'; $('setEdit').sty
     if(error){ $('setList').innerHTML=`<div class="muted">${esc(error.message)}</div>`; return; }
     // 置き：未入金の間はどの日の一覧にも載せない。全額の入金を受けた日の伝票として載せる
     const data=tb.all.filter(b=>{ if(b.status!=='closed') return b.business_date===today; if((b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)) return false; return billDay(b)===today; });
-    const tot={}; await Promise.all((data||[]).map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); tot[b.id]=r.data?.amount_due??null; }));
+    const tot={}; { const d=await billDues(data||[]); (data||[]).forEach(b=>{ tot[b.id]=d[b.id]?.amount_due??null; }); }
     const SJ={open:'<span class="badge">来店中</span>',closed:'<span class="badge k">会計済</span>',void:'<span class="badge gray">削除</span>'};
     const grl=data.length?await sb.from('good_reactions').select('bill_id,staff_id').in('bill_id',data.map(b=>b.id)):{data:[]}; const grm={}; (grl.data||[]).forEach(g=>(grm[g.bill_id]=grm[g.bill_id]||[]).push(g.staff_id)); if(!S.staffAll.length) await loadStaffAll();
     const live=(data||[]).filter(b=>b.status==='closed'); const sum=live.reduce((a,b)=>a+(tot[b.id]||0),0);

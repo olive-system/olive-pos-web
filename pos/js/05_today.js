@@ -8,7 +8,7 @@ async function todayBills(BSEL,today,byStore){ const bySq=q=>byStore?q.eq('store
   return {q1:q1.data||[],all:[...(q1.data||[]),...(q2.data||[])]}; }
 async function todaySum(){ const el=$('tdSum'); el.textContent='…'; const today=businessDate(); const BSEL='id,status,guest_count,business_date,payments(method,amount,received_at,revenue_date)';
   const tb=await todayBills(BSEL,today,true); if(tb.error){ el.textContent='—'; return; } const all=tb.all; const sales=all.filter(b=>b.status==='closed'&&!(b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)&&billDay(b)===today); const open=all.filter(b=>b.status==='open'&&b.business_date===today);
-  const vis=tb.q1.filter(b=>b.status!=='void'); const tot={}; let miss=false; await Promise.all([...sales,...open].map(async b=>{ const r=await sb.rpc('calc_bill',{p_bill:b.id}); if(r.error) miss=true; tot[b.id]=r.data?.amount_due||0; }));
+  const vis=tb.q1.filter(b=>b.status!=='void'); const tot={}; let miss=false; { const d=await billDues([...sales,...open]); [...sales,...open].forEach(b=>{ if(!d[b.id]) miss=true; tot[b.id]=d[b.id]?.amount_due||0; }); }
   if(miss){ el.textContent='—'; return; } /* 1枚でも金額が読めない時は、少ない売上を出さない */
   const s=sales.reduce((a,b)=>a+tot[b.id],0), o=open.reduce((a,b)=>a+tot[b.id],0); if(el.style.display==='none') return;
   el.innerHTML=`売上 <b>${yen(s)}</b>${o?` <small style="opacity:.75">（営業中 ${yen(o)}）</small>`:''}　来店 <b>${vis.length}</b>組 <b>${vis.reduce((a,b)=>a+(b.guest_count||0),0)}</b>名`; }
