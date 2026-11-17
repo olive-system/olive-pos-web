@@ -24,11 +24,11 @@ async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').class
 /* その日の日払（立替）・手当・打刻・体験の受領・罰金・精算を読む */
 async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev={}, rcp={}, fixN={}, finT={}, finP={}, clDone=false;
   { const bd=businessDate();
-  const [ra,re,rc,rr,rf]=await Promise.all([ sb.from('daily_advances').select('*').eq('business_date',bd), sb.from('attendance_events').select('*').eq('business_date',bd).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at'), sb.from('register_closings').select('id').eq('store_id',S.store.id).eq('business_date',bd), sb.from('trial_receipts').select('id,staff_id,business_date,amount,calc,signed_at').eq('business_date',bd), sb.from('staff_fines').select('*').eq('store_id',S.store.id).eq('business_date',bd) ]);
+  const [ra,re,rc,rr,rf,hl]=await Promise.all([ sb.from('daily_advances').select('*').eq('business_date',bd), sb.from('attendance_events').select('*').eq('business_date',bd).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at'), sb.from('register_closings').select('id').eq('store_id',S.store.id).eq('business_date',bd), sb.from('trial_receipts').select('id,staff_id,business_date,amount,calc,signed_at').eq('business_date',bd), sb.from('staff_fines').select('*').eq('store_id',S.store.id).eq('business_date',bd), hallLateRows(bd,bd) ]);
   if(rf.error) toast('SQL 041 が未適用です：'+rf.error.message);
   { const e=[ra,re,rc,rr].find(x=>x.error);
   if(e) toast('打刻・日払いを読み込めません。再度開いてください：'+e.error.message);
-  } /* 通しチェック3：読めないと全員「打刻なし・日払い0円」に見えた */ (rf.data||[]).forEach(x=>{ if(!x.is_void){ finT[x.staff_id]=(finT[x.staff_id]||0)+Number(x.amount||0);
+  } /* 通しチェック3：読めないと全員「打刻なし・日払い0円」に見えた */ (hl||[]).forEach(x=>{ finT[x.staff_id]=(finT[x.staff_id]||0)+x.amount; }); /* 月給の黒服の遅刻（給与から減算する額）も罰金の欄に（オーナー「ア 出す」・SQL 580） */ (rf.data||[]).forEach(x=>{ if(!x.is_void){ finT[x.staff_id]=(finT[x.staff_id]||0)+Number(x.amount||0);
   if(x.wage_pct) finP[x.staff_id]=(finP[x.staff_id]||0)+Number(x.wage_pct);
   } });
   (rr.data||[]).forEach(x=>{ rcp[x.staff_id]=x;

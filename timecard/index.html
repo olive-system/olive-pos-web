@@ -288,9 +288,6 @@ async function loadStaff(){
     .select('id,display_name,kind,is_trial,kakari_only,no_timecard,created_at').eq('is_active', true).order('sort_order'));
   const grid = document.getElementById('grid'); grid.innerHTML = '';
   if (error) { grid.textContent = 'スタッフ取得エラー：' + jaNet(error.message); return; }
-  // 体験キャストは1日限り：登録した営業日（朝8時区切り）の翌営業日からは表示しない
-  const bdOf = d => { const x = new Date(d.getTime() - 8*3600*1000); return x.getFullYear()*10000 + (x.getMonth()+1)*100 + x.getDate(); };
-  const todayBd = bdOf(new Date());
   for (const s of data) {
     if (s.kakari_only || s.no_timecard) continue; // 係専用（店・ママなど）と「タイムカードを打たない」人は出さない
     if (s.is_trial) continue;

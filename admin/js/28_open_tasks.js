@@ -17,7 +17,7 @@ async function taskPage(pg){ const [ph,nm]=TASK_PG[pg], st=storeId, ed=perm(pg)=
   const r=await sb.rpc('admin_tasks',{p_store:st,p_day:d,p_phase:ph}); if(page!==pg||storeId!==st||openDay!==d) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">${esc(/admin_tasks/.test(r.error.message)?'SQL 209 が未実行です：':'読み込めません：')}${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, I=D.items||[], T=D.day||[], hm=hmJst;
-  const wd=wdJ, nd=T.filter(x=>x.status==='done').length;
+  const wd=wdS, nd=T.filter(x=>x.status==='done').length;
   const seg=(k,i,cur,os)=>`<span class="seg">${os.map(([v,n])=>`<button data-${k}="${i}" data-v="${v}" class="${cur===v?'on':''}">${n}</button>`).join('')}</span>`;
   const K={pg,ph,nm,st,ed,d,head,again,D,I,T,hm,wd,nd,seg};
   $('main').innerHTML=head+tkOnCard(K)+tkHtmlDay(K)+tkHtmlMail(K)+tkHtmlItems(K);

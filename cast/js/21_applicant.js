@@ -8,7 +8,7 @@ const AP_FS = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padd
 const apRing = (name, id) => `<span data-ap="${id || ''}" style="white-space:nowrap;border-radius:999px;outline:1.5px solid var(--pri);outline-offset:2px;cursor:pointer">${esc(name)}</span>`;
 const apOpen = (id, store, back) => id ? apPage(id, store, back) : uiAlert('応募者ページはありません\n入店は POS「スタッフ」の［退店・体験］から');
 const apLegend = () => `<span style="margin-left:12px;font-weight:400;white-space:nowrap"><span style="display:inline-block;width:1.8em;height:1.1em;border:1.5px solid var(--pri);border-radius:999px;vertical-align:-0.2em;box-sizing:border-box"></span> 体験</span>`;
-const apDt = iso => { if(!iso) return '未定'; const d = new Date(new Date(iso).getTime() + 9 * 3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`; };
+const apDt = iso => iso ? mdwHm(iso) : '未定';
 const apIsoDay = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : '';
 const apIsoTime = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 16) : '20:00';
 // シフトの時刻と同じく 19:50 と 20:00〜23:00（PR #343）
@@ -30,7 +30,7 @@ function apShoot(store, id, kind, done){ document.querySelectorAll('input[data-a
 // 写真を大きく表示（削除もここ）
 async function apPhotoBig(store, id, src, done){ /* 閉じるは右上の × */
   const w = xBox(`<img src="${src}" style="width:100%;border-radius:8px;display:block;margin-top:16px"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button></div>`);
-  w.querySelector('[data-k=del]').onclick = async () => { if(!await uiConfirm('この写真を削除しますか？', '削除')) return; const r = await sb.rpc('ap_photo_del', { p_token: TOKEN, p_store: store || null, p_photo: id }); w.remove(); if(r.error){ await uiAlert(r.error.message); return; } done(); }; }
+  w.querySelector('[data-k=del]').onclick = async () => { if(!await uiConfirm('この写真を削除しますか？', '削除', 'danger')) return; const r = await sb.rpc('ap_photo_del', { p_token: TOKEN, p_store: store || null, p_photo: id }); w.remove(); if(r.error){ await uiAlert(r.error.message); return; } done(); }; }
 
 async function apPage(id, store, back){
   setBack(back); show('<div class="card c muted">読み込み中…</div>');

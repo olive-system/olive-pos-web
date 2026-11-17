@@ -9,7 +9,7 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
   const [ev,sf,cx,cp]=await Promise.all([ sb.from('attendance_events').select('id,staff_id,event_type,event_at,rounded_at,photo_path,is_corrected,orig_at,fixed_by,fixed_at').eq('store_id',st).eq('business_date',d).order('event_at'),
     sb.from('staff').select('id,display_name,kind,sort_order').eq('store_id',st).order('sort_order').order('id'),
     /* POS の「退勤を取り消す」は打刻の行を写真ごと消すので、取り消した退勤は操作ログから出す */
-    sb.from('pos_audit_log').select('detail,created_at').eq('store_id',st).eq('action','退勤の取消').gte('created_at',d+'T08:00:00+09:00').lt('created_at',dayAdd(d,1)+'T08:00:00+09:00').order('created_at'),
+    sb.from('pos_audit_log').select('detail,created_at').eq('store_id',st).eq('action','退勤の取消').gte('created_at',bdStart(d)).lt('created_at',bdStart(dayAdd(d,1))).order('created_at'),
     /* 取消の前の写真の場所。表が無い時（SQL の前）は写真なしで出す */
     sb.from('attendance_cancels').select('staff_id,photo_path,cancelled_at').eq('store_id',st).eq('business_date',d) ]);
   if(page!=='punches'||storeId!==st||pcDate!==d) return;
