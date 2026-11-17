@@ -193,8 +193,8 @@ function hcBodyShiire(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', get
       ${R.map((r, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-shp="${i}" style="flex:1;min-width:0;${fs}">${opts(r)}</select>
         <input data-shq="${i}" inputmode="numeric" maxlength="3" value="${esc(r.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="xb" data-shx="${i}" aria-label="削除">×</button></div>
         <input data-shn="${i}" maxlength="60" placeholder="品名" value="${esc(r.name)}" style="display:${r.free ? 'block' : 'none'};width:100%;margin-top:6px;${fs}">
-        <span data-sha="${i}" style="display:${!r.free && ab(r.pid) ? 'inline-block' : 'none'};margin-top:4px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)">AB棚</span></div>`).join('') || '<div class="muted" style="padding:9px 2px">入荷なし</div>'}
-      <div class="muted sm" style="margin-top:8px">入荷した品を全部入力します。品は POS のメニューから選び、メニューに無い品は品名入力です。AB棚の品は在庫に加算されます</div></div>${sv()}`;
+        <span data-sha="${i}" style="display:${!r.free && ab(r.pid) ? 'inline-block' : 'none'};margin-top:4px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)">高級酒</span></div>`).join('') || '<div class="muted" style="padding:9px 2px">入荷なし</div>'}
+      <div class="muted sm" style="margin-top:8px">入荷した品を全部入力します。品は POS のメニューから選び、メニューに無い品は品名入力です。高級酒は在庫に加算されます</div></div>${sv()}`;
     getData = () => ({ rows: R.filter(r => !(r.ord && r.pid && (r.qty === '' || r.qty === '0'))).map(r => r.free ? { name: r.name, qty: r.qty } : { product_id: r.pid, qty: r.qty }) });   // 届かなかった発注の品（空欄・0）は仕入れに入れない
   return { body, getData }; }
 function hcBodyDayMemo(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
