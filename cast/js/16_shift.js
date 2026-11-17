@@ -177,17 +177,57 @@ function shiftDayAdd(D, d, iso, store, tin, set, again){ const C = D.casts || []
     const time = c => { w.innerHTML = `<div class="box"><p style="margin-bottom:10px">${esc(c.name)}</p>${tin('20:30', 'id="sdTm"', 'width:100%;font:inherit;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--card)')}<div class="bt"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
       w.querySelector('[data-k=no]').onclick = pick; w.querySelector('[data-k=ok]').onclick = async e => { const v = w.querySelector('#sdTm').value; if(!v) return; e.target.disabled = true; close(); if(await set(c.id, v)) again(); }; };
     pick(); document.body.appendChild(w); }
-/* 体験の人を出勤に足す小窓 */
-function shiftDayTrial(w, d, iso, store, tin, pick, close, again){ const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)', lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`; let pt = 'hourly';
-      w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">体験　${mdWD(d)}</p>
-        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px"><div>${lb('源氏名')}<input id="trN" maxlength="30" placeholder="例）サヤ・ハル" style="${fs}"></div><div>${lb('本名')}<input id="trR" maxlength="60" style="${fs}"></div></div>
-        ${lb('時刻')}${tin('20:00', 'id="trT"', fs)}
-        ${lb('報酬')}<div style="display:flex;gap:8px"><span id="trP" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([v, n]) => `<button type="button" data-trp="${v}" style="border:0;font:inherit;font-size:16px;padding:8px 14px">${n}</button>`).join('')}</span><input id="trA" type="number" inputmode="numeric" min="1" style="${fs};flex:1;min-width:0" placeholder="円"></div>
-        <div class="bt" style="margin-top:14px"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
-      const seg = () => w.querySelectorAll('[data-trp]').forEach(b => { const on = b.dataset.trp === pt; b.style.background = on ? 'var(--head)' : 'var(--card)'; b.style.color = on ? '#fff' : 'var(--ink)'; });
-      w.querySelectorAll('[data-trp]').forEach(b => b.onclick = () => { pt = b.dataset.trp; seg(); }); seg();
-      w.querySelector('[data-k=no]').onclick = pick; w.querySelector('#trN').onblur = e => { e.target.value = kanaKey(e.target.value); };
-      w.querySelector('[data-k=ok]').onclick = async e => { const n = kanaKey(w.querySelector('#trN').value), a = parseInt(w.querySelector('#trA').value || '0', 10) || 0;
-        if(!n){ await uiAlert('源氏名を入力してください'); return; } if(a <= 0){ await uiAlert('金額を入力してください'); return; }
-        e.target.disabled = true; const q = await sb.rpc('cast_shift_trial_add', { p_token: TOKEN, p_store: store || null, p_day: iso, p_name: n, p_real: w.querySelector('#trR').value.trim(), p_time: w.querySelector('#trT').value, p_pay_type: pt, p_amount: a });
-        if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } close(); again(); }; }
+/* 体験の人を出勤に足す小窓：応募者の一覧から選ぶ（見本 作業場/見本の画像/体験の入口_エ（11-17）.png）
+   名前を打って新しく作ると応募者の台帳とつながらず、出勤してもジャッジの LINE が出なかったため（11/16 銀座） */
+/* 一覧の1行の状態（○回目 日 結果・面接済み） */
+const TC_RES = { rejected: '不採用', declined: '辞退', considering: '検討', hired: '採用' };
+function shiftTrialRes(c){ const T = c.trials || [], t = T[T.length - 1]; if(!t) return c.status === 'rejected' ? '面接 不採用' : '面接済み';
+  return `${T.length}回目 ${mdDay(t.day)} ${t.day >= businessDate() ? '予定' : (c.status === 'trial' ? '結果なし' : (TC_RES[c.status] || '結果なし'))}`; }
+/* 一覧の1行（写真・源氏名・本名・面接の日と面接した黒服・状態） */
+function shiftTrialRow(c){ return `<button type="button" class="lkb" data-tc="${c.id}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px;margin-bottom:6px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-variant-numeric:tabular-nums">
+    <span data-aph="${c.photo || ''}" style="flex:none;width:36px;height:36px;border-radius:50%;background:var(--soft);border:1px ${c.photo ? 'solid' : 'dashed'} var(--line);background-size:cover;background-position:center"></span>
+    <span style="flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 13.5em;column-gap:6px;row-gap:2px;font-size:12px;line-height:1.5;white-space:nowrap">
+      <b style="font-size:14px;overflow:hidden;text-overflow:ellipsis">${esc(c.name || '—')}</b><span style="display:flex;gap:4px"><span style="flex:none;width:3em">面接</span><span style="flex:none;width:3.8em">${c.iv ? mdDay(c.iv) : '—'}</span><span style="overflow:hidden;text-overflow:ellipsis">${esc(c.iv_hall || '—')}</span></span>
+      <span class="muted" style="overflow:hidden;text-overflow:ellipsis">本名 ${esc(c.real || '')}</span>${shiftTrialResCells(c)}</span></button>`; }
+/* 状態の列：回目・日・結果を、どの行でも同じ位置から */
+function shiftTrialResCells(c){ const T = c.trials || [], t = T[T.length - 1]; if(!t) return `<span>${esc(shiftTrialRes(c))}</span>`;
+  const r = shiftTrialRes(c).split(' ').pop(); return `<span style="display:flex;gap:4px"><span style="flex:none;width:3em">${T.length}回目</span><span style="flex:none;width:3.8em">${mdDay(t.day)}</span><span>${esc(r)}</span></span>`; }
+async function shiftDayTrial(w, d, iso, store, tin, pick, close, again){
+  const q = await sb.rpc('cast_shift_trial_cands', { p_token: TOKEN, p_store: store || null }); if(q.error){ await uiAlert(q.error.message); pick(); return; }
+  const C = q.data || [], row = shiftTrialRow, form = c => shiftTrialForm(w, c, d, iso, store, tin, pick, close, again);
+  let qv = '', zero = false;
+  const tcList = () => { const k = kanaKey(qv), hit = C.filter(c => !k || kanaKey(c.name).includes(k) || kanaKey(c.real).includes(k)), A = hit.filter(c => (c.trials || []).length), B = hit.filter(c => !(c.trials || []).length);
+    w.querySelector('#tcN').textContent = `${hit.length}人`;
+    w.querySelector('#tcL').innerHTML = (A.length ? `<div class="gh" style="color:var(--brand-d);font-weight:700">体験予定・体験済み　${A.length}人</div>${A.map(row).join('')}` : '') + (B.length ? `<div class="gh" style="color:var(--brand-d);font-weight:700">面接のみ　${B.length}人</div>${B.map(row).join('')}` : '') + (hit.length ? '' : '<div class="muted sm">該当なし</div>');
+    w.querySelectorAll('[data-aph]').forEach(async el => { if(el.dataset.aph){ const u = await apPhotoUrl(store, el.dataset.aph); if(u) el.style.backgroundImage = `url("${u}")`; } });
+    w.querySelectorAll('[data-tc]').forEach(b => b.onclick = () => form(C.find(c => c.id === b.dataset.tc)));
+    if(!hit.length && !zero){ zero = true; uiAlert('一覧に無い人は、先に応募者ページで面接を登録してください'); } else if(hit.length) zero = false; };
+  w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">体験　${mdWD(d)}</p><div class="muted sm">応募者　<span id="tcN"></span></div>
+    <input id="tcQ" placeholder="名前検索" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin:8px 0">
+    <div id="tcL" style="max-height:55vh;overflow:auto"></div><div class="bt" style="margin-top:10px"><button class="btn g" data-k="no">戻る</button></div></div>`;
+  w.querySelector('[data-k=no]').onclick = pick; w.querySelector('#tcQ').oninput = e => { qv = e.target.value; tcList(); }; tcList();
+}
+/* 「体験○回目」の箱（面接・前の体験の日時とジャッジ・今回） */
+function shiftTrialBox(c, d){ const T = c.trials || [], kv = (k, v) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:3em">${k}</span><span style="min-width:0">${v}</span></div>`;
+  const jg = t => t.judge ? `${t.judge === 'hired' ? '採用' : '不採用'}（採用${t.yes || 0}人・不採用${t.no || 0}人）` : '';
+  return `<div style="border:1px dashed var(--brand);border-radius:10px;background:var(--gold-soft);padding:8px 10px;margin-top:8px;font-size:13px;line-height:1.7;font-variant-numeric:tabular-nums"><div style="font-weight:700;color:var(--brand-d)">体験${T.length + 1}回目</div>
+    ${kv('面接', `${c.iv ? mdWD(jd(c.iv)) : '—'}　${esc(c.iv_hall || '')}${c.sheet ? '　シート' : ''}${c.photo ? (c.sheet ? '・写真' : '　写真') : ''}`)}
+    ${T.map((t, i) => kv(`${i + 1}回目`, `${mdWD(jd(t.day))}${t.time ? ' ' + t.time : ''}${jg(t) ? `<br>${jg(t)}` : ''}`)).join('')}
+    <div style="display:flex;gap:8px;font-weight:700"><span style="flex:none;width:3em;color:var(--brand-d)">${T.length + 1}回目</span><span>${mdWD(d)}　今回</span></div></div>`; }
+/* 選んだ人の時刻・報酬。前の体験があれば、その結果を見ながら入れる */
+function shiftTrialForm(w, c, d, iso, store, tin, pick, close, again){ const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)', lb = t => `<div class="muted sm" style="margin:10px 0 4px">${t}</div>`; let pt = 'hourly';
+    const box = shiftTrialBox(c, d);
+    w.innerHTML = `<div class="box"><p style="font-weight:700;margin-bottom:4px">体験　${mdWD(d)}</p><div style="font-size:20px;font-weight:700">${esc(c.name || c.real || '')}</div>${box}
+      ${c.name ? '' : `${lb('源氏名')}<input id="trN" maxlength="30" placeholder="例）サヤ・ハル" style="${fs}">`}
+      ${lb('時刻')}${tin('20:00', 'id="trT"', fs)}
+      ${lb('報酬')}<div style="display:flex;gap:8px"><span id="trP" style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none">${[['hourly', '時給'], ['daily', '日給']].map(([v, n]) => `<button type="button" data-trp="${v}" style="border:0;font:inherit;font-size:16px;padding:8px 14px">${n}</button>`).join('')}</span><input id="trA" type="number" inputmode="numeric" min="1" style="${fs};flex:1;min-width:0" placeholder="円"></div>
+      <div class="bt" style="margin-top:14px"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
+    const seg = () => w.querySelectorAll('[data-trp]').forEach(b => { const on = b.dataset.trp === pt; b.style.background = on ? 'var(--head)' : 'var(--card)'; b.style.color = on ? '#fff' : 'var(--ink)'; });
+    w.querySelectorAll('[data-trp]').forEach(b => b.onclick = () => { pt = b.dataset.trp; seg(); }); seg();
+    w.querySelector('[data-k=no]').onclick = () => shiftDayTrial(w, d, iso, store, tin, pick, close, again);
+    const nIn = w.querySelector('#trN'); if(nIn) nIn.onblur = e => { e.target.value = kanaKey(e.target.value); };
+    w.querySelector('[data-k=ok]').onclick = async e => { const n = nIn ? kanaKey(nIn.value) : null, a = parseInt(w.querySelector('#trA').value || '0', 10) || 0;
+      if(nIn && !n){ await uiAlert('源氏名を入力してください'); return; } if(a <= 0){ await uiAlert('金額を入力してください'); return; }
+      e.target.disabled = true; const r = await sb.rpc('cast_shift_trial_pick', { p_token: TOKEN, p_store: store || null, p_ap: c.id, p_day: iso, p_time: w.querySelector('#trT').value, p_pay_type: pt, p_amount: a, p_name: n });
+      if(r.error){ e.target.disabled = false; await uiAlert(r.error.message); return; } close(); again(); };
+}
