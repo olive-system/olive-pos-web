@@ -23,7 +23,7 @@ async function leaveDlg(s){
   await loadStaffAll(); renderCasts();
 }
 async function leaveDone(s){
-  if(!s) return; const ok=$('uiDlgOk'); ok.textContent='退店完了'; let y=false; try{ y=await uiConfirm(`${s.display_name}　退店完了\nLINEマイページの報酬明細も停止`); } finally{ ok.textContent='OK'; } if(!y) return;
+  if(!s) return; if(!await uiConfirm(`${s.display_name}　退店完了\nLINEマイページの報酬明細も停止`,'退店完了')) return;
   const r=await sb.rpc('pos_staff_leave',{p_staff:s.id,p_done:true}); if(r.error){ await uiAlert(r.error.message); return; }
   toast(`${s.display_name}：退店完了`); await loadStaffAll(); renderCasts();
 }
