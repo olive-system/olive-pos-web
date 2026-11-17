@@ -29,11 +29,8 @@ async function monthPoints(only){ const [q,bs]=await Promise.all([ sb.rpc('pos_m
   Object.entries(q.data||{}).forEach(([id,v])=>{ v=Number(v||0); if(v) add(id,v); });
   bs.forEach(b=>{ (b.bill_items||[]).filter(x=>!x.is_void).forEach(x=>(x.bill_item_splits||[]).forEach(z=>{ const v=Number(z.back_points||0); if(v) add(z.staff_id,v); })); });
   return m; }
-async function monthKakari(only){ { const q=await sb.rpc('pos_month_kakari'); if(!q.error&&q.data&&typeof q.data==='object'){ const m={}; Object.entries(q.data).forEach(([id,v])=>{ if(!only||only.has(id)) m[id]=Number(v||0); }); return m; } } /* 前は伝票を1枚ずつ計算していた（月末に数百回の通信）。関数が無い時は下の前の読み方 */
-  const all=await monthCreditBills('id,bill_casts(staff_id,is_kakari),bill_items(cast_subtotal_price,qty,is_void)'); if(!all) return null;
-  const bs=all.filter(b=>(b.bill_casts||[]).some(c=>c.is_kakari&&(!only||only.has(c.staff_id)))); const m={};
-  for(let i=0;i<bs.length;i+=8){ const part=bs.slice(i,i+8); const ts=await Promise.all(part.map(b=>sb.rpc('calc_bill',{p_bill:b.id}))); part.forEach((b,j)=>{ const T=ts[j].data||{}; const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id); const total=(T.set||0)+(T.vip_set||0)+(T.extension||0)+(T.vip_ext||0)+(b.bill_items||[]).filter(x=>!x.is_void).reduce((a,x)=>a+x.cast_subtotal_price*x.qty,0); const each=Math.floor(total/ks.length); ks.forEach(id=>{ m[id]=(m[id]||0)+each; }); }); }
-  return m; }
+/* 今月の係小計はデータベースの元の関数（kakari_sub）の答えだけを使う。画面で式をくり返すと、失敗した時に数百回の通信と別の数字になる */
+async function monthKakari(only){ const q=await sb.rpc('pos_month_kakari'); if(q.error||!q.data||typeof q.data!=='object') return null; const m={}; Object.entries(q.data).forEach(([id,v])=>{ if(!only||only.has(id)) m[id]=Number(v||0); }); return m; }
 // 担当キャストの今月の係小計を黒服ごとに集計し、在籍中の黒服全員の合計に対する割合も出す（削除済の黒服・担当なしのキャストは含めない）
 async function clMgrSum(s){ const mineN=S.staffAll.filter(x=>x.manager_staff_id===s.id&&x.id!==s.id&&x.is_active).length; /* 担当キャスト売上・売上シェアは黒服の給与と同じ数字（pos_hall_share・SQL 536） */
   const r=await sb.rpc('pos_hall_share'); if(r.error) return {sum:'—',pct:'—'}; const z=(r.data||{})[s.id]||{};

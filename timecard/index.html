@@ -264,10 +264,8 @@ async function rtReload(){
 
 // ---------- staff ----------
 async function loadStaff(){
-  // SQL 085：スタッフの名前は関数 tc_staff から（タイムカード専用の ID は表を直接読めない）。関数が無い時は今までどおり表から
-  let { data, error } = await sb.rpc('tc_staff');
-  if (error || !Array.isArray(data)) ({ data, error } = await sb.from('staff')
-    .select('id,display_name,kind,is_trial,kakari_only,no_timecard,created_at').eq('is_active', true).order('sort_order'));
+  // スタッフの名前は関数 tc_staff から（タイムカード専用の ID は表を直接読めない）
+  const { data, error } = await sb.rpc('tc_staff');
   const grid = document.getElementById('grid'); grid.innerHTML = '';
   if (error) { grid.textContent = 'スタッフ取得エラー：' + jaNet(error.message); return; }
   for (const s of data) {
@@ -401,21 +399,11 @@ function showToast(main, sub, ms){ sub = jaNet(sub);
 // ---------- 同伴の準備時間チェック（同伴は会計の伝票で付ける。伝票の立ち上げ〜出勤打刻が設定分数を超えたら本人に警告。打刻は止めない） ----------
 async function checkDouhanLate(staff){
   try {
-    // SQL 085：関数 tc_douhan（決めた分数と、同伴の伝票を立ち上げてからの分数）。関数が無い時は今までどおり表から
+    // 関数 tc_douhan（決めた分数と、同伴の伝票を立ち上げてからの分数）。タイムカード専用の ID は表を直接読めないので、関数だけを見る
     const rd = await sb.rpc('tc_douhan', { p_staff: staff.id });
-    if (!rd.error) { const rdd = rd.data || {}; const lim = Number(rdd.limit == null ? 10 : rdd.limit); if (lim > 0 && rdd.mins != null && rd.data.mins > lim) await fxLate(lim); return; }
-    let q = sb.from('pos_settings').select('douhan_punch_limit_min');
-    if (store && store.id) q = q.eq('store_id', store.id);
-    const st = await q.limit(1);
-    const st0 = (st.data && st.data[0]) || {}; const limit = Number(st0.douhan_punch_limit_min == null ? 10 : st0.douhan_punch_limit_min);
-    if (!(limit > 0)) return;
-    const since = new Date(Date.now() - 20*3600*1000).toISOString();
-    const { data, error } = await sb.from('bill_casts').select('role, bills!inner(opened_at,status)').eq('staff_id', staff.id).in('role', ['douhan1','douhan2','douhan']).neq('bills.status','void').gte('bills.opened_at', since);
-    if (error || !data || !data.length) return;
-    const first = Math.min(...data.map(r => new Date(r.bills.opened_at).getTime()));
-    const mins = Math.floor((Date.now() - first) / 60000);
-    if (mins <= limit) return;
-    await fxLate(limit);
+    if (rd.error) { console.warn('douhan check failed', rd.error); return; }
+    const rdd = rd.data || {}; const lim = Number(rdd.limit == null ? 10 : rdd.limit);
+    if (lim > 0 && rdd.mins != null && rdd.mins > lim) await fxLate(lim);
   } catch (e) { console.warn('douhan check failed', e); }
 }
 function fxLate(limit){
