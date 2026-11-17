@@ -237,7 +237,23 @@ function hcWireKimono(H, again){ const {x, ph, r, k, D, td, sv} = H;
   $('main').querySelectorAll('[data-km]').forEach(b => b.onclick = async () => { const c = D[+b.dataset.km]; b.disabled = true;
     const z = await sb.rpc('hall_close_kimono', { p_token: TOKEN, p_task: x.id, p_staff: c.id, p_on: !c.kimono }); if(z.error){ await uiAlert(z.error.message); } again(); });
 }
-const HC_WIRE = { drinks: hcWireDrinks, shiire: hcWireShiire, memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
+/* 本日ボトル提案の振り返り（SQL 582・銀座）：その日に本日ボトル提案が出て、ニューボトルが入らなかった卓に理由を1つ選ぶ。ボトルの残りの下に出す。
+   全部選ぶまで［保存］は出さない（押しても完了にならないため）。帰りの残りは、上で選んでいる残りをそのまま出す */
+async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s) return; s.style.display = 'none';
+  const r = await sb.rpc('hall_kpb_review_list', { p_token: TOKEN, p_task: x.id }); const L = r.error ? [] : (r.data || []);
+  if(!L.length){ s.style.display = ''; return; }
+  const M = $('main'), why = ['お断り', '次回ご注文', '未提案', '残量あり'], cur = id => { const i = D.findIndex(b => b.id === id), e = i < 0 ? null : M.querySelector(`[data-bt="${i}"]`); return e ? `${e.value}/10` : '—'; };
+  const card = M.querySelector('.card'); if(!card) return;
+  card.insertAdjacentHTML('afterend', `<div style="font-weight:700;margin:16px 2px 8px">本日ボトル提案</div><div class="card">${L.map((t, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0"><span style="display:inline-block;width:42px;font-weight:700">${esc(t.table_name || '')}</span>${esc(t.customer || '')} 様</div>
+    <select data-kb="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選択</option>${why.map(w => `<option ${t.reason === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div><div class="muted sm" data-kbl="${i}" style="padding-left:42px;line-height:1.6"></div></div>`).join('')}</div>`);
+  const sel = i => M.querySelector(`[data-kb="${i}"]`).value;
+  const draw = () => L.forEach((t, i) => { M.querySelector(`[data-kbl="${i}"]`).innerHTML = [...(t.bottles || []).map(b => `${esc(b.name)} ${b.arr}/10 → ${cur(b.id)}`), `提案 ${hmJst(t.at)}・係 ${esc(t.kakari || '—')}`].join('<br>'); });
+  const sync = () => { s.style.display = L.every((t, i) => sel(i)) ? '' : 'none'; };
+  M.querySelectorAll('[data-bt]').forEach(e => e.addEventListener('change', draw)); M.querySelectorAll('[data-kb]').forEach(e => e.onchange = sync); draw(); sync();
+  s.onclick = async () => { s.disabled = true; const q = await sb.rpc('hall_kpb_review_save', { p_token: TOKEN, p_task: x.id, p_rows: L.map((t, i) => ({ bill_id: t.bill_id, reason: sel(i) })) });
+    if(q.error){ s.disabled = false; await uiAlert(q.error.message); return; } s.disabled = false; hcSave(x, ph, s, hcBodyBottle(H).getData); };
+}
+const HC_WIRE = { bottle: hcWireBottle, drinks: hcWireDrinks, shiire: hcWireShiire, memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
 /* 写真とコメントの欄（その作業に要る時だけ） */
 function hcPhotoBox(x, s){
   if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" id="clPl" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label></div><div id="clPg"></div>` : ''}
