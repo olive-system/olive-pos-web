@@ -248,8 +248,8 @@ async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s
     <select data-kb="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選択</option>${why.map(w => `<option ${t.reason === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div><div class="muted sm" data-kbl="${i}" style="padding-left:42px;line-height:1.6"></div></div>`).join('')}</div>`);
   const sel = i => M.querySelector(`[data-kb="${i}"]`).value;
   const draw = () => L.forEach((t, i) => { M.querySelector(`[data-kbl="${i}"]`).innerHTML = [...(t.bottles || []).map(b => `${esc(b.name)} ${b.arr}/10 → ${cur(b.id)}`), `提案 ${hmJst(t.at)}・係 ${esc(t.kakari || '—')}`].join('<br>'); });
-  const sync = () => { s.style.display = L.every((t, i) => sel(i)) ? '' : 'none'; };
-  M.querySelectorAll('[data-bt]').forEach(e => e.addEventListener('change', draw)); M.querySelectorAll('[data-kb]').forEach(e => e.onchange = sync); draw(); sync();
+  const kbSync = () => { s.style.display = L.every((t, i) => sel(i)) ? '' : 'none'; };
+  M.querySelectorAll('[data-bt]').forEach(e => e.addEventListener('change', draw)); M.querySelectorAll('[data-kb]').forEach(e => e.onchange = kbSync); draw(); kbSync();
   s.onclick = async () => { s.disabled = true; const q = await sb.rpc('hall_kpb_review_save', { p_token: TOKEN, p_task: x.id, p_rows: L.map((t, i) => ({ bill_id: t.bill_id, reason: sel(i) })) });
     if(q.error){ s.disabled = false; await uiAlert(q.error.message); return; } s.disabled = false; hcSave(x, ph, s, hcBodyBottle(H).getData); };
 }
