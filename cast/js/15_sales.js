@@ -15,26 +15,31 @@ async function salesHome(){
     <button class="btn" id="slNext">次へ（連絡済リスト共有）</button>`);
   $('slNext').onclick = salesPick;
 }
-// 連絡済リストの画面の文（スクショ読取・選んだお客様・一覧にないお客様・検索）
+// 連絡済リストの画面の文（本日の提案・スクショ読取・一覧・一覧にないお客様）。P＝選んだお客様の状態（salesPick）
 const slBtn = (attr, name, v) => `<button class="btn g" ${attr} style="padding:9px 6px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${v?'background:var(--ink);color:#fff;border-color:var(--ink)':''}">${esc(name)}</button>`;
-function slPickHtml(on, extra, q, rd){
-  const cName = id => (SALES.contacts.find(c => c.id === id) || {}).name || '';
+const slCBtn = (c, P) => slBtn(`data-sc="${c.id}" data-kn="${esc(kanaKey(c.kana))}"`, c.name, P.on.has(c.id)); /* 検索で絞るボタン（本日の提案と一覧） */
+function slPickHtml(P){
   /* 本日の提案（朝のアプローチの LINE で送ったお客様）を一番上にボタンで（2026-11-17 オーナー「スクショ読み取りで提出したくない女の子もいる。今日提案した30名をタップで」）。
      cast_sales_today の contacts は提案の順に先頭から並ぶので、先頭の plan の数だけが提案。下の一覧には重ねて出さない */
   const pl = SALES.contacts.slice(0, SALES.plan.length), plIds = new Set(pl.map(c => c.id)), rest = SALES.contacts.filter(c => !plIds.has(c.id));
   return `<div class="ttl">連絡済リスト</div><div class="card">
-      ${pl.length?`<div class="gh">本日の提案 ${pl.length}名（敬称略）</div><div style="${g2};margin-bottom:12px">${pl.map(c => slBtn(`data-sc="${c.id}"`, c.name, on.has(c.id))).join('')}</div>`:''}
+      ${pl.length?`<div class="gh">本日の提案 ${pl.length}名（敬称略）</div><div style="${g2};margin-bottom:12px">${pl.map(c => slCBtn(c, P)).join('')}</div>`:''}
       <label class="btn g" style="display:block;text-align:center;margin-bottom:10px"><span id="slRt">スクショ読取</span><input type="file" id="slR" accept="image/*" multiple style="display:none"></label>
-      ${rd?`<div class="muted sm" style="margin-bottom:6px">読取 ${rd.n}枚　一致 ${rd.hits.length}名</div>
-        ${rd.hits.length?`<div style="${g2};margin-bottom:10px">${rd.hits.map(h => h.id ? slBtn(`data-sc="${h.id}"`, cName(h.id), on.has(h.id)) : slBtn(`data-sxh="${esc(h.name)}"`, h.name, extra.includes(h.name))).join('')}</div>`:''}
-        ${rd.cands.length?`<div class="muted sm" style="display:flex;border-bottom:1px solid var(--line);padding-bottom:4px"><span style="flex:1">候補 ${rd.cands.length}名${rd.cands.every(c => !c.id)?'（前回の手打ち）':''}</span><span>読取／名前</span></div>
-          ${rd.cands.map((c, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="muted" style="flex:none;width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.read)}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span><button class="btn g" data-sca="${i}" style="width:auto;padding:0 16px;height:44px;margin:0">追加</button></div>`).join('')}<div style="height:10px"></div>`:''}`:''}
-      <div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${on.size + extra.length}名</span></div>
-      ${rest.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${rest.map(c => slBtn(`data-sc="${c.id}" data-kn="${esc(kanaKey(c.kana))}"`, c.name, on.has(c.id))).join('')}</div>`:SALES.contacts.length?'':'<div class="muted sm">連絡先交換の提出がありません</div>'}
+      ${P.rd?slReadHtml(P):''}
+      <div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${P.on.size + P.extra.length}名</span></div>
+      ${SALES.contacts.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(P.q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${rest.map(c => slCBtn(c, P)).join('')}</div>`:'<div class="muted sm">連絡先交換の提出がありません</div>'}
       <div class="gh" style="margin-top:12px">一覧にないお客様</div>
-      ${extra.length?`<div style="${g2};margin-bottom:6px">${extra.map((n, i) => `<button class="btn g" data-sx="${i}" style="padding:9px 6px;font-size:14px;background:var(--ink);color:#fff;border-color:var(--ink)">${esc(n)}</button>`).join('')}</div>`:''}
+      ${P.extra.length?`<div style="${g2};margin-bottom:6px">${P.extra.map((n, i) => `<button class="btn g" data-sx="${i}" style="padding:9px 6px;font-size:14px;background:var(--ink);color:#fff;border-color:var(--ink)">${esc(n)}</button>`).join('')}</div>`:''}
       <div style="display:flex;gap:8px"><input id="slX" maxlength="30" placeholder="フルネーム" style="flex:1;min-width:0;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)"><button class="btn g" id="slAdd" style="width:auto;padding:0 16px">追加</button></div></div>
       <button class="btn" id="slGo">連絡済リスト共有</button>`;
+}
+/* スクショ読取の結果：一致（選択済み）と候補（［追加］で決める） */
+function slReadHtml(P){
+  const rd = P.rd, cName = id => (SALES.contacts.find(c => c.id === id) || {}).name || '';
+  return `<div class="muted sm" style="margin-bottom:6px">読取 ${rd.n}枚　一致 ${rd.hits.length}名</div>
+    ${rd.hits.length?`<div style="${g2};margin-bottom:10px">${rd.hits.map(h => h.id ? slBtn(`data-sc="${h.id}"`, cName(h.id), P.on.has(h.id)) : slBtn(`data-sxh="${esc(h.name)}"`, h.name, P.extra.includes(h.name))).join('')}</div>`:''}
+    ${rd.cands.length?`<div class="muted sm" style="display:flex;border-bottom:1px solid var(--line);padding-bottom:4px"><span style="flex:1">候補 ${rd.cands.length}名${rd.cands.every(c => !c.id)?'（前回の手打ち）':''}</span><span>読取／名前</span></div>
+      ${rd.cands.map((c, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="muted" style="flex:none;width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.read)}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span><button class="btn g" data-sca="${i}" style="width:auto;padding:0 16px;height:44px;margin:0">追加</button></div>`).join('')}<div style="height:10px"></div>`:''}`;
 }
 /* スクショ読取（2026-11-17 オーナー）：LINE のトーク一覧の表示名（ニックネーム・記号・絵文字まじり）を、その子の一覧・前の手打ちの名前・覚えた表示名と照らす。
    同じ名前（記号・敬称を除く）か覚えた表示名＝一致（選択済みにする）。名字だけ・名前だけ＝候補（本人が［追加］で決め、次から一致になるよう覚える）。合わない名前は出さない */
@@ -57,49 +62,54 @@ function slMatch(rows, info){
   return { hits, cands: cands.filter((c, i) => !seen.has(c.id || 'x:' + c.name) && cands.findIndex(x => x.key === c.key && (x.id || x.name) === (c.id || c.name)) === i) };
 }
 const slB64 = blob => new Promise((ok, ng) => { const f = new FileReader(); f.onload = () => ok(String(f.result).split(',')[1]); f.onerror = ng; f.readAsDataURL(blob); });
+/* 写真を選んだら：小さくして読取の関数（contact-read）へ。写真はどこにも残さない。失敗は黙らずに知らせる（スキル olive-photo-shoot） */
+async function slRead(P, files){
+  if(!files.length) return;
+  $('slRt').textContent = '読取中…'; $('slR').disabled = true;
+  try{
+    const images = []; for(const f of files.slice(0, 6)) images.push(await slB64(await shrinkJpeg(f)));
+    const [r, inf] = await Promise.all([sb.functions.invoke('contact-read', { body: { token: TOKEN, images } }), sb.rpc('cast_contact_read_info', { p_token: TOKEN })]);
+    if(inf.error) throw inf.error;
+    let why = r.data?.reason || ''; if(r.error && r.error.context?.json) why = await r.error.context.json().then(j => j.reason || '').catch(() => '');
+    if(r.error || !Array.isArray(r.data?.rows) || why){ await uiAlert(/まで/.test(why) ? why : 'スクショの読取に失敗しました。再度お試しください'); P.repaint(); return; }
+    P.rd = { n: images.length, ...slMatch(r.data.rows, inf.data) };
+    P.rd.hits.forEach(h => { if(h.id) P.on.add(h.id); else if(!P.extra.includes(h.name)) P.extra.push(h.name); });
+    P.repaint();
+    if(!r.data.rows.length) await uiAlert('本日のトークが見つかりません');
+  }catch(e){ await uiAlert(e.message || String(e)); P.repaint(); }
+}
+/* 候補の［追加］：選択にして、表示名を覚える（次の読取から一致） */
+async function slCand(P, b){
+  const c = P.rd.cands[+b.dataset.sca]; b.disabled = true;
+  const s = await sb.rpc('cast_contact_alias_save', { p_token: TOKEN, p_read: c.key, p_contact: c.id || null, p_name: c.name }); if(s.error){ b.disabled = false; await uiAlert(s.error.message); return; }
+  P.rd.hits.push(c.id ? { id: c.id } : { name: c.name }); if(c.id) P.on.add(c.id); else if(!P.extra.includes(c.name)) P.extra.push(c.name);
+  P.rd.cands = P.rd.cands.filter(x => x.key !== c.key && (x.id || 'x:' + x.name) !== (c.id || 'x:' + c.name)); P.repaint();
+}
+async function slShare(P){
+  const n = P.on.size + P.extra.length; if(!n){ await uiAlert('連絡したお客様を選んでください'); return; }
+  if(!await uiConfirm(`連絡済リスト ${n}名を共有しますか？`)) return;
+  $('slGo').disabled = true;
+  const q = await sb.rpc('cast_sales_report', { p_token: TOKEN, p_ids: [...P.on], p_extra: P.extra });
+  if(q.error){ if($('slGo')) $('slGo').disabled = false; await uiAlert(q.error.message); return; }
+  SALES = q.data; salesShot();
+}
 function salesPick(){
   setBack(salesHome);
-  const on = new Set(), extra = []; let q = '', rd = null; // 名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」。読みが無いので、あいうえお順ではなく文字で絞り込む）
+  const P = { on: new Set(), extra: [], q: '', rd: null }; // 名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」。読みが無いので、あいうえお順ではなく文字で絞り込む）
   const nz = v => String(v||'').replace(/[\s　]+/g, '');
-  const filt = () => { const k = nz(q); let n = 0; $('main').querySelectorAll('[data-kn]').forEach(b => { const hit = !k || nz(b.textContent).includes(k) || (!!kanaKey(q) && (b.dataset.kn || '').includes(kanaKey(q))); b.style.display = hit ? '' : 'none'; if(hit) n++; }); const z = $('slNone'); if(z) z.style.display = n ? 'none' : ''; };
-  const repaint = () => { const y = window.scrollY; paint(); window.scrollTo(0, y); };
-  const read = async files => {
-    if(!files.length) return;
-    $('slRt').textContent = '読取中…'; $('slR').disabled = true;
-    try{
-      const images = []; for(const f of files.slice(0, 6)) images.push(await slB64(await shrinkJpeg(f)));
-      const [r, inf] = await Promise.all([sb.functions.invoke('contact-read', { body: { token: TOKEN, images } }), sb.rpc('cast_contact_read_info', { p_token: TOKEN })]);
-      if(inf.error) throw inf.error;
-      let why = r.data?.reason || ''; if(r.error && r.error.context?.json) why = await r.error.context.json().then(j => j.reason || '').catch(() => '');
-      if(r.error || !Array.isArray(r.data?.rows) || why){ await uiAlert(/まで/.test(why) ? why : 'スクショの読取に失敗しました。再度お試しください'); repaint(); return; }
-      rd = { n: images.length, ...slMatch(r.data.rows, inf.data) };
-      rd.hits.forEach(h => { if(h.id) on.add(h.id); else if(!extra.includes(h.name)) extra.push(h.name); });
-      repaint();
-      if(!r.data.rows.length) await uiAlert('本日のトークが見つかりません');
-    }catch(e){ await uiAlert(e.message || String(e)); repaint(); }
-  };
+  const filt = () => { const k = nz(P.q); let n = 0; $('main').querySelectorAll('[data-kn]').forEach(b => { const hit = !k || nz(b.textContent).includes(k) || (!!kanaKey(P.q) && (b.dataset.kn || '').includes(kanaKey(P.q))); b.style.display = hit ? '' : 'none'; if(hit) n++; }); const z = $('slNone'); if(z) z.style.display = n ? 'none' : ''; };
+  P.repaint = () => { const y = window.scrollY; paint(); window.scrollTo(0, y); };
   const paint = () => {
-    show(slPickHtml(on, extra, q, rd));
-    const cnt = () => { $('slCnt').textContent = `選択 ${on.size + extra.length}名`; };
-    $('main').querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { const id = b.dataset.sc; on.has(id) ? on.delete(id) : on.add(id); /* 押したボタンと数だけ直す（前は一覧を全部作り直していた）。読取の一致と一覧の同じお客様は一緒に */
-      const v = on.has(id); $('main').querySelectorAll(`[data-sc="${id}"]`).forEach(x => { x.style.background = v ? 'var(--ink)' : ''; x.style.color = v ? '#fff' : ''; x.style.borderColor = v ? 'var(--ink)' : ''; }); cnt(); });
-    $('main').querySelectorAll('[data-sxh]').forEach(b => b.onclick = () => { const n = b.dataset.sxh, i = extra.indexOf(n); i >= 0 ? extra.splice(i, 1) : extra.push(n); repaint(); });
-    $('main').querySelectorAll('[data-sca]').forEach(b => b.onclick = async () => { const c = rd.cands[+b.dataset.sca]; b.disabled = true;
-      const s = await sb.rpc('cast_contact_alias_save', { p_token: TOKEN, p_read: c.key, p_contact: c.id || null, p_name: c.name }); if(s.error){ b.disabled = false; await uiAlert(s.error.message); return; }
-      rd.hits.push(c.id ? { id: c.id } : { name: c.name }); if(c.id) on.add(c.id); else if(!extra.includes(c.name)) extra.push(c.name);
-      rd.cands = rd.cands.filter(x => x.key !== c.key && (x.id || 'x:' + x.name) !== (c.id || 'x:' + c.name)); repaint(); });
-    $('slR').onchange = () => read([...$('slR').files]);
-    const qi = $('slQ'); if(qi) qi.oninput = () => { q = qi.value; filt(); }; filt();
-    $('main').querySelectorAll('[data-sx]').forEach(b => b.onclick = () => { extra.splice(+b.dataset.sx, 1); repaint(); });
-    $('slAdd').onclick = () => { const v = $('slX').value.trim().replace(/[\s　]+/g, ' '); if(!v) return; extra.push(v); repaint(); };
-    $('slGo').onclick = async () => {
-      const n = on.size + extra.length; if(!n){ await uiAlert('連絡したお客様を選んでください'); return; }
-      if(!await uiConfirm(`連絡済リスト ${n}名を共有しますか？`)) return;
-      $('slGo').disabled = true;
-      const q = await sb.rpc('cast_sales_report', { p_token: TOKEN, p_ids: [...on], p_extra: extra });
-      if(q.error){ if($('slGo')) $('slGo').disabled = false; await uiAlert(q.error.message); return; }
-      SALES = q.data; salesShot();
-    };
+    show(slPickHtml(P));
+    $('main').querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { const id = b.dataset.sc; P.on.has(id) ? P.on.delete(id) : P.on.add(id); /* 押したボタンと数だけ直す（前は一覧を全部作り直していた）。同じお客様のボタンは一緒に */
+      const v = P.on.has(id); $('main').querySelectorAll(`[data-sc="${id}"]`).forEach(x => { x.style.background = v ? 'var(--ink)' : ''; x.style.color = v ? '#fff' : ''; x.style.borderColor = v ? 'var(--ink)' : ''; }); $('slCnt').textContent = `選択 ${P.on.size + P.extra.length}名`; });
+    $('main').querySelectorAll('[data-sxh]').forEach(b => b.onclick = () => { const n = b.dataset.sxh, i = P.extra.indexOf(n); i >= 0 ? P.extra.splice(i, 1) : P.extra.push(n); P.repaint(); });
+    $('main').querySelectorAll('[data-sca]').forEach(b => b.onclick = () => slCand(P, b));
+    $('slR').onchange = () => slRead(P, [...$('slR').files]);
+    const qi = $('slQ'); if(qi) qi.oninput = () => { P.q = qi.value; filt(); }; filt();
+    $('main').querySelectorAll('[data-sx]').forEach(b => b.onclick = () => { P.extra.splice(+b.dataset.sx, 1); P.repaint(); });
+    $('slAdd').onclick = () => { const v = $('slX').value.trim().replace(/[\s　]+/g, ' '); if(!v) return; P.extra.push(v); P.repaint(); };
+    $('slGo').onclick = () => slShare(P);
   };
   paint();
 }
