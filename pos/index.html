@@ -137,21 +137,19 @@
 </div></section>
 </main>
 
-<div class="modal" id="custModal"><div class="box" style="width:520px">
+<div class="modal" id="custModal"><div class="box" style="width:520px"><button class="xb dx" id="custCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)">お客様を追加</h2>
   <div style="display:flex;gap:8px"><input id="custSearch" placeholder="名前・フリガナで検索" style="flex:1"><button id="custNew">新規登録</button></div>
   <div class="chips" id="custList" style="margin-top:10px"></div>
-  <div class="bar"><button class="ghost" id="custCancel">伝票へ戻る</button></div>
 </div></div>
 
-<div class="modal" id="castModal"><div class="box" style="width:640px">
+<div class="modal" id="castModal"><div class="box" style="width:640px"><button class="xb dx" id="castCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)" id="castAddTtl">係／同伴を追加</h2>
   <div class="chips" id="castRole" style="margin-bottom:10px"><button class="chip on" data-cr="kakari" style="font-size:18px;padding:10px 22px">係</button><button class="chip" data-cr="douhan" style="font-size:18px;padding:10px 22px">同伴</button><button class="chip" data-cr="after" style="font-size:18px;padding:10px 22px">アフター</button></div>
   <div class="chips hidden" id="castNone" style="margin-bottom:6px"><button class="chip" id="castNoneBtn">なし</button></div>
   <div class="muted">出勤中</div><div class="chips" id="castList"></div>
   <button class="ghost sm" id="castMoreBtn" style="margin-top:10px">出勤していないキャストから選ぶ ▾</button>
   <div class="chips hidden" id="castListAll" style="margin-top:8px"></div>
-  <div class="bar"><button class="ghost" id="castCancel">伝票へ戻る</button></div>
 </div></div>
 
 <div class="modal" id="splitModal"><div class="box">
@@ -166,22 +164,20 @@
   <div class="bar" style="justify-content:flex-end"><button class="ghost" id="uiDlgNo">キャンセル</button><button class="primary" id="uiDlgOk">OK</button></div>
 </div></div>
 
-<div class="modal" id="svcModal"><div class="box" style="width:460px">
+<div class="modal" id="svcModal"><div class="box" style="width:460px"><button class="xb dx" id="svcCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)">サービス料</h2>
   <div class="muted" id="svcNow" style="margin-bottom:10px"></div>
   <div class="form">
     <label>率の変更（%）<div style="display:flex;gap:8px"><input id="svcRate" type="number" step="1" style="flex:1;font-size:22px;text-align:right"><button class="primary" id="svcRateOk">適用</button></div></label>
     <button id="svcNormal">既定の率に戻す</button>
   </div>
-  <div class="bar"><button class="ghost" id="svcCancel">伝票へ戻る</button></div>
 </div></div>
 
-<div class="modal" id="tagModal"><div class="box" style="width:520px">
+<div class="modal" id="tagModal"><div class="box" style="width:520px"><button class="xb dx" id="tagCancel" aria-label="閉じる">×</button>
   <h2 style="color:var(--ink)">お預かりタグ</h2>
   <div class="list" id="tagList" style="margin-bottom:12px"></div>
   <div class="chips" id="tagKinds"></div>
   <div style="display:flex;gap:8px;margin-top:10px"><input id="tagNo" placeholder="タグ番号" style="width:120px"><input id="tagMemo" placeholder="メモ（色・特徴など）" style="flex:1"><button class="primary" id="tagAdd">追加</button></div>
-  <div class="bar"><button class="ghost" id="tagCancel">伝票へ戻る</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>

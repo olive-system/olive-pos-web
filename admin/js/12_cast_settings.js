@@ -219,6 +219,7 @@ async function csShiftSave(box,st,rows){
 async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const halls=(q.data||[]).filter(x=>x.kind==='hall'&&(!s||x.id!==s.id));
   // 折半は区分ではなく報酬（オーナー「折半の場合は時給も日給もない。時給か日給か折半と言う選択肢が正しい」）
   const k0=s?(s.kind==='hall'?'hall':s.kakari_only?'kakari':s.is_trial?'trial':'cast'):(kd==='seppan'?'cast':kd);
+  /* 体験は応募者の台帳から（管理サイトの応募者・マイページのシフト）。ここで新しく体験にしない（台帳につながらない体験の子ができるため）。今の体験の子だけ表示 */
   const KD=[['cast','キャスト'],['hall','黒服'],['trial','体験'],['kakari',`${KL}専用（店・ママなど。タイムカードに出ない）`]];
   const md=mkModal(null,staffEditHtml(s,isNew,kd,k0,KD,halls));
   const v=id=>md.querySelector('#'+id), paint=()=>{ const k=v('seK').value; v('sePay').style.display=k==='cast'?'grid':'none'; v('seDwB').style.visibility=isNew&&v('seP').value==='daily'?'':'hidden'; v('seTr').style.display=k==='trial'?'grid':'none'; v('seMgB').style.display=k==='hall'||k==='kakari'?'none':''; };
@@ -236,7 +237,7 @@ async function staffEdit(st,s,kd){ const isNew=!s, q=await csList(st); const hal
 function staffEditHtml(s,isNew,kd,k0,KD,halls){
   return `<h2 style="margin:0">${isNew?(kd==='hall'?'黒服の追加':'キャストの追加'):esc(s.display_name)+'　基本情報'}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>源氏名<input id="seN" value="${esc(s?.display_name||'')}"></label><label>本名<input id="seR" value="${esc(s?.real_name||'')}"></label></div>
-    <label>区分<select id="seK">${KD.map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
+    <label>区分<select id="seK">${KD.filter(([v])=>v!=='trial'||k0==='trial').map(([v,n])=>`<option value="${v}" ${v===k0?'selected':''}>${n}</option>`).join('')}</select></label>
     <div id="sePay" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>報酬${isNew?'<select id="seP"><option value="hourly">時給</option><option value="daily">日給</option></select>':`<input value="${s.is_seppan?'折半':s.pay_type==='daily'?'日給':'時給'}" disabled>`}</label><label id="seDwB">保証日給（円）<input id="seDw" inputmode="numeric"></label></div>
     <div id="seTr" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label>体験の報酬<select id="seTp"><option value="hourly" ${s?.trial_pay_type!=='daily'?'selected':''}>時給</option><option value="daily" ${s?.trial_pay_type==='daily'?'selected':''}>日給</option></select></label><label>金額（円）<input id="seTa" inputmode="numeric" value="${s?.trial_pay_amount||''}"></label></div>
     <label id="seMgB">担当黒服<select id="seMg"><option value="">未選択</option>${halls.filter(h=>h.is_active).map(h=>`<option value="${h.id}" ${s?.manager_staff_id===h.id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select></label>
