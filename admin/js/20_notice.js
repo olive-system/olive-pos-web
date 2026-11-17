@@ -53,8 +53,8 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
       ${row('店舗',sel('ntSt',sOpt,sv0))}
       <div id="ntPk" style="display:none;gap:10px;align-items:flex-start;margin-top:8px"><span class="muted" style="font-size:13px;width:5em;flex:none;padding-top:6px">対象</span><div id="ntPkL" style="flex:1;min-width:0"></div></div>
       <label style="margin-top:8px">タイトル<input id="ntT" maxlength="60" value="${esc(SE?.title||'')}"></label>
-      <label style="display:block;margin-top:8px">本文${area(SE?.body)}</label>
-      ${attRow}
+      <div id="ntBA"><label style="display:block;margin-top:8px">本文${area(SE?.body)}</label>
+      ${attRow}</div><div id="ntCd" style="display:none"></div>
       ${row('送信時刻',sel('ntW',SE?[['at','時刻指定']]:[['now','今すぐ'],['at','時刻指定']],SE?'at':'now')+`<span id="ntAt" style="display:${SE?'inline-flex':'none'};gap:6px">${sel('ntD',dOpts,ymd(sa))}${sel('ntH',tOpts.map(t=>[t,t]),hm(sa))}</span>`,'ntWr')}
       <div class="fend" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><label id="ntPl" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ntP" ${!SE||SE.push?'checked':''} style="width:auto">LINE 通知</label><span style="flex:1"></span>${SE?'<button class="ghost sm" id="ntX">キャンセル</button>':''}<button class="primary sm" id="ntS"></button></div></div>`;
   const stLbl=a=>a.length>1?'両店':ntStoreName(S.find(s=>s.id===a[0])||{});
@@ -106,7 +106,7 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   const LEAD={all:'キャストは LINEマイページに掲載、黒服は LINE に送信します',cast:'LINEマイページの「お知らせ」に掲載します',hall:'黒服の LINE に送信します（マイページには掲載しません）',hall_in:'黒服が出勤の打刻をした時に、その人の LINE に送信します（登録から14日以内・1人1回）',pick:'選んだキャストは LINEマイページに掲載、黒服は LINE に送信します'};
   const sync=()=>{ const to=$('ntTo').value, at=$('ntW').value==='at', bothOpt=$('ntSt').querySelector('option[value="all"]');
     if(bothOpt){ bothOpt.disabled=to==='pick'; if(to==='pick'&&$('ntSt').value==='all') $('ntSt').value=st; }
-    const hi=to==='hall_in'; if(hi) $('ntW').value='now'; $('ntWr').style.display=hi?'none':'flex'; $('ntAt').style.display=at&&!hi?'inline-flex':'none'; $('ntPl').style.display=to==='hall'||to==='pick'||hi?'none':'flex'; $('ntPk').style.display=to==='pick'?'flex':'none';
+    const hi=to==='hall_in'; if(hi) $('ntW').value='now'; $('ntBA').style.display=hi?'none':''; $('ntCd').style.display=hi?'':'none'; if(hi) ntCardPaint(); $('ntWr').style.display=hi?'none':'flex'; $('ntAt').style.display=at&&!hi?'inline-flex':'none'; $('ntPl').style.display=to==='hall'||to==='pick'||hi?'none':'flex'; $('ntPk').style.display=to==='pick'?'flex':'none';
     $('ntS').textContent=SE?'保存':hi?'登録':at?'予約':to==='hall'||to==='pick'?'送信':'掲載'; $('ntLead').textContent=SE?'修正':LEAD[to];
     if(to==='pick') paintPk(); };
   ['ntTo','ntW','ntSt'].forEach(k=>$(k).onchange=sync); sync();
@@ -114,14 +114,52 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
     if(!t){ await uiAlert('タイトルを入力してください'); return; }
     if(to==='pick'&&!ntPick.size){ await uiAlert('対象を選択してください'); return; }
     const sv=$('ntSt').value, ids=sv==='all'?S.map(s=>s.id):[sv], sl=sv==='all'?'両店':ntStoreName(S.find(s=>s.id===sv)), whenIso=at?`${$('ntD').value}T${$('ntH').value}:00+09:00`:null;
+    if(hi){ await ntCardSave(t,ids,sl); return; }
     if(at&&new Date(whenIso).getTime()<=Date.now()){ await uiAlert('過去の時刻は指定できません'); return; }
-    const lineMsg={all:push?'連携したキャスト・黒服全員に LINE で送信します':'',cast:push?'連携したキャスト全員に LINE で通知します':'',hall:'連携した黒服全員に LINE で送信します',hall_in:'今は送信しません。黒服が出勤の打刻をした時に、その人の LINE に送信します',pick:`選んだ ${ntPick.size}人に LINE で送信します`}[to];
+    const lineMsg={all:push?'連携したキャスト・黒服全員に LINE で送信します':'',cast:push?'連携したキャスト全員に LINE で通知します':'',hall:'連携した黒服全員に LINE で送信します',pick:`選んだ ${ntPick.size}人に LINE で送信します`}[to];
     const att=ntFiles.length?`\n添付：${ntCount(ntFiles)}`:'';
     const msg=at?`「${t}」を${SE?'保存':'予約'}しますか？\n送信時刻：${ntWhen(whenIso)}\n宛先：${NT_TO[to]}\n店舗：${sl}${att}${lineMsg?'\n'+lineMsg:''}`
-      :`「${t}」を${hi?'登録':to==='hall'||to==='pick'?'送信':'掲載'}しますか？\n宛先：${NT_TO[to]}\n店舗：${sl}${att}${lineMsg?'\n'+lineMsg:''}`;
+      :`「${t}」を${to==='hall'||to==='pick'?'送信':'掲載'}しますか？\n宛先：${NT_TO[to]}\n店舗：${sl}${att}${lineMsg?'\n'+lineMsg:''}`;
     if(!await uiConfirm(msg)) return;
     const up=[]; let a; try{ a=await ntUpload(ids[0],up); }catch(e){ await ntRemove(up); await uiAlert('添付をアップロードできません：'+(e.message||e)); return; }
     const old=gone(), x=await rpc('admin_notice_send',{p_target:to,p_stores:ids,p_title:t,p_body:b,p_push:push,p_send_at:whenIso,p_sched:SE?SE.id:null,p_attach:a,p_staff:to==='pick'?[...ntPick]:null});
     if(!x.ok){ await ntRemove(up); return; }
     await ntRemove(old);
-    toast(hi?'登録しました':at?(SE?'保存しました':'予約しました'):`${to==='hall'||to==='pick'?'送信':'掲載'}しました${push?`（LINE ${x.data.pushed}人）`:''}`); ntSched=null; ntKey=''; PAGES.notice(); }); };
+    toast(at?(SE?'保存しました':'予約しました'):`${to==='hall'||to==='pick'?'送信':'掲載'}しました${push?`（LINE ${x.data.pushed}人）`:''}`); ntSched=null; ntKey=''; PAGES.notice(); }); };
+// ---------- 黒服（出勤時）のカード：あいさつ → 項目（見出し・写真1枚・説明）4つまで → 締め（SQL 567・オーナー「1枚のカードの中に」「この形で作る」） ----------
+// LINE のカード1枚に入る量に合わせて、項目は4つまで・説明とあいさつと締めは300文字まで（データベースでも止める）
+let ntCard=null, ntCardAt=-1;
+const ntCardNew=()=>({greet:'',items:[{h:'',t:'',f:null}],close:''});
+const NT_DAY=/本日|今日/;
+function ntCardItem(x,i,n){ const ta=`width:100%;font:inherit;font-size:15px;line-height:1.6;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)`;
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px"><div style="display:flex;gap:8px;align-items:center"><b style="width:2em;flex:none;color:var(--brand-d)">${String(i+1).padStart(2,'0')}</b><input data-ih="${i}" maxlength="30" placeholder="見出し" value="${esc(x.h)}" style="flex:1;min-width:0">${n>1?`<button class="xb" data-ix="${i}" aria-label="削除">×</button>`:''}</div>
+    <div style="display:flex;gap:10px;margin-top:8px;align-items:flex-start"><div style="width:120px;flex:none">${x.f?`<div style="position:relative"><img src="${x.f.url}" alt="" style="width:120px;border-radius:6px;border:1px solid var(--line);display:block"><button class="xb" data-px="${i}" aria-label="削除" style="position:absolute;top:2px;right:2px;background:var(--card)">×</button></div>`:`<button class="ghost sm" data-pf="${i}">写真</button>`}</div>
+    <textarea data-it="${i}" rows="4" maxlength="300" placeholder="説明" style="${ta}">${esc(x.t)}</textarea></div></div>`; }
+function ntCardPaint(){ if(!ntCard) ntCard=ntCardNew(); const c=ntCard, el=$('ntCd'); if(!el) return;
+  const ta=(id,v)=>`<textarea id="${id}" rows="3" maxlength="300" style="width:100%;font:inherit;font-size:16px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(v)}</textarea>`;
+  el.innerHTML=`<label style="display:block;margin-top:8px">あいさつ${ta('ncG',c.greet)}</label><div>${c.items.map((x,i)=>ntCardItem(x,i,c.items.length)).join('')}</div>
+    ${c.items.length<4?'<button class="ghost sm" id="ncAdd" style="margin-top:8px">項目の追加</button>':''}<label style="display:block;margin-top:8px">締め${ta('ncC',c.close)}</label>
+    <input id="ncF" type="file" accept="image/*" style="display:none">`;
+  $('ncG').oninput=()=>{ c.greet=$('ncG').value; }; $('ncC').oninput=()=>{ c.close=$('ncC').value; };
+  el.querySelectorAll('[data-ih]').forEach(e=>e.oninput=()=>{ c.items[+e.dataset.ih].h=e.value; });
+  el.querySelectorAll('[data-it]').forEach(e=>e.oninput=()=>{ c.items[+e.dataset.it].t=e.value; });
+  el.querySelectorAll('[data-ix]').forEach(b=>b.onclick=()=>{ c.items.splice(+b.dataset.ix,1); ntCardPaint(); });
+  el.querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ c.items[+b.dataset.px].f=null; ntCardPaint(); });
+  el.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{ ntCardAt=+b.dataset.pf; $('ncF').value=''; $('ncF').click(); }); /* 入力欄は画面の中（スキル olive-photo-shoot） */
+  if($('ncAdd')) $('ncAdd').onclick=()=>{ c.items.push({h:'',t:'',f:null}); ntCardPaint(); };
+  $('ncF').onchange=async()=>{ const file=$('ncF').files[0]; if(!file||ntCardAt<0) return; if(!/^image\//.test(file.type)){ await uiAlert('写真を選択してください'); return; }
+    c.items[ntCardAt].f={file,url:URL.createObjectURL(file)}; ntCardPaint(); }; }
+async function ntCardSave(t,ids,sl){ const c=ntCard||ntCardNew(); const items=c.items.map(x=>({h:x.h.trim(),t:x.t.trim(),f:x.f}));
+  if(items.some(x=>!x.h)){ await uiAlert('項目の見出しを入力してください'); return; }
+  const d=new Date(Date.now()+9*3600e3), md=`${d.getUTCMonth()+1}/${d.getUTCDate()}`, day=[t,c.greet,c.close,...items.flatMap(x=>[x.h,x.t])].join('\n').match(NT_DAY);
+  const msg=`「${t}」を登録しますか？\n宛先：${NT_TO.hall_in}\n店舗：${sl}\n項目：${items.length}つ・写真：${items.filter(x=>x.f).length}枚\n今は送信しません。黒服が出勤の打刻をした時に、その人の LINE に送信します`
+    +(day?`\n\n文に「${day[0]}」があります。休みの人には後の日に届くので、「${md} から」のように日付で書くと伝わります`:'');
+  if(!await uiConfirm(msg)) return;
+  const up=[], its=[]; try{ for(const x of items){ let img=null;
+      if(x.f){ const body=await shrinkJpeg(x.f.file), bm=await createImageBitmap(body), p=`${ids[0]}/${crypto.randomUUID()}.jpg`;
+        const r=await sb.storage.from('notice-files').upload(p,body,{contentType:'image/jpeg',upsert:false}); if(r.error) throw r.error;
+        up.push(p); img={p,n:x.f.file.name.slice(0,80),w:bm.width,h:bm.height}; }
+      its.push({h:x.h,t:x.t,img}); } }
+  catch(e){ await ntRemove(up); await uiAlert('写真をアップロードできません：'+(e.message||e)); return; }
+  const r=await rpc('admin_hall_card_save',{p_stores:ids,p_title:t,p_card:{greet:c.greet.trim(),items:its,close:c.close.trim()}}); if(!r.ok){ await ntRemove(up); return; }
+  toast('登録しました'); ntCard=null; ntKey=''; PAGES.notice(); }
