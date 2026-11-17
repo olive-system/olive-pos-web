@@ -3,7 +3,7 @@
 // 同伴ノルマ罰金＝足りない回数×時間給×4時間。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算）。厚生費「標準」＝出勤 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円
 let ksMonth=null;
 const KS_COLS=[
-  ['成績',[['manager','担当','t'],['days','日数','d'],['hours','時間','h'],['ratio','給率','r'],['ratio3','3mAvg','r3'],['sales',''+KL+'小計','y'],['points','ポイント','p'],['douhan','同伴','dq'],['reactions','反応','n']]],
+  ['成績',[['manager','担当','t'],['days','日数','d'],['hours','時間','h'],['ratio','給率','r'],['ratio3','3mAvg','r3'],['sub','提出率','sb'],['sales',''+KL+'小計','y'],['points','ポイント','p'],['douhan','同伴','dq'],['reactions','反応','n']]],
   ['支給',[['wage','決定時給','w'],['time_pay','時間報酬','y'],['kakari_back','小計バック','y'],['seppan_pay','折半','y'],['item_back','商品バック','y'],['allowance','手当','y'],['special_pay','個別支給','y']]],
   ['罰金',[['fines','罰金','m'],['quota_fine','同伴ノルマ','m']]],
   ['控除',[['ctax','消費税','m'],['welfare','厚生費','m'],['special_deduct','個別控除','m'],['advance','日払（立替）','m'],['withholding','源泉徴収','m']]],
@@ -15,7 +15,7 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
   const wire=()=>{ const e=$('ksM'); if(e) e.onchange=()=>{ ksMonth=e.value; PAGES.cast_sales(); }; const x=$('ksXls'), pd=$('ksPdf'); if(x&&data){ x.disabled=pd.disabled=!(data.rows||[]).length&&!(hall?.rows||[]).length; x.onclick=guard(x,()=>ksExcel(data,hall)); pd.onclick=guard(pd,()=>ksPdf(data,hall)); } }; wire();
   // 黒服も同じ画面に（キャストの下）。Excel・PDF にも黒服を入れる
   /* キャストと黒服を1回で（キャストの計算を2回しない）。関数が無い時は今までどおり2つ */
-  let r, hr; const [sm,rt]=await Promise.all([sb.rpc('admin_staff_month',{p_store:st,p_month:m}), sb.rpc('admin_cast_ratio',{p_store:st,p_month:m})]); const RT=rt.error?{}:(rt.data?.rows||{});
+  let r, hr; const [sm,rt,sbq]=await Promise.all([sb.rpc('admin_staff_month',{p_store:st,p_month:m}), sb.rpc('admin_cast_ratio',{p_store:st,p_month:m}), sb.rpc('admin_cast_sub',{p_store:st,p_month:m})]); const RT=rt.error?{}:(rt.data?.rows||{}), SB=sbq.error?{}:(sbq.data||{}); /* 提出＝出勤した日のうち連絡済リストを共有した日（SQL 590 の cast_sub_rate。オーナー「給率を出すときには必ず提出も」） */
   if(!sm.error){ r={data:sm.data.cast}; hr=sm.data.hall?{data:sm.data.hall}:{error:{message:sm.data.hall_error||''}}; }
   else if(/admin_staff_month/.test(sm.error.message)) [r,hr]=await Promise.all([sb.rpc('admin_cast_month',{p_store:st,p_month:m}), sb.rpc('admin_hall_month',{p_store:st,p_month:m})]);
   else { r={error:sm.error}; hr={error:sm.error}; }
@@ -25,7 +25,7 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
   data=r.data; const rows=r.data?.rows||[], n=v=>Number(v||0), nf=v=>Math.round(n(v)).toLocaleString('ja-JP'), yen0=v=>v?nf(v):'—', neg=v=>v?`<span style="color:var(--warn)">−${nf(Math.abs(n(v)))}</span>`:'—';
   const pct=(t,s)=>n(s)>0?(Math.round(n(t)/n(s)*1000)/10).toFixed(1)+'%':'—';  /* 給率＝課税対象額÷係小計（Excel の給率と同じ式） */
   const rto=x=>{ const f=RT[x.id]?.fixed; return f?pct(f.taxable,f.sales):pct(x.taxable,x.sales); }, rto3=x=>{ const z=RT[x.id]; return z?pct(z.taxable,z.sales):'—'; };
-  const fmt=(k,typ,x)=>{ const v=x[k]; if(typ==='t') return esc(v||'—'); if(typ==='d') return n(v)?String(n(v)):'—'; if(typ==='h') return n(v)?n(v).toLocaleString('ja-JP',{maximumFractionDigits:2})+'H':'—'; if(typ==='r') return rto(x); if(typ==='r3') return rto3(x);
+  const fmt=(k,typ,x)=>{ const v=x[k]; if(typ==='t') return esc(v||'—'); if(typ==='d') return n(v)?String(n(v)):'—'; if(typ==='h') return n(v)?n(v).toLocaleString('ja-JP',{maximumFractionDigits:2})+'H':'—'; if(typ==='r') return rto(x); if(typ==='r3') return rto3(x); if(typ==='sb'){ const z=SB[x.id]; return z&&n(z.worked)>0?Math.round(n(z.submitted)/n(z.worked)*100)+'%':'—'; }
     if(typ==='p') return n(v)?n(v).toLocaleString('ja-JP',{maximumFractionDigits:1}):'—'; if(typ==='n') return n(v)?String(n(v)):'—';
     if(typ==='dq') return `${n(x.douhan)}${x.quota!=null?`<small class="muted">／${x.quota}</small>`:''}`;
     if(typ==='w') return v==null?(x.seppan?'—':'<span class="badge warnb">未設定</span>'):nf(v)+(x.pay_type==='daily'?' <small class="muted">日給</small>':'');
@@ -36,7 +36,7 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
   const KC=KS_COLS.map(([g,cs])=>[g,cs.filter(c=>c[0]!=='prev_adjust'||rows.some(x=>n(x.prev_adjust)))]);
   const cols=KC.flatMap(([g,cs])=>cs.map(c=>[g,...c]));
   const sumR=k=>rows.reduce((a,x)=>{ const z=k?RT[x.id]:(RT[x.id]?.fixed||x); return z?[a[0]+n(z.taxable),a[1]+n(z.sales)]:a; },[0,0]);
-  const totCell=([g,k,l,typ])=>{ if(typ==='r'||typ==='r3') return `<td>${pct(...sumR(typ==='r3'))}</td>`; if(!sumKeys.includes(k)) return '<td></td>'; if(typ==='dq') return `<td>${tot.douhan}</td>`; return `<td>${fmt(k,typ,tot)}</td>`; };
+  const totCell=([g,k,l,typ])=>{ if(typ==='r'||typ==='r3') return `<td>${pct(...sumR(typ==='r3'))}</td>`; if(typ==='sb'){ const w=rows.reduce((a,x)=>a+n(SB[x.id]?.worked),0), d=rows.reduce((a,x)=>a+n(SB[x.id]?.submitted),0); return `<td>${w?Math.round(d/w*100)+'%':'—'}</td>`; } if(!sumKeys.includes(k)) return '<td></td>'; if(typ==='dq') return `<td>${tot.douhan}</td>`; return `<td>${fmt(k,typ,tot)}</td>`; };
   $('main').innerHTML=head+'<h2 style="margin:4px 0 8px">キャスト</h2>'+(rows.length?`<div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">名前</th>${KC.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr>
     <tr>${cols.map(([g,k,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     ${rows.map(x=>`<tr><td class="nm">${esc(x.name)}${x.active?'':' <small class="muted">（退店）</small>'}${x.seppan?' <small class="muted">折半</small>':''}</td>${cols.map(([g,k,l,typ])=>`<td>${fmt(k,typ,x)}</td>`).join('')}</tr>`).join('')}
