@@ -119,7 +119,7 @@ function ksSlips(y,mo,sn,fn,v,nmT){
     return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${nmT(x)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L(x.pay_type==='daily'?'決定日給':'決定時給',x.wage?ksN(x.wage).toLocaleString('ja-JP'):'--')}
       ${grp('支給対象',pay)}${grp('控除対象',ded)}${L('総支給額',ksN(x.taxable-ksDed(x)).toLocaleString('ja-JP'))}${L('課税対象額',v(x.taxable))}${L('源泉徴収',v(x.withholding))}${ksAdvL(x,L,v)}${ksN(x.prev_adjust)?L('前月精算',(ksN(x.prev_adjust)<0?'−':'')+Math.abs(ksN(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額',(ksN(x.net)<0?'−':'')+'¥'+Math.abs(ksN(x.net)).toLocaleString('ja-JP'),'net')}</table></div>`; };
   // 黒服の明細（基本給・遅刻・早退・ボーナス）
-  const hallSlip=x=>{ const pay=[L(`基本給（${CS_HPAY[x.pay_type]||'—'}）`,v(x.base)),L('遅刻・早退',ksN(x.late_deduct)?'−'+v(x.late_deduct):'--'),L('ボーナス',v(x.bonus)),L('手当など、その他',v(ksN(x.allowance)+ksN(x.special_pay))),L('合計',v(x.taxable),'sum')];
+  const hallSlip=x=>{ const pay=[L(`基本給（${CS_HPAY[x.pay_type]||'—'}）`,v(x.base)),L((x.absent_days||[]).length?'遅刻・早退・欠勤':'遅刻・早退',ksN(x.late_deduct)?'−'+v(x.late_deduct):'--'),L('ボーナス',v(x.bonus)),L('手当など、その他',v(ksN(x.allowance)+ksN(x.special_pay))),L('合計',v(x.taxable),'sum')];
     const ded=[L('消費税',v(x.ctax)),L('罰金',v(x.fines)),L('厚生費',v(x.welfare)),L('個別控除',v(x.special_deduct)),L('合計',v(ksDed(x)),'sum')];
     return `<div class="sl"><div class="sh"><div class="t1">報酬支払明細書</div><div>令和 ${y-2018}年 ${mo}月分</div><div>${esc(sn)}</div><div class="nm">${nmT(x)}</div></div><table><colgroup><col class="c1"><col><col class="c3"></colgroup>${L('稼働日数',ksN(x.days)+'日')}${L('稼働時間',ksHM(x.hours))}${L('遅刻・早退',`${ksN(x.late_min)+ksN(x.early_min)}分`)}
       ${grp('支給対象',pay)}${grp('控除対象',ded)}${L('総支給額',ksN(x.taxable-ksDed(x)).toLocaleString('ja-JP'))}${L('課税対象額',v(x.taxable))}${L('源泉徴収',v(x.withholding))}${L('日払（立替）',v(x.advance))}${ksN(x.prev_adjust)?L('前月精算',(ksN(x.prev_adjust)<0?'−':'')+Math.abs(ksN(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額',(ksN(x.net)<0?'−':'')+'¥'+Math.abs(ksN(x.net)).toLocaleString('ja-JP'),'net')}</table></div>`; };
@@ -166,15 +166,15 @@ function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
 /* 黒服の報酬の表の1行 */
 function hallPayRow(x,{own,PA,N,neg,y0,ms,mn,share,nf}){
   return `<tr><td class="nm">${esc(x.name)}${x.active?'':' <small class="muted">（退店）</small>'}</td><td>${x.pay_type?CS_HPAY[x.pay_type]+(x.amount!=null?' '+nf(x.amount):''):'<span class="badge warnb">未設定</span>'}</td><td>${nf(ms[x.id])} <small class="muted">担当 ${N(mn[x.id])}人</small></td><td>${share(x)}</td><td>${N(x.days)?N(x.days):'—'}</td><td>${N(x.hours)?N(x.hours)+'H':'—'}</td><td>${y0(x.base)}</td>
-      <td>${(x.late_days||[]).length?`<span data-hplate="${x.id}" style="cursor:pointer;border-bottom:1px dotted #999">${neg(x.late_deduct)}</span>`:neg(x.late_deduct)}${N(x.late_min)+N(x.early_min)?`<br><small class="muted">遅刻${N(x.late_min)}分・早退${N(x.early_min)}分</small>`:''}${x.late_fixed?' <span class="badge">修正済</span>':''}</td>
+      <td>${(x.late_days||[]).length||(x.absent_days||[]).length?`<span data-hplate="${x.id}" style="cursor:pointer;border-bottom:1px dotted #999">${neg(x.late_deduct)}</span>`:neg(x.late_deduct)}${N(x.late_min)+N(x.early_min)?`<br><small class="muted">遅刻${N(x.late_min)}分・早退${N(x.early_min)}分</small>`:''}${(x.absent_days||[]).length?`<br><small class="muted">欠勤${x.absent_days.length}日</small>`:''}${x.late_fixed?' <span class="badge">修正済</span>':''}</td>
       <td>${y0(x.bonus)}${x.bonus_fixed!=null?' <span class="badge">修正済</span>':''}</td><td>${y0(x.allowance)}</td><td>${y0(x.special_pay)}</td><td>${y0(x.taxable)}</td><td>${neg(x.fines)}</td><td>${neg(x.ctax)}</td><td>${neg(x.welfare)}</td><td>${neg(x.special_deduct)}</td><td>${neg(x.advance)}</td><td>${neg(x.withholding)}</td>${PA?`<td>${N(x.prev_adjust)<0?neg(-N(x.prev_adjust)):y0(x.prev_adjust)}</td>`:''}
       <td>${N(x.net)<0?`<b style="color:var(--warn)">−${nf(Math.abs(N(x.net)))}</b>`:`<b>${nf(x.net)}</b>`}</td>${own?`<td><button class="ghost sm" data-hpfix="${x.id}">修正</button></td>`:''}</tr>`;
 }
-/* 月給の黒服の遅刻の日（見るだけの小窓）。罰金の一覧と同じく、日・理由・金額を1行ずつ（オーナー「ア 出す」）。金額は計算の答え（late_days）のまま */
-function hallLateView(x,m){ const N=v=>Number(v||0), ld=x.late_days||[], lt=ld.reduce((a,z)=>a+N(z.amount),0), md2=d=>{ const t=String(d).slice(5).split('-'); return (+t[0])+'/'+(+t[1]); };
+/* 月給の黒服の遅刻・欠勤の日（見るだけの小窓。欠勤は SQL 620）。罰金の一覧と同じく、日・理由・金額を1行ずつ（オーナー「ア 出す」）。金額は計算の答え（late_days）のまま */
+function hallLateView(x,m){ const N=v=>Number(v||0), ld=x.late_days||[], ab=x.absent_days||[], lt=ld.reduce((a,z)=>a+N(z.amount),0)+N(x.absent_amount), md2=d=>{ const t=String(d).slice(5).split('-'); return (+t[0])+'/'+(+t[1]); };
   const ln=(a,b,c)=>`<div style="display:flex;gap:12px;padding:7px 2px;border-bottom:1px solid var(--line)"><span class="muted" style="flex:none;width:4em">${a}</span><span style="flex:1">${b}</span><span style="flex:none;text-align:right;color:var(--warn)">${c}</span></div>`;
-  const md=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">${esc(x.name)}　遅刻・早退（${csMLabel(m)} −${N(x.late_deduct).toLocaleString('ja-JP')}円）</h2>
-    <div style="font-size:15px">${ld.map(z=>ln(md2(z.d),`${z.nocontact?'無断遅刻':'遅刻'}（${N(z.min)}分）`,N(z.amount).toLocaleString('ja-JP')+'円')).join('')}${!x.late_fixed&&N(x.early_min)?ln('',`早退（${N(x.early_min)}分）`,(N(x.late_deduct)-lt).toLocaleString('ja-JP')+'円'):''}</div>${x.late_fixed?'<div class="muted" style="font-size:13px">［修正］で入力した減算額です</div>':''}`);
+  const md=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">${esc(x.name)}　${ab.length?'遅刻・早退・欠勤':'遅刻・早退'}（${csMLabel(m)} −${N(x.late_deduct).toLocaleString('ja-JP')}円）</h2>
+    <div style="font-size:15px">${ld.map(z=>ln(md2(z.d),`${z.nocontact?'無断遅刻':'遅刻'}（${N(z.min)}分）`,N(z.amount).toLocaleString('ja-JP')+'円')).join('')}${ab.map(z=>ln(md2(z.d),z.nocontact?'無断欠勤':'欠勤',N(z.amount).toLocaleString('ja-JP')+'円')).join('')}${!x.late_fixed&&N(x.early_min)?ln('',`早退（${N(x.early_min)}分）`,(N(x.late_deduct)-lt).toLocaleString('ja-JP')+'円'):''}</div>${x.late_fixed?'<div class="muted" style="font-size:13px">［修正］で入力した減算額です</div>':''}`);
   md.querySelector('[data-k=ok]').onclick=()=>md.remove(); }
 /* 黒服の報酬の修正の小窓（遅刻・早退の減算額・ボーナス・連絡なし） */
 async function hallPayFix(x,m){
@@ -182,7 +182,7 @@ async function hallPayFix(x,m){
     const ld=x.pay_type==='monthly'?(x.late_days||[]):[];
     const md=mkModal(null,hallPayFixHtml(x,m,ld));
     /* （点検 C5）：「連絡なし」を変更したら、手入力の減算額を空にして決まりどおりの額で計算し直す（前は手入力があると額が変わらなかった）。早退の分＝自動の減算額−遅刻日の額の合計 */
-    const ldAmt=c=>N(md.querySelector(`[data-ncamt="${c.dataset.nc}"]`).dataset.min)/15*2000*(c.checked?2:1), early=x.late_fixed?null:N(x.late_deduct)-ld.reduce((a,z)=>a+N(z.amount),0);
+    const ldAmt=c=>N(md.querySelector(`[data-ncamt="${c.dataset.nc}"]`).dataset.min)/15*2000*(c.checked?2:1), early=x.late_fixed?null:N(x.late_deduct)-ld.reduce((a,z)=>a+N(z.amount),0)-N(x.absent_amount); /* 欠勤の分（620）も早退の分から外す */
     md.querySelectorAll('[data-nc]').forEach(c=>c.onchange=()=>{ const b=md.querySelector(`[data-ncamt="${c.dataset.nc}"]`); b.textContent=yen(ldAmt(c)); const L=md.querySelector('#hfL'); L.value='';
       L.placeholder=early==null?'自動':`自動（${yen(early+[...md.querySelectorAll('[data-nc]')].reduce((a,y)=>a+ldAmt(y),0))}）`; });
     const v=await new Promise(res=>{ md.querySelector('[data-k=no]').onclick=()=>{ md.remove(); res(null); }; md.querySelector('[data-k=ok]').onclick=()=>{ const g=id=>md.querySelector(id).value.trim(); const o={l:g('#hfL'),b:g('#hfB'),nc:[...md.querySelectorAll('[data-nc]:checked')].map(c=>c.dataset.nc)}; md.remove(); res(o); }; });
@@ -197,7 +197,7 @@ function hallPayFixHtml(x,m,ld){
       ${ld.map(z=>`<div style="display:grid;grid-template-columns:60px 56px 1fr auto;align-items:center;gap:6px;padding:7px 12px;border-top:1px solid var(--line)"><span>${md2(z.d)}</span><span>${N(z.min)}分</span><label style="display:inline-flex;align-items:center;gap:5px;margin:0"><input type="checkbox" data-nc="${esc(z.d)}"${z.nocontact?' checked':''}>無断遅刻</label><b data-ncamt="${esc(z.d)}" data-min="${N(z.min)}">${yen(N(z.amount))}</b></div>`).join('')}</div>`:'';
   return `<h2 style="margin:0">${esc(x.name)}　${csMLabel(m)}の報酬の修正</h2><div class="muted" style="font-size:14px">空にすると自動の計算に戻ります（自動：ボーナス ${yen(N(x.bonus_auto))}）</div>
       ${ldBox}
-      <label>遅刻・早退の減算額<input id="hfL" inputmode="numeric" value="${x.late_fixed?N(x.late_deduct):''}" placeholder="自動（${yen(N(x.late_deduct))}）"></label>
+      <label>遅刻・早退・欠勤の減算額<input id="hfL" inputmode="numeric" value="${x.late_fixed?N(x.late_deduct):''}" placeholder="自動（${yen(N(x.late_deduct))}）"></label>
       <label>ボーナス<input id="hfB" inputmode="numeric" value="${x.bonus_fixed!=null?N(x.bonus_fixed):''}" placeholder="自動（${yen(N(x.bonus_auto))}）"></label>
       <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`;
 }

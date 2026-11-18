@@ -10,7 +10,7 @@ PAGES.o_waive=async()=>{ const st=storeId, head=`<h1>罰金免除申請 <small c
     <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px">${P.map(p=>`<label class="ck" style="white-space:nowrap"><input type="checkbox" data-wsc="${sc}" value="${p.id}" ${(D[sc]||[]).includes(p.id)?'checked':''}>${esc(p.name)}${p.kind==='cast'?' <small class="muted">キャスト</small>':''}</label>`).join('')}</div></div>`;
   $('main').innerHTML=head+`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b>オーナーのLINE連携</b><span>${D.owner_linked?'<span class="badge">連携済</span>':'<span class="badge gray">未連携</span>'} <button class="ghost sm" id="wvLink">${D.owner_linked?'再連携':'LINE連携'}</button></span></div>
     <div class="muted" style="font-size:13px;margin-top:4px">この店の公式 LINE を友だち追加したスマホで QR を読み、入った文を送信します</div><div id="wvQr"></div></div>
-    ${box('cast','キャスト分','POS の打刻修正の罰金免除申請と、キャストの遅刻連絡が届きます')}${box('hall','黒服分','黒服の遅刻連絡が届きます')}
+    ${box('cast','キャスト分','POS の打刻修正の罰金免除申請と、キャストの遅刻連絡が届きます')}${box('hall','黒服分','黒服の遅刻連絡・欠勤連絡が届きます')}
     <div class="muted" style="font-size:13px">選べるのは LINE連携済の人です。だれか1人が押せば決まります</div>`;
   $('main').querySelectorAll('[data-wsc]').forEach(c=>c.onchange=async()=>{ const sc=c.dataset.wsc, ids=[...$('main').querySelectorAll(`[data-wsc="${sc}"]:checked`)].map(x=>x.value);
     const q=await rpc('admin_waive_set',{p_store:st,p_scope:sc,p_ids:ids}); if(q.ok) toast('保存しました'); else PAGES.o_waive(); });
