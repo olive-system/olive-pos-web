@@ -234,7 +234,7 @@ function hcBodyDayMemo(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', ge
   return { body, getData }; }
 /* シフト未定の確認（SQL 619）：明日以降シフト未登録の在籍キャストを1人ずつ 在籍／退店 で選ぶ。全員を選ぶまで［保存］は出さない（本日ボトル提案と同じ形）。
    在籍 → TODO「シフト決めの連絡」（シフトが入ると自動で完了）。退店 → POS の在籍リストの行に［退店］。退店処理が終わるまで未完了 */
-const SN_CH = { '在籍': 'stay', '退店': 'leave' };
+const SN_CH = { '在籍': 'stay', 'スポット': 'spot', '退店': 'leave' };   /* スポット：シフトを出さずにたまに来る子（SQL 628・626 staff_spot_set） */
 function hcBodyShiftNone(H){ const {D, sv} = H; const L = D || [];
   const body = `<div class="muted sm" style="margin:0 2px 8px;line-height:1.7">明日以降シフト未登録の在籍キャスト</div><div class="card">${L.map((c, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0;font-weight:700">${esc(c.name)}</div>
     <select data-sn="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選択</option>${Object.keys(SN_CH).map(w => `<option ${c.choice === SN_CH[w] ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
@@ -245,10 +245,37 @@ function hcWireShiftNone(H){ const L = H.D || [], M = $('main'), s = $('clSv'), 
   const box = t => `<div class="sm" style="margin-top:6px;line-height:1.7;background:var(--gold-soft);border-radius:8px;padding:6px 10px">${t}</div>`;
   const sync = () => { L.forEach((c, i) => { const v = M.querySelector(`[data-sn="${i}"]`).value;
       M.querySelector(`[data-snm="${i}"]`).innerHTML = v === '在籍' ? box(`保存すると、TODO に「シフト決めの連絡　${esc(c.name)}」が入ります`)
+        : v === 'スポット' ? box(`保存すると、${esc(c.name)}の在籍区分がスポットに変更されます`)
         : v === '退店' ? box(`POS の［在籍リスト］で、${esc(c.name)}の行に［退店］が表示されます。押すと退店処理の小窓が開きます<br>退店処理の完了まで、この確認は未完了です`) : ''; });
     const all = L.every((c, i) => M.querySelector(`[data-sn="${i}"]`).value); s.style.display = all ? '' : 'none'; if(hint) hint.style.display = all || !L.length ? 'none' : ''; };
   M.querySelectorAll('[data-sn]').forEach(e => e.onchange = sync); sync(); }
-const HC_BODY = { shift_none: hcBodyShiftNone, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: hcBodyShiire, day_memo: hcBodyDayMemo };
+/* 保証条件の確認（SQL 635）：毎月15日から。週○日以上の条件に届かない見込みの子を 本人都合／店都合 で選ぶ（黒服に選ばせるのはこの2つだけ・オーナー）。
+   1人分は2段（名前と選択／出勤日数／必要出勤日数）＋選んだ後の結果の1行。店都合で70%に届かない子は［条件再設定］→ 期限と担当黒服の1行 */
+const GC_CH = { '本人都合': 'self', '店都合': 'store' };
+function hcBodyGuarantee(H){ const {D, sv} = H; const L = (D && D.rows) || [], HL = (D && D.halls) || [];
+  const fld = 'font:inherit;font-size:14px;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:#fff';
+  const body = `<div class="muted sm" style="margin:0 2px 8px;line-height:1.7">保証条件 未達見込み（${D.month}月）</div><div class="card">${L.map((c, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0;font-weight:700">${esc(c.name)}</div>
+    <select data-gc="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選択</option>${Object.keys(GC_CH).map(w => `<option ${c.reason === GC_CH[w] ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
+    <div class="muted sm" style="line-height:1.6;font-variant-numeric:tabular-nums">出勤日数／必要出勤日数　${c.plan}日／${c.need}日（あと${c.need - c.plan}日）</div>
+    <div class="sm" data-gcr="${i}" style="line-height:1.6;display:flex;align-items:center;gap:8px"></div>
+    <div data-gcs="${i}" style="display:none;align-items:center;gap:8px;margin-top:6px;white-space:nowrap"><span class="muted sm">期限</span><input type="date" data-gcd="${i}" value="${esc(c.deadline || D.due)}" style="${fld};flex:1;min-width:0;height:40px">
+      <span class="muted sm" style="margin-left:6px">担当</span><select data-gca="${i}" style="${fld};width:auto;height:40px">${HL.map(h => `<option value="${h.id}" ${h.id === (c.assignee || c.manager) ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}</select></div></div>`).join('') || '<div class="muted">対象のキャストはいません</div>'}</div>
+    <div class="muted sm" id="gcHint" style="margin:8px 2px">全員を選ぶと［保存］が表示されます</div>${sv()}`;
+  const q = (k, i) => $('main').querySelector(`[data-${k}="${i}"]`);
+  return { body, getData: () => ({ rows: L.map((c, i) => ({ id: c.id, reason: GC_CH[q('gc', i).value], deadline: q('gcd', i).value, assignee: q('gca', i).value })) }) }; }
+function hcWireGuarantee(H){ const L = (H.D && H.D.rows) || [], D = H.D || {}, s = $('clSv'), hint = $('gcHint'); if(!s) return;
+  const q = (k, i) => $('main').querySelector(`[data-${k}="${i}"]`), open = new Set(L.map((c, i) => c.deadline ? i : -1));
+  const reset = (c, i) => q('gc', i).value === '店都合' && c.plan < c.min;
+  const sync = () => { L.forEach((c, i) => { const v = q('gc', i).value, r = q('gcr', i), sl = c.daily ? 'スライド日給' : 'スライド時給', gw = c.daily ? '保証日給' : '保証時給';
+      const t = v === '本人都合' ? `${sl}・スポットへ変更` : v === '店都合' ? (reset(c, i) ? sl : gw) : '';
+      r.style.color = v && (v === '本人都合' || reset(c, i)) ? 'var(--warn)' : 'var(--muted)';
+      r.innerHTML = t ? `<span style="flex:1">→ ${D.month}月　${t}</span>${reset(c, i) ? `<button type="button" data-gco="${i}" style="font:inherit;font-size:14px;height:40px;margin-top:4px;padding:0 12px;white-space:nowrap;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:8px">条件再設定</button>` : ''}` : '';
+      q('gcs', i).style.display = reset(c, i) && open.has(i) ? 'flex' : 'none';
+      const b = r.querySelector('[data-gco]'); if(b) b.onclick = () => { open.add(i); sync(); }; });
+    const all = L.every((c, i) => q('gc', i).value && (!reset(c, i) || open.has(i)));
+    s.style.display = all ? '' : 'none'; if(hint){ hint.style.display = all || !L.length ? 'none' : ''; hint.textContent = L.some((c, i) => reset(c, i) && !open.has(i)) ? '［条件再設定］で期限と担当を選ぶと［保存］が表示されます' : '全員を選ぶと［保存］が表示されます'; } };
+  L.forEach((c, i) => q('gc', i).onchange = sync); sync(); }
+const HC_BODY = { shift_none: hcBodyShiftNone, guarantee: hcBodyGuarantee, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: hcBodyShiire, day_memo: hcBodyDayMemo };
 /* 作業の種類ごとの、押した時の動き */
 function hcWireDrinks(H, again){ const {x, ph, r, k, D, td, sv} = H;
   { const T = D.flatMap(g => g.items.filter(a => a.track));
@@ -306,7 +333,7 @@ async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s
   s.onclick = async () => { s.disabled = true; const q = await sb.rpc('hall_kpb_review_save', { p_token: TOKEN, p_task: x.id, p_rows: L.map((t, i) => ({ bill_id: t.bill_id, reason: sel(i) })) });
     if(q.error){ s.disabled = false; await uiAlert(q.error.message); return; } s.disabled = false; hcSave(x, ph, s, hcBodyBottle(H).getData); };
 }
-const HC_WIRE = { shift_none: hcWireShiftNone, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: hcWireShiire, memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
+const HC_WIRE = { shift_none: hcWireShiftNone, guarantee: hcWireGuarantee, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: hcWireShiire, memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
 /* 写真とコメントの欄（その作業に要る時だけ） */
 function hcPhotoBox(x, s){
   if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" id="clPl" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label></div><div id="clPg"></div>` : ''}
