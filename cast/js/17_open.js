@@ -77,6 +77,24 @@ function htBindB(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, agai
 
 const shRows = {};   // 仕入れの入力中の行（追加・× で描き直しても残す）
 const drOut = {};   // 配達・買い出しの入力中の本数
+// 品の選択肢（POS のメニューのカテゴリーごと・最後に品名入力）。仕入れと返品で同じ
+const prodOpts = (P, r) => `<option value="">選択</option>${[...new Set(P.map(p => p.cat))].map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!r.free && r.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${r.free ? 'selected' : ''}>品名入力</option>`;
+const rtRows = {};   // 返品の入力中の行（納品物と今日出たお酒・ドリンクで同じ日の返品を1つの記録として見せる）
+// 返品のカード（仕入れと同じ形：品は POS のメニューから選ぶ・メニューに無い品は品名入力。オーナー見本 作業場/見本の画像/返品の行（11-18）/）
+const rtInit = (x, r) => { const T = r.data.returns || {}; if(!rtRows[x.id]) rtRows[x.id] = (T.rows || []).map(a => ({ pid: a.product_id || '', name: a.product_id ? '' : (a.name || ''), qty: String(a.qty), free: !a.product_id })); return rtRows[x.id]; };
+const rtCard = (x, r) => { if(!r.data.returns) return ''; const R = rtInit(x, r), P = r.data.returns.products || [], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
+  const opts = a => prodOpts(P, a);
+  return `<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">返品</b><button class="btn g" id="rtAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
+    ${R.map((a, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-rtp="${i}" style="flex:1;min-width:0;${fs}">${opts(a)}</select>
+      <input data-rtq="${i}" inputmode="numeric" maxlength="3" value="${esc(a.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="xb" data-rtx="${i}" aria-label="削除">×</button></div>
+      <input data-rtn="${i}" maxlength="60" placeholder="品名" value="${esc(a.name)}" style="display:${a.free ? 'block' : 'none'};width:100%;margin-top:6px;${fs}"></div>`).join('') || '<div class="muted" style="padding:9px 2px">返品なし</div>'}</div>`; };
+const rtData = x => rtRows[x.id] ? { returns: rtRows[x.id].filter(a => a.pid || a.name.trim() || a.qty !== '').map(a => a.free ? { name: a.name.trim(), qty: a.qty } : { product_id: a.pid, qty: a.qty }) } : {};   // 何も入れていない行は送らない
+const rtWire = (x, again) => { const R = rtRows[x.id]; if(!R || !$('rtAdd')) return;
+  $('rtAdd').onclick = () => { R.push({ pid: '', name: '', qty: '', free: false }); again(); };
+  $('main').querySelectorAll('[data-rtx]').forEach(b => b.onclick = () => { R.splice(+b.dataset.rtx, 1); again(); });
+  $('main').querySelectorAll('[data-rtp]').forEach(b => b.onchange = () => { const a = R[+b.dataset.rtp]; a.free = b.value === 'free'; a.pid = a.free ? '' : b.value; $('main').querySelector(`[data-rtn="${b.dataset.rtp}"]`).style.display = a.free ? 'block' : 'none'; });
+  $('main').querySelectorAll('[data-rtq]').forEach(b => b.oninput = () => { R[+b.dataset.rtq].qty = b.value.trim(); });
+  $('main').querySelectorAll('[data-rtn]').forEach(b => b.oninput = () => { R[+b.dataset.rtn].name = b.value; }); };
 const shClr = {};   // 差の内訳（入荷待ち・未開封戻し・当日購入）の入力中の値（品ごと）
 const SH_KIND = { wait: '入荷待ち', unopened: '未開封戻し', bought: '当日購入' };
 // 発注一覧の文（LINE・メールにそのまま貼る。発注が1以上の品だけ。オーナー「挨拶の言葉も入れて」・見本 作業場/見本の画像/発注一覧のコピーと照合_案.png）
@@ -153,9 +171,9 @@ function hcBodyDrinks(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', get
       <input data-dro="${a.id}" inputmode="numeric" maxlength="3" value="${esc(O[a.id] ?? '0')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box"><b data-drn="${a.id}" style="${cnt}">${drNeed(a, O)}</b></div>`;
     body = `<div class="card">${D.map((g, i) => { const t = g.items.filter(a => a.track), o = g.items.filter(a => !a.track);
       return `<div style="padding:9px 2px 2px;${i ? 'border-top:1px solid var(--line)' : ''}">${t.length ? `<b>${esc(g.cat)}</b>${hd}${t.map(tr).join('')}` : ''}${o.length ? `<div style="display:flex;gap:4px 12px;flex-wrap:wrap;padding:${t.length ? '8px 2px 6px;border-top:1px solid var(--line)' : '0 0 6px'}">${t.length ? '' : `<b>${esc(g.cat)}</b>`}${o.map(a => `<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>` : ''}</div>`; }).join('') || '<div class="muted">なし</div>'}</div>
-      ${T.length ? `<div class="card"><div style="display:flex;align-items:center;margin-bottom:6px"><b style="flex:1">発注一覧</b><button class="btn g" id="drCp" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">コピー</button></div>
+      ${rtCard(x, r)}${T.length ? `<div class="card"><div style="display:flex;align-items:center;margin-bottom:6px"><b style="flex:1">発注一覧</b><button class="btn g" id="drCp" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">コピー</button></div>
         <div id="drTx" style="white-space:pre-wrap;line-height:1.7;background:var(--soft);border-radius:8px;padding:8px 10px;user-select:text;-webkit-user-select:text">${esc(drText(r.data, T, O))}</div></div>` : ''}${sv()}`;
-    getData = () => ({ rows: T.map(a => ({ id: a.id, out: (O[a.id] ?? '0').trim() })) });
+    getData = () => ({ rows: T.map(a => ({ id: a.id, out: (O[a.id] ?? '0').trim() })), ...rtData(x) });
   return { body, getData }; }
 // オールアップ確認（オーナー「必ず1時までには女の子を上がらせたい」）。遅い順に3名・未退勤は保存不可・1:05 超過は理由が必須。基準を 1:05 に（オーナー「1時ではなく1時5分に。広島も銀座も」）
 // 閉店時刻を1分でも過ぎた会計も出し、その時は会計の理由も必須（SQL 530・531）。理由の枠は、超過のある箱の一番下にだけ出す（オーナー「退勤の下に理由、会計の下に理由」「超過の時だけ、理由の枠がでる」）
@@ -194,19 +212,19 @@ function hcBodyTrialJudge(H){ const {x, ph, r, k, D, td, sv} = H; let body = '',
   return { body, getData }; }
 // 開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー見本 作業場/棚卸し_案2.png）
 function hcBodyShiire(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
-    const P = D.products || [], cats = [...new Set(P.map(p => p.cat))], ab = id => (P.find(p => p.id === id) || {}).ab;
+    const P = D.products || [], ab = id => (P.find(p => p.id === id) || {}).ab;
     if(!shRows[x.id]) shRows[x.id] = (D.rows || []).length ? D.rows.map(r => ({ pid: r.product_id || '', name: r.product_id ? '' : r.name, qty: String(r.qty), free: !r.product_id }))
       : (D.orders || []).map(o => ({ pid: o.id, name: '', qty: '', free: false, ord: true }));   // 前の日までの発注を数は空欄で並べる
     if(!shClr[x.id]) shClr[x.id] = Object.fromEntries((D.orders || []).filter(o => (o.cleared || []).length).map(o => [o.id, { kind: o.cleared[0].kind, qty: String(o.cleared.reduce((s, c) => s + c.qty, 0)) }]));   // 保存した差の内訳
     const R = shRows[x.id], C = shClr[x.id], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
-    const opts = r => `<option value="">選択</option>${cats.map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!r.free && r.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${r.free ? 'selected' : ''}>品名入力</option>`;
+    const opts = r => prodOpts(P, r);
     body = `${(D.orders || []).length ? `<div class="card" id="shCk"><div id="shCkT">${shCheck(D, R, C)}</div><div id="shCl">${shClear(D, R, C)}</div></div>` : ''}<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">仕入れ</b><button class="btn g" id="shAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
       ${R.map((r, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-shp="${i}" style="flex:1;min-width:0;${fs}">${opts(r)}</select>
         <input data-shq="${i}" inputmode="numeric" maxlength="3" value="${esc(r.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="xb" data-shx="${i}" aria-label="削除">×</button></div>
         <input data-shn="${i}" maxlength="60" placeholder="品名" value="${esc(r.name)}" style="display:${r.free ? 'block' : 'none'};width:100%;margin-top:6px;${fs}">
-        <span data-sha="${i}" style="display:${!r.free && ab(r.pid) ? 'inline-block' : 'none'};margin-top:4px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)">高級酒</span></div>`).join('') || '<div class="muted" style="padding:9px 2px">入荷なし</div>'}</div>${sv()}`;
+        <span data-sha="${i}" style="display:${!r.free && ab(r.pid) ? 'inline-block' : 'none'};margin-top:4px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)">高級酒</span></div>`).join('') || '<div class="muted" style="padding:9px 2px">入荷なし</div>'}</div>${rtCard(x, r)}${sv()}`;
     getData = () => ({ rows: R.filter(r => !(r.ord && r.pid && (r.qty === '' || r.qty === '0'))).map(r => r.free ? { name: r.name, qty: r.qty } : { product_id: r.pid, qty: r.qty }),   // 届かなかった発注の品（空欄・0）は仕入れに入れない
-      clears: shShort(D, R).filter(a => C[a.id] && C[a.id].kind !== 'wait').map(a => ({ product_id: a.id, qty: (C[a.id].qty || '').trim(), kind: C[a.id].kind })) });   // 入荷待ちは送らない
+      clears: shShort(D, R).filter(a => C[a.id] && C[a.id].kind !== 'wait').map(a => ({ product_id: a.id, qty: (C[a.id].qty || '').trim(), kind: C[a.id].kind })), ...rtData(x) });   // 入荷待ちは送らない
   return { body, getData }; }
 function hcBodyDayMemo(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
@@ -220,6 +238,7 @@ function hcWireDrinks(H, again){ const {x, ph, r, k, D, td, sv} = H;
     $('main').querySelectorAll('[data-dro]').forEach(b => b.oninput = () => { const O = drOut[x.id], a = T.find(i => i.id === b.dataset.dro); O[b.dataset.dro] = b.value;
       $('main').querySelector(`[data-drn="${b.dataset.dro}"]`).textContent = drNeed(a, O); $('drTx').textContent = drText(r.data, T, drOut[x.id]); });
     if($('drCp')) $('drCp').onclick = () => copyText(drText(r.data, T, drOut[x.id])); }
+  rtWire(x, again);
 }
 function hcWireShiire(H, again){ const {x, ph, r, k, D, td, sv} = H;
   { const R = shRows[x.id], C = shClr[x.id], ab = id => ((D.products || []).find(p => p.id === id) || {}).ab, q = (a, i) => $('main').querySelector(`[data-${a}="${i}"]`);
@@ -234,6 +253,7 @@ function hcWireShiire(H, again){ const {x, ph, r, k, D, td, sv} = H;
       q('shn', i).style.display = r.free ? 'block' : 'none'; q('sha', i).style.display = !r.free && ab(r.pid) ? 'inline-block' : 'none'; ck(); });
     $('main').querySelectorAll('[data-shq]').forEach(b => b.oninput = () => { R[+b.dataset.shq].qty = b.value.trim(); ck(); });
     $('main').querySelectorAll('[data-shn]').forEach(b => b.oninput = () => { R[+b.dataset.shn].name = b.value; }); }
+  rtWire(x, again);
 }
 function hcWireMemoReq(H, again){ const {x, ph, r, k, D, td, sv} = H;
   [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
@@ -286,6 +306,6 @@ async function hcSave(x, ph, s, getData){ s.disabled = true;
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         await todoPhotosUp(p.data, f); } /* 3枚ずつ同時に送る */
       const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
-      delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; delete shClr[x.id]; delete drOut[x.id]; hallTasks(ph);
+      delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; delete shClr[x.id]; delete drOut[x.id]; delete rtRows[x.id]; hallTasks(ph);
     }catch(e){ s.disabled = false; await uiAlert(e.message || String(e)); }
 }
