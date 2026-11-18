@@ -52,7 +52,7 @@ function tdAddHtml(){
   const f = (k, u) => { const t = TD_ADD.find(x => x[0] === k)[1], n = k === 'name';
     return `<input data-tda="${k}" placeholder="${t}" ${n ? 'maxlength="60"' : `inputmode="${k === 'points' ? 'decimal' : 'numeric'}" maxlength="${k === 'qty' ? 3 : 9}"`} style="${fs}${n ? '' : ';text-align:right'}${k === 'qty' ? ';flex:0 0 64px' : ''}">${u ? `<span class="muted sm" style="width:1.5em">${u}</span>` : ''}`; };
   const line = h => `<div style="display:flex;align-items:center;gap:8px;margin-top:8px">${h}</div>`;
-  return `<div class="card"><b>メニュー追加</b><div class="seg" style="margin:8px 0 0">${cats.map(c => `<button type="button" data-tdc="${c}" class="${c === tdAddCat ? 'on' : ''}" style="padding:8px 2px;white-space:nowrap">${c}</button>`).join('')}</div>
+  return `<div class="card"><b>メニュー追加</b><div class="seg" style="margin:8px 0 0">${cats.map((c, i) => `<button type="button" data-tdc="${c}" class="${c === tdAddCat ? 'on' : ''}" style="padding:8px 4px;white-space:nowrap;font-size:15px${i ? ';border-left:1px solid var(--pri)' : ''}">${c}</button>`).join('')}</div>
     ${line(f('name') + f('qty', '本'))}${line(f('price', '円') + f('sub', '円'))}${line(f('back', '円') + f('points', 'pt'))}
     <button class="btn g" id="tdAddGo" style="margin-top:12px">追加</button></div>`;
 }
