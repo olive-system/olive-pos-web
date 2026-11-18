@@ -39,8 +39,32 @@ function tdAbHtml(x, done){
   const box = D.size ? `<div class="warnbox" style="padding:12px 16px"><b class="t" style="margin-bottom:2px">違う ${D.size}品</b>${why ? '再度数えても違う品は、理由を入力してください' : '再度数えてください'}</div>` : '';
   if(done) return Object.keys(C).length ? G.map(g => `<div class="card"><b>${esc(g.title)}</b>${g.products.map((p, i) => row(p, i, `<b>${C[p.id] ?? ''}</b>`)).join('')}</div>`).join('') : '';
   return box + G.map((g, gi) => `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">${esc(g.title)}</b><span class="muted sm" data-abn="${gi}">${tdAbCnt(g.products)}</span></div>
-    ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid ${D.has(p.id) ? 'var(--warn)' : 'var(--line)'};border-radius:8px">`)).join('')}</div>`).join('');
+    ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid ${D.has(p.id) ? 'var(--warn)' : 'var(--line)'};border-radius:8px">`)).join('')}</div>`).join('') + tdAddHtml();
 }
+/* メニュー追加（オーナー「黒服のスマホから」「販売価格と小計額、ポイントも」「縦に長くするな」「棚卸しに集中させたい」）。2行：メニュー名｜本数・販売価格｜小計。バック・ポイントは 0 で入れて POS で確認
+   カテゴリーは上の切り替え（ボトルキープは、数える品がある店＝銀座だけ）。略称は出さない（POS で空欄でよい欄）。足した品はすぐ一覧に出て、入れた本数が基準 */
+const TD_ADD = [['name', 'メニュー名'], ['qty', '本数'], ['price', '販売価格'], ['sub', '小計']];
+let tdAddCat = 'ワイン';
+function tdAddHtml(){
+  const fs = 'flex:1;min-width:0;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)';
+  const cats = ['ワイン', 'シャンパン', ...(tdAbGroups().some(g => g.title === 'ボトルキープ' && (g.products || []).length) ? ['ボトルキープ'] : [])];
+  if(!cats.includes(tdAddCat)) tdAddCat = 'ワイン';
+  const f = (k, u) => { const t = TD_ADD.find(x => x[0] === k)[1], n = k === 'name';
+    return `<input data-tda="${k}" placeholder="${t}" ${n ? 'maxlength="60"' : `inputmode="numeric" maxlength="${k === 'qty' ? 3 : 9}"`} style="${fs}${n ? '' : ';text-align:right'}${k === 'qty' ? ';flex:0 0 64px' : ''}">${u ? `<span class="muted sm" style="width:1.5em">${u}</span>` : ''}`; };
+  const line = h => `<div style="display:flex;align-items:center;gap:8px;margin-top:8px">${h}</div>`;
+  return `<div class="card"><b>メニュー追加</b><div class="seg" style="margin:8px 0 0">${cats.map((c, i) => `<button type="button" data-tdc="${c}" class="${c === tdAddCat ? 'on' : ''}" style="padding:8px 4px;white-space:nowrap;font-size:15px${i ? ';border-left:1px solid var(--pri)' : ''}">${c}</button>`).join('')}</div>
+    ${line(f('name') + f('qty', '本'))}${line(f('price', '円') + f('sub', '円'))}<div class="muted sm" style="margin-top:6px">バック・ポイントは POS で確認してください</div>
+    <button class="btn g" id="tdAddGo" style="margin-top:12px">追加</button></div>`;
+}
+function tdAddWire(x){ if(!$('tdAddGo')) return;
+  $('main').querySelectorAll('[data-tdc]').forEach(b => b.onclick = () => { tdAddCat = b.dataset.tdc; $('main').querySelectorAll('[data-tdc]').forEach(x => x.classList.toggle('on', x === b)); });
+  $('tdAddGo').onclick = async () => { const v = { ...Object.fromEntries([...$('main').querySelectorAll('[data-tda]')].map(e => [e.dataset.tda, e.value.trim()])), cat: tdAddCat, back: '0', points: '0' };
+    const miss = TD_ADD.find(([k]) => !v[k]); if(miss){ await uiAlert(`${miss[1]}を入力してください`); return; }
+    $('tdAddGo').disabled = true;
+    const r = await sb.rpc('hall_menu_add', { p_token: TOKEN, p_item: x.id, p_row: v, ...(x.carry ? { p_day: x.day } : {}) });
+    if(r.error){ if($('tdAddGo')) $('tdAddGo').disabled = false; await uiAlert(r.error.message); return; }
+    const ab = await sb.rpc('hall_ab_items', { p_token: TOKEN }); if(!ab.error) tdAB = ab.data;
+    tdAbVals[r.data.id] = v.qty; await uiAlert(`${v.name}を追加しました`); hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null }); }; }
 /* 数える品の入力：打つたびに、その仲間の入れた数を出し直す */
 function tdAbWire(){ $('main').querySelectorAll('[data-abw]').forEach(b => b.oninput = () => { tdWhy[b.dataset.abw] = b.value; });
   $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); }); }
@@ -82,7 +106,7 @@ function hallTodoOne(x, keep){
   if(done){ hallTodoRedo(x); return; }
   const redraw = () => hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null });
   const abP = tdAB && tdAB.item === x.id ? tdAB.products || [] : [];
-  tdAbWire();
+  tdAbWire(); tdAddWire(x);
   if($('tdP')) $('tdP').onchange = () => { const f = $('tdP').files[0]; if(!f) return; tdShots.push({ file: f, url: URL.createObjectURL(f) }); redraw(); };
   $('main').querySelectorAll('[data-tdx]').forEach(b => b.onclick = () => { const k = +b.dataset.tdx; URL.revokeObjectURL(tdShots[k].url); tdShots.splice(k, 1); redraw(); });
   $('tdGo').onclick = async () => {
