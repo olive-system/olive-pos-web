@@ -41,19 +41,25 @@ function tdAbHtml(x, done){
   return box + G.map((g, gi) => `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">${esc(g.title)}</b><span class="muted sm" data-abn="${gi}">${tdAbCnt(g.products)}</span></div>
     ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid ${D.has(p.id) ? 'var(--warn)' : 'var(--line)'};border-radius:8px">`)).join('')}</div>`).join('') + tdAddHtml();
 }
-/* メニュー追加（オーナー「黒服のスマホから」「販売価格と小計額、ポイントも」）。欄の名前と並びは POS の 設定→メニュー［追加］と同じ。足した品はすぐ一覧に出て、入れた本数が基準
-   ボトルキープは、数える品がある店（銀座）だけ選べる */
-const TD_ADD = [['name', 'メニュー名'], ['short', '略称'], ['cat', 'カテゴリー'], ['price', '販売価格（税抜）'], ['sub', '小計価格（KL小計に入る額）'], ['back', 'バック金額'], ['points', 'バックポイント'], ['qty', '本数']];
+/* メニュー追加（オーナー「黒服のスマホから」「販売価格と小計額、ポイントも」「縦に長くするな」）。3行：メニュー名｜本数・販売価格｜小計・バック金額｜ポイント
+   カテゴリーは上の切り替え（ボトルキープは、数える品がある店＝銀座だけ）。略称は出さない（POS で空欄でよい欄）。足した品はすぐ一覧に出て、入れた本数が基準 */
+const TD_ADD = [['name', 'メニュー名'], ['qty', '本数'], ['price', '販売価格'], ['sub', '小計'], ['back', 'バック金額'], ['points', 'ポイント']];
+let tdAddCat = 'ワイン';
 function tdAddHtml(){
-  const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)';
+  const fs = 'flex:1;min-width:0;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)';
   const cats = ['ワイン', 'シャンパン', ...(tdAbGroups().some(g => g.title === 'ボトルキープ' && (g.products || []).length) ? ['ボトルキープ'] : [])];
-  return `<div class="card"><b>メニュー追加</b>${TD_ADD.map(([k, t]) => `<div class="muted sm" style="margin:10px 0 4px">${t.replace('KL', KL || '係')}</div>${k === 'cat' ? `<select data-tda="cat" style="${fs}">${cats.map(c => `<option>${c}</option>`).join('')}</select>`
-    : `<input data-tda="${k}" ${['name', 'short'].includes(k) ? `maxlength="${k === 'name' ? 60 : 30}"` : 'inputmode="numeric" maxlength="9"'} style="${fs}${['name', 'short'].includes(k) ? '' : ';text-align:right'}">`}`).join('')}
+  if(!cats.includes(tdAddCat)) tdAddCat = 'ワイン';
+  const f = (k, u) => { const t = TD_ADD.find(x => x[0] === k)[1], n = k === 'name';
+    return `<input data-tda="${k}" placeholder="${t}" ${n ? 'maxlength="60"' : `inputmode="${k === 'points' ? 'decimal' : 'numeric'}" maxlength="${k === 'qty' ? 3 : 9}"`} style="${fs}${n ? '' : ';text-align:right'}${k === 'qty' ? ';flex:0 0 64px' : ''}">${u ? `<span class="muted sm" style="width:1.5em">${u}</span>` : ''}`; };
+  const line = h => `<div style="display:flex;align-items:center;gap:8px;margin-top:8px">${h}</div>`;
+  return `<div class="card"><b>メニュー追加</b><div class="seg" style="margin:8px 0 0">${cats.map(c => `<button type="button" data-tdc="${c}" class="${c === tdAddCat ? 'on' : ''}" style="padding:8px 2px;white-space:nowrap">${c}</button>`).join('')}</div>
+    ${line(f('name') + f('qty', '本'))}${line(f('price', '円') + f('sub', '円'))}${line(f('back', '円') + f('points', 'pt'))}
     <button class="btn g" id="tdAddGo" style="margin-top:12px">追加</button></div>`;
 }
 function tdAddWire(x){ if(!$('tdAddGo')) return;
-  $('tdAddGo').onclick = async () => { const v = Object.fromEntries([...$('main').querySelectorAll('[data-tda]')].map(e => [e.dataset.tda, e.value.trim()]));
-    const miss = TD_ADD.find(([k]) => k !== 'short' && !v[k]); if(miss){ await uiAlert(`${miss[1].replace('（KL小計に入る額）', '')}を入力してください`); return; }
+  $('main').querySelectorAll('[data-tdc]').forEach(b => b.onclick = () => { tdAddCat = b.dataset.tdc; $('main').querySelectorAll('[data-tdc]').forEach(x => x.classList.toggle('on', x === b)); });
+  $('tdAddGo').onclick = async () => { const v = { ...Object.fromEntries([...$('main').querySelectorAll('[data-tda]')].map(e => [e.dataset.tda, e.value.trim()])), cat: tdAddCat };
+    const miss = TD_ADD.find(([k]) => !v[k]); if(miss){ await uiAlert(`${miss[1]}を入力してください`); return; }
     $('tdAddGo').disabled = true;
     const r = await sb.rpc('hall_menu_add', { p_token: TOKEN, p_item: x.id, p_row: v, ...(x.carry ? { p_day: x.day } : {}) });
     if(r.error){ if($('tdAddGo')) $('tdAddGo').disabled = false; await uiAlert(r.error.message); return; }
