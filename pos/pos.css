@@ -141,3 +141,6 @@ label.cllb{display:inline-block;cursor:pointer;border-radius:10px;padding:6px 14
 /* 本日ボトル提案（SQL 589）：札の上のオリーブの帯。札の高さは変えない */.tbl.busy .name.kb{background:var(--head);color:#fff;margin:-12px -12px 2px;padding:5px 12px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center}.tbl.busy .name.kb span{font-size:15px}
 /* 閉店作業の領収書の撮影：POS の中のカメラと、撮った後の角の修正（19_close_receipt.js）。映像は枠の中に収め、上に角の丸を重ねる */
 .box.clcam{width:min(980px,96vw);padding:0;overflow:hidden;background:var(--ink);position:relative}.box.clcam .dx{color:var(--card);z-index:2}.clcv{position:relative;height:min(68vh,640px)}.clcv video,.clcv canvas{position:absolute;left:0;top:0;width:100%;height:100%}.clcv video{object-fit:contain}.clcb{height:88px;display:flex;align-items:center;justify-content:center}.clsh{width:66px;height:66px;border-radius:50%;border:4px solid var(--card);background:var(--card);box-shadow:inset 0 0 0 4px var(--ink);padding:0;cursor:pointer}.box.clcam .bar{background:var(--card)}
+/* 在籍リストの名前の行のしるしは小さく同じ大きさに（行を増やさない） */
+.rrow .nm .badge{font-size:11px;padding:1px 7px;vertical-align:2px}
+#joinBox input:not([type=checkbox]),#joinBox select,#joinBox #jnSl{height:44px;box-sizing:border-box}   /* 入店の小窓の枠の高さをそろえる（オーナー「枠の縦幅がバラバラ」） */

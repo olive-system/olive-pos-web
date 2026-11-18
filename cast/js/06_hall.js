@@ -11,7 +11,7 @@ async function hallTodo(){
   const tag = t => `<small class="muted" style="border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap">${t}</small>`;
   const card = (x,i) => `<button class="card" data-td="${i}" style="display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${esc(x.name)}</b>${x.carry ? tag(md(x.day)) : TODO_SLOT[x.slot] ? tag(TODO_SLOT[x.slot]) : ''}</div>
-    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:14px"><span class="muted">${[x.need_photo?'写真':'', x.need_note?'書く':''].filter(Boolean).join('・')}</span>${st(x)}</div></button>`;
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px;font-size:14px"><span class="muted">${x.sub ? esc(x.sub) : [x.need_photo?'写真':'', x.need_note?'書く':''].filter(Boolean).join('・')}</span>${st(x)}</div></button>`;
   const C = L.map((x,i) => [x,i]).filter(([x]) => x.carry), T = L.map((x,i) => [x,i]).filter(([x]) => !x.carry), cd = D.carry_days || [], late17 = D.deadline === '17:00';
   const sec = (t, right, warn) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 2px 6px;font-weight:700;${warn?'color:var(--warn)':''}"><span>${t}</span>${right||''}</div>`;
   show(`<div class="ttl">TODO　${mdWD(d)}</div>
