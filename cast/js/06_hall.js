@@ -44,6 +44,15 @@ function tdAbHtml(x, done){
 /* 数える品の入力：打つたびに、その仲間の入れた数を出し直す */
 function tdAbWire(){ $('main').querySelectorAll('[data-abw]').forEach(b => b.oninput = () => { tdWhy[b.dataset.abw] = b.value; });
   $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); }); }
+/* 在庫確認の［完了］：数と理由を送る。違う品があれば画面を描き直して false（1回目は空欄に戻して再度数える。再度数えても違えば理由） */
+async function tdStockCheck(x, abP){
+  if(tdDiff && tdDiff.step === 2 && tdDiff.ids.some(id => !String(tdWhy[id] ?? '').trim())){ $('tdGo').disabled = false; await uiAlert('理由を入力してください'); return false; }
+  const c = await sb.rpc('hall_stock_check', { p_token: TOKEN, p_item: x.id, p_rows: Object.fromEntries(abP.map(p => [p.id, tdAbVals[p.id]])), p_reasons: tdDiff && tdDiff.step === 2 ? tdWhy : {}, ...(x.carry ? { p_day: x.day } : {}) }); if(c.error) throw c.error;
+  if(!(c.data && c.data.status === 'diff')) return true;
+  const ids = c.data.items || [];
+  if(!tdDiff){ ids.forEach(id => { delete tdAbVals[id]; }); tdDiff = { step: 1, ids }; } else tdDiff = { step: 2, ids };
+  hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null }); window.scrollTo(0, 0); return false;
+}
 /* TODO の1件の画面の文（済・できない・数える品・内容・写真・ボタン） */
 function hallTodoHtml(x, keep, done, ph, grid, fld){ return `<div class="ttl">${esc(x.name)}</div><div class="card">${TODO_SLOT[x.slot]?`<div class="muted" style="font-size:13px;margin-bottom:6px">${TODO_SLOT[x.slot]}</div>`:''}<div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps||'手順なし')}</div></div>
     ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${ph.length?` <small class="muted">（写真 ${ph.length}枚）</small>`:''}${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${ph.length?grid(ph.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')):''}</div>${tdAbHtml(x, true)}
@@ -83,13 +92,7 @@ function hallTodoOne(x, keep){
     if(x.need_photo && !tdShots.length){ await uiAlert('写真を撮ってください'); return; }
     $('tdGo').disabled = true;
     try{
-      if(abP.length){
-        if(tdDiff && tdDiff.step === 2 && tdDiff.ids.some(id => !String(tdWhy[id] ?? '').trim())){ $('tdGo').disabled = false; await uiAlert('理由を入力してください'); return; }
-        const c = await sb.rpc('hall_stock_check', { p_token: TOKEN, p_item: x.id, p_rows: Object.fromEntries(abP.map(p => [p.id, tdAbVals[p.id]])), p_reasons: tdDiff && tdDiff.step === 2 ? tdWhy : {}, ...(x.carry ? { p_day: x.day } : {}) }); if(c.error) throw c.error;
-        if(c.data && c.data.status === 'diff'){   /* 1回目は空欄に戻して再度数える。再度数えても違えば理由 */
-          const ids = c.data.items || [];
-          if(!tdDiff){ ids.forEach(id => { delete tdAbVals[id]; }); tdDiff = { step: 1, ids }; } else tdDiff = { step: 2, ids };
-          hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null }); window.scrollTo(0, 0); return; } }
+      if(abP.length && !await tdStockCheck(x, abP)) return;
       if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length , ...(x.carry ? { p_day: x.day } : {}) }); if(p.error) throw p.error;
         const n = tdShots.length; $('tdGo').textContent = `送っています（0/${n}）`; /* 3枚ずつ同時に送る。数は送り終わった枚数 */
         await todoPhotosUp(p.data, tdShots.map(s => s.file), k => { $('tdGo').textContent = `送っています（${k}/${n}）`; }); }
