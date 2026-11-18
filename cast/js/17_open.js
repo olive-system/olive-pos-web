@@ -36,6 +36,7 @@ function htRow(K, x, i){ const { D, nil } = K; const mine = x.wip_id === D.me, o
     if(nil(x)) right = '<span class="muted sm">なし</span>';
     else if(x.status === 'done') right = x.kind === 'todo' ? '<b style="color:var(--ok);font-size:13px">完了</b>'
       : `<b style="color:var(--ok);font-size:13px;white-space:nowrap">${esc(x.by || '')} ${x.at ? hmJst(x.at) : ''} 完了</b>${simple && x.staff_id === D.me ? tBtn('opu', i, '取消', true) : ''}`;
+    else if(x.kind === 'shift_none' && !x.sn_open && x.leave_wait) right = `<b style="color:var(--warn);font-size:13px;white-space:nowrap">退店処理待ち ${x.leave_wait}</b>`; /* 退店を選んだ子の退店処理（POS）が終わると自動で完了 */
     else if(x.kind === 'todo') right = `<b style="color:var(--warn);font-size:13px">未完了 ${x.todo_open}</b>${tBtn('optd', i, '表示', true)}`;
     else if(na) right = `${x.wip_by ? wipTag(x.wip_by) : ''}<span class="muted sm">対象外</span>`;
     else if(other) right = `${wipTag(x.wip_by)}${tBtn('opt', i, '交代', true)}`;
@@ -231,7 +232,23 @@ function hcBodyDayMemo(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', ge
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;
     getData = () => ({ memo: $('clMemo').value });
   return { body, getData }; }
-const HC_BODY = { bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: hcBodyShiire, day_memo: hcBodyDayMemo };
+/* シフト未定の確認（SQL 619）：明日以降シフト未登録の在籍キャストを1人ずつ 在籍／退店 で選ぶ。全員を選ぶまで［保存］は出さない（本日ボトル提案と同じ形）。
+   在籍 → TODO「シフト決めの連絡」（シフトが入ると自動で完了）。退店 → POS の在籍リストの行に［退店］。退店処理が終わるまで未完了 */
+const SN_CH = { '在籍': 'stay', '退店': 'leave' };
+function hcBodyShiftNone(H){ const {D, sv} = H; const L = D || [];
+  const body = `<div class="muted sm" style="margin:0 2px 8px;line-height:1.7">明日以降シフト未登録の在籍キャスト</div><div class="card">${L.map((c, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0;font-weight:700">${esc(c.name)}</div>
+    <select data-sn="${i}" style="width:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選択</option>${Object.keys(SN_CH).map(w => `<option ${c.choice === SN_CH[w] ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
+    <div class="muted sm" style="line-height:1.6">${[c.joined ? `入店 ${esc(c.joined)}` : '', `担当黒服 ${esc(c.manager || '未選択')}`].filter(Boolean).join('・')}<br>最終出勤 ${esc(c.last || 'なし')}</div><div data-snm="${i}"></div></div>`).join('') || '<div class="muted">対象のキャストはいません</div>'}</div>
+    <div class="muted sm" id="snHint" style="margin:8px 2px">全員を選ぶと［保存］が表示されます</div>${sv()}`;
+  return { body, getData: () => ({ rows: L.map((c, i) => ({ id: c.id, choice: SN_CH[$('main').querySelector(`[data-sn="${i}"]`).value] })) }) }; }
+function hcWireShiftNone(H){ const L = H.D || [], M = $('main'), s = $('clSv'), hint = $('snHint'); if(!s) return;
+  const box = t => `<div class="sm" style="margin-top:6px;line-height:1.7;background:var(--gold-soft);border-radius:8px;padding:6px 10px">${t}</div>`;
+  const sync = () => { L.forEach((c, i) => { const v = M.querySelector(`[data-sn="${i}"]`).value;
+      M.querySelector(`[data-snm="${i}"]`).innerHTML = v === '在籍' ? box(`保存すると、TODO に「シフト決めの連絡　${esc(c.name)}」が入ります`)
+        : v === '退店' ? box(`POS の［在籍リスト］で、${esc(c.name)}の行に［退店］が表示されます。押すと退店処理の小窓が開きます<br>退店処理の完了まで、この確認は未完了です`) : ''; });
+    const all = L.every((c, i) => M.querySelector(`[data-sn="${i}"]`).value); s.style.display = all ? '' : 'none'; if(hint) hint.style.display = all || !L.length ? 'none' : ''; };
+  M.querySelectorAll('[data-sn]').forEach(e => e.onchange = sync); sync(); }
+const HC_BODY = { shift_none: hcBodyShiftNone, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: hcBodyShiire, day_memo: hcBodyDayMemo };
 /* 作業の種類ごとの、押した時の動き */
 function hcWireDrinks(H, again){ const {x, ph, r, k, D, td, sv} = H;
   { const T = D.flatMap(g => g.items.filter(a => a.track));
@@ -289,7 +306,7 @@ async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s
   s.onclick = async () => { s.disabled = true; const q = await sb.rpc('hall_kpb_review_save', { p_token: TOKEN, p_task: x.id, p_rows: L.map((t, i) => ({ bill_id: t.bill_id, reason: sel(i) })) });
     if(q.error){ s.disabled = false; await uiAlert(q.error.message); return; } s.disabled = false; hcSave(x, ph, s, hcBodyBottle(H).getData); };
 }
-const HC_WIRE = { bottle: hcWireBottle, drinks: hcWireDrinks, shiire: hcWireShiire, memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
+const HC_WIRE = { shift_none: hcWireShiftNone, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: hcWireShiire, memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
 /* 写真とコメントの欄（その作業に要る時だけ） */
 function hcPhotoBox(x, s){
   if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" id="clPl" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label></div><div id="clPg"></div>` : ''}
