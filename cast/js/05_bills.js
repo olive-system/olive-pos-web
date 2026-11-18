@@ -72,7 +72,7 @@ function hallHome(){
   show(`<div class="hello">${esc(ME.name)} さん</div>${sh('本日の業務')}<div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('work',night?'閉店作業':'開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('daily','日報','',!!ME.form)}</div>
     ${sh('キャスト')}<div class="tiles">${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('shift','シフト','全員',true)}</div>
     ${sh('店舗情報')}<div class="tiles" data-info="1">${tile('cs','顧客サイト','',true)}</div>
-    ${sh('個人')}<div class="tiles" data-me="1">${tile('late','遅刻連絡','',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('docs','書類','',true)}${tile('card','名刺発注','',true)}</div>`);
+    ${sh('個人')}<div class="tiles" data-me="1">${tile('late','欠勤・遅刻連絡','',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('docs','書類','',true)}${tile('card','名刺発注','',true)}</div>`);
   hallHomeWire(H, night);
 }
 /* 黒服のホームのボタンをつなぐ */
@@ -89,7 +89,7 @@ function hallHomeWire(H, night){
   $('main').querySelector('[data-go=docs]').onclick = docsList; /* 黒服も自分の書類（契約書は黒服の条文。オーナー「その人の契約書をその人のマイページで」） */
   H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* 未提出の時だけ */ if(!ok) loadNg(); /*点検 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
-  $('main').querySelector('[data-go=late]').onclick = () => lateForm(true); /* 遅刻連絡（シフトの時刻より前。承認者に公式 LINE） */
+  $('main').querySelector('[data-go=late]').onclick = hallAbsent; /* 欠勤・遅刻連絡（キャストと同じく欠勤から。上で遅刻に切り替え。承認者に公式 LINE） */
   mtHallTile(H.mtg); /* ミーティング（担当の子の割当）。ボタンはシフトの中。未申請はシフトのボタンに */
   $('main').querySelector('[data-go=shift]').onclick = () => shiftAll(); /* キャスト全員のシフト（4段目の右の空きに） */
   { const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.onclick = () => { const u = encodeURI(ME.form); try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; } }; } /* 名前（日本語）を URL の形に。フォームは Google のログインが要る（写真のアップロード）ので、LINE の中ではなくスマホのブラウザで開く */
