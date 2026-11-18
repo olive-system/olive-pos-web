@@ -39,8 +39,26 @@ function tdAbHtml(x, done){
   const box = D.size ? `<div class="warnbox" style="padding:12px 16px"><b class="t" style="margin-bottom:2px">違う ${D.size}品</b>${why ? '再度数えても違う品は、理由を入力してください' : '再度数えてください'}</div>` : '';
   if(done) return Object.keys(C).length ? G.map(g => `<div class="card"><b>${esc(g.title)}</b>${g.products.map((p, i) => row(p, i, `<b>${C[p.id] ?? ''}</b>`)).join('')}</div>`).join('') : '';
   return box + G.map((g, gi) => `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">${esc(g.title)}</b><span class="muted sm" data-abn="${gi}">${tdAbCnt(g.products)}</span></div>
-    ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid ${D.has(p.id) ? 'var(--warn)' : 'var(--line)'};border-radius:8px">`)).join('')}</div>`).join('');
+    ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid ${D.has(p.id) ? 'var(--warn)' : 'var(--line)'};border-radius:8px">`)).join('')}</div>`).join('') + tdAddHtml();
 }
+/* メニュー追加（オーナー「黒服のスマホから」「販売価格と小計額、ポイントも」）。欄の名前と並びは POS の 設定→メニュー［追加］と同じ。足した品はすぐ一覧に出て、入れた本数が基準
+   ボトルキープは、数える品がある店（銀座）だけ選べる */
+const TD_ADD = [['name', 'メニュー名'], ['short', '略称'], ['cat', 'カテゴリー'], ['price', '販売価格（税抜）'], ['sub', '小計価格（KL小計に入る額）'], ['back', 'バック金額'], ['points', 'バックポイント'], ['qty', '本数']];
+function tdAddHtml(){
+  const fs = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)';
+  const cats = ['ワイン', 'シャンパン', ...(tdAbGroups().some(g => g.title === 'ボトルキープ' && (g.products || []).length) ? ['ボトルキープ'] : [])];
+  return `<div class="card"><b>メニュー追加</b>${TD_ADD.map(([k, t]) => `<div class="muted sm" style="margin:10px 0 4px">${t.replace('KL', KL || '係')}</div>${k === 'cat' ? `<select data-tda="cat" style="${fs}">${cats.map(c => `<option>${c}</option>`).join('')}</select>`
+    : `<input data-tda="${k}" ${['name', 'short'].includes(k) ? `maxlength="${k === 'name' ? 60 : 30}"` : 'inputmode="numeric" maxlength="9"'} style="${fs}${['name', 'short'].includes(k) ? '' : ';text-align:right'}">`}`).join('')}
+    <button class="btn g" id="tdAddGo" style="margin-top:12px">追加</button></div>`;
+}
+function tdAddWire(x){ if(!$('tdAddGo')) return;
+  $('tdAddGo').onclick = async () => { const v = Object.fromEntries([...$('main').querySelectorAll('[data-tda]')].map(e => [e.dataset.tda, e.value.trim()]));
+    const miss = TD_ADD.find(([k]) => k !== 'short' && !v[k]); if(miss){ await uiAlert(`${miss[1].replace('（KL小計に入る額）', '')}を入力してください`); return; }
+    $('tdAddGo').disabled = true;
+    const r = await sb.rpc('hall_menu_add', { p_token: TOKEN, p_item: x.id, p_row: v, ...(x.carry ? { p_day: x.day } : {}) });
+    if(r.error){ if($('tdAddGo')) $('tdAddGo').disabled = false; await uiAlert(r.error.message); return; }
+    const ab = await sb.rpc('hall_ab_items', { p_token: TOKEN }); if(!ab.error) tdAB = ab.data;
+    tdAbVals[r.data.id] = v.qty; await uiAlert(`${v.name}を追加しました`); hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null }); }; }
 /* 数える品の入力：打つたびに、その仲間の入れた数を出し直す */
 function tdAbWire(){ $('main').querySelectorAll('[data-abw]').forEach(b => b.oninput = () => { tdWhy[b.dataset.abw] = b.value; });
   $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); }); }
@@ -82,7 +100,7 @@ function hallTodoOne(x, keep){
   if(done){ hallTodoRedo(x); return; }
   const redraw = () => hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null });
   const abP = tdAB && tdAB.item === x.id ? tdAB.products || [] : [];
-  tdAbWire();
+  tdAbWire(); tdAddWire(x);
   if($('tdP')) $('tdP').onchange = () => { const f = $('tdP').files[0]; if(!f) return; tdShots.push({ file: f, url: URL.createObjectURL(f) }); redraw(); };
   $('main').querySelectorAll('[data-tdx]').forEach(b => b.onclick = () => { const k = +b.dataset.tdx; URL.revokeObjectURL(tdShots[k].url); tdShots.splice(k, 1); redraw(); });
   $('tdGo').onclick = async () => {
