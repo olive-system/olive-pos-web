@@ -37,7 +37,7 @@ function joinBox(s,tbls){
   const R=[['担当黒服',joinSel('jnMg',[['','未選択'],...halls.map(h=>[h.id,h.display_name])],s.manager_staff_id||'')],
     ['報酬',joinSel('jnPt',[['hourly','時給'],['daily','日給']],'hourly')],
     /* 保証の条件「出勤 週○日以上」は保証時給と同じ行に（オーナー「出勤週4以上のこれ、保証時給の横にしようか」）。空＝条件なし */
-    [`<span id="jnAmL">保証時給</span>`,`<span style="display:flex;align-items:center;gap:10px;white-space:nowrap">${joinInp('jnAm',110)} 円<span style="display:flex;align-items:center;gap:6px;margin-left:14px"><span class="muted" style="font-size:13px">出勤</span>週 ${joinInp('jnDw',56)} 日以上</span></span>`],
+    [`<span id="jnAmL">保証時給</span>`,`<span style="display:flex;align-items:center;gap:10px;white-space:nowrap">${joinInp('jnAm',110)} 円<span style="display:flex;align-items:center;gap:6px;margin-left:14px">（出勤 週 ${joinInp('jnDw',56)} 日以上で）</span></span>`],
     ['保証の期限',`<span style="display:flex;align-items:center;gap:10px;white-space:nowrap"><input type="date" id="jnGu" style="width:140px"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="jnGf" style="width:20px;height:20px">無期限</label></span>`],
     ['スライド表','<button class="ghost sm" id="jnSl" data-v="[]"><span class="badge warnb">未選択</span></button>'],
     ['同伴ノルマ',joinInp('jnQ',60)+' 回'],['小計バック',joinInp('jnBk',60)+' %'],
