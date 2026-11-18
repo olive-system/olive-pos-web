@@ -22,21 +22,37 @@ async function hallTodo(){
 // 写真は40枚まで（広島の黒服の報告「充電の写真は24枚上げる必要があるが10枚までしか送れない」）
 // 写真は10枚まで（並べて見て × で外せる）・完了の後も精算までは「やり直す」（黒服の報告 → オーナー「この形でよい」「精算までは直せる」）
 let tdShots = [];
-/* AB棚の棚卸し（オーナー「先入観なくできる棚卸しで」）。数える人には理論在庫も前回の数も出さない。空欄から入力 */
-let tdAB = null, tdAbVals = {};
+/* 高級酒の在庫確認（オーナー「先入観なくできる棚卸しで」）。数える人には理論在庫も前回の数も出さない。空欄から入力 */
+/* 理論在庫と違う品は、本数を見せずに「違う」と出して再度数えてもらい、再度数えても違えば品の下に理由（オーナー「違うという表示に。なので数え直せ」「相違があれば理由を下に」）
+   tdDiff：step 1＝再度数える品（空欄に戻す）・step 2＝理由を入れる品。tdWhy：品ごとの理由 */
+let tdAB = null, tdAbVals = {}, tdDiff = null, tdWhy = {};
 const tdAbOk = v => /^\d{1,3}$/.test(String(v ?? '').trim());
-/* AB棚の下にワイン・シャンパンも品ごと（オーナー「ア 品ごと」・見本 作業場/棚卸し_ワイン・シャンパン_案.png） */
-const tdAbGroups = () => (tdAB && tdAB.groups) || (tdAB ? [{ title: 'AB棚', products: tdAB.products || [] }] : []);
+/* 見出しはメニューの分け方（ワイン・シャンパン・ボトルキープ）。データベースの「AB棚」はボトルキープの数える品なので、名前を変えて一番下へ（オーナー「AB棚はややこしい」） */
+const tdAbGroups = () => { const G = (tdAB && tdAB.groups) || (tdAB ? [{ title: 'AB棚', products: tdAB.products || [] }] : []);
+  return [...G.filter(g => g.title !== 'AB棚'), ...G.filter(g => g.title === 'AB棚').map(g => ({ ...g, title: 'ボトルキープ' }))]; };
 const tdAbCnt = P => { const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length; return `入力済 ${n}品・未入力 ${P.length - n}品`; };
 function tdAbHtml(x, done){
   if(!tdAB || tdAB.item !== x.id || !(tdAB.products || []).length) return '';
-  const G = tdAbGroups().filter(g => (g.products || []).length), C = tdAB.counts || {}, row = (p, i, r) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(p.name)}</div>${r}<span class="muted sm" style="width:1.5em">本</span></div>`;
+  const G = tdAbGroups().filter(g => (g.products || []).length), C = tdAB.counts || {}, D = new Set(!done && tdDiff ? tdDiff.ids : []), why = !done && tdDiff && tdDiff.step === 2;
+  const row = (p, i, r) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;line-height:1.4">${esc(p.name)}${D.has(p.id) ? '　<span style="color:var(--warn);font-weight:700;font-size:13px;white-space:nowrap">違う</span>' : ''}</div>${r}<span class="muted sm" style="width:1.5em">本</span></div>
+    ${why && D.has(p.id) ? `<input data-abw="${p.id}" maxlength="200" placeholder="理由" value="${esc(tdWhy[p.id] ?? '')}" style="width:100%;box-sizing:border-box;margin-top:6px;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">` : ''}</div>`;
+  const box = D.size ? `<div class="warnbox" style="padding:12px 16px"><b class="t" style="margin-bottom:2px">違う ${D.size}品</b>${why ? '再度数えても違う品は、理由を入力してください' : '再度数えてください'}</div>` : '';
   if(done) return Object.keys(C).length ? G.map(g => `<div class="card"><b>${esc(g.title)}</b>${g.products.map((p, i) => row(p, i, `<b>${C[p.id] ?? ''}</b>`)).join('')}</div>`).join('') : '';
-  return G.map((g, gi) => `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">${esc(g.title)}</b><span class="muted sm" data-abn="${gi}">${tdAbCnt(g.products)}</span></div>
-    ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px">`)).join('')}</div>`).join('');
+  return box + G.map((g, gi) => `<div class="card"><div style="display:flex;align-items:baseline;margin-bottom:2px"><b style="flex:1">${esc(g.title)}</b><span class="muted sm" data-abn="${gi}">${tdAbCnt(g.products)}</span></div>
+    ${g.products.map((p, i) => row(p, i, `<input data-ab="${p.id}" data-abg="${gi}" inputmode="numeric" maxlength="3" value="${esc(tdAbVals[p.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid ${D.has(p.id) ? 'var(--warn)' : 'var(--line)'};border-radius:8px">`)).join('')}</div>`).join('');
 }
 /* 数える品の入力：打つたびに、その仲間の入れた数を出し直す */
-function tdAbWire(){ $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); }); }
+function tdAbWire(){ $('main').querySelectorAll('[data-abw]').forEach(b => b.oninput = () => { tdWhy[b.dataset.abw] = b.value; });
+  $('main').querySelectorAll('[data-ab]').forEach(b => b.oninput = () => { tdAbVals[b.dataset.ab] = b.value.trim(); const g = tdAbGroups().filter(g => (g.products || []).length)[+b.dataset.abg]; $('main').querySelector(`[data-abn="${b.dataset.abg}"]`).textContent = tdAbCnt(g.products); }); }
+/* 在庫確認の［完了］：数と理由を送る。違う品があれば画面を描き直して false（1回目は空欄に戻して再度数える。再度数えても違えば理由） */
+async function tdStockCheck(x, abP){
+  if(tdDiff && tdDiff.step === 2 && tdDiff.ids.some(id => !String(tdWhy[id] ?? '').trim())){ $('tdGo').disabled = false; await uiAlert('理由を入力してください'); return false; }
+  const c = await sb.rpc('hall_stock_check', { p_token: TOKEN, p_item: x.id, p_rows: Object.fromEntries(abP.map(p => [p.id, tdAbVals[p.id]])), p_reasons: tdDiff && tdDiff.step === 2 ? tdWhy : {}, ...(x.carry ? { p_day: x.day } : {}) }); if(c.error) throw c.error;
+  if(!(c.data && c.data.status === 'diff')) return true;
+  const ids = c.data.items || [];
+  if(!tdDiff){ ids.forEach(id => { delete tdAbVals[id]; }); tdDiff = { step: 1, ids }; } else tdDiff = { step: 2, ids };
+  hallTodoOne(x, { note: $('tdN') ? $('tdN').value : null }); window.scrollTo(0, 0); return false;
+}
 /* TODO の1件の画面の文（済・できない・数える品・内容・写真・ボタン） */
 function hallTodoHtml(x, keep, done, ph, grid, fld){ return `<div class="ttl">${esc(x.name)}</div><div class="card">${TODO_SLOT[x.slot]?`<div class="muted" style="font-size:13px;margin-bottom:6px">${TODO_SLOT[x.slot]}</div>`:''}<div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps||'手順なし')}</div></div>
     ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${ph.length?` <small class="muted">（写真 ${ph.length}枚）</small>`:''}${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${ph.length?grid(ph.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')):''}</div>${tdAbHtml(x, true)}
@@ -58,7 +74,7 @@ function hallTodoSkip(x, fld){
       $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRGo')) $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
 }
 function hallTodoOne(x, keep){
-  setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; }
+  setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; tdDiff = null; tdWhy = {}; }
   const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
   const done = x.status === 'done', ph = (x.photos && x.photos.length) ? x.photos : (x.photo ? [x.photo] : []);
   const grid = L => `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${L}</div>`;
@@ -76,12 +92,12 @@ function hallTodoOne(x, keep){
     if(x.need_photo && !tdShots.length){ await uiAlert('写真を撮ってください'); return; }
     $('tdGo').disabled = true;
     try{
-      if(abP.length){ const c = await sb.rpc('hall_ab_count', { p_token: TOKEN, p_item: x.id, p_rows: Object.fromEntries(abP.map(p => [p.id, tdAbVals[p.id]])), ...(x.carry ? { p_day: x.day } : {}) }); if(c.error) throw c.error; }
+      if(abP.length && !await tdStockCheck(x, abP)) return;
       if(x.need_photo){ const p = await sb.rpc('hall_todo_photos', { p_token: TOKEN, p_item: x.id, p_count: tdShots.length , ...(x.carry ? { p_day: x.day } : {}) }); if(p.error) throw p.error;
         const n = tdShots.length; $('tdGo').textContent = `送っています（0/${n}）`; /* 3枚ずつ同時に送る。数は送り終わった枚数 */
         await todoPhotosUp(p.data, tdShots.map(s => s.file), k => { $('tdGo').textContent = `送っています（${k}/${n}）`; }); }
       const q = await sb.rpc('hall_todo_done', { p_token: TOKEN, p_item: x.id, p_note: note , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error) throw q.error;
-      tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = []; tdAbVals = {};
+      tdShots.forEach(f => URL.revokeObjectURL(f.url)); tdShots = []; tdAbVals = {}; tdDiff = null; tdWhy = {};
       await uiAlert('完了しました'); hallTodo();
     }catch(e){ if($('tdGo')) $('tdGo').disabled = false; if($('tdGo')) $('tdGo').textContent = x.need_photo ? '写真を送って完了' : '完了'; await uiAlert(e.message || String(e)); }
   };

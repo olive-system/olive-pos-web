@@ -2,18 +2,18 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<script src="../lib/olive/err.js?v=v3.06"></script><!-- 画面のエラーを送る（一番初めに読む） -->
-<script src="../lib/olive/core.js?v=v3.06"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
-<script src="../lib/olive/photo.js?v=v3.06"></script><!-- 写真を小さくする -->
-<script src="../lib/olive/sheet.js?v=v3.06"></script><!-- ヒアリングシートの項目 -->
-<script src="../lib/olive/contract.js?v=v3.06"></script><!-- 契約書の中身（マイページの PDF・POS と管理サイトの書類で同じ） -->
-<script src="../lib/olive/staff_docs.js?v=v3.06"></script><!-- スタッフの書類（POS と同じ） -->
+<script src="../lib/olive/err.js?v=v3.07"></script><!-- 画面のエラーを送る（一番初めに読む） -->
+<script src="../lib/olive/core.js?v=v3.07"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
+<script src="../lib/olive/photo.js?v=v3.07"></script><!-- 写真を小さくする -->
+<script src="../lib/olive/sheet.js?v=v3.07"></script><!-- ヒアリングシートの項目 -->
+<script src="../lib/olive/contract.js?v=v3.07"></script><!-- 契約書の中身（マイページの PDF・POS と管理サイトの書類で同じ） -->
+<script src="../lib/olive/staff_docs.js?v=v3.07"></script><!-- スタッフの書類（POS と同じ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>OLIVE 管理</title>
-<!-- 店の Apps Script「日報フォーム送信」は、このページから公開の鍵を読む（2026-10-19：ファイルを分けて鍵が js に移り、黒服の日報が届かなくなったので戻した。消さない）：SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw' --><!-- admin v3.06 -->
+<!-- 店の Apps Script「日報フォーム送信」は、このページから公開の鍵を読む（2026-10-19：ファイルを分けて鍵が js に移り、黒服の日報が届かなくなったので戻した。消さない）：SUPABASE_KEY='sb_publishable_pPfJUvJd6iJeHBNiD7XkWA_2RKF7JYw' --><!-- admin v3.07 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
-<link rel="stylesheet" href="../lib/olive/olive.css?v=v3.06"><link rel="stylesheet" href="admin.css?v=v3.06"><!-- 2026-10-19：見た目は admin.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
+<link rel="stylesheet" href="../lib/olive/olive.css?v=v3.07"><link rel="stylesheet" href="admin.css?v=v3.07"><!-- 2026-10-19：見た目は admin.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
 <body>
 <div id="vLogin" class="hide"><form class="box" id="loginForm" autocomplete="on">
@@ -41,52 +41,52 @@
 <div id="toast"></div>
 
 <script src="../lib/supabase-js@2.116.0.js"></script>
-<script src="js/00_core.js?v=v3.06"></script>
-<script src="js/01_pages.js?v=v3.06"></script>
-<script src="js/02_login.js?v=v3.06"></script>
-<script src="js/03_realtime.js?v=v3.06"></script>
-<script src="js/04_pw_alert.js?v=v3.06"></script>
-<script src="js/05_menu.js?v=v3.06"></script>
-<script src="js/06_not_yet.js?v=v3.06"></script>
-<script src="js/08_pl.js?v=v3.06"></script>
-<script src="js/09_bill_edit.js?v=v3.06"></script>
-<script src="js/10_register.js?v=v3.06"></script>
-<script src="js/11_slide.js?v=v3.06"></script>
-<script src="js/11_rewards.js?v=v3.06"></script>
-<script src="js/11_items.js?v=v3.06"></script>
-<script src="js/12_cast_settings.js?v=v3.06"></script>
-<script src="js/13_staff.js?v=v3.06"></script>
-<script src="js/14_cast_stats.js?v=v3.06"></script>
-<script src="js/15_bills.js?v=v3.06"></script>
-<script src="js/16_history.js?v=v3.06"></script>
-<script src="js/17_customer_site.js?v=v3.06"></script>
-<script src="js/18_invoices.js?v=v3.06"></script>
-<script src="js/19_store_info.js?v=v3.06"></script>
-<script src="js/20_pos_settings.js?v=v3.06"></script>
-<script src="js/20_notice.js?v=v3.06"></script>
-<script src="js/20_shift.js?v=v3.06"></script>
-<script src="js/20_shift_settings.js?v=v3.06"></script>
-<script src="js/21_punches.js?v=v3.06"></script>
-<script src="js/22_terminals.js?v=v3.06"></script>
-<script src="js/23_display.js?v=v3.06"></script>
-<script src="js/24_cust_share.js?v=v3.06"></script>
-<script src="js/25_line_square.js?v=v3.06"></script>
-<script src="js/25_staff_req.js?v=v3.06"></script>
-<script src="js/25_todo.js?v=v3.06"></script>
-<script src="js/25_daily_contract.js?v=v3.06"></script>
-<script src="js/25_admin_ids.js?v=v3.06"></script>
-<script src="js/26_password.js?v=v3.06"></script>
-<script src="js/28_open_tasks.js?v=v3.06"></script>
-<script src="js/29_resv.js?v=v3.06"></script>
-<script src="js/30_key.js?v=v3.06"></script>
-<script src="js/31_line_auto.js?v=v3.06"></script><!-- v1.98・SQL 341：LINE自動送信 -->
-<script src="js/32_shared_memo.js?v=v3.06"></script><!-- v2.09・SQL 363：メモ一覧の共有メモ -->
-<script src="js/33_ab_stock.js?v=v3.06"></script><!-- v2.10・SQL 364：棚卸し -->
-<script src="js/34_product_sum.js?v=v3.06"></script><!-- v2.13・SQL 370：商品集計 -->
-<script src="js/35_staff_docs.js?v=v3.06"></script><!-- SQL 445：スタッフの書類 -->
-<script src="js/37_applicants.js?v=v3.06"></script><!-- SQL 488：応募者 -->
-<script src="js/36_purge.js?v=v3.06"></script><!-- SQL 470：データの削除（オーナーだけ） -->
-<script src="js/27_owner_groups.js?v=v3.06"></script>
-<script src="js/90_start.js?v=v3.06"></script><!-- 始めの処理（いちばん最後） -->
+<script src="js/00_core.js?v=v3.07"></script>
+<script src="js/01_pages.js?v=v3.07"></script>
+<script src="js/02_login.js?v=v3.07"></script>
+<script src="js/03_realtime.js?v=v3.07"></script>
+<script src="js/04_pw_alert.js?v=v3.07"></script>
+<script src="js/05_menu.js?v=v3.07"></script>
+<script src="js/06_not_yet.js?v=v3.07"></script>
+<script src="js/08_pl.js?v=v3.07"></script>
+<script src="js/09_bill_edit.js?v=v3.07"></script>
+<script src="js/10_register.js?v=v3.07"></script>
+<script src="js/11_slide.js?v=v3.07"></script>
+<script src="js/11_rewards.js?v=v3.07"></script>
+<script src="js/11_items.js?v=v3.07"></script>
+<script src="js/12_cast_settings.js?v=v3.07"></script>
+<script src="js/13_staff.js?v=v3.07"></script>
+<script src="js/14_cast_stats.js?v=v3.07"></script>
+<script src="js/15_bills.js?v=v3.07"></script>
+<script src="js/16_history.js?v=v3.07"></script>
+<script src="js/17_customer_site.js?v=v3.07"></script>
+<script src="js/18_invoices.js?v=v3.07"></script>
+<script src="js/19_store_info.js?v=v3.07"></script>
+<script src="js/20_pos_settings.js?v=v3.07"></script>
+<script src="js/20_notice.js?v=v3.07"></script>
+<script src="js/20_shift.js?v=v3.07"></script>
+<script src="js/20_shift_settings.js?v=v3.07"></script>
+<script src="js/21_punches.js?v=v3.07"></script>
+<script src="js/22_terminals.js?v=v3.07"></script>
+<script src="js/23_display.js?v=v3.07"></script>
+<script src="js/24_cust_share.js?v=v3.07"></script>
+<script src="js/25_line_square.js?v=v3.07"></script>
+<script src="js/25_staff_req.js?v=v3.07"></script>
+<script src="js/25_todo.js?v=v3.07"></script>
+<script src="js/25_daily_contract.js?v=v3.07"></script>
+<script src="js/25_admin_ids.js?v=v3.07"></script>
+<script src="js/26_password.js?v=v3.07"></script>
+<script src="js/28_open_tasks.js?v=v3.07"></script>
+<script src="js/29_resv.js?v=v3.07"></script>
+<script src="js/30_key.js?v=v3.07"></script>
+<script src="js/31_line_auto.js?v=v3.07"></script><!-- v1.98・SQL 341：LINE自動送信 -->
+<script src="js/32_shared_memo.js?v=v3.07"></script><!-- v2.09・SQL 363：メモ一覧の共有メモ -->
+<script src="js/33_ab_stock.js?v=v3.07"></script><!-- v2.10・SQL 364：棚卸し -->
+<script src="js/34_product_sum.js?v=v3.07"></script><!-- v2.13・SQL 370：商品集計 -->
+<script src="js/35_staff_docs.js?v=v3.07"></script><!-- SQL 445：スタッフの書類 -->
+<script src="js/37_applicants.js?v=v3.07"></script><!-- SQL 488：応募者 -->
+<script src="js/36_purge.js?v=v3.07"></script><!-- SQL 470：データの削除（オーナーだけ） -->
+<script src="js/27_owner_groups.js?v=v3.07"></script>
+<script src="js/90_start.js?v=v3.07"></script><!-- 始めの処理（いちばん最後） -->
 </body>
 </html>

@@ -12,9 +12,9 @@ PAGES.o_stock=async()=>{ const st=storeId, head=psHead('o_stock'); /* 集計「�
   const rec=c=>{ const R=c.rows||[], dv=x=>x.actual-x.theory, X=R.filter(x=>dv(x)!==0);
     return `<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b>${mdW(c.day)}</b><span class="muted">${esc(c.by||'')} ${hmJst(c.at)}${c.prev?`　前回 ${mdW(c.prev)}`:''}</span></div>
       ${X.length?`<div style="color:var(--warn);font-weight:700;margin:4px 0">差あり ${X.length}品</div><div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px"><tr>${th.map((h,i)=>`<th style="font-weight:400;color:var(--muted);padding:5px 8px;border-bottom:1px solid var(--line);text-align:${i?'right':'left'};white-space:nowrap">${h}</th>`).join('')}</tr>
-        ${X.map(x=>`<tr style="color:var(--warn);font-weight:700">${[esc(x.name),x.prev,x.shiire,x.sales,x.theory,x.actual,(dv(x)>0?'+':'−')+Math.abs(dv(x))].map((v,i)=>`<td style="padding:6px 8px;border-bottom:1px solid var(--line);${i?'text-align:right;font-variant-numeric:tabular-nums':''}">${v}</td>`).join('')}</tr>`).join('')}</table></div>`:''}
+        ${X.map(x=>`<tr style="color:var(--warn);font-weight:700">${[esc(x.name)+(x.reason?`<div class="muted" style="font-size:12px;font-weight:400">理由　${esc(x.reason)}</div>`:''),x.prev,x.shiire,x.sales,x.theory,x.actual,(dv(x)>0?'+':'−')+Math.abs(dv(x))].map((v,i)=>`<td style="padding:6px 8px;border-bottom:1px solid var(--line);${i?'text-align:right;font-variant-numeric:tabular-nums':''}">${v}</td>`).join('')}</tr>`).join('')}</table></div>`:''}
       <div class="muted" style="font-size:13px;margin-top:4px">差なし ${R.length-X.length}品</div></div>`; };
-  $('main').innerHTML=head+`<div class="card"><b>AB棚の品</b><div class="muted" style="font-size:13px;margin:4px 0 8px">TODO の「AB棚」に出ます。理論在庫はオーナーのみ修正できます。削除してもメニューには残ります</div>
+  $('main').innerHTML=head+`<div class="card"><b>ボトルキープ</b><div class="muted" style="font-size:13px;margin:4px 0 8px">高級酒の在庫確認の「ボトルキープ」に出ます。理論在庫はオーナーのみ修正できます。削除してもメニューには残ります</div>
     ${I.length?grid(I.map(x=>cell(x))):'<div class="muted">まだありません</div>'}
     <div class="row" style="gap:8px;border-top:1px solid var(--line);padding-top:10px;margin-top:4px"><select id="abSel" style="flex:1;min-width:0"><option value="">メニューから選択</option>${cats.map(c=>`<optgroup label="${esc(c)}">${M.filter(m=>m.cat===c).map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free">品名入力</option></select><button class="ghost" id="abAdd">追加</button></div>
     <input id="abName" maxlength="60" placeholder="品名" style="display:none;width:100%;margin-top:8px">
@@ -30,6 +30,6 @@ PAGES.o_stock=async()=>{ const st=storeId, head=psHead('o_stock'); /* 集計「�
     if(!/^\d{1,3}$/.test(v)){ await uiAlert('本数を確認してください'); b.value=x.theory??''; return; }
     const q=await rpc('admin_ab_set',{p_store:st,p_product:x.id,p_qty:+v}); if(!q.ok){ b.value=x.theory??''; return; } toast('保存しました'); again(); });
   $('main').querySelectorAll('[data-abx]').forEach(b=>b.onclick=guard(b,async()=>{ const x=I.find(i=>i.id===b.dataset.abx);
-    if(!await uiConfirm(`「${x.name}」をAB棚から削除しますか？\nメニューには残ります`,'削除','danger')) return;
+    if(!await uiConfirm(`「${x.name}」を高級酒の在庫確認から削除しますか？\nメニューには残ります`,'削除','danger')) return;
     const q=await rpc('admin_ab_remove',{p_store:st,p_product:x.id}); if(!q.ok) return; toast('削除しました'); again(); }));
 };
