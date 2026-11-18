@@ -32,7 +32,7 @@ async function leaveDone(s){
 // 体験の子と、面接で採用にした体験なしの子（しるし「面接」・ap_id＝応募者）に［入店］（04_cast_join.js）。退店の人は今までどおり［新規登録］
 // ［詳細］は右上の × で閉じる小窓（右の欄 300px には書類の写真と体験日の行が入らない。POS の見るだけの小窓と同じ形）。
 // 体験の報酬・体験日ごとの時刻と日払（立替）（記録を読むだけ。［受領済］は在籍リストと同じ受領のサインの画面）・書類（在籍の［編集］と同じ部品 posDocs。撮影・削除も同じ）
-const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',hired:'採用',declined:'辞退',rejected:'不採用',noshow:'無断欠勤',cancelled:'取消'}; /* 検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
+const PAST_RES={considering:'検討中',consider_self:'本人検討',consider_store:'店検討',hired:'採用',declined:'辞退',rejected:'不採用',noshow:'無断欠',cancelled:'取消'}; /* 検討中を本人検討・店検討に分けた（前に入れた検討中はそのまま） */
 S.pastSel=null;
 const pastKind=s=>s.ap_id?'面接':s.is_trial?'体験':'退店';
 const pastDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
