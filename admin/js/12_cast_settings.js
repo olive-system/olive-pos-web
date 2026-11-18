@@ -1,6 +1,6 @@
 // ---------- キャスト設定 一人ずつの報酬条件（月ごと。その月以降／その月のみ）・その人だけの条件・メモ ----------
 // 担当・報酬（時給／日給）・日給・日払い・契約書は staff に入れる（月で変わらない。POS と同じ欄）
-// 保証の条件「出勤（週）」（週○日以上・空＝条件なし）とスポット時給（空＝スライド表）は人ごと（staff。SQL 624・625）。時給の人だけ（日給の人は答え待ち）
+// 保証の条件「出勤（週）」（週○日以上・空＝条件なし）とスポット時給（空＝スライド表）は人ごと（staff。SQL 624・625）。週○日以上は時給・日給の保証に（オーナー「ア 同じ条件を付ける」）、スポット時給は時給の人だけ
 // 日給の人の「保証日給」（daily_wage）にも保証の期限（guarantee_until。SQL 489・オーナー 11/13）。期限の無い日給の人は無期限。日給の人の保証時給は計算に使わないので入れない
 // 保証時給・期限・同伴ノルマ・バック・源泉徴収・消費税・厚生費・罰金の免除は cast_terms に月ごとに入れる（その月の行があればそれ、なければ前の月の「以降」の行）
 const CS_PUNCH='打刻の手入力'; // POS で打刻を手で入れた時に自動で付く罰金
@@ -74,7 +74,7 @@ function csCastCell(K,{s,t}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts
 function csCastView(K,s,t,{sp,daily,back,wf}){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K;
     return [hallName(s.manager_staff_id), PT[t.pay_type]||'時給', slTxt(s,t), daily&&t.daily_wage!=null?yen(t.daily_wage):'—', !sp&&!daily&&t.guaranteed_wage!=null?yen(t.guaranteed_wage):'—',
       daily&&t.daily_wage!=null?csDate(t.guarantee_until||CS_FOREVER):!sp&&!daily&&t.guaranteed_wage!=null?csDate(t.guarantee_until):'—',
-      !sp&&!daily&&s.guarantee_dpw!=null?`週${s.guarantee_dpw}日以上`:'—', !sp&&!daily&&s.spot_wage!=null?yen(s.spot_wage):'—', !sp&&t.douhan_quota!=null?t.douhan_quota+'回':'—', back, t.withhold==null?'—':t.withhold?'する':'しない',
+      !sp&&s.guarantee_dpw!=null?`週${s.guarantee_dpw}日以上`:'—', !sp&&!daily&&s.spot_wage!=null?yen(s.spot_wage):'—', !sp&&t.douhan_quota!=null?t.douhan_quota+'回':'—', back, t.withhold==null?'—':t.withhold?'する':'しない',
       t.ctax_pct==null?(m>=CS_CTAX_FROM?'3%':'—'):Number(t.ctax_pct)+'%', wf, t.exempt_fines.length?esc(t.exempt_fines.join('・')):'—', s.day_pay_ok==null?'—':s.day_pay_ok?'可':'不可',
       s.contract_done==null?'—':s.contract_done?'<span class="badge k">提出済</span>':'<span class="badge warnb">未提出</span>'];
 }
@@ -84,7 +84,7 @@ function csCastEditRow(K,s,t,{sp,daily,back,wf}){ const {box,st,ed,m,sf,tm,ft,nt
       sel('pt',t.pay_type,[['hourly','時給'],['daily','日給'],['seppan','折半']]),
       `<button class="ghost sm" data-k="sl" data-v="${esc(JSON.stringify(slOk(t.slide_ids,unitOf(s,t))))}" ${sp?'disabled':''}>${slTxt(s,t)}</button>`, inp('dw',daily?t.daily_wage:'',80,!daily),
       inp('g',ng?'':t.guaranteed_wage,80,ng), `<span class="cs-gu"><input type="date" data-k="gu" value="${fe||sp?'':esc(t.guarantee_until||'')}" ${fe||sp?'disabled':''}><label><input type="checkbox" data-k="gf" ${fe&&!sp?'checked':''} ${sp?'disabled':''}>無期限</label></span>`,
-      '週 '+inp('dpw',ng?'':s.guarantee_dpw,40,ng)+' 日', inp('spw',ng?'':s.spot_wage,80,ng),
+      '週 '+inp('dpw',sp?'':s.guarantee_dpw,40,sp)+' 日', inp('spw',ng?'':s.spot_wage,80,ng),
       inp('q',sp?'':t.douhan_quota,50,sp)+' 回', inp('bk',t.back_pct==null?'':Number(t.back_pct),50)+' %',
       sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct==null?'':Number(t.ctax_pct),50).replace('<input',`<input placeholder="${m>=CS_CTAX_FROM?3:''}"`)+' %',
       sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'),
@@ -147,7 +147,7 @@ async function csCastCollect(K,tb){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls
       try{ const pt=q('pt').value, dw=pt==='daily'?int('dw','日給'):null, sep=pt==='seppan';
         if(pt==='daily'&&!dw) throw `${nm}：保証日給を入力してください`;
         const b=v=>v===''?null:v==='true';
-        const ng=sep||pt==='daily', dpw=ng?null:int('dpw','出勤（週）',7), spw=ng?null:int('spw','スポット時給'); if(dpw===0) throw `${nm}：出勤（週）が正しくありません`;
+        const ng=sep||pt==='daily', dpw=sep?null:int('dpw','出勤（週）',7), spw=ng?null:int('spw','スポット時給'); if(dpw===0) throw `${nm}：出勤（週）が正しくありません`;
         so={manager_staff_id:q('mgr').value||null,day_pay_ok:b(q('dp').value),contract_done:b(q('ct2').value),guarantee_dpw:dpw==null?null:Math.round(dpw),spot_wage:spw==null||spw===0?null:Math.round(spw)};
         const g=sep||pt==='daily'?null:int('g','保証時給'), gf=q('gf').checked, gu=gf?CS_FOREVER:(q('gu').value||null), wm=q('wm').value, wa=wm==='amount'?int('wa','厚生費'):null, bk=int('bk','小計バック',100);
         if(wm==='amount'&&wa==null) throw `${nm}：厚生費の金額を入力してください`;

@@ -18,7 +18,7 @@ async function joinOpen(s){
 /* 小窓の動き（報酬の切り替え・無期限・スライド表・入店） */
 function joinBind(s,m,tbls){
   const jv=id=>m.querySelector('#'+id), slTxt=ids=>ids.length?esc(ids.map(id=>tbls.find(x=>x.id===id)?.name||'').join('・')):'<span class="badge warnb">未選択</span>';
-  jv('jnPt').onchange=()=>{ jv('jnAmL').textContent=jv('jnPt').value==='daily'?'保証日給':'保証時給'; jv('jnSl').dataset.v='[]'; jv('jnSl').innerHTML=slTxt([]); jv('jnDwB').style.visibility=jv('jnPt').value==='daily'?'hidden':''; }; /* スライド表は時給と日給で別の表。週○日以上は時給の保証だけ（日給は答え待ち） */
+  jv('jnPt').onchange=()=>{ jv('jnAmL').textContent=jv('jnPt').value==='daily'?'保証日給':'保証時給'; jv('jnSl').dataset.v='[]'; jv('jnSl').innerHTML=slTxt([]);}; /* スライド表は時給と日給で別の表。週○日以上は時給・日給どちらの保証にも（オーナー「ア 同じ条件を付ける」） */
   jv('jnGf').onchange=()=>{ jv('jnGu').disabled=jv('jnGf').checked; if(jv('jnGf').checked) jv('jnGu').value=''; };
   jv('jnSl').onclick=()=>{ const u=jv('jnPt').value, cur=JSON.parse(jv('jnSl').dataset.v), opts=tbls.filter(x=>x.unit===u);
     const md=mkModal(60,`<h2 style="margin:0">スライド表</h2><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${opts.map(o=>`<label style="display:flex;align-items:center;gap:8px;font-size:15px"><input type="checkbox" style="width:20px;height:20px" value="${o.id}" ${cur.includes(o.id)?'checked':''}>${esc(o.name)}</label>`).join('')||`<div class="muted">${u==='daily'?'日給':'時給'}のスライド表がありません</div>`}</div>
@@ -36,9 +36,9 @@ function joinBox(s,tbls){
   const halls=S.staff.filter(x=>x.kind==='hall'), bd=businessDate();
   const R=[['担当黒服',joinSel('jnMg',[['','未選択'],...halls.map(h=>[h.id,h.display_name])],s.manager_staff_id||'')],
     ['報酬',joinSel('jnPt',[['hourly','時給'],['daily','日給']],'hourly')],
-    [`<span id="jnAmL">保証時給</span>`,joinInp('jnAm',110)+' 円'],
-    /* 保証の条件「出勤 週○日以上」は期限と同じ行に（オーナー「週○日以上だけを横にやれば1行節約できる」）。空＝条件なし */
-    ['保証の期限',`<span style="display:flex;align-items:center;gap:10px;white-space:nowrap"><input type="date" id="jnGu" style="width:140px"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="jnGf" style="width:20px;height:20px">無期限</label><span id="jnDwB" style="display:flex;align-items:center;gap:6px;margin-left:4px"><span class="muted" style="font-size:13px">出勤</span>週 ${joinInp('jnDw',56)} 日以上</span></span>`],
+    /* 保証の条件「出勤 週○日以上」は保証時給と同じ行に（オーナー「出勤週4以上のこれ、保証時給の横にしようか」）。空＝条件なし */
+    [`<span id="jnAmL">保証時給</span>`,`<span style="display:flex;align-items:center;gap:10px;white-space:nowrap">${joinInp('jnAm',110)} 円<span style="display:flex;align-items:center;gap:6px;margin-left:14px"><span class="muted" style="font-size:13px">出勤</span>週 ${joinInp('jnDw',56)} 日以上</span></span>`],
+    ['保証の期限',`<span style="display:flex;align-items:center;gap:10px;white-space:nowrap"><input type="date" id="jnGu" style="width:140px"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="jnGf" style="width:20px;height:20px">無期限</label></span>`],
     ['スライド表','<button class="ghost sm" id="jnSl" data-v="[]"><span class="badge warnb">未選択</span></button>'],
     ['同伴ノルマ',joinInp('jnQ',60)+' 回'],['小計バック',joinInp('jnBk',60)+' %'],
     ['メモ',`<span style="display:flex;gap:8px">${joinSel('jnNc',(joinInfo.cats||[]).map(c=>[c,c]),'')}<input id="jnNb" maxlength="50" placeholder="1行・50字まで" style="flex:1;min-width:0"></span>`]];
@@ -57,7 +57,7 @@ async function joinCollect(jv){
   try{ const pt=jv('jnPt').value, daily=pt==='daily', am=num('jnAm',daily?'保証日給':'保証時給'), gu=jv('jnGf').checked?'9999-12-31':(jv('jnGu').value||null);
     if(daily&&!am) throw '保証日給を入力してください';
     if(am&&!gu) throw '保証の期限を入力するか、「無期限」を選んでください';
-    const dw=daily?null:num('jnDw','出勤（週）',7); if(dw===0) throw '出勤（週）が正しくありません';
+    const dw=num('jnDw','出勤（週）',7); if(dw===0) throw '出勤（週）が正しくありません';
     const ids=JSON.parse(jv('jnSl').dataset.v);
     return { manager_staff_id:jv('jnMg').value||null,
       terms:{pay_type:pt,daily_wage:daily?am:null,guaranteed_wage:daily?null:am,guarantee_until:am?gu:null,douhan_quota:num('jnQ','同伴ノルマ'),back_pct:num('jnBk','小計バック',100),back_mode:'add',
