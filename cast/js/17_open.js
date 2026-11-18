@@ -77,11 +77,13 @@ function htBindB(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, agai
 
 const shRows = {};   // 仕入れの入力中の行（追加・× で描き直しても残す）
 const drOut = {};   // 配達・買い出しの入力中の本数
+// 品の選択肢（POS のメニューのカテゴリーごと・最後に品名入力）。仕入れと返品で同じ
+const prodOpts = (P, r) => `<option value="">選択</option>${[...new Set(P.map(p => p.cat))].map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!r.free && r.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${r.free ? 'selected' : ''}>品名入力</option>`;
 const rtRows = {};   // 返品の入力中の行（納品物と今日出たお酒・ドリンクで同じ日の返品を1つの記録として見せる）
 // 返品のカード（仕入れと同じ形：品は POS のメニューから選ぶ・メニューに無い品は品名入力。オーナー見本 作業場/見本の画像/返品の行（11-18）/）
 const rtInit = (x, r) => { const T = r.data.returns || {}; if(!rtRows[x.id]) rtRows[x.id] = (T.rows || []).map(a => ({ pid: a.product_id || '', name: a.product_id ? '' : (a.name || ''), qty: String(a.qty), free: !a.product_id })); return rtRows[x.id]; };
-const rtCard = (x, r) => { if(!r.data.returns) return ''; const R = rtInit(x, r), P = r.data.returns.products || [], cats = [...new Set(P.map(p => p.cat))], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
-  const opts = a => `<option value="">選択</option>${cats.map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!a.free && a.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${a.free ? 'selected' : ''}>品名入力</option>`;
+const rtCard = (x, r) => { if(!r.data.returns) return ''; const R = rtInit(x, r), P = r.data.returns.products || [], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
+  const opts = a => prodOpts(P, a);
   return `<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">返品</b><button class="btn g" id="rtAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
     ${R.map((a, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-rtp="${i}" style="flex:1;min-width:0;${fs}">${opts(a)}</select>
       <input data-rtq="${i}" inputmode="numeric" maxlength="3" value="${esc(a.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="xb" data-rtx="${i}" aria-label="削除">×</button></div>
@@ -210,12 +212,12 @@ function hcBodyTrialJudge(H){ const {x, ph, r, k, D, td, sv} = H; let body = '',
   return { body, getData }; }
 // 開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー見本 作業場/棚卸し_案2.png）
 function hcBodyShiire(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
-    const P = D.products || [], cats = [...new Set(P.map(p => p.cat))], ab = id => (P.find(p => p.id === id) || {}).ab;
+    const P = D.products || [], ab = id => (P.find(p => p.id === id) || {}).ab;
     if(!shRows[x.id]) shRows[x.id] = (D.rows || []).length ? D.rows.map(r => ({ pid: r.product_id || '', name: r.product_id ? '' : r.name, qty: String(r.qty), free: !r.product_id }))
       : (D.orders || []).map(o => ({ pid: o.id, name: '', qty: '', free: false, ord: true }));   // 前の日までの発注を数は空欄で並べる
     if(!shClr[x.id]) shClr[x.id] = Object.fromEntries((D.orders || []).filter(o => (o.cleared || []).length).map(o => [o.id, { kind: o.cleared[0].kind, qty: String(o.cleared.reduce((s, c) => s + c.qty, 0)) }]));   // 保存した差の内訳
     const R = shRows[x.id], C = shClr[x.id], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
-    const opts = r => `<option value="">選択</option>${cats.map(c => `<optgroup label="${esc(c)}">${P.filter(p => p.cat === c).map(p => `<option value="${p.id}" ${!r.free && r.pid === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}<option value="free" ${r.free ? 'selected' : ''}>品名入力</option>`;
+    const opts = r => prodOpts(P, r);
     body = `${(D.orders || []).length ? `<div class="card" id="shCk"><div id="shCkT">${shCheck(D, R, C)}</div><div id="shCl">${shClear(D, R, C)}</div></div>` : ''}<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">仕入れ</b><button class="btn g" id="shAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
       ${R.map((r, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-shp="${i}" style="flex:1;min-width:0;${fs}">${opts(r)}</select>
         <input data-shq="${i}" inputmode="numeric" maxlength="3" value="${esc(r.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="xb" data-shx="${i}" aria-label="削除">×</button></div>
