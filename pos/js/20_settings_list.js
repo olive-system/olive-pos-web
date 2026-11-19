@@ -64,6 +64,9 @@ function setListPage(key, keepSel, def){
   if (S.setEditMode && !def.nosort) enableDrag(def);
   renderForm(def);
 }
+/* 足したばかりのメニュー：販売価格・カテゴリーを入れると、バック・ポイントのはじめの値が入る（変えられる。lib/olive/core.js の menuBackInit） */
+function menuBackWire(f){ const g=k=>f.querySelector(`[data-k="${k}"]`), fill=()=>{ const c=g('category_id'), v=menuBackInit(S.store?.code,c?.selectedOptions[0]?.text||'',g('price')?.value); if(g('back_amount')) g('back_amount').value=v.back; if(g('back_points')) g('back_points').value=v.points; };
+  ['price','category_id'].forEach(k=>{ const e=g(k); if(e) e.addEventListener(k==='price'?'input':'change',fill); }); }
 function renderForm(def){ const r=S.setSel; const f=$('setForm');
   if(!r){ f.innerHTML='<div class="muted">左の一覧から選ぶか「追加」</div>'; return; }
   if(def.ro){ renderFormRo(def,r); return; }
@@ -72,9 +75,7 @@ function renderForm(def){ const r=S.setSel; const f=$('setForm');
     if(type==='prod') return `<label>${label}<select data-k="${k}"><option value="">なし</option>${S.products.filter(p=>p.agg_category==='HC').map(p=>`<option value="${p.id}" ${r[k]===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`;
     if(type==='cat') return `<label>${label}<select data-k="${k}">${S.categories.map(c=>`<option value="${c.id}" ${r[k]===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>`;
     return `<label>${label}<input type="${type}" data-k="${k}" value="${esc(r[k]??'')}"></label>`; }).join('')+(def.key==='pos'?`<h3 style="margin:16px 0 4px">VIP料金（卓ごと。0＝通常卓）</h3><div class="muted" style="font-size:12px">VIP代＝部屋につき1回／VIP延長＝延長${S.settings.ext_minutes}分ごとに加算。人数は掛けません</div><table style="width:100%;margin-top:6px"><tr><th style="text-align:left">卓</th><th>VIP代</th><th>VIP${S.settings.ext_minutes}分延長</th></tr>${S.tables.map(t=>`<tr><td>${esc(t.name)}</td><td><input type="number" data-vipset="${t.id}" value="${t.vip_set_fee||0}"></td><td><input type="number" data-vipext="${t.id}" value="${t.vip_ext_fee||0}"></td></tr>`).join('')}</table>`:'')+`<div class="bar"><button class="primary" id="setSave">保存</button></div>`;
-  if(def.key==='products'&&r.id===S.setNewId){ /* 足したばかりのメニュー：販売価格・カテゴリーを入れると、バック・ポイントのはじめの値が入る（変えられる。lib/olive/core.js の menuBackInit） */
-    const g=k=>f.querySelector(`[data-k="${k}"]`), fill=()=>{ const c=g('category_id'), v=menuBackInit(S.store?.code,c?.selectedOptions[0]?.text||'',g('price')?.value); if(g('back_amount')) g('back_amount').value=v.back; if(g('back_points')) g('back_points').value=v.points; };
-    ['price','category_id'].forEach(k=>{ const e=g(k); if(e) e.addEventListener(k==='price'?'input':'change',fill); }); }
+  if(def.key==='products'&&r.id===S.setNewId) menuBackWire(f);
   $('setSave').onclick=async()=>{ const o={}; def.cols.forEach(([k,,type])=>{ const el=f.querySelector(`[data-k="${k}"]`); o[k]=type==='bool'?el.checked:type==='number'?Number(el.value||0):(type==='prod'?(el.value||null):el.value); });
     const q = def.single ? sb.rpc('pos_settings_save',{p_store:S.settings.store_id,p:o}) : sb.rpc('pos_row_update',{p_table:def.table,p_id:r.id,p:o});
     let { error } = await q;
