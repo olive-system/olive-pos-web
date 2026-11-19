@@ -61,7 +61,7 @@
   <div class="bar" style="justify-content:space-between"><button class="ghost" id="nBack" style="padding:16px 60px;border-radius:999px;background:var(--line);color:#fff;border:none">ホール状況</button><button class="primary" id="nNext" style="padding:16px 80px;border-radius:999px;background:var(--pri)">次へ</button></div>
 </div></section>
 
-<section class="view" id="v-bill"><div class="card">
+<section class="view" id="v-bill"><div class="card" id="bLoad"><b id="bLoadT" style="font-size:20px"></b><div class="muted" style="margin-top:8px">読み込み中…</div></div><div class="card">
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
     <b id="bTable" style="font-size:20px"></b><span id="bTime" class="muted"></span>
     <span>客数 <span class="num"><button id="gMinus">−</button><span id="bGuests">1</span><button id="gPlus">＋</button></span></span><button class="ghost sm" id="gLeave">途中退店</button><button class="ghost sm" id="bMove">席移動</button>

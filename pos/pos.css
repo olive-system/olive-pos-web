@@ -144,3 +144,4 @@ label.cllb{display:inline-block;cursor:pointer;border-radius:10px;padding:6px 14
 /* 在籍リストの名前の行のしるしは小さく同じ大きさに（行を増やさない） */
 .rrow .nm .badge{font-size:11px;padding:1px 7px;vertical-align:2px}
 #joinBox input:not([type=checkbox]),#joinBox select,#joinBox #jnSl{height:44px;box-sizing:border-box}   /* 入店の小窓の枠の高さをそろえる（オーナー「枠の縦幅がバラバラ」） */
+#bLoad{display:none}#v-bill.ld>#bLoad{display:block}#v-bill.ld>:not(#bLoad){display:none} /* 卓を押してから中身が入るまで（billFromHall） */
