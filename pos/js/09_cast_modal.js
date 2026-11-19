@@ -1,6 +1,7 @@
 // ---------- cast modal（本日出勤者・同伴自動判定） ----------
 $('castAddBtn').onclick=async()=>{
-  const { data } = await sb.from('attendance_events').select('staff_id,event_type,event_at').eq('business_date',businessDate()).in('event_type',['clock_in','douhan','clock_out']);
+  const { data, error } = await sb.from('attendance_events').select('staff_id,event_type,event_at').eq('business_date',businessDate()).in('event_type',['clock_in','douhan','clock_out']);
+  if(error){ toast(error.message); return; } /* 読めないまま開くと、出勤中のキャストが「出勤していない」側に並ぶ */
   const present={}, gone=new Set(); (data||[]).forEach(e=>{ if(e.event_type==='clock_out'){ gone.add(e.staff_id); return; } present[e.staff_id]=present[e.staff_id]||{}; present[e.staff_id][e.event_type]=e.event_at; });
   // 退勤済の人は「出勤中」に出さず、「出勤していないキャストから選ぶ」に入れる
     const list=S.staff.filter(s=>s.kind==='cast'&&present[s.id]&&!gone.has(s.id));
