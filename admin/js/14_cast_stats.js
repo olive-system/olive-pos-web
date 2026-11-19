@@ -97,7 +97,7 @@ async function ksPdf(d,h){ try{ await ksLoad('https://cdn.jsdelivr.net/npm/html2
   const rc=await sb.rpc('admin_pay_receipts',{p_store:storeId,p_month:`${y}-${String(mo).padStart(2,'0')}-01`}); if(rc.error&&!/admin_pay_receipts/.test(rc.error.message)){ await uiAlert('受取確認の明細の読み込みに失敗しました。再度お試しください'); return; }
   const SG={}; (rc.data||[]).forEach(r=>{ if(r.slip) SG[r.staff_id]=r.slip; }); const sgd=x=>SG[x.id]?{...SG[x.id],name:x.name}:x;
   const rows=[...(d.rows||[]).map(sgd),...(h?.rows||[]).map(x=>({...sgd(x),hall:true}))], fn=ksFineNames(rows.filter(x=>!x.hall)), sn=curStore()?.name||'', v=n=>ksN(n)?ksN(n).toLocaleString('ja-JP'):'--';
-  const now=new Date(), pt=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const now=new Date(), pt=`${ymdOf(now)} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
   const slip=ksSlips(y,mo,sn,fn,v,nmT);
   const per=6, pages=[]; for(let i=0;i<rows.length;i+=per) pages.push(rows.slice(i,i+per));
   const {dPages,dPage,total}=ksDenom(rows,pages,pt,sn,y,mo);
