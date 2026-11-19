@@ -64,6 +64,9 @@ function setListPage(key, keepSel, def){
   if (S.setEditMode && !def.nosort) enableDrag(def);
   renderForm(def);
 }
+/* 足したばかりのメニュー：販売価格・カテゴリーを入れると、バック・ポイントのはじめの値が入る（変えられる。lib/olive/core.js の menuBackInit） */
+function menuBackWire(f){ const g=k=>f.querySelector(`[data-k="${k}"]`), fill=()=>{ const c=g('category_id'), v=menuBackInit(S.store?.code,c?.selectedOptions[0]?.text||'',g('price')?.value); if(g('back_amount')) g('back_amount').value=v.back; if(g('back_points')) g('back_points').value=v.points; };
+  ['price','category_id'].forEach(k=>{ const e=g(k); if(e) e.addEventListener(k==='price'?'input':'change',fill); }); }
 function renderForm(def){ const r=S.setSel; const f=$('setForm');
   if(!r){ f.innerHTML='<div class="muted">左の一覧から選ぶか「追加」</div>'; return; }
   if(def.ro){ renderFormRo(def,r); return; }
@@ -72,6 +75,7 @@ function renderForm(def){ const r=S.setSel; const f=$('setForm');
     if(type==='prod') return `<label>${label}<select data-k="${k}"><option value="">なし</option>${S.products.filter(p=>p.agg_category==='HC').map(p=>`<option value="${p.id}" ${r[k]===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`;
     if(type==='cat') return `<label>${label}<select data-k="${k}">${S.categories.map(c=>`<option value="${c.id}" ${r[k]===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>`;
     return `<label>${label}<input type="${type}" data-k="${k}" value="${esc(r[k]??'')}"></label>`; }).join('')+(def.key==='pos'?`<h3 style="margin:16px 0 4px">VIP料金（卓ごと。0＝通常卓）</h3><div class="muted" style="font-size:12px">VIP代＝部屋につき1回／VIP延長＝延長${S.settings.ext_minutes}分ごとに加算。人数は掛けません</div><table style="width:100%;margin-top:6px"><tr><th style="text-align:left">卓</th><th>VIP代</th><th>VIP${S.settings.ext_minutes}分延長</th></tr>${S.tables.map(t=>`<tr><td>${esc(t.name)}</td><td><input type="number" data-vipset="${t.id}" value="${t.vip_set_fee||0}"></td><td><input type="number" data-vipext="${t.id}" value="${t.vip_ext_fee||0}"></td></tr>`).join('')}</table>`:'')+`<div class="bar"><button class="primary" id="setSave">保存</button></div>`;
+  if(def.key==='products'&&r.id===S.setNewId) menuBackWire(f);
   $('setSave').onclick=async()=>{ const o={}; def.cols.forEach(([k,,type])=>{ const el=f.querySelector(`[data-k="${k}"]`); o[k]=type==='bool'?el.checked:type==='number'?Number(el.value||0):(type==='prod'?(el.value||null):el.value); });
     const q = def.single ? sb.rpc('pos_settings_save',{p_store:S.settings.store_id,p:o}) : sb.rpc('pos_row_update',{p_table:def.table,p_id:r.id,p:o});
     let { error } = await q;
@@ -84,7 +88,7 @@ function renderFormRo(def,r){ const f=$('setForm'); const val=(k,type)=>type==='
   f.innerHTML=`<div class="muted hint" style="margin-bottom:10px">ここでは閲覧のみです<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">料金は管理サイト「POS設定」、日払（立替）の上限・体験の源泉・ポイント・同伴の準備時間は「報酬・罰金項目」で設定します</div></div>`+def.cols.map(([k,label,type])=>`<label>${label}<input value="${esc(String(val(k,type)))}" disabled></label>`).join('')+
     `<h3 style="margin:16px 0 4px">VIP料金（卓ごと。0＝通常卓）</h3><table style="width:100%;margin-top:6px"><tr><th style="text-align:left">卓</th><th>VIP代</th><th>VIP${S.settings.ext_minutes}分延長</th></tr>${S.tables.map(t=>`<tr><td>${esc(t.name)}</td><td><input value="${t.vip_set_fee||0}" disabled></td><td><input value="${t.vip_ext_fee||0}" disabled></td></tr>`).join('')}</table>`; }
 $('setAdd').onclick=guard($('setAdd'),async()=>{ /* 二重に押すと同じ行が2つできるので、終わるまで押せない */ const def=SET.find(s=>s.key===S.setCur); const rows=setRows(def); const row=def.newRow(); if(!def.nosort) row.sort_order=(Math.max(0,...rows.map(r=>r.sort_order||0))+1); if(def.key==='products'&&S.setCatFilter) row.category_id=S.setCatFilter;
-  const { data, error } = await sb.rpc('pos_rows_add',{p_table:def.table,p:row}).then(oneRow); if(error){toast(error.message);return;} await logOp('設定の追加',{kind:def.name,name:def.label(data)},null,true); S.setSel=data; renderSettings(S.setCur,true); });
+  const { data, error } = await sb.rpc('pos_rows_add',{p_table:def.table,p:row}).then(oneRow); if(error){toast(error.message);return;} await logOp('設定の追加',{kind:def.name,name:def.label(data)},null,true); S.setSel=data; S.setNewId=data.id; renderSettings(S.setCur,true); });
 $('setEdit').onclick=()=>{ S.setEditMode=!S.setEditMode; renderSettings(S.setCur,true); };
 $('setFilter').oninput=e=>{ const q=e.target.value.trim(); $('setList').querySelectorAll('.row').forEach(r=>{ r.style.display=!q||r.textContent.includes(q)?'':'none'; }); };
 // 長押しドラッグ並び替え
