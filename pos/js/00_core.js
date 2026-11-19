@@ -114,7 +114,8 @@ async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!
 // もう1台で変わった時だけ最新にして「もう1台で変更されました」。この端末で触った直後（3秒）と確認の画面が出ている間は待つ
 let rtCh=null, rtMastT=0, rtHallT=0, rtBillT=0, rtTap=0, rtMastWait=false; S.billFp='';
 const fpOf=b=>JSON.stringify(b,(k,v)=>k==='depPays'||k==='totals'?undefined:v);
-document.addEventListener('pointerdown',()=>{ rtTap=Date.now(); },true);
+let rtDown=false; document.addEventListener('pointerdown',()=>{ rtTap=Date.now(); rtDown=true; },true); ['pointerup','pointercancel'].forEach(k=>document.addEventListener(k,()=>{ rtDown=false; },true));
+const rtPressing=()=>rtDown&&Date.now()-rtTap<1500; /* 指が触れている間（1.5秒まで）。その間にホールの卓を作り直すと、押した卓の要素が入れかわって、その1回の押しが消えた */
 const rtBusy=()=>!!document.querySelector('.modal.on');
 const onView=v=>$(v).classList.contains('on');
 function rtSub(){ if(rtCh||!S.store) return; rtCh=rtJoin(sb,S.store.id,rtOn); }
