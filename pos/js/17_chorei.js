@@ -21,10 +21,10 @@ function chFc(F){ const md=mdS, no='<span class="muted">—</span>', g=n=>n==nul
     <tr><td style="${tl}">組数</td><td style="${td}">${g(F.tgt_groups)}</td><td style="${td}">${F.groups}組</td><td style="${td}${big}">${g(F.fc_groups)}</td></tr></table>
     <div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 10px;margin-top:8px;font-size:14px;align-items:baseline">${kv('1日平均売上',y(F.avg))}${kv('1日必要組数',g(F.need))}${kv('平均客単価',y(F.unit))}</div>`; }
 async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class="muted">読み込み中…</div>';
-  if(!S.staffAll?.length) await loadStaffAll(); const [cr,ar,sr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today')]);
+  if(!S.staffAll?.length) await loadStaffAll(); const [cr,ar,sr,tr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today'), sb.rpc('pos_chorei_trials')]);
   if(S.setCur!=='chorei') return;
   if(cr.error){ box.innerHTML=`<div class="err">読み込めません：${esc(cr.error.message)}</div>`; return; }
-  const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g);
+  const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g); V.trials=tr.error?null:tr.data;
   box.innerHTML=chHtmlTop(V)+chHtmlSide(V);
   chBind(V,box);
   const wx=await chWeather(V.C); if($('chWx')) $('chWx').outerHTML=`<div>${wx}</div>`;
@@ -65,12 +65,19 @@ function chHtmlTop(V){ const {C,G,d,md,card,row,tag,left,TB,SH,abs,sl,todo,y,gue
 function chHtmlSide(V){ const {C,G,d,md,card,row,tag,left,TB,SH,abs,sl,todo,y,guest,ar}=V; return `
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px;align-items:start">
       <div style="display:flex;flex-direction:column;gap:14px">${card(`天気（${esc(C.place||'')}）`,'<div id="chWx" class="muted">読み込み中…</div>')}
-        ${card(`本日の出勤 ${(C.shifts||[]).length}人`,(Object.keys(SH).sort().map(t=>row(`<b style="min-width:52px">${t}</b>`,`<span>${SH[t].join('・')}</span>`)).join('')||'<div class="muted">シフトなし</div>')+abs.map(a=>row('<b style="min-width:52px;color:var(--warn)">欠勤</b>',`<span style="color:var(--warn);font-weight:700">${esc(S.staffAll.find(z=>z.id===a.staff_id)?.display_name||'')}（${hmJst(a.at)}・${esc(a.reason)}）</span>`)).join('')+(ar.error?RDERR:''))}</div>
+        ${card(`本日の出勤 ${(C.shifts||[]).length}人`,(Object.keys(SH).sort().map(t=>row(`<b style="min-width:52px">${t}</b>`,`<span>${SH[t].join('・')}</span>`)).join('')||'<div class="muted">シフトなし</div>')+abs.map(a=>row('<b style="min-width:52px;color:var(--warn)">欠勤</b>',`<span style="color:var(--warn);font-weight:700">${esc(S.staffAll.find(z=>z.id===a.staff_id)?.display_name||'')}（${hmJst(a.at)}・${esc(a.reason)}）</span>`)).join('')+(ar.error?RDERR:''))}${chTrialCard(V)}</div>
       <div style="display:flex;flex-direction:column;gap:14px">${card('売上',row(`<span style="flex:1">昨日 ${y.getMonth()+1}/${y.getDate()}（${WD[y.getDay()]}）</span>`,`<b>${yen(C.sales_y||0)}</b>`)+(C.fc?chFc(C.fc):C.sales_m==null?'':row(`<span style="flex:1">今月（${d.getMonth()+1}/1〜${y.getMonth()+1}/${y.getDate()}）</span>`,`<b>${yen(C.sales_m)}</b>`)))}
         ${/* 前後1週間（キャストのトップと同じ） */''}${card('お誕生日（前後1週間）',(C.bdays||[]).map(b=>row(`<b style="min-width:64px;${b.in===0?'color:var(--warn)':b.in<0?'color:var(--muted)':''}">${b.in===0?'本日':b.in<0?(-b.in)+'日前':'あと'+b.in+'日'}</b>`,`<span style="flex:1;${b.in<0?'color:var(--muted)':''}">${esc(b.name)}${(b.kind_label||'お客様')==='お客様'?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><span class="muted">${(b.kind_label||'お客様')==='お客様'?(b.kakari?KL+' '+esc(b.kakari):''):esc(b.kind_label)}</span>`)).join('')||'<div class="muted">なし</div>')}
         ${card('キャストのやること',todo||'<div class="muted">なし</div>')}</div></div>`; }
+/* 本日の体験：対応黒服を選ぶとすぐ保存（オーナー「担当黒服ではなく対応黒服」。選ぶまでは赤字で出し続ける）。形は卓の欄と同じ */
+function chTrialCard(V){ const T=V.trials&&V.trials.trials||[]; if(!T.length) return ''; const {card,row}=V;
+  const opt=x=>`<option value="">対応黒服 未選択</option>${(V.trials.halls||[]).map(h=>`<option value="${h.id}" ${h.id===x.host?'selected':''}>${esc(h.name)}</option>`).join('')}`;
+  return card(`本日の体験 ${T.length}人`,T.map(x=>row(`<b style="min-width:52px">${esc(x.time||'')}</b>`,`<span style="flex:1">${esc(x.name)}${x.noap?' <span style="color:var(--warn);font-size:14px">応募情報なし</span>':''}</span><select data-cth="${x.id}" style="height:40px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:16px;background:var(--card);color:${x.host?'var(--ink)':'var(--warn)'}">${opt(x)}</select>`,'align-items:center')).join('')); }
+function chTrialBind(V,box){ box.querySelectorAll('[data-cth]').forEach(x=>x.onchange=async()=>{ x.disabled=true;
+  const q=await sb.rpc('pos_trial_host_set',{p_staff:x.dataset.cth,p_hall:x.value||null}); x.disabled=false;
+  if(q.error){ await uiAlert(q.error.message); renderChorei(); return; } const t=V.trials.trials.find(z=>z.id===x.dataset.cth); if(t) t.host=x.value||null; x.style.color=x.value?'var(--ink)':'var(--warn)'; toast('保存しました'); }); }
 /* 押した時の動き：お客様を開く・卓・予約の取消・確認 */
-function chBind(V,box){ const {C,G,d,md,card,row,tag,left,TB,SH,abs,sl,todo,y,guest,ar}=V;
+function chBind(V,box){ const {C,G,d,md,card,row,tag,left,TB,SH,abs,sl,todo,y,guest,ar}=V; chTrialBind(V,box);
   box.querySelectorAll('[data-cho]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cho; chOpen.has(k)?chOpen.delete(k):chOpen.add(k); renderChorei(); });
   box.querySelectorAll('[data-chs]').forEach(x=>{ x.onclick=e=>e.stopPropagation(); x.onchange=async()=>{ const id=x.dataset.chs, g=G.find(g=>String(g.id)===id), was=g?.seat||''; x.disabled=true; /* 選ぶとすぐ保存 */
     const q=await sb.rpc('pos_resv_seat',{p_id:id,p_table:x.value||null}); x.disabled=false; if(q.error){ x.value=was; await uiAlert(q.error.message); return; } if(g) g.seat=x.value||null; toast('保存しました'); }; });
