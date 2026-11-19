@@ -45,7 +45,7 @@ PAGES.set_todo=async()=>{ const st=storeId, ed=perm('set_todo')==='edit';
       return sec(`休日分（${cd.length>2?`${md(cd[0])}〜${md(cd[cd.length-1])}`:cd.map(md).join('・')}）`,`<span style="${late?'background:var(--warn-soft);color:var(--warn);':'color:var(--muted);'}border-radius:6px;padding:2px 8px;font-size:13px;white-space:nowrap">期限 ${esc(C[0].deadline||'閉店')}</span>`)
         + C.map(row).join('') + sec('本日分') + (T.map(row).join('')||'<div class="muted">本日分の TODO はありません</div>'); })()}
     <div class="muted" style="font-size:12px;margin-top:6px">写真は30日で消えます</div></div>`;
-  const [yy,mm]=todoMon.split('-').map(Number), f=new Date(yy,mm-1,1), st0=new Date(yy,mm-1,1-f.getDay()), ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const [yy,mm]=todoMon.split('-').map(Number), f=new Date(yy,mm-1,1), st0=new Date(yy,mm-1,1-f.getDay()), ymd=ymdOf;
   const weeks=Math.ceil((f.getDay()+new Date(yy,mm,0).getDate())/7); let cells='';
   for(let i=0;i<weeks*7;i++){ const d=new Date(st0); d.setDate(st0.getDate()+i); const k=ymd(d), inM=d.getMonth()===mm-1, L=inM?(M[k]||[]):[];
     cells+=`<div data-tdd="${inM?k:''}" style="border:1px solid var(--line);margin:-1px 0 0 -1px;min-height:112px;padding:4px;min-width:0;${inM?'cursor:pointer;background:#fff':'background:var(--soft)'};${k===todoDay?'outline:3px solid var(--ok);outline-offset:-3px':''}">

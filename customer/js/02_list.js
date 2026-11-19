@@ -2,7 +2,7 @@
 function bd(){ return boot&&boot.business_date||new Date().toISOString().slice(0,10); }
 CU_SITE.today = bd; /* 来店の年（lib/olive/customer.js の visYears）は、データベースの営業日で分ける */
 // 一覧のボトル：キープ中の銘柄を3本まで、4本以上は「ほか○本」。銘柄が届かない時は本数だけ。POSと同じ
-function cutoff(n){ const [y,m,d]=bd().split('-').map(Number); const x=new Date(y,m-1-n,1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* 月末のずれを直す */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function cutoff(n){ return monthsBefore(bd(),n); }
 function base(c){ return c.last||c.first_bottle||String(c.created_at||'').slice(0,10)||''; }
 const staffBy=id=>(boot&&boot.staff||[]).find(s=>s.id===id);
 const sname=id=>{ const s=staffBy(id); return s?s.name+(s.active?'':'（退店）'):''; };
