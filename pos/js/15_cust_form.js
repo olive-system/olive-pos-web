@@ -11,7 +11,7 @@ function renderCuForm(){ const c=S.cuSel==='__new'?S.cuDraft:S.customers.find(x=
   cuCxLoad(c); }
   $('cuSave').onclick=()=>cufSave(c,rnNo);
   $('cuInd').onclick=e=>cufIndustry(c,e);
-  $('cuDel').onclick=()=>cufDelete(c);
+  { const del=$('cuDel'); if(del) del.onclick=()=>cufDelete(c); } /* ［削除］は今あるお客様の時だけ作る。新規の登録の時に付けようとして画面のエラーになっていた */
   if(c.id){ renderCuReq(c); renderCuSide(c); } }
 /* お客様のフォームの形 */
 function cufHtml(c,casts,kGone){ return '<div id="cuReq"></div><div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px">'+CUF.map(([k,l])=>k==='kakari_staff_id'?`<label>${l}<select data-k="${k}"><option value="">なし</option>${kGone?`<option value="${kGone.id}" selected>${esc(kGone.display_name)}（退店）</option>`:''}${casts.map(s=>`<option value="${s.id}" ${c[k]===s.id?'selected':''}>${esc(s.display_name)}</option>`).join('')}</select></label>`:k==='good_cast_ids'?`<div style="grid-column:1/-1;margin:4px 0 8px"><div class="muted" style="font-size:13px">${l}</div><div id="cuGood" style="font-size:16px;padding:4px 0">…</div></div>`:k==='memo'?`<label style="grid-column:1/-1">${l}<textarea data-k="${k}" rows="9" style="width:100%;font-size:16px;line-height:1.5">${esc(c[k]||'')}</textarea>`+
