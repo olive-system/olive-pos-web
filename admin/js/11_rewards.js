@@ -2,11 +2,11 @@
 PAGES.set_pay=async()=>{
   const st=storeId, ed=perm('set_pay')==='edit';
   $('main').innerHTML=`<h1>報酬・罰金項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
-  const [ps,hb,pos,ft,ax,stb,srw,ctm,rwt,act]=await Promise.all([ sb.from('pay_slides').select('kind,threshold,wage').eq('store_id',st).order('threshold'),
+  const [ps,hb,pos,ft,ax,stb,srw,ctm,rwt,act,hst]=await Promise.all([ sb.from('pay_slides').select('kind,threshold,wage').eq('store_id',st).order('threshold'),
     sb.from('hall_bonus_slides').select('*').eq('store_id',st).order('sales_man'), sb.from('pos_settings').select('*').eq('store_id',st).maybeSingle(),
     sb.from('fine_types').select('name,target,calc,value,per_unit,sort_order').eq('store_id',st).order('sort_order'), sb.rpc('admin_get_after_ext',{p_store:st}),
     sb.from('slide_tables').select('*').eq('store_id',st).eq('is_active',true).order('sort_order'), sb.from('slide_rows').select('table_id,threshold,amount').eq('store_id',st).order('threshold'),
-    sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).order('id')), sb.rpc('admin_reward_types',{p_store:st}), sb.from('staff').select('id').eq('store_id',st).eq('is_active',true) ]);
+    sbAll(()=>sb.from('cast_terms').select('staff_id,month,only_month,slide_ids').eq('store_id',st).order('id')), sb.rpc('admin_reward_types',{p_store:st}), sb.from('staff').select('id').eq('store_id',st).eq('is_active',true), sb.from('hall_bonus_steps').select('from_month,sales_man,b_within,b_step,step_max').eq('store_id',st).order('from_month').order('sales_man') ]);
   if(page!=='set_pay'||storeId!==st) return;
   const er=ps.error||hb.error||pos.error; if(er){ $('main').innerHTML=`<h1>報酬・罰金項目</h1><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
   $('main').innerHTML=`<h1>報酬・罰金項目 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
@@ -24,7 +24,8 @@ PAGES.set_pay=async()=>{
   <div id="cardBox"></div>
   <div id="dressBox"></div>
   <div class="psec">黒服</div>
-  ${slideCard('hall',hb.data||[],ed,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">単位は万円。月の総売上が、その行の売上以上になっている行のうち、一番下の行を使います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">一番上の行より売上が少ない月は0円です。<br>人件費比率（キャストの報酬＋黒服の月給＋体験の報酬 ÷ 総売上）が 目標比率以内／＋2%まで／＋5%まで／5%超 で金額が決まり、売上ボーナスを加算した総額を、黒服の売上シェアで分けます</div></div>`)}`;
+  ${slideCard('hall',hb.data||[],ed,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">売上の単位は万円、金額の単位は円です。月の総売上が、その行の売上以上になっている行のうち、一番下の行を使います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">一番上の行より売上が少ない月は0円です。<br>人件費比率（キャストの報酬＋黒服の月給＋体験の報酬 ÷ 総売上）が 目標比率以内／＋2%まで／＋5%まで／5%超 で金額が決まり、売上ボーナスを加算した総額を、黒服の売上シェアで分けます</div></div>`)}
+  ${hallStepCard(hst)}`;
   foldWire($('main'));
   cardFold(st,ed);
   dressFold(st,ed);
@@ -40,7 +41,7 @@ PAGES.set_pay=async()=>{
     const hs=$('dHoursSave'); if(hs) hs.onclick=guard(hs,async()=>{ const h=slNum($('dHours').value); if(h==null||!(h>0&&h<=24)){ await uiAlert('所定時間は0より大きく24以下の数にしてください'); return; } if(!await uiConfirm(`日給の人の所定時間を ${h}時間 にしますか？\n時間給 ＝ 日給 ÷ ${h}時間 になります`)) return; const r=await rpc('admin_set_daily_hours',{p_store:st,p_hours:h}); if(!r.ok) return; toast('保存しました'); PAGES.set_pay(); });
   } }
   stWire(st);
-  $('main').querySelectorAll('[data-sl]').forEach(card=>{ const kind=card.dataset.sl, d=SLIDE_DEF[kind];
+  $('main').querySelectorAll('[data-sl]').forEach(card=>{ const kind=card.dataset.sl, d=SLIDE_DEF[kind]; if(!card.querySelector('[data-add]')) return;  /* 1%ごとの段は表示だけ */
     card.querySelector('[data-add]').onclick=()=>{ const tb=card.querySelector('table.sl'); const ph=tb.querySelector('td[colspan]'); if(ph) ph.parentElement.remove(); const i=tb.querySelectorAll('tr[data-i]').length+Date.now(); const tr=document.createElement('tr'); tr.dataset.i=i; tr.innerHTML=d.cols.map(c=>`<td><input inputmode="decimal" data-c="${c.k}"></td>`).join('')+`<td class="x"><button class="xb" aria-label="行を削除">×</button></td>`; tr.querySelector('button').onclick=()=>tr.remove(); tb.appendChild(tr); tr.querySelector('input').focus(); };
     card.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>x.closest('tr').remove());
     const sv=card.querySelector('[data-save]'); sv.onclick=guard(sv,async()=>{ const g=slideRead(card,kind); if(g.err){ await uiAlert(g.err); return; }
@@ -48,4 +49,7 @@ PAGES.set_pay=async()=>{
       const r=kind==='hall'?await rpc('admin_save_hall_bonus',{p_store:st,p_rows:g.rows}):await rpc('admin_save_pay_slides',{p_store:st,p_kind:kind,p_rows:g.rows}); if(!r.ok) return;
       toast('保存しました'); PAGES.set_pay(); }); });
 };
-
+/* 648：広島の1%ごとの段（hall_bonus_steps）。いちばん新しい「○月分以降」の行だけを、表示だけで出す。段の無い店（銀座）は出さない */
+function hallStepCard(r){ const rows=(r&&!r.error&&r.data)||[]; if(!rows.length) return '';
+  const fm=rows[rows.length-1].from_month, cur=rows.filter(x=>x.from_month===fm), [y,m]=fm.split('-').map(Number), mx=Math.max(...cur.map(x=>Number(x.step_max)||0));
+  return slideCard('hallstep',cur,false,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">${y}年${m}月分以降は、人件費比率の金額をこの表で決めます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">目標比率以内は「以内」の金額です。目標比率を1%超えるごとに「1%ごとの減額」を減算し、＋${mx}%を超えると0円です。<br>目標比率と売上ボーナスは上の表を使います（上の表の ＋2%まで・＋5%まで・5%超 は使いません）</div></div>`); }
