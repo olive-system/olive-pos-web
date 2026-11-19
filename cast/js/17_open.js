@@ -267,7 +267,8 @@ function hcWireGuarantee(H){ const L = (H.D && H.D.rows) || [], D = H.D || {}, s
     const all = L.every((c, i) => q('gc', i).value && (!reset(c, i) || open.has(i)));
     s.style.display = all ? '' : 'none'; if(hint){ hint.style.display = all || !L.length ? 'none' : ''; hint.textContent = L.some((c, i) => reset(c, i) && !open.has(i)) ? '［条件再設定］で期限と担当を選ぶと［保存］が表示されます' : '全員を選ぶと［保存］が表示されます'; } };
   L.forEach((c, i) => q('gc', i).onchange = sync); sync(); }
-const HC_BODY = { shift_none: hcBodyShiftNone, guarantee: hcBodyGuarantee, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: hcBodyShiire, kaidashi: hcBodyKaidashi, day_memo: hcBodyDayMemo };
+const HC_BODY = { shift_none: hcBodyShiftNone, guarantee: hcBodyGuarantee, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: H => hcBodyShiire(H), kaidashi: H => hcBodyKaidashi(H),   /* 26_nohin.js の関数は開いた時に探す（古い index.html の端末で 17_open.js 全体が止まらないように） */
+  day_memo: hcBodyDayMemo };
 /* 作業の種類ごとの、押した時の動き */
 function hcWireDrinks(H, again){ const {x, r, D} = H;
   { const T = D.flatMap(g => g.items.filter(a => a.track)), T2 = [...T, ...drWaits(r, T).extra];
@@ -312,7 +313,7 @@ async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s
   s.onclick = async () => { s.disabled = true; const q = await sb.rpc('hall_kpb_review_save', { p_token: TOKEN, p_task: x.id, p_rows: L.map((t, i) => ({ bill_id: t.bill_id, reason: sel(i) })) });
     if(q.error){ s.disabled = false; await uiAlert(q.error.message); return; } s.disabled = false; hcSave(x, ph, s, hcBodyBottle(H).getData); };
 }
-const HC_WIRE = { shift_none: hcWireShiftNone, guarantee: hcWireGuarantee, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: hcWireShiire, kaidashi: hcWireKaidashi, memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
+const HC_WIRE = { shift_none: hcWireShiftNone, guarantee: hcWireGuarantee, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: (H, a) => hcWireShiire(H, a), kaidashi: (H, a) => hcWireKaidashi(H, a), memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
 /* 写真とコメントの欄（その作業に要る時だけ） */
 function hcPhotoBox(x, s){
   if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" id="clPl" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label></div><div id="clPg"></div>` : ''}
