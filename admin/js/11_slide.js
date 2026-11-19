@@ -5,6 +5,8 @@ const SLIDE_DEF={
   points:{t:'ポイントスライド',sub:'ポイントで時給が決まる',cols:[{k:'threshold',l:'ポイント（以上）'},{k:'wage',l:'時給（円）'}]},
   douhan:{t:'同伴スライド',sub:'月の同伴回数で時給が決まる',cols:[{k:'threshold',l:'同伴（回以上）'},{k:'wage',l:'時給（円）'}]},
   hall:{t:'黒服ボーナススライド',sub:'',cols:[{k:'sales_man',l:'売上（万円以上）'},{k:'target_ratio',l:'目標比率（%）',sc:0.01},{k:'b_within',l:'以内'},{k:'b_plus2',l:'＋2%まで'},{k:'b_plus5',l:'＋5%まで'},{k:'b_over',l:'5%超'},{k:'b_sales',l:'売上ボーナス'}]},
+  /* 648：1%ごとの段（広島）。表示だけ（変更は SQL） */
+  hallstep:{t:'黒服ボーナス 1%ごとの段',sub:'',cols:[{k:'sales_man',l:'売上（万円以上）'},{k:'b_within',l:'以内'},{k:'b_step',l:'1%ごとの減額'}]},
 };
 const slNum=v=>{ const t=toHan(v).replace(/[,，\s]/g,''); return t===''?null:Number(t); };
 const slShow=(v,sc)=>v==null?'':String(Math.round(Number(v)/(sc||1)*10000)/10000);
