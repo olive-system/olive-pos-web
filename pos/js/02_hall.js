@@ -81,7 +81,9 @@ function afterDue(now){ const [h,m]=(S.closeHM||'01:00').split(':').map(Number);
 function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="casts">アフター ${esc(b.after_bills.map(x=>S.staff.find(s=>s.id===x.staff_id)?.display_name||'').join('・'))}</div>`;
   if(b.after_none) return '<div class="casts">アフター なし</div>';
   return afterDue(now)?'<div style="margin-top:6px;padding:4px 8px;border-radius:6px;background:var(--warn);color:#fff;font-size:13px;font-weight:700;text-align:center">アフター未確認</div>':''; }
-function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } /* 押している最中は描き直しを待つ（ほかの iPad の変更の知らせで描き直すと、押した卓が消えて反応しなかった） */ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
+/* 押している最中は描き直しを待つ（ほかの iPad の変更の知らせで卓を全部作り直すと、押した卓が消えて反応しなかった） */
+function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } renderHallNow(totals); }
+function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
   const al=S.openBills.filter(b=>!b.pay_open_at&&(billEnd(b)-now)<10*60000);
   $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(billTable(b)||'?')).join('、')}</div>` : ''; $('alerts').insertAdjacentHTML('beforeend',tsukeAgariHtml()); tsukeBind();
   $('bdHall').textContent=S.openBills.length;
