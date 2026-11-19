@@ -97,7 +97,16 @@ function hallTodoSkip(x, fld){
     $('tdRGo').onclick = async () => { const rs = $('tdR').value.trim(); if(!rs){ await uiAlert('理由を書いてください'); return; }
       $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRGo')) $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
 }
+/* 体験の「○○ 応募情報登録」：ヒアリングシートと写真（バストアップ）を撮る所だけ。そろうと自動で完了（オーナー「ア この形で作る」） */
+function hallTrialTodo(x){ setBack(hallTodo); const T = x.trial;
+  const st = n => n ? `<span class="sm" style="color:var(--ok)">撮影済 ${n}枚</span>` : '<span class="sm" style="color:var(--warn)">未撮影</span>';
+  const row = (k, lab, n) => `<div class="row" style="align-items:center;gap:10px"><span style="flex:1">${lab}</span>${st(n)}<button class="btn g" data-tts="${k}" style="width:auto;flex:none;margin:0;padding:0 16px;height:36px">撮影</button></div>`;
+  show(`<div class="ttl">${esc(x.name)}</div><div class="card"><div class="muted sm" style="margin-bottom:6px">期限 開店作業　対応黒服 ${esc(x.assignee || '未選択')}</div>${row('sheet', 'ヒアリングシート', T.sheet)}${row('bust', '写真（バストアップ）', T.bust)}</div>`);
+  $('main').querySelectorAll('[data-tts]').forEach(b => b.onclick = () => { const k = b.dataset.tts;
+    apPick(k, f => apSendPhoto(k, f, d => sb.rpc('hall_trial_photo_add', { p_token: TOKEN, p_staff: T.staff_id, p_kind: k, p_data: d }), async () => { toast('保存しました');
+      const r = await sb.rpc('hall_todos', { p_token: TOKEN }); const y = !r.error && (r.data.items || []).find(z => z.id === x.id); if(y && y.trial && y.status !== 'done') hallTrialTodo(y); else hallTodo(); })); }); }
 function hallTodoOne(x, keep){
+  if(x.trial){ hallTrialTodo(x); return; }
   setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; tdDiff = null; tdWhy = {}; }
   const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
   const done = x.status === 'done', ph = (x.photos && x.photos.length) ? x.photos : (x.photo ? [x.photo] : []);
@@ -152,9 +161,18 @@ function hcFc(F){ const no = '<span class="muted">—</span>', g = n => n==null 
     <div class="row" style="font-size:14px"><span class="muted">1日平均売上</span><b>${y(F.avg)}</b></div><div class="row" style="font-size:14px"><span class="muted">1日必要組数</span><b>${g(F.need)}</b></div><div class="row" style="font-size:14px"><span class="muted">平均客単価</span><b>${y(F.unit)}</b></div>`; }
 /* 朝礼のデータと天気は覚えておき、お客様を開く・閉じる時は読み直さない（前は押すたびに hall_chorei と天気を読み直していた）。読み直すのは開いた時と「確認」「確認の取消」の後（天気はそのまま） */
 let hcD = null, hcWx = null;
+/* 本日の体験：対応黒服を選ぶとすぐ保存（オーナー「担当黒服ではなく対応黒服」。選ぶまでは赤字で出し続ける） */
+let hcT = null;
+function hcTrialHtml(){ const T = hcT && hcT.trials || []; if(!T.length) return '';
+  const opt = (x) => `<option value="">対応黒服 未選択</option>${(hcT.halls || []).map(h => `<option value="${h.id}" ${h.id === x.host ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}`;
+  return `<div class="card"><div class="gh">本日の体験 ${T.length}人</div>${T.map(x => `<div class="row" style="justify-content:flex-start;gap:10px;align-items:center"><b>${esc(x.time || '')}</b><span style="flex:1">${esc(x.name)}${x.noap ? ' <span class="err sm">応募情報なし</span>' : ''}</span><select data-th="${x.id}" style="width:auto;font:inherit;font-size:15px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#fff;color:${x.host ? 'var(--ink)' : 'var(--warn)'}">${opt(x)}</select></div>`).join('')}</div>`; }
+function hcTrialBind(){ $('main').querySelectorAll('[data-th]').forEach(x => x.onchange = async () => { x.disabled = true;
+  const r = await sb.rpc('hall_trial_host_set', { p_token: TOKEN, p_staff: x.dataset.th, p_hall: x.value || null }); x.disabled = false;
+  if(r.error){ await uiAlert(r.error.message); hallChorei(true); return; } const t = hcT.trials.find(z => z.id === x.dataset.th); if(t) t.host = x.value || null; x.style.color = x.value ? 'var(--ink)' : 'var(--warn)'; toast('保存しました'); }); }
 async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
-  const r = await sb.rpc('hall_chorei', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
+  const [r, t] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN })]); if(r.error){ fail(r.error.message); return; }
+  hcT = t.error ? null : t.data;
   hcD = r.data; if(keepWx !== true) hcWx = null; hcPaint(); /* トップのボタンからは event が来るので true の時だけ */
   if(!hcWx) await hcWeather(hcD);
 }
@@ -183,10 +201,11 @@ function hcHtml(V){ const { C, G, left, tag, guest, SH, y } = V; return `<div id
     <div class="card"><div class="gh">本日来店予定のお客様 ${G.length}組${left?`　<span class="err">未確認 ${left}組</span>`:''}</div>${G.map(guest).join('')||'<div class="muted sm">なし</div>'}${G.length?'<div class="muted sm" style="margin-top:6px">未確認をタップで顧客メモを確認してください。</div>':''}</div>
     <div class="card"><div class="gh">天気</div><div id="hcWx" class="${hcWx ? hcWx.c : 'muted sm'}">${hcWx ? hcWx.h : '読み込み中…'}</div></div>
     <div class="card"><div class="gh">本日の出勤 ${(C.shifts||[]).length}人</div>${Object.keys(SH).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${SH[t].join('・')}</span></div>`).join('')||'<div class="muted sm">シフトなし</div>'}</div>
+    ${hcTrialHtml()}
     <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdWD(y)}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
     <div class="card"><div class="gh">お誕生日（前後1週間）</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; /* 前後1週間（キャストのトップと同じ） */ return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`; }
 /* 押した時の動き：お客様を開く・卓・確認 */
-function hcBind(V){ const { C, G, left, tag, guest, SH, y } = V;
+function hcBind(V){ const { C, G, left, tag, guest, SH, y } = V; hcTrialBind();
   $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* 読み直さない */
   $('main').querySelectorAll('[data-hs]').forEach(x => { x.onclick = e => e.stopPropagation(); x.onchange = async () => { const id = x.dataset.hs, g = G.find(g => String(g.id) === id), was = g?.seat || ''; x.disabled = true;
     const q = await sb.rpc('hall_resv_seat', { p_token: TOKEN, p_id: id, p_table: x.value || null }); x.disabled = false; if(q.error){ x.value = was; await uiAlert(q.error.message); return; } if(g) g.seat = x.value || null; }; });
