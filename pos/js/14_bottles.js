@@ -24,7 +24,7 @@ CU_SITE.clashBox=(mine,theirs)=>new Promise(res=>{ const m=mkModal(60); const bx
   document.body.appendChild(m); m.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); }); /* メモの食い違いを選ぶ箱の見た目（POS の小窓）。選ぶ決まりは lib/olive/customer.js の pickClash */
 /* 並び順を顧客サイトとそろえる（名前・卓名は日本語順、数字は数の順） */
 function btSort(list){ return list.sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); }
-function btCutoff(n){ const [y,m,d]=businessDate().split('-').map(Number); const x=new Date(y,m-1-(n||btMonths()),1); x.setDate(Math.min(d,new Date(x.getFullYear(),x.getMonth()+1,0).getDate())); /* 月末のずれを直す（8/31 の6か月前は 2/28。前は 3/3 になった） */ return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function btCutoff(n){ return monthsBefore(businessDate(),n||btMonths()); }
 // 顧客一覧に出す情報：最終来店日・キープ中のボトル本数と銘柄・キープ名（検索用）
 // 一覧は「最終 日付・係の名前・キープ中の銘柄（3本まで、4本以上は「ほか○本」）」。顧客サイトと同じ
 S.cuInfo={last:{},cnt:{},first:{},kn:{},req:{},bn:{},act:{}}; S.cuMode='all';
