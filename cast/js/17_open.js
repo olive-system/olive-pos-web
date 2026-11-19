@@ -211,22 +211,7 @@ function hcBodyTrialJudge(H){ const {x, ph, r, k, D, td, sv} = H; let body = '',
     body = `${(D.items || []).map(it => judgeCard(it, true)).join('') || '<div class="card muted">本日の体験はありません</div>'}${sv()}`;
     getData = () => ({});
   return { body, getData }; }
-// 開店作業の仕入れ（入荷した品を全部。AB棚の品は理論在庫に加算。オーナー見本 作業場/棚卸し_案2.png）
-function hcBodyShiire(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
-    const P = D.products || [], ab = id => (P.find(p => p.id === id) || {}).ab;
-    if(!shRows[x.id]) shRows[x.id] = (D.rows || []).length ? D.rows.map(r => ({ pid: r.product_id || '', name: r.product_id ? '' : r.name, qty: String(r.qty), free: !r.product_id }))
-      : (D.orders || []).map(o => ({ pid: o.id, name: '', qty: '', free: false, ord: true }));   // 前の日までの発注を数は空欄で並べる
-    if(!shClr[x.id]) shClr[x.id] = Object.fromEntries((D.orders || []).filter(o => (o.cleared || []).length).map(o => [o.id, { kind: o.cleared[0].kind, qty: String(o.cleared.reduce((s, c) => s + c.qty, 0)) }]));   // 保存した差の内訳
-    const R = shRows[x.id], C = shClr[x.id], fs = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box';
-    const opts = r => prodOpts(P, r);
-    body = `${(D.orders || []).length ? `<div class="card" id="shCk"><div id="shCkT">${shCheck(D, R, C)}</div><div id="shCl">${shClear(D, R, C)}</div></div>` : ''}<div class="card"><div style="display:flex;align-items:center;margin-bottom:2px"><b style="flex:1">仕入れ</b><button class="btn g" id="shAdd" style="display:inline-block;width:auto;padding:6px 12px;font-size:14px">追加</button></div>
-      ${R.map((r, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><select data-shp="${i}" style="flex:1;min-width:0;${fs}">${opts(r)}</select>
-        <input data-shq="${i}" inputmode="numeric" maxlength="3" value="${esc(r.qty)}" style="width:64px;text-align:right;${fs}"><span class="muted sm">本</span><button class="xb" data-shx="${i}" aria-label="削除">×</button></div>
-        <input data-shn="${i}" maxlength="60" placeholder="品名" value="${esc(r.name)}" style="display:${r.free ? 'block' : 'none'};width:100%;margin-top:6px;${fs}">
-        <span data-sha="${i}" style="display:${!r.free && ab(r.pid) ? 'inline-block' : 'none'};margin-top:4px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)">高級酒</span></div>`).join('') || '<div class="muted" style="padding:9px 2px">入荷なし</div>'}</div>${rtCard(x, r)}${sv()}`;
-    getData = () => ({ rows: R.filter(r => !(r.ord && r.pid && (r.qty === '' || r.qty === '0'))).map(r => r.free ? { name: r.name, qty: r.qty } : { product_id: r.pid, qty: r.qty }),   // 届かなかった発注の品（空欄・0）は仕入れに入れない
-      clears: shShort(D, R).filter(a => C[a.id] && C[a.id].kind !== 'wait').map(a => ({ product_id: a.id, qty: (C[a.id].qty || '').trim(), kind: C[a.id].kind })), ...rtData(x) });   // 入荷待ちは送らない
-  return { body, getData }; }
+// 開店作業の仕入れ（納品物）は 26_nohin.js の hcBodyShiire・hcWireShiire
 function hcBodyDayMemo(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     body = `<div class="card"><textarea id="clMemo" rows="4" maxlength="1000" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px">${esc(D.memo || '')}</textarea>
       <div class="muted sm" style="margin-top:6px">管理サイトの収支の Excel（日次の「メモ」）に入ります。精算の後も修正できます</div></div>${sv()}`;
@@ -284,21 +269,6 @@ function hcWireDrinks(H, again){ const {x, ph, r, k, D, td, sv} = H;
     if($('drCp')) $('drCp').onclick = () => copyText(drText(r.data, T, drOut[x.id])); }
   rtWire(x, again);
 }
-function hcWireShiire(H, again){ const {x, ph, r, k, D, td, sv} = H;
-  { const R = shRows[x.id], C = shClr[x.id], ab = id => ((D.products || []).find(p => p.id === id) || {}).ab, q = (a, i) => $('main').querySelector(`[data-${a}="${i}"]`);
-    const ckT = () => { if($('shCkT')) $('shCkT').innerHTML = shCheck(D, R, C); };
-    const ck = () => { if(!$('shCk')) return; $('shCl').innerHTML = shClear(D, R, C); ckT();   // 差の内訳は、仕入れの数が変わった時だけ描き直す（入力中の欄が消えないように）
-      $('main').querySelectorAll('[data-scq]').forEach(b => b.oninput = () => { C[b.dataset.scq].qty = b.value.trim(); ckT(); });
-      $('main').querySelectorAll('[data-sck]').forEach(b => b.onchange = () => { C[b.dataset.sck].kind = b.value; ckT(); }); };
-    ck();
-    $('shAdd').onclick = () => { R.push({ pid: '', name: '', qty: '', free: false }); again(); };
-    $('main').querySelectorAll('[data-shx]').forEach(b => b.onclick = () => { R.splice(+b.dataset.shx, 1); again(); });
-    $('main').querySelectorAll('[data-shp]').forEach(b => b.onchange = () => { const i = +b.dataset.shp, r = R[i]; r.free = b.value === 'free'; r.pid = r.free ? '' : b.value;
-      q('shn', i).style.display = r.free ? 'block' : 'none'; q('sha', i).style.display = !r.free && ab(r.pid) ? 'inline-block' : 'none'; ck(); });
-    $('main').querySelectorAll('[data-shq]').forEach(b => b.oninput = () => { R[+b.dataset.shq].qty = b.value.trim(); ck(); });
-    $('main').querySelectorAll('[data-shn]').forEach(b => b.oninput = () => { R[+b.dataset.shn].name = b.value; }); }
-  rtWire(x, again);
-}
 function hcWireMemoReq(H, again){ const {x, ph, r, k, D, td, sv} = H;
   [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
@@ -346,10 +316,11 @@ function hcPhotoBox(x, s){
 /* 保存（写真を縮めて送ってから、作業の中身を保存） */
 async function hcSave(x, ph, s, getData){ s.disabled = true;
     try{
-      if(x.need_photo){ const f = opShots[x.id] || []; if(!f.length){ s.disabled = false; await uiAlert('写真を撮ってください'); return; }
-        const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
-        await todoPhotosUp(p.data, f); } /* 3枚ずつ同時に送る */
-      const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
-      delete opShots[x.id]; delete opNotes[x.id]; delete shRows[x.id]; delete shClr[x.id]; delete drOut[x.id]; delete rtRows[x.id]; hallTasks(ph);
+      const f = x.need_photo ? opShots[x.id] || [] : nhFiles(x); let ids = [];   /* 納品物は納品書の写真（26_nohin.js） */
+      if(x.need_photo && !f.length){ s.disabled = false; await uiAlert('写真を撮ってください'); return; }
+      if(f.length){ const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
+        ids = p.data; await todoPhotosUp(ids, f); } /* 3枚ずつ同時に送る */
+      const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(ids), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
+      delete opShots[x.id]; delete nhSlips[x.id]; delete opNotes[x.id]; delete shRows[x.id]; delete shClr[x.id]; delete drOut[x.id]; delete rtRows[x.id]; hallTasks(ph);
     }catch(e){ s.disabled = false; await uiAlert(e.message || String(e)); }
 }
