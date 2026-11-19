@@ -24,7 +24,7 @@ function slPickHtml(P){
   const pl = SALES.contacts.slice(0, SALES.plan.length), plIds = new Set(pl.map(c => c.id)), rest = SALES.contacts.filter(c => !plIds.has(c.id));
   return `<div class="ttl">連絡済リスト</div><div class="card">
       ${pl.length?`<div class="gh">本日の提案 ${pl.length}名（敬称略）</div><div style="${g2};margin-bottom:12px">${pl.map(c => slCBtn(c, P)).join('')}</div>`:''}
-      <label class="btn g" style="display:block;text-align:center;margin-bottom:10px"><span id="slRt">トーク一覧 読取</span><input type="file" id="slR" accept="image/*" multiple style="display:none"></label>
+      <label class="btn g" style="display:block;text-align:center;margin-bottom:10px"><span id="slRt">トーク一覧から名前読取</span><input type="file" id="slR" accept="image/*" multiple style="display:none"></label>
       ${P.rd?slReadHtml(P):''}
       <div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${P.on.size + P.extra.length}名</span></div>
       ${SALES.contacts.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(P.q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${rest.map(c => slCBtn(c, P)).join('')}</div>`:'<div class="muted sm">連絡先交換の提出がありません</div>'}
