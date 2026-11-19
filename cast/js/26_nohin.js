@@ -32,6 +32,7 @@ function hcBodyShiire(H){ const {x, r, D, sv} = H; const G = nhInit(x, D), P = D
     return { rows: G.flatMap((g, i) => g.rows.filter(a => (a.pid || a.name.trim()) && /^[1-9]\d{0,2}$/.test(a.qty)).map(a => ({ ...(a.free || !a.pid ? { name: a.name.trim() } : { product_id: a.pid }), qty: a.qty, slip_qty: a.slip, supplier: g.supplier, photo_id: ph[i] }))), ...rtData(x) }; };
   return { body, getData }; }
 const nhFiles = x => (nhSlips[x.id] || []).filter(g => g.file).map(g => g.file);
+const nhShot = x => (nhSlips[x.id] || []).some(g => g.file || g.photo_id);   // 納品書を1枚でも撮ったか（写真が要る項目の時）
 // 撮影したら：縮めて読み取りへ。メニューにある品だけ並べる（読み取れなかった品は一番下の行から足す。オーナー 問5）。失敗は黙らずに知らせて、手で入力できる形に戻す（スキル olive-photo-shoot）
 async function nhRead(x, g, f, again){
   g.file = f; g.photo_id = ''; g.reading = true; try{ g.url = URL.createObjectURL(f); }catch(e){} again();

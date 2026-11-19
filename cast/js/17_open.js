@@ -132,9 +132,10 @@ async function hallCloseTask(x, ph){
   const H = { x, ph, r, k, D, td, sv }, { body, getData } = (HC_BODY[k] || (() => ({ body: '', getData: () => ({}) })))(H);
   show(head + body);
   const again = () => hallCloseTask(x, ph), s = $('clSv');
-  hcPhotoBox(x, s);
+  const nh = k === 'shiire';   /* 納品物の写真は、仕入れの箱の納品書の撮影（26_nohin.js）。下の写真の欄は出さない */
+  hcPhotoBox(nh ? { ...x, need_photo: false } : x, s);
   if(HC_WIRE[k]) HC_WIRE[k](H, again);
-  if(s) s.onclick = () => hcSave(x, ph, s, getData); }
+  if(s) s.onclick = () => hcSave(x, ph, s, getData, nh); }
 /* 作業の種類ごとの中身（body）と、保存で送るもの（getData） */
 function hcBodyBottle(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     body = `<div class="card">${D.map((b, i) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="flex:1;line-height:1.4">${esc(b.name)}<div class="muted sm">${esc(b.customer || '')} 様</div></div>
@@ -314,10 +315,10 @@ function hcPhotoBox(x, s){
   if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
 }
 /* 保存（写真を縮めて送ってから、作業の中身を保存） */
-async function hcSave(x, ph, s, getData){ s.disabled = true;
+async function hcSave(x, ph, s, getData, nh){ s.disabled = true;
     try{
-      const f = x.need_photo ? opShots[x.id] || [] : nhFiles(x); let ids = [];   /* 納品物は納品書の写真（26_nohin.js） */
-      if(x.need_photo && !f.length){ s.disabled = false; await uiAlert('写真を撮ってください'); return; }
+      const f = nh ? nhFiles(x) : x.need_photo ? opShots[x.id] || [] : []; let ids = [];   /* 納品物は納品書の写真（26_nohin.js） */
+      if(x.need_photo && (nh ? !nhShot(x) : !f.length)){ s.disabled = false; await uiAlert(nh ? '納品書を撮影してください' : '写真を撮ってください'); return; }
       if(f.length){ const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         ids = p.data; await todoPhotosUp(ids, f); } /* 3枚ずつ同時に送る */
       const z = await sb.rpc('hall_close_save', { p_token: TOKEN, p_task: x.id, p_data: { ...getData(ids), ...(x.need_comment ? { comment: opNotes[x.id] || '' } : {}) } }); if(z.error) throw z.error;
