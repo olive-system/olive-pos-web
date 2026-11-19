@@ -28,13 +28,15 @@ const AP_SIL = `<svg viewBox="0 0 196 204" width="235" height="245" style="displ
 /* バストアップはカメラの画面にシルエットを重ねて撮る（オーナー「撮る時の、カメラにシルエットを出す」・iPhone の LINE と Safari で確かめた）。
    カメラが開けない端末は、シルエットの小窓の中の入力欄で撮る（写真を黙って消さない） */
 const AP_CAMSIL = `<svg viewBox="0 0 150 200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:100%;max-width:460px;max-height:92%;color:#fff"><rect x="4" y="4" width="142" height="192" rx="10" stroke-dasharray="7 6" stroke-width="1.5" opacity=".8"/><circle cx="75" cy="58" r="30" stroke-width="2.5"/><path d="M63 86 L63 100 C42 104 26 114 22 132 L20 196 M87 86 L87 100 C108 104 124 114 128 132 L130 196" stroke-width="2.5"/></svg>`;
-async function apCam(send, fallback){ let st;
-  try{ st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false }); }catch(e){ fallback(); return; }
+async function apCam(send, fallback){ let st = null;
+  /* 先にカメラの画面と案内を出してから許可を聞く（iPhone の Safari と LINE の中は、開くたびに許可が出る） */
   const d = document.createElement('div'); d.style.cssText = 'position:fixed;inset:0;background:#000;z-index:70;display:flex;flex-direction:column';
-  d.innerHTML = `<div style="position:relative;flex:1;overflow:hidden"><video playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>${AP_CAMSIL}<b style="position:absolute;left:16px;top:16px;color:#fff;font-size:17px">写真（バストアップ）</b><button aria-label="閉じる" data-k="x" style="position:absolute;right:12px;top:8px;color:#fff;background:none;border:0;font-size:30px">×</button></div><div style="height:120px;display:flex;align-items:center;justify-content:center"><button aria-label="撮影" data-k="s" style="width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 4px #000"></button></div>`;
-  document.body.appendChild(d); const v = d.querySelector('video'); v.srcObject = st; v.play().catch(() => {});
-  const end = () => { st.getTracks().forEach(t => t.stop()); d.remove(); };
+  d.innerHTML = `<div style="position:relative;flex:1;overflow:hidden"><video playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>${AP_CAMSIL}<b style="position:absolute;left:16px;top:16px;color:#fff;font-size:17px">写真（バストアップ）</b><button aria-label="閉じる" data-k="x" style="position:absolute;right:12px;top:8px;color:#fff;background:none;border:0;font-size:30px">×</button><div data-k="h" style="position:absolute;left:16px;right:16px;bottom:16px;color:#fff;font-size:15px;text-align:left">［許可］を押すとカメラが開きます</div></div><div style="height:120px;display:flex;align-items:center;justify-content:center"><button aria-label="撮影" data-k="s" style="width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 4px #000"></button></div>`;
+  document.body.appendChild(d); const v = d.querySelector('video');
+  const end = () => { if(st) st.getTracks().forEach(t => t.stop()); d.remove(); };
   d.querySelector('[data-k=x]').onclick = end;
+  try{ st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false }); }catch(e){ end(); fallback(); return; }
+  if(!d.isConnected){ end(); return; } v.srcObject = st; v.play().catch(() => {}); d.querySelector('[data-k=h]').remove();
   d.querySelector('[data-k=s]').onclick = () => { const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
     if(!c.width){ uiAlert('撮影できませんでした。再度撮影してください'); return; }
     c.getContext('2d').drawImage(v, 0, 0); c.toBlob(b => { end(); if(!b){ uiAlert('撮影できませんでした。再度撮影してください'); return; } send(b); }, 'image/jpeg', 0.92); }; }
