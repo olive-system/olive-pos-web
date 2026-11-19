@@ -169,13 +169,13 @@ const drWaits = (r, T) => { const W = r.data.waits || [];
   return { W, wt: id => W.find(w => w.id === id), extra: W.filter(w => !T.some(a => a.id === w.id)).map(w => ({ id: w.id, name: w.name, qty: 0, track: true })) }; };
 const drCnt = 'width:36px;text-align:right;font-variant-numeric:tabular-nums';
 const drHead = `<div style="display:flex;align-items:flex-end;gap:8px;font-size:12px;color:var(--muted);padding:0 2px 4px"><span style="flex:1"></span><span style="${drCnt}">販売</span><span style="width:64px;text-align:center">発注</span><span style="width:84px"></span></div>`;
-const drRow = (a, O, w) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;line-height:1.4">${esc(a.name)}${w ? '<div class="muted sm">入荷待ち</div>' : ''}</span><b style="${drCnt}">${a.qty}</b>
+const drRow = (a, O, w, on = w) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;line-height:1.4">${esc(a.name)}${w ? '<div class="muted sm">入荷待ち</div>' : ''}</span><b style="${drCnt}">${a.qty}</b>
   <input data-dro="${a.id}" inputmode="numeric" maxlength="3" value="${esc(O[a.id] ?? '')}" style="width:64px;text-align:right;font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box">
-  <button class="btn g" data-drw="${a.id}" style="display:inline-block;width:84px;padding:6px 0;font-size:13px;margin:0">${w ? '解除' : '毎日依頼'}</button></div>`;
+  <button class="btn g" data-drw="${a.id}" style="display:inline-block;width:84px;padding:6px 0;font-size:13px;margin:0">${on ? '解除' : '毎日依頼'}</button></div>`;
 function hcBodyDrinks(H){ const {x, r, D, sv} = H; let body = '', getData = () => ({});
     const T = D.flatMap(g => g.items.filter(a => a.track)), { wt, extra } = drWaits(r, T), T2 = [...T, ...extra];
     if(!drOut[x.id]) drOut[x.id] = Object.fromEntries(T2.map(a => { const w = wt(a.id); return [a.id, String(a.qty + (w && w.since < r.data.day ? w.qty : 0))]; }));
-    const O = drOut[x.id], tr = a => drRow(a, O, wt(a.id));
+    const O = drOut[x.id], tr = a => drRow(a, O, wt(a.id) && !extra.includes(a) ? 1 : 0, wt(a.id));   // 「入荷待ち」の見出しの下では、品名の下の「入荷待ち」は出さない
     body = `<div class="card">${D.map((g, i) => { const t = g.items.filter(a => a.track), o = g.items.filter(a => !a.track);
       return `<div style="padding:9px 2px 2px;${i ? 'border-top:1px solid var(--line)' : ''}">${t.length ? `<b>${esc(g.cat)}</b>${drHead}${t.map(tr).join('')}` : ''}${o.length ? `<div style="display:flex;gap:4px 12px;flex-wrap:wrap;padding:${t.length ? '8px 2px 6px;border-top:1px solid var(--line)' : '0 0 6px'}">${t.length ? '' : `<b>${esc(g.cat)}</b>`}${o.map(a => `<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>` : ''}</div>`; }).join('') || (extra.length ? '' : '<div class="muted">なし</div>')}
       ${extra.length ? `<div style="padding:9px 2px 2px;${D.length ? 'border-top:1px solid var(--line)' : ''}"><b>入荷待ち</b>${drHead}${extra.map(tr).join('')}</div>` : ''}</div>
