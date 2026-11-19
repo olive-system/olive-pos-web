@@ -4,12 +4,13 @@ const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), after_bills(staff_id)
    最後まで開けた時だけ true を返す：会計の画面を出す側はこれを見る（読み込みが重なると S.cur は金額の無い伝票になっていて、会計の画面で止まった） */
 let openBillSeq=0;
 async function openBill(id){ const my=++openBillSeq; if(!S.cur||S.cur.id!==id) S.extOpen=false;
-  const { data, error } = await sb.from('bills').select(BILL_SEL).eq('id',id).single();
+  const [bq,dq,cq]=await Promise.all([ sb.from('bills').select(BILL_SEL).eq('id',id).single(), sb.from('bill_departures').select('payment_id').eq('bill_id',id), sb.rpc('pos_bill_calc',{p_bill:id}) ]); /* 3つは互いの答えを使わないので同時に読む（前は1つずつ待ち、卓を押してから往復3回ぶん遅かった） */
+  const { data, error }=bq;
   if (error) { toast(error.message);
     return false;
     } S.cur=data;
-    S.billFp=fpOf(data);
-    { const dp=await sb.from('bill_departures').select('payment_id').eq('bill_id',id);
+    S.billFp=fpOf(data); let recalc=false;
+    { const dp=dq;
     S.cur.depPays=new Set((dp.data||[]).map(x=>x.payment_id).filter(Boolean));
     } if((S.cur.bill_customers||[]).some(x=>!S.customers.some(c=>c.id===x.customer_id))) await cuFresh();
     /* ほかの iPad で登録したお客様 */ if(S.cur.status==='open'){ const ind=S.modes.find(m=>m.code==='industry'), normal=S.modes.find(m=>m.code==='normal');
@@ -18,10 +19,10 @@ async function openBill(id){ const my=++openBillSeq; if(!S.cur||S.cur.id!==id) S
     if(ind&&normal&&want!==isI){ await cuFresh();
     want=(S.cur.bill_customers||[]).some(x=>S.customers.find(c=>c.id===x.customer_id)?.is_industry);
     } /* 切り替える前に、ほかの iPad の変更を読む（古い一覧で同業を解除していた） */ if(ind&&normal&&want!==isI){ const u=await sb.rpc('pos_rows_set',{p_table:'bills',p_where:{id:(id)??null},p:{pricing_mode_id:want?ind.id:normal.id,fixed_total:null}});
-    if(!u.error){ S.cur.pricing_mode_id=want?ind.id:normal.id;
+    if(!u.error){ S.cur.pricing_mode_id=want?ind.id:normal.id; recalc=true;
     S.billFp=fpOf(S.cur);
     await logOp(want?'同業に切替':'同業を解除',{auto:true});
-    } } } const r=await sb.rpc('pos_bill_calc',{p_bill:id}); /* calc_bill の答え＋係小計（SQL 533） */
+    } } } const r=recalc?await sb.rpc('pos_bill_calc',{p_bill:id}):cq; /* calc_bill の答え＋係小計（SQL 533）。同業を切りかえた時は、切りかえた後の金額を読み直す */
     if(r.error){ toast('伝票の金額を読み込めません：'+r.error.message);
     return false;
     } S.cur.totals=r.data||{};
