@@ -52,4 +52,4 @@ PAGES.set_pay=async()=>{
 /* 648：広島の1%ごとの段（hall_bonus_steps）。いちばん新しい「○月分以降」の行だけを、表示だけで出す。段の無い店（銀座）は出さない */
 function hallStepCard(r){ const rows=(r&&!r.error&&r.data)||[]; if(!rows.length) return '';
   const fm=rows[rows.length-1].from_month, cur=rows.filter(x=>x.from_month===fm), [y,m]=fm.split('-').map(Number), mx=Math.max(...cur.map(x=>Number(x.step_max)||0));
-  return slideCard('hallstep',cur,false,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">${y}年${m}月分以降は、人件費比率の金額をこの表で決めます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">目標比率以内は「以内」の金額です。目標比率を1%超えるごとに「1%ごとの減額」を減算し、＋${mx}%を超えると0円です。<br>目標比率と売上ボーナスは上の表を使います（上の表の ＋2%まで・＋5%まで・5%超 は使いません）</div></div>`); }
+  return slideCard('hallstep',cur,false,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">${y}年${m}月分以降は、目標比率との差でこの表の金額になります。金額の単位は円です<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">目標比率以内は「以内」の金額です。目標比率を1%超えるごとに「1%ごとの減額」を減算し、＋${mx}%を超えると0円です。<br>目標比率と売上ボーナスは上の表を使います（上の表の ＋2%まで・＋5%まで・5%超 は使いません）</div></div>`); }
