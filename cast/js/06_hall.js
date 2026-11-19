@@ -31,6 +31,8 @@ const tdAbOk = v => /^\d{1,3}$/.test(String(v ?? '').trim());
 const tdAbGroups = () => { const G = (tdAB && tdAB.groups) || (tdAB ? [{ title: 'AB棚', products: tdAB.products || [] }] : []);
   return [...G.filter(g => g.title !== 'AB棚'), ...G.filter(g => g.title === 'AB棚').map(g => ({ ...g, title: 'ボトルキープ' }))]; };
 const tdAbCnt = P => { const n = P.filter(p => tdAbOk(tdAbVals[p.id])).length; return `入力済 ${n}品・未入力 ${P.length - n}品`; };
+// 前の週に在庫確認を数えた黒服は、次の週は対象外（SQL 642。入力欄と［完了］を出さない）
+const tdAbNg = x => !!(tdAB && tdAB.item === x.id && tdAB.prev_me);
 function tdAbHtml(x, done){
   if(!tdAB || tdAB.item !== x.id || !(tdAB.products || []).length) return '';
   const G = tdAbGroups().filter(g => (g.products || []).length), C = tdAB.counts || {}, D = new Set(!done && tdDiff ? tdDiff.ids : []), why = !done && tdDiff && tdDiff.step === 2;
@@ -85,10 +87,10 @@ function hallTodoHtml(x, keep, done, ph, grid, fld){ return `<div class="ttl">${
     ${done ? `<div class="card"><b style="color:var(--pri)">済　${esc(x.by||'')}</b>${ph.length?` <small class="muted">（写真 ${ph.length}枚）</small>`:''}${x.note?`<div style="white-space:pre-wrap;margin-top:6px">${esc(x.note)}</div>`:''}${ph.length?grid(ph.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')):''}</div>${tdAbHtml(x, true)}
     <button class="btn g" id="tdRedo">やり直す</button><div class="muted sm" style="text-align:center;margin-top:4px">その日の精算を保存するまで修正できます</div>` : `
     ${x.status === 'skip' ? `<div class="card"><b class="muted">できない　${esc(x.by||'')}</b><div style="margin-top:4px">${esc(x.reason||'')}</div></div>` : ''}
-    ${tdAbHtml(x)}
+    ${tdAbNg(x) ? `<div class="card"><b>対象外</b><div class="muted sm" style="margin-top:4px">前回の在庫確認の担当（${mdW(tdAB.prev_day)}）</div></div>` : tdAbHtml(x)}
     ${x.need_note ? `<label class="f" style="display:block;margin-top:8px">${esc(x.note_hint||'内容')}<textarea id="tdN" maxlength="2000" style="${fld};min-height:120px">${esc(keep&&keep.note!=null?keep.note:(x.note||''))}</textarea></label>` : ''}
     ${x.need_photo ? `<div id="tdPs">${grid(tdShots.map((f,i)=>`<div style="position:relative"><img src="${f.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button class="xb img" data-tdx="${i}" aria-label="外す">×</button></div>`).join('') + (tdShots.length<40?`<label style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:1px dashed var(--line);border-radius:8px;cursor:pointer;color:var(--muted)">＋撮る<input type="file" id="tdP" accept="image/*" capture="environment" style="display:none"></label>`:''))}<div class="muted sm" style="text-align:center;margin-top:4px">${tdShots.length?`写真 ${tdShots.length}枚`:'写真を撮ってください'}${tdShots.length>=40?'（40枚まで）':''}</div></div>` : ''}
-    <button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`; }
+    ${tdAbNg(x) ? '' : `<button class="btn" id="tdGo">${x.need_photo ? '写真を送って完了' : '完了'}</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`}`}`; }
 /* 済の TODO の［やり直す］ */
 function hallTodoRedo(x){ $('tdRedo').onclick = async () => { if(!await uiConfirm('やり直しますか？\nこの TODO は「未」に戻ります。もう一度送ってください')) return;
       $('tdRedo').disabled = true; const q = await sb.rpc('hall_todo_redo', { p_token: TOKEN, p_item: x.id , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRedo')) $('tdRedo').disabled = false; await uiAlert(q.error.message); return; }
@@ -121,6 +123,7 @@ function hallTodoOne(x, keep){
   tdAbWire(); tdAddWire(x);
   if($('tdP')) $('tdP').onchange = () => { const f = $('tdP').files[0]; if(!f) return; tdShots.push({ file: f, url: URL.createObjectURL(f) }); redraw(); };
   $('main').querySelectorAll('[data-tdx]').forEach(b => b.onclick = () => { const k = +b.dataset.tdx; URL.revokeObjectURL(tdShots[k].url); tdShots.splice(k, 1); redraw(); });
+  if(!$('tdGo')) return;   /* 在庫確認の対象外（前回の担当）は［完了］が無い */
   $('tdGo').onclick = async () => {
     const note = $('tdN') ? $('tdN').value.trim() : null;
     if(x.need_note && !note){ await uiAlert(`${x.note_hint||'内容'}を書いてください`); return; }
