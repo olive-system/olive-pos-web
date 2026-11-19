@@ -3,7 +3,7 @@
 // 面接結果・体験結果は「採用」（店の評価だけ。オーナー 11/13「入店は POS から」）。入店は POS の［退店・体験］の［入店］
 // ［詳細］は右上の × で閉じる小窓。面接結果・体験結果は、マイページの応募者ページと同じ中身（データベースの ap_iv_apply・ap_tr_apply・ap_re_apply）を、表示設定で「編集」の人だけ入力できる
 // 写真の撮影・ヒアリングシートの編集・契約書の［開始］はマイページのまま（対面でする物）
-const APL_ST={applied:'応募',interview:'面接予約',trial:'体験',consider_self:'本人検討',consider_store:'店検討',hired:'採用',joined:'入店',left:'退店',declined:'辞退',rejected:'不採用'};
+const APL_ST={applied:'応募',interview:'面接予約',trial:'体験',consider_self:'本人検討',consider_store:'店検討',hired:'採用',joined:'入店',left:'退店',declined:'辞退',rejected:'不採用',noshow:'無断欠',cancelled:'取消'};
 const APL_SEG=[['all','すべて'],['applied','応募'],['interview','面接予約'],['trial','体験'],['consider','検討中'],['hired','採用'],['joined','入店'],['left','退店'],['declined','辞退'],['rejected','不採用']];
 const APL_SRC={line:'LINE 友だち追加',calendar:'面接予約',scout:'スカウト'};
 let aplSeg='all', aplQ='', aplSel=null;
