@@ -1,6 +1,9 @@
 // LINEマイページ：公式 LINE のメニュー → LINE ログイン（LIFF）→ 連携済みなら本人のページ、未連携なら4桁の番号。言葉を熟語に
 // 銀座と広島で入口（LIFF）が別。?s= に店のコード
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
+/* 読むだけの関数は必ず中身を返す。中身が空で届いた時（通信の途中で切れた等）は、読み込みの失敗として扱う（画面が止まらず、読み込めない時の決まりの表示になる） */
+const RPC_OBJ = new Set(['hall_absence_info','cast_absence_info','cast_attendance','hall_todos','hall_casts','hall_ab_items','cast_pay_slip','cast_card_info','cast_dress_info','cast_contact_list','cast_shift_day','hall_close_data','hall_tasks','cast_meeting_get','hall_meeting_get','ap_get','cast_memo_list','cast_memo_get','cast_bday_nobd','cast_bday_cal']);
+{ const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { const q = rpc0(fn, ...a); return RPC_OBJ.has(fn) ? q.then(r => r && !r.error && r.data == null ? { ...r, error: { message: '読み込めませんでした。再度お試しください' } } : r) : q; }; }
 const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
 const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
 const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`, mdDay = s => { const x = jd(s); return `${x.getMonth()+1}/${x.getDate()}`; };
