@@ -24,7 +24,7 @@ function slPickHtml(P){
   const pl = SALES.contacts.slice(0, SALES.plan.length), plIds = new Set(pl.map(c => c.id)), rest = SALES.contacts.filter(c => !plIds.has(c.id));
   return `<div class="ttl">連絡済リスト</div><div class="card">
       ${pl.length?`<div class="gh">本日の提案 ${pl.length}名（敬称略）</div><div style="${g2};margin-bottom:12px">${pl.map(c => slCBtn(c, P)).join('')}</div>`:''}
-      <label class="btn g" style="display:block;text-align:center;margin-bottom:10px"><span id="slRt">スクショ読取</span><input type="file" id="slR" accept="image/*" multiple style="display:none"></label>
+      <label class="btn g" style="display:block;text-align:center;margin-bottom:10px"><span id="slRt">トーク一覧スクショで名前読取</span><input type="file" id="slR" accept="image/*" multiple style="display:none"></label>
       ${P.rd?slReadHtml(P):''}
       <div class="gh">連絡先交換のお客様（敬称略）　<span id="slCnt">選択 ${P.on.size + P.extra.length}名</span></div>
       ${SALES.contacts.length?`<input id="slQ" type="search" placeholder="名前・フリガナで検索" value="${esc(P.q)}" style="width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--card);color:var(--ink)"><div class="muted sm" id="slNone" style="display:none;padding:6px 0">該当なし</div><div style="${g2}">${rest.map(c => slCBtn(c, P)).join('')}</div>`:'<div class="muted sm">連絡先交換の提出がありません</div>'}
@@ -75,7 +75,7 @@ async function slRead(P, files){
     P.rd = { n: images.length, ...slMatch(r.data.rows, inf.data) };
     P.rd.hits.forEach(h => { if(h.id) P.on.add(h.id); else if(!P.extra.includes(h.name)) P.extra.push(h.name); });
     P.repaint();
-    if(!r.data.rows.length) await uiAlert('本日のトークが見つかりません');
+    if(!r.data.rows.length) await uiAlert('LINE のトーク一覧のスクショを選んでください');
   }catch(e){ await uiAlert(e.message || String(e)); P.repaint(); }
 }
 /* 候補の［追加］：選択にして、表示名を覚える（次の読取から一致） */
@@ -117,7 +117,7 @@ function salesShot(){
   setBack(home);
   const R = SALES.report;
   show(`<div class="ttl">アプローチ</div><div class="card"><div class="c" style="padding:6px;color:var(--ok);font-weight:700">連絡済リスト共有済 ${R.count}名</div></div>
-    <div class="card"><div class="gh">スクショ</div><div style="font-weight:700;font-size:17px">${esc(R.pick)}</div>${R.sent?'':'<div class="sm" style="color:var(--warn);margin-top:4px">19:50 までに送ってください</div>'}
+    <div class="card"><div class="gh">やりとりのスクショ</div><div style="font-weight:700;font-size:17px">${esc(R.pick)}</div>${R.sent?'':'<div class="sm" style="color:var(--warn);margin-top:4px">19:50 までに送ってください</div>'}
     ${R.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済${R.to?`（${esc(R.to)}）`:''}</div>`:`<label class="btn g" style="display:block;text-align:center;margin-top:10px"><span id="slPt">スクショを選ぶ</span><input type="file" id="slP" accept="image/*" style="display:none"></label><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?esc(KL):'担当黒服'}${R.to?`（${esc(R.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
     ${R.sent?'':'<button class="btn" id="slShot">送信</button>'}`);
   if(R.sent) return;
