@@ -22,11 +22,35 @@ const apSeg = (k, opts, v) => `<div class="seg" data-seg="${k}"${opts.length > 5
 async function apPhotoUrl(store, id){ const r = await sb.rpc('ap_photo', { p_token: TOKEN, p_store: store || null, p_photo: id }); return r.error ? '' : r.data; }
 // 写真を撮る（カメラ）→ 縮めて送る（lib/olive/photo.js の shrinkDoc。紙のヒアリングシートは白と黒の2色・バストアップはカラー）
 // 入力欄を画面に置いてから開く（画面に無い入力欄は、iPhone の LINE でカメラから戻った時に写真が届かないことがある。 広島で1回あった）
-function apShoot(store, id, kind, done){ document.querySelectorAll('input[data-apshoot]').forEach(x => x.remove());
+/* 写真を選ぶ・撮る（応募者ページと体験の TODO で同じ1つ）。バストアップは撮る前にシルエットの小窓を出す（オーナー「バストのアップと勘違いする人がいそう」）。
+   入力欄は必ず画面の中に置く（2026-11-05 広島で、画面に無い入力欄の写真が黙って消えた） */
+const AP_SIL = `<svg viewBox="0 0 196 204" width="235" height="245" style="display:block;margin:12px auto" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="142" height="196" rx="10" stroke-dasharray="7 6" stroke-width="2" opacity=".55"/><circle cx="75" cy="58" r="30" stroke-width="2.5"/><path d="M63 86 L63 100 C42 104 26 114 22 132 L20 200 M87 86 L87 100 C108 104 124 114 128 132 L130 200" stroke-width="2.5"/><path d="M160 28 L160 200 M154 28 L166 28 M154 200 L166 200" stroke-width="1.5" opacity=".6"/><text x="172" y="33" fill="currentColor" stroke="none" font-size="14">頭</text><text x="172" y="205" fill="currentColor" stroke="none" font-size="14">胸</text></svg>`;
+/* バストアップはカメラの画面にシルエットを重ねて撮る（オーナー「撮る時の、カメラにシルエットを出す」・iPhone の LINE と Safari で確かめた）。
+   カメラが開けない端末は、シルエットの小窓の中の入力欄で撮る（写真を黙って消さない） */
+const AP_CAMSIL = `<svg viewBox="0 0 150 200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:100%;max-width:460px;max-height:92%;color:#fff"><rect x="4" y="4" width="142" height="192" rx="10" stroke-dasharray="7 6" stroke-width="1.5" opacity=".8"/><circle cx="75" cy="58" r="30" stroke-width="2.5"/><path d="M63 86 L63 100 C42 104 26 114 22 132 L20 196 M87 86 L87 100 C108 104 124 114 128 132 L130 196" stroke-width="2.5"/></svg>`;
+async function apCam(send, fallback){ let st = null;
+  /* 先にカメラの画面と案内を出してから許可を聞く（iPhone の Safari と LINE の中は、開くたびに許可が出る） */
+  const d = document.createElement('div'); d.style.cssText = 'position:fixed;inset:0;background:#000;z-index:70;display:flex;flex-direction:column';
+  d.innerHTML = `<div style="position:relative;flex:1;overflow:hidden"><video playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>${AP_CAMSIL}<b style="position:absolute;left:16px;top:16px;color:#fff;font-size:17px">写真（バストアップ）</b><button aria-label="閉じる" data-k="x" style="position:absolute;right:12px;top:8px;color:#fff;background:none;border:0;font-size:30px">×</button><div data-k="h" style="position:absolute;left:16px;right:16px;bottom:16px;color:#fff;font-size:15px;text-align:left">［許可］を押すとカメラが開きます</div></div><div style="height:120px;display:flex;align-items:center;justify-content:center"><button aria-label="撮影" data-k="s" style="width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 4px #000"></button></div>`;
+  document.body.appendChild(d); const v = d.querySelector('video');
+  const end = () => { if(st) st.getTracks().forEach(t => t.stop()); d.remove(); };
+  d.querySelector('[data-k=x]').onclick = end;
+  try{ st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false }); }catch(e){ end(); fallback(); return; }
+  if(!d.isConnected){ end(); return; } v.srcObject = st; v.play().catch(() => {}); d.querySelector('[data-k=h]').remove();
+  d.querySelector('[data-k=s]').onclick = () => { const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    if(!c.width){ uiAlert('撮影できませんでした。再度撮影してください'); return; }
+    c.getContext('2d').drawImage(v, 0, 0); c.toBlob(b => { end(); if(!b){ uiAlert('撮影できませんでした。再度撮影してください'); return; } send(b); }, 'image/jpeg', 0.92); }; }
+function apPick(kind, send){
+  if(kind === 'bust' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && !apPick.noCam){ apCam(send, () => { apPick.noCam = true; apPick(kind, send); }); return; }
+  if(kind === 'bust'){ const d = xBox(`<b style="display:block;font-size:17px">写真（バストアップ）</b>${AP_SIL}<label class="btn">撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label>`);
+    const i = d.querySelector('input'); i.onchange = () => { const f = i.files && i.files[0]; d.remove(); if(f) send(f); }; return; }
+  document.querySelectorAll('input[data-apshoot]').forEach(x => x.remove());
   const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.capture = 'environment'; i.dataset.apshoot = '1'; i.style.display = 'none'; document.body.appendChild(i);
-  i.onchange = async () => { const f = i.files && i.files[0]; i.remove(); if(!f) return; try{ const d = await blob64(await shrinkDoc(kind, f));
-    const r = await sb.rpc('ap_photo_add', { p_token: TOKEN, p_store: store || null, p_id: id, p_kind: kind, p_data: d }); if(r.error){ await uiAlert(r.error.message); return; } done(); }catch(e){ await uiAlert('写真を送信できませんでした'); } };
+  i.onchange = () => { const f = i.files && i.files[0]; i.remove(); if(f) send(f); };
   i.click(); }
+/* 縮めて送る。失敗は必ず知らせる（黙って消さない） */
+async function apSendPhoto(kind, f, rpc, done){ try{ const r = await rpc(await blob64(await shrinkDoc(kind, f))); if(r.error){ await uiAlert(r.error.message); return; } done(); }catch(e){ await uiAlert('写真を送信できませんでした'); } }
+function apShoot(store, id, kind, done){ apPick(kind, f => apSendPhoto(kind, f, d => sb.rpc('ap_photo_add', { p_token: TOKEN, p_store: store || null, p_id: id, p_kind: kind, p_data: d }), done)); }
 // 写真を大きく表示（削除もここ）
 async function apPhotoBig(store, id, src, done){ /* 閉じるは右上の × */
   const w = xBox(`<img src="${src}" style="width:100%;border-radius:8px;display:block;margin-top:16px"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button></div>`);
