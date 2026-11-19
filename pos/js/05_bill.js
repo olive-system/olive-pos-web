@@ -5,8 +5,8 @@ const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), after_bills(staff_id)
 let openBillSeq=0;
 /* ホールの卓を押した時：押した瞬間に伝票の画面へ切りかえ、中身が入るまでは卓の名前と「読み込み中…」だけを出す（前の伝票の中身とボタンは隠して押せない）。読めない時はホールに戻る */
 async function billFromHall(b,pay){ S.billFrom='hall'; $('bLoadT').textContent=billTable(b)||''; $('v-bill').classList.add('ld'); show('v-bill');
-  if(pay) await payBackExt(b.id); const p=openBill(b.id), mine=openBillSeq; const ok=await p; if(openBillSeq!==mine) return; /* もっと新しく押した卓がある */
-  $('v-bill').classList.remove('ld'); if(!ok){ loadHall(); show('v-hall'); } }
+  let ok=false, mine=0; try{ if(pay) await payBackExt(b.id); const p=openBill(b.id); mine=openBillSeq; ok=await p; }catch(e){ toast(String(e&&e.message||e)); } if(mine&&openBillSeq!==mine) return; /* もっと新しく押した卓がある */
+  $('v-bill').classList.remove('ld'); if(!ok){ loadHall(); show('v-hall'); } } /* 読めない・途中で止まった時は、古い中身を出さずにホールに戻る */
 async function openBill(id){ const my=++openBillSeq; if(!S.cur||S.cur.id!==id) S.extOpen=false;
   const [bq,dq,cq]=await Promise.all([ sb.from('bills').select(BILL_SEL).eq('id',id).single(), sb.from('bill_departures').select('payment_id').eq('bill_id',id), sb.rpc('pos_bill_calc',{p_bill:id}) ]); /* 3つは互いの答えを使わないので同時に読む（前は1つずつ待ち、卓を押してから往復3回ぶん遅かった） */
   const { data, error }=bq;
