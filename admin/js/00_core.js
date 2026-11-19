@@ -24,7 +24,6 @@ const md=mdS; /* 「11/3」は lib/olive/core.js の mdS */
 /* 日付と曜日「11/3（火）」は lib/olive/core.js の mdW・wdS */
 // 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。 コード整理）
 // 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（コード整理）
-const dayAdd=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
 const csNowMonth=()=>businessDate().slice(0,7)+'-01';
 // キャストの設定・スタッフの表の、選ぶ欄と数を入れる欄（3つの画面で同じ形）

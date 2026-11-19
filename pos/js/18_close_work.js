@@ -170,28 +170,21 @@ function clAfter(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
     if(x.detail?.cash_sales!=null&&$('clSalesWas')) $('clSalesWas').textContent=`（取消前 ${yen(x.detail.cash_sales)}）`; });
 }
 // 前回の精算の翌日〜前日のうち、未精算の日の現金の動き（現金売上＋入金−出金−日払い）の合計
-async function clGap(after,d){ const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date,kind,amount').eq('store_id',S.store.id).gt('business_date',after).lt('business_date',d).order('id')), /* 1000行で切れないように分けて読む */
-    sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',S.store.id).gt('business_date',after).lt('business_date',d).order('id')),
-    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').gte('paid_at',bdStart(after)).lt('paid_at',bdStart(d)).order('id')),
+async function clGap(after,d){ const f=dayAdd(after,1), t=dayAdd(d,-1); if(f>t) return {net:0,days:[]};
+  const [cd,cl]=await Promise.all([ sb.rpc('cash_days',{p_store:S.store.id,p_from:f,p_to:t}), /* 日ごとの現金の動きは、データベースの cash_days 1つで（月の表・管理サイトの現金管理・P/L の日と同じ。SQL 524） */
     sb.from('register_closings').select('business_date').eq('store_id',S.store.id).gt('business_date',after).lt('business_date',d) ]);
-  { const e=[mv,adv,pay,cl].find(x=>x.error); if(e) return {net:0,days:[],error:e.error}; }
-  const done=new Set((cl.data||[]).map(r=>r.business_date)); const net={}; const add=(k,v)=>{ if(!done.has(k)) net[k]=(net[k]||0)+v; };
-  (mv.data||[]).forEach(r=>add(r.business_date,r.kind==='in'?Number(r.amount):-Number(r.amount))); (adv.data||[]).filter(r=>r.amount>0).forEach(r=>add(r.business_date,-Number(r.amount)));
-  (pay.data||[]).filter(p=>p.bills&&p.bills.store_id===S.store.id&&p.bills.status!=='void'&&p.amount).forEach(p=>{ const b=businessDate(new Date(p.paid_at)); if(b>after&&b<d) add(b,Number(p.amount)); });
-  const days=Object.keys(net).filter(k=>net[k]).sort(); return {net:days.reduce((s,k)=>s+net[k],0),days}; }
+  { const e=[cd,cl].find(x=>x.error); if(e) return {net:0,days:[],error:e.error}; }
+  const done=new Set((cl.data||[]).map(r=>r.business_date)); const net={}; (cd.data||[]).forEach(x=>{ if(done.has(x.business_date)) return; const n=(Number(x.sales)||0)+(Number(x.cash_in)||0)-(Number(x.cash_out)||0)-(Number(x.advances)||0); if(n) net[x.business_date]=n; });
+  const days=Object.keys(net).sort(); return {net:days.reduce((s,k)=>s+net[k],0),days}; }
 function clRecalc(){ const c=S.clCtx; if(!c) return {}; const s=c.saved; const cnt=s?(s.counts||{}):S.clCounts; let counted=0; DENOMS.forEach(([v])=>{ const a=v*clNum(cnt[v]); counted+=a; const el=document.querySelector(`[data-denamt="${v}"]`); if(el) el.textContent=yen(a); });
   const opening=s?s.opening_float:(c.hasPrev?c.prevFloat:S.clOpening); const sales=s?s.cash_sales:c.cashSales, cin=s?s.cash_in:c.inSum, cout=s?s.cash_out:(c.outSum+c.advSum); const expected=opening+sales+cin-cout; if(s) counted=s.counted; const diff=counted-expected; const deposit=s?s.deposit:S.clDeposit; const next=counted-deposit;
   const T=(id,t)=>{ const e=$(id); if(e) e.textContent=t; }; T('clCounted',yen(counted)); T('clOpenTxt',yen(opening)); T('clSales',yen(sales)); T('clIn',yen(cin)); T('clOut',yen(cout)); T('clExp',yen(expected)); T('clCnt2',yen(counted)); T('clDiff',(diff>0?'+':'')+yen(diff)); T('clDepTxt',yen(deposit)); T('clNext',yen(next)); const de=$('clDiff'); if(de) de.style.color=diff===0?'':'var(--warn)';
   return {opening,expected,counted,diff,deposit,next}; }
 // 前回の精算の翌日〜前日までに、動き（現金売上・入出金・日払い）があったのに精算していない日を赤で出す。日付を押すとその日を開く
-async function clRenderWarn(d,after){ const el=$('clWarn'); if(!el) return; const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()-31); const lo=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; const from=after&&after>lo?after:lo;
-  const [mv,adv,pay,cl]=await Promise.all([ sbAll(()=>sb.from('cash_movements').select('business_date').eq('store_id',S.store.id).gt('business_date',from).lt('business_date',d).order('id')), /* 1000行で切れないように分けて読む・店はデータベースで絞る */
-    sbAll(()=>sb.from('daily_advances').select('business_date,amount').eq('store_id',S.store.id).gt('business_date',from).lt('business_date',d).order('id')),
-    sbAll(()=>sb.from('payments').select('amount,paid_at,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',S.store.id).gte('paid_at',bdStart(from)).lt('paid_at',bdStart(d)).order('id')),
+async function clRenderWarn(d,after){ const el=$('clWarn'); if(!el) return; const lo=dayAdd(d,-31); const from=after&&after>lo?after:lo;
+  const [cd,cl]=await Promise.all([ sb.rpc('cash_days',{p_store:S.store.id,p_from:dayAdd(from,1),p_to:dayAdd(d,-1)}), /* 現金売上・入出金・日払いのあった日（cash_days に行がある日） */
     sb.from('register_closings').select('business_date').eq('store_id',S.store.id).gt('business_date',from).lt('business_date',d) ]);
-  if($('clWarn')!==el||S.clDate!==d) return; { const er=mv.error||adv.error||pay.error||cl.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; } } /* 読めないまま数えると、未精算の日を出しそこねる・精算した日を未精算と出す */ const done=new Set((cl.data||[]).map(r=>r.business_date)); const act=new Set();
-  (mv.data||[]).forEach(r=>act.add(r.business_date)); (adv.data||[]).filter(r=>r.amount>0).forEach(r=>act.add(r.business_date));
-  (pay.data||[]).filter(p=>p.bills&&p.bills.store_id===S.store.id&&p.bills.status!=='void'&&p.amount).forEach(p=>{ const b=businessDate(new Date(p.paid_at)); if(b>from&&b<d) act.add(b); });
+  if($('clWarn')!==el||S.clDate!==d) return; { const er=cd.error||cl.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; } } /* 読めないまま数えると、未精算の日を出しそこねる・精算した日を未精算と出す */ const done=new Set((cl.data||[]).map(r=>r.business_date)); const act=new Set((cd.data||[]).map(x=>x.business_date));
   const days=[...act].filter(x=>!done.has(x)).sort(); if(!days.length){ el.innerHTML=''; return; }
   const md=mdS; el.innerHTML=`<div class="alert">${days.map(x=>`<a href="#" data-clw="${x}" style="color:inherit">${md(x)}</a>`).join('・')} が未精算です</div>`;
   el.querySelectorAll('[data-clw]').forEach(a=>a.onclick=e=>{ e.preventDefault(); S.clDate=a.dataset.clw; S.clCounts={}; S.clDeposit=0; renderClosing(); }); }
