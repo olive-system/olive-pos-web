@@ -155,14 +155,15 @@ function hcBodyBdayReq(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', ge
 // 係・同伴・反応◎の確認：伝票1枚ずつ［確認］か［修正］（SQL 655・オーナー 2026-11-20「甘い」）。係（広島は誘客）が無い伝票は「なし」（付け忘れに黒服が気づけるように）。1枚は2行（1行目 卓・お客様・印、2行目 係・同伴・反応◎。係相違の時は「係 ルナ　伝票 ママ・ルナ」＝お客様に登録してある係と伝票の係）。印のある伝票を上に、確認済みを下に
 const ckBadge = t => `<span style="flex:none;font-size:11px;padding:1px 6px;border-radius:999px;white-space:nowrap;${t === '修正待ち' ? 'background:var(--gold-soft);color:var(--ink)' : 'background:var(--warn-soft);color:var(--warn)'}">${esc(kl(t))}</span>`;
 const ckBtn = (k, i, t, g) => tBtn(k, i, t, g).replace('padding:7px 14px;font-size:14px', 'padding:0 10px;font-size:13px;min-height:0;height:36px;line-height:36px');
-function hcBodyCheck(H){ const {D, sv} = H; let body = '', getData = () => ({});
+function hcBodyCheck(H){ const {D, sv, r, td} = H; let body = '', getData = () => ({});
+    const dd = D[0]?.day && r?.data?.day && D[0].day !== r.data.day ? D[0].day : null;   /* 前営業日の確認（SQL 656）は、その日の伝票 */
     const ord = b => b.state === 'ok' ? 2 : ((b.marks || []).length || b.state === 'fix') ? 0 : 1, L = D.map((b, i) => ({ ...b, i })).sort((a, b) => ord(a) - ord(b) || a.i - b.i), left = D.filter(b => b.state !== 'ok').length;
     const row = (b, j) => { const mk = [...(b.marks || []), ...(b.state === 'fix' ? ['修正待ち'] : [])];
       return `<div style="display:flex;align-items:center;gap:6px;padding:8px 0;${j ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:none;width:2.2em;font-weight:700">${esc(b.table || '')}</span>
       <div style="flex:1;min-width:0;line-height:1.5"><div style="display:flex;align-items:center;gap:4px;min-width:0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.customers || '')}</span>${mk.map(ckBadge).join('')}</div>
       <div class="muted sm">${[b.reg ? `${KL} ${esc(b.reg)}</span>　<span style="white-space:nowrap">伝票 ${esc(b.kakari || 'なし')}` : `${KL} ${esc(b.kakari || 'なし')}`, b.note ? esc(b.note) : '', b.douhan ? `同伴 ${esc(b.douhan)}` : '', b.good ? `反応◎ ${esc(b.good)}` : ''].filter(Boolean).map(t => `<span style="white-space:nowrap">${t}</span>`).join('　')}</div></div>
       ${b.state === 'ok' ? `<span class="muted sm" style="flex:none">${esc(b.at || '')} 確認済</span>` : `<div style="display:flex;gap:8px;flex:none">${ckBtn('cka', b.i, '確認')}${ckBtn('ckf', b.i, '修正', true)}</div>`}</div>`; };
-    body = `<div class="card"><div class="muted sm" style="margin-bottom:6px">今日の伝票　${D.length}枚${D.length ? `・未確認 ${left}枚` : ''}</div>${L.map(row).join('') || '<div class="muted">今日の伝票はありません</div>'}</div>
+    body = `<div class="card"><div class="muted sm" style="margin-bottom:6px">${dd ? `${td(dd)} の伝票` : '今日の伝票'}　${D.length}枚${D.length ? `・未確認 ${left}枚` : ''}</div>${L.map(row).join('') || '<div class="muted">今日の伝票はありません</div>'}</div>
       ${left ? sv('', '全件「確認」の後に保存します').replace('id="clSv"', 'id="clSv" disabled style="opacity:.5"') : sv()}`;   /* 未確認が残る間は押せない（データベースでも止める） */
   return { body, getData }; }
 function hcBodyKimono(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
@@ -273,7 +274,7 @@ function hcWireGuarantee(H){ const L = (H.D && H.D.rows) || [], D = H.D || {}, s
     const all = L.every((c, i) => q('gc', i).value && (!reset(c, i) || open.has(i)));
     s.style.display = all ? '' : 'none'; if(hint){ hint.style.display = all || !L.length ? 'none' : ''; hint.textContent = L.some((c, i) => reset(c, i) && !open.has(i)) ? '［条件再設定］で期限と担当を選ぶと［保存］が表示されます' : '全員を選ぶと［保存］が表示されます'; } };
   L.forEach((c, i) => q('gc', i).onchange = sync); sync(); }
-const HC_BODY = { shift_none: hcBodyShiftNone, guarantee: hcBodyGuarantee, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: H => hcBodyShiire(H), kaidashi: H => hcBodyKaidashi(H),   /* 26_nohin.js の関数は開いた時に探す（古い index.html の端末で 17_open.js 全体が止まらないように） */
+const HC_BODY = { shift_none: hcBodyShiftNone, guarantee: hcBodyGuarantee, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, check2: hcBodyCheck, check_prev: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: H => hcBodyShiire(H), kaidashi: H => hcBodyKaidashi(H),   /* 26_nohin.js の関数は開いた時に探す（古い index.html の端末で 17_open.js 全体が止まらないように） */
   day_memo: hcBodyDayMemo };
 /* 作業の種類ごとの、押した時の動き */
 function hcWireDrinks(H, again){ const {x, r, D} = H;
@@ -288,7 +289,7 @@ function hcWireDrinks(H, again){ const {x, r, D} = H;
 function hcWireCheck(H, again){ const {x, D} = H;
   [['cka', 'ok'], ['ckf', 'fix']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]]; b.disabled = true;
     const z = await sb.rpc('hall_close_check_mark', { p_token: TOKEN, p_task: x.id, p_bill: q.id, p_state: st }); if(z.error){ await uiAlert(z.error.message); again(); return; }
-    if(st === 'fix') await uiAlert(`POS［設定］→［伝票一覧］→\n${q.table || ''}［編集］で修正してください\n修正後、ここで［確認］を押してください`); again(); }));
+    if(st === 'fix') await uiAlert(`POS［設定］→［伝票一覧］${q.day && q.day !== H.r?.data?.day ? `で ${H.td(q.day)} を選び` : ''}→\n${q.table || ''}［編集］で修正してください\n修正後、ここで［確認］を押してください`); again(); }));
 }
 function hcWireMemoReq(H, again){ const {x, ph, r, k, D, td, sv} = H;
   [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
@@ -324,7 +325,7 @@ async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s
   s.onclick = async () => { s.disabled = true; const q = await sb.rpc('hall_kpb_review_save', { p_token: TOKEN, p_task: x.id, p_rows: L.map((t, i) => ({ bill_id: t.bill_id, reason: sel(i) })) });
     if(q.error){ s.disabled = false; await uiAlert(q.error.message); return; } s.disabled = false; hcSave(x, ph, s, hcBodyBottle(H).getData); };
 }
-const HC_WIRE = { shift_none: hcWireShiftNone, guarantee: hcWireGuarantee, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: (H, a) => hcWireShiire(H, a), kaidashi: (H, a) => hcWireKaidashi(H, a), memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono, check: hcWireCheck };
+const HC_WIRE = { shift_none: hcWireShiftNone, guarantee: hcWireGuarantee, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: (H, a) => hcWireShiire(H, a), kaidashi: (H, a) => hcWireKaidashi(H, a), memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono, check: hcWireCheck, check2: hcWireCheck, check_prev: hcWireCheck };
 /* 写真とコメントの欄（その作業に要る時だけ） */
 function hcPhotoBox(x, s){
   if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" id="clPl" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label></div><div id="clPg"></div>` : ''}
