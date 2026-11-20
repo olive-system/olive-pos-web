@@ -246,8 +246,8 @@ async function clRcptShot(file,d){ let sc; try{ sc=file instanceof Blob?await cl
 // ② 入出金の登録の完了（オーナー「お客様登録は内海 01:08 完了と書いてある。こんな感じで、誰が完了させたのかを書こう」）
 // ① と同じ形：確認者を選んで［完了］→ 見出しの下に「内海 01:08 完了」。記録は pos_audit_log の「入出金の登録の完了」（detail：business_date・by）。完了の後に登録が増えたら［完了］に戻る
 const CL_MVD='入出金の登録の完了';
-async function clMvRender(d,moves,saved){ let top=$('clMvTop'), el=$('clMvDone'); if(!top||!el) return;
-  const lg=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_MVD).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); top=$('clMvTop'); el=$('clMvDone'); if(!top||!el||S.clDate!==d) return; /* 読む間に描き直されると前の欄は画面から外れるので、今の欄を取り直す（2回重なって呼ばれた時に確認者の欄が出なかった） */ if(lg.error){ el.innerHTML=RDERR; return; }
+async function clMvRender(d,moves,saved,D){ let top=$('clMvTop'), el=$('clMvDone'); if(!top||!el) return;
+  const lg=await clGet(D,'mvd_log',()=>sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_MVD).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1)); top=$('clMvTop'); el=$('clMvDone'); if(!top||!el||S.clDate!==d) return; /* 読む間に描き直されると前の欄は画面から外れるので、今の欄を取り直す（2回重なって呼ばれた時に確認者の欄が出なかった） */ if(lg.error){ el.innerHTML=RDERR; return; }
   const last=(lg.data||[])[0], done=last&&!(moves||[]).some(m=>m.created_at>last.created_at);
   top.innerHTML=done?`<div style="font-size:16px;font-variant-numeric:tabular-nums;margin-bottom:6px">${esc(last.detail?.by||'')}　<small class="muted">${hmJst(last.created_at)}</small>　完了</div>`:'';
   if(done||saved){ el.innerHTML=''; return; }
@@ -264,9 +264,9 @@ async function clRcptView(mv){ if(!mv?.receipt_path) return; const s=await sb.st
 // 前は iPad の共有の画面からショートカットを選ぶ形で、スタッフが「メール」を選ぶと件名が空・mail.txt が付いたまま届いた（銀座）。共有の画面を出さないよう、shortcuts:// でショートカットを名前で呼ぶ。渡す文は 1行目＝宛先〔管理サイト「領収書メールの宛先」〕・2行目＝件名・3行目＝PDF の期限つきリンク（空白で区切る）。ショートカットがリンクから PDF を読み込んで付ける（iPad ごとに最初の1回だけ「送ってよいか」が出るので「常に許可」）
 // 送信の後は ① と同じ形で「確認者 時刻 送信」（メールアプリで送信まで済んだかは POS ではわからないので、ショートカットを開いた記録）
 function clGo(u){ location.href=u; } // テストで差しかえる
-async function clRcptRender(d,moves){ const el=$('clRcpt'); if(!el) return; const R=(moves||[]).filter(m=>m.receipt_path);
+async function clRcptRender(d,moves,D){ const el=$('clRcpt'); if(!el) return; const R=(moves||[]).filter(m=>m.receipt_path);
   if(!R.length){ el.innerHTML='<div class="muted">領収書なし</div>'; return; }
-  const lg=await sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_RMAIL).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1); if(!$('clRcpt')||S.clDate!==d) return; if(lg.error){ el.innerHTML=RDERR; return; }
+  const lg=await clGet(D,'rcpt_log',()=>sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_RMAIL).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1)); if(!$('clRcpt')||S.clDate!==d) return; if(lg.error){ el.innerHTML=RDERR; return; }
   const last=(lg.data||[])[0], sent=new Set(last?.detail?.ids||[]), done=last&&R.every(m=>sent.has(m.id)), N=`<span style="width:96px;flex:none">領収書 ${R.length}件</span>`;
   const links=Promise.all(R.map(async m=>{ const u=await sb.storage.from('receipts').createSignedUrl(m.receipt_path,86400,{download:`${d}_${CL_RCPT}_${m.amount}円.pdf`}); if(u.error||!u.data?.signedUrl) throw new Error(u.error?.message||'領収書を読み込めません'); return u.data.signedUrl; })); links.catch(()=>{}); /* 押した時にすぐ開けるよう先に作る（待ってから開くと端末に止められることがある） */
   const who=S.staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
