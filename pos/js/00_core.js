@@ -147,7 +147,8 @@ function groupItems(items){ const out=[], by=new Map();
   out.forEach(g=>{ g.ids=g.rows.map(r=>r.id); g.rows.sort((a,b)=>String(a.added_at||'').localeCompare(String(b.added_at||''))); }); return out; }
 // 職員の名簿（在籍・退職を全部）。伝票・在籍リスト・設定・ホールのどの画面も使う
 S.closeHM='01:00';
-async function loadStaffAll(){ const { data, error } = await sb.from('staff').select('*').order('sort_order').order('id'); /* 読めなかった時に空で上書きすると、名前・係の選択・在籍リストが全部消えるので、前のまま残す */ if(error){ toast(RDERR_T); return; } S.staffAll=data||[]; S.staff=S.staffAll.filter(s=>s.is_active).map(s=>({id:s.id,display_name:s.display_name,kind:s.kind,sort_order:s.sort_order})); }
+async function loadStaffAll(){ staffAllSet(await sb.from('staff').select('*').order('sort_order').order('id')); }
+function staffAllSet({ data, error }){ /* 読めなかった時に空で上書きすると、名前・係の選択・在籍リストが全部消えるので、前のまま残す */ if(error){ toast(RDERR_T); return; } S.staffAll=data||[]; S.staff=S.staffAll.filter(s=>s.is_active).map(s=>({id:s.id,display_name:s.display_name,kind:s.kind,sort_order:s.sort_order})); }
 // 担当の黒服。区分が黒服で在籍中の人だけ有効。退職・区分変更・未登録は「未選択」
 const hallList=()=>S.staffAll.filter(x=>x.kind==='hall'&&x.is_active);
 const mgrOf=s=>{ const m=s&&s.manager_staff_id?S.staffAll.find(x=>x.id===s.manager_staff_id):null; return m&&m.is_active&&m.kind==='hall'?m:null; };
