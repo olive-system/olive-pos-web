@@ -184,7 +184,7 @@ function clRecalc(){ const c=S.clCtx; if(!c) return {}; const s=c.saved; const c
   const T=(id,t)=>{ const e=$(id); if(e) e.textContent=t; }; T('clCounted',yen(counted)); T('clOpenTxt',yen(opening)); T('clSales',yen(sales)); T('clIn',yen(cin)); T('clOut',yen(cout)); T('clExp',yen(expected)); T('clCnt2',yen(counted)); T('clDiff',(diff>0?'+':'')+yen(diff)); T('clDepTxt',yen(deposit)); T('clNext',yen(next)); const de=$('clDiff'); if(de) de.style.color=diff===0?'':'var(--warn)';
   return {opening,expected,counted,diff,deposit,next}; }
 // 前回の精算の翌日〜前日までに、動き（現金売上・入出金・日払い）があったのに精算していない日を赤で出す。日付を押すとその日を開く
-async function clRenderWarn(d,after,D){ const el=$('clWarn'); if(!el) return; const lo=dayAdd(d,-31); const from=after&&after>lo?after:lo;
+async function clRenderWarn(d,after,D){ const el=$('clWarn'); if(!el) return; const from=regWarnFrom(d,after);
   const W=[dayAdd(from,1),dayAdd(d,-1)]; const [cd,cl]=await Promise.all([ clGet(D,'w_cd',()=>sb.rpc('cash_days',{p_store:S.store.id,p_from:W[0],p_to:W[1]}),W), /* 現金売上・入出金・日払いのあった日（cash_days に行がある日） */
     clGet(D,'w_cl',()=>sb.from('register_closings').select('business_date').eq('store_id',S.store.id).gt('business_date',from).lt('business_date',d),W) ]);
   if($('clWarn')!==el||S.clDate!==d) return; { const er=cd.error||cl.error; if(er){ el.innerHTML=`<div class="muted">${esc(er.message)}</div>`; return; } } /* 読めないまま数えると、未精算の日を出しそこねる・精算した日を未精算と出す */ const done=new Set((cl.data||[]).map(r=>r.business_date)); const act=new Set((cd.data||[]).map(x=>x.business_date));

@@ -110,7 +110,7 @@ function regBindSave(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat,nm,mov
 }
 // 前回の精算の翌日〜前日で、動きがあったのに精算していない日（直近31日）
 async function regWarnDays(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat,nm,moves,inSum,outSum,advRows,advSum,cashSales,saved,prevRow,future,later,gapNet,gapDays,gapRd,idle,canMove,canSave,cnt,calc,goD}=K;
-  const lo=dayAdd(d,-32), from=prevRow&&prevRow.business_date>lo?prevRow.business_date:lo;
+  const from=regWarnFrom(d,prevRow&&prevRow.business_date);
   const [g,cl]=gapRd&&from===prevRow.business_date?gapRd:await Promise.all([regMoves(from,d), sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',from).lt('business_date',d)]);
   if(page!=='register'||regTab!=='day'||regDate!==d||!$('regWarn')) return; const done=new Set((cl.data||[]).map(r=>r.business_date));
   const miss=Object.keys(g.sum||{}).filter(k=>!done.has(k)).sort(); if(!miss.length) return;
