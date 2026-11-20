@@ -6,8 +6,8 @@ const fineSumTxt=(y,p)=>p?`${y?Number(y).toLocaleString()+'円＋':''}時給×${
 /* 月給の黒服の遅刻（給与から減算する額）を罰金の一覧と同じ形で返す。金額は黒服の給与の計算の答えのまま（SQL 580 pos_hall_late）。読めない時は null（一覧は罰金だけで出す） */
 /* 罰金の小窓の黒服の遅刻の行。給与の計算の額なので、ここでは変更・取消しない（免除は遅刻連絡の承認、額は管理サイトの［修正］） */
 const fineHallHtml=H=>H.map(x=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:16px"><span style="flex:1;min-width:0">${esc(x.reason)}</span><b style="flex:none">${esc(fineAmt(x))}</b></div>`).join('');
-async function hallLateRows(from,to,id){ const r=await sb.rpc('pos_hall_late',{p_from:from,p_to:to}); if(r.error) return null;
-  return (r.data||[]).filter(x=>!id||x.staff_id===id).map(x=>({staff_id:x.staff_id,business_date:x.d,amount:Number(x.amount||0),wage_pct:null,reason:`${x.nocontact?'無断遅刻':'遅刻'}（${x.min}分）`,hall_late:true})); }
+async function hallLateRows(from,to,id){ const r=await sb.rpc('pos_hall_late',{p_from:from,p_to:to}); return r.error?null:hallLateMap(r.data,id); }
+function hallLateMap(data,id){ return (data||[]).filter(x=>!id||x.staff_id===id).map(x=>({staff_id:x.staff_id,business_date:x.d,amount:Number(x.amount||0),wage_pct:null,reason:`${x.nocontact?'無断遅刻':'遅刻'}（${x.min}分）`,hall_late:true})); }
 async function fineDlg(id){ const st=S.staffAll.find(x=>x.id===id); const nm=st?.display_name||''; const bd=businessDate(); const m=mkModal(50); document.body.appendChild(m); const close=()=>{ m.remove(); renderCasts(); };
   const isHall=st?.kind==='hall', daily=!isHall&&st?.pay_type==='daily', dw=Number(st?.daily_wage||0);
   // その月に免除の罰金（管理サイト「スタッフ設定」の罰金の免除）は灰色にして、押すと「免除です」。データベースでも付けられない
