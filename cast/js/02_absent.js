@@ -53,7 +53,7 @@ async function hallAbsent(){
     go.disabled = true;
     const q = await sb.rpc('hall_absence_submit', { p_token: TOKEN, p_reason: rs });
     if(q.error){ go.disabled = false; await uiAlert(q.error.message); return; }
-    /* 黒服の欠勤連絡は LINE のトークに送らない（朝礼の「本日の出勤」に出る・SQL 659。オーナー 2026-11-20）。承認者への LINE は今までどおり */
+    /* 黒服の欠勤連絡は LINE のトークに送らない（朝礼の「本日の出勤」に出る・SQL 661。オーナー 2026-11-20）。承認者への LINE は今までどおり */
     hallAbsentDone(q.data.date, q.data.at, 'pending', A.monthly, false, true, q.data.sent === 0);
   };
 }

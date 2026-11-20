@@ -202,7 +202,7 @@ function hcGuest(V, g){ const { C, G, left, tag, guest, SH, y } = V; const cu = 
       <div style="background:var(--gold-soft);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;line-height:1.7">${esc(cu.memo||'メモなし')}</div>
       ${g.ok_at?`<button class="btn g" data-hu="${g.id}" style="margin-top:8px">確認の取消</button>`:`<button class="btn" data-hk="${g.id}" style="margin-top:8px">確認</button>`}</div>`;
 }
-/* キャスト・黒服の遅刻連絡・無断遅刻・欠勤（SQL 659 の notes）。本日の出勤の箱の一番下に、うすい小さな字で1人1行（POS の朝礼と同じ）。黒服の行だけ左に「黒服」。「黒服」は時刻（00:00）と同じ幅の枠に重ねて、2列目の始まりをそろえる */
+/* キャスト・黒服の遅刻連絡・無断遅刻・欠勤（SQL 661 の notes）。本日の出勤の箱の一番下に、うすい小さな字で1人1行（POS の朝礼と同じ）。黒服の行だけ左に「黒服」。「黒服」は時刻（00:00）と同じ幅の枠に重ねて、2列目の始まりをそろえる */
 function hcHallLate(C){ return (C.notes || (C.hall_late||[]).map(x => ({ ...x, who: '黒服' }))).map(x => `<div class="row" style="justify-content:flex-start"><b style="position:relative"><span style="visibility:hidden">00:00</span><span class="muted" style="position:absolute;left:0;bottom:1px;font-weight:400;font-size:14px">${x.who === '黒服' ? '黒服' : ''}</span></b><span class="muted" style="font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.kind)}　${esc(x.name)} ${esc(x.time||'')}${x.reason ? '　' + esc(x.reason) : ''}</span></div>`).join(''); }
 /* 朝礼の画面（お客様・天気・出勤・売上・お誕生日） */
 function hcHtml(V){ const { C, G, left, tag, guest, SH, y } = V; return `<div id="hcBox"><div class="ttl">朝礼　${mdW(C.date)}${C.event?' <small class="muted">イベント日</small>':''}</div>
