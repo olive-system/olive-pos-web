@@ -157,14 +157,15 @@ const ckBadge = t => `<span style="flex:none;font-size:11px;padding:1px 6px;bord
 const ckBtn = (k, i, t, g) => tBtn(k, i, t, g).replace('padding:7px 14px;font-size:14px', 'padding:0 10px;font-size:13px;min-height:0;height:36px;line-height:36px');
 function hcBodyCheck(H){ const {D, sv, r, td} = H; let body = '', getData = () => ({});
     const dd = D[0]?.day && r?.data?.day && D[0].day !== r.data.day ? D[0].day : null;   /* 前営業日の確認（SQL 656）は、その日の伝票 */
+    const lk = D.find(b => b.lock)?.lock;   /* 1回目を確認した黒服は2回目を確認できない（オーナー「同じまちがいが起こる」）。ボタンと保存を出さない */
     const ord = b => b.state === 'ok' ? 2 : ((b.marks || []).length || b.state === 'fix') ? 0 : 1, L = D.map((b, i) => ({ ...b, i })).sort((a, b) => ord(a) - ord(b) || a.i - b.i), left = D.filter(b => b.state !== 'ok').length;
     const row = (b, j) => { const mk = [...(b.marks || []), ...(b.state === 'fix' ? ['修正待ち'] : [])];
       return `<div style="display:flex;align-items:center;gap:6px;padding:8px 0;${j ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:none;width:2.2em;font-weight:700">${esc(b.table || '')}</span>
       <div style="flex:1;min-width:0;line-height:1.5"><div style="display:flex;align-items:center;gap:4px;min-width:0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.customers || '')}</span>${mk.map(ckBadge).join('')}</div>
       <div class="muted sm">${[b.reg ? `${KL} ${esc(b.reg)}</span>　<span style="white-space:nowrap">伝票 ${esc(b.kakari || 'なし')}` : `${KL} ${esc(b.kakari || 'なし')}`, b.note ? esc(b.note) : '', b.douhan ? `同伴 ${esc(b.douhan)}` : '', b.good ? `反応◎ ${esc(b.good)}` : ''].filter(Boolean).map(t => `<span style="white-space:nowrap">${t}</span>`).join('　')}</div></div>
-      ${b.state === 'ok' ? `<span class="muted sm" style="flex:none">${esc(b.at || '')} 確認済</span>` : `<div style="display:flex;gap:8px;flex:none">${ckBtn('cka', b.i, '確認')}${ckBtn('ckf', b.i, '修正', true)}</div>`}</div>`; };
-    body = `<div class="card"><div class="muted sm" style="margin-bottom:6px">${dd ? `${td(dd)} の伝票` : '今日の伝票'}　${D.length}枚${D.length ? `・未確認 ${left}枚` : ''}</div>${L.map(row).join('') || '<div class="muted">今日の伝票はありません</div>'}</div>
-      ${left ? sv('', '全件「確認」の後に保存します').replace('id="clSv"', 'id="clSv" disabled style="opacity:.5"') : sv()}`;   /* 未確認が残る間は押せない（データベースでも止める） */
+      ${b.state === 'ok' ? `<span class="muted sm" style="flex:none">${esc(b.at || '')} 確認済</span>` : lk ? '' : `<div style="display:flex;gap:8px;flex:none">${ckBtn('cka', b.i, '確認')}${ckBtn('ckf', b.i, '修正', true)}</div>`}</div>`; };
+    body = `${lk ? `<div class="warnbox">${esc(lk)}</div>` : ''}<div class="card"><div class="muted sm" style="margin-bottom:6px">${dd ? `${td(dd)} の伝票` : '今日の伝票'}　${D.length}枚${D.length ? `・未確認 ${left}枚` : ''}</div>${L.map(row).join('') || '<div class="muted">今日の伝票はありません</div>'}</div>
+      ${lk ? '' : left ? sv('', '全件「確認」の後に保存します').replace('id="clSv"', 'id="clSv" disabled style="opacity:.5"') : sv()}`;   /* 未確認が残る間は押せない（データベースでも止める） */
   return { body, getData }; }
 function hcBodyKimono(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     body = `<div class="card">${D.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${D.map((c, i) => `<button class="btn${c.kimono ? '' : ' g'}" data-km="${i}" ${c.done || c.other_day ? 'disabled' : ''} style="display:inline-block;width:auto;padding:8px 12px;font-size:14px">${esc(c.name)}${c.kimono ? '　着物' : ''}${c.done ? '<br><small>新調済</small>' : ''}${c.other_day ? `<br><small>着物 ${td(c.other_day)}</small>` : ''}</button>`).join('')}</div>` : '<div class="muted">今日出勤したキャストがいません</div>'}

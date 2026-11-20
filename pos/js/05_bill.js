@@ -56,8 +56,8 @@ async function renderGood(b){ const box=$('bGood'), sel=$('goodAdd'); if(!box||!
   sel.style.display=open?'':'none'; sel.innerHTML='<option value="">＋反応◎</option>'+cands.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('');
   sel.onchange=async()=>{ const id=sel.value; if(!id) return; sel.disabled=true; const ins=await sb.rpc('pos_good_add',{p_store:S.store.id,p_bill:b.id,p_staff:id}); sel.disabled=false; if(ins.error&&!ins.error.message.includes('duplicate')) toast(ins.error.message); else if(!ins.error) await logOp('反応◎',{name:nm(id)}); renderGood(S.cur); }; }
 // 伝票一覧の行に 係・同伴・反応◎ を小さく表示。会計済の伝票は当日は全部、1つ前の営業日（同じ月のうち）は係と反応◎だけ［編集］で変更できる
-// 月をまたがないのは、毎月1日 9:00 に前の月の報酬を確定するため（オーナー 2026-11-20）。データベースの守りは bill_people_lock（SQL 653）
-function billPrevDay(){ const t=businessDate(), p=dayAdd(t,-1); return p.slice(0,7)===t.slice(0,7)?p:null; }
+// 月をまたがないのは、毎月1日 9:00 に前の月の報酬を確定するため（オーナー 2026-11-20）。データベースの守りは bill_people_lock（SQL 653・656）
+function billPrevDay(){ return S.prevEditDay||null; } /* 店の休みを飛ばした1つ前の営業日（同じ月のうち）。伝票一覧を開く時に pos_prev_edit_day で受け取る（SQL 656） */
 function billEditMode(b){ if(!b||b.status!=='closed') return null; const d=billDay(b); return d===businessDate()?'today':(d&&d===billPrevDay()?'prev':null); }
 const snm2=id=>S.staffAll.find(x=>x.id===id)?.display_name||'';
 function billPeopleChips(b,gr,editable){ const cs=b.bill_casts||[]; const ch=(txt,col)=>`<span style="font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:${col||'var(--ink)'};white-space:nowrap">${txt}</span>`;

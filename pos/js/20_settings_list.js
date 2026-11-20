@@ -24,6 +24,7 @@ function setLocal(def){ $('setAdd').style.display='none'; $('setEdit').style.dis
 const billListHead=(day,min,max,txt)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="blD" value="${day}" min="${min}" max="${max}" style="width:auto"><small class="muted">${txt}</small></div>`;
 /* 本日の伝票の一覧（金額・反応◎・人数の修正）。日付は本日と1つ前の営業日（同じ月のうち）を選べ、前の日は係と反応◎だけ変更できる（05_bill.js の billEditMode） */
 async function setBills(def){ $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; $('setList').innerHTML='<div class="muted">読み込み中…</div>';
+    { const r=await sb.rpc('pos_prev_edit_day'); S.prevEditDay=r.error?null:r.data; }
     const today=businessDate(), pd=billPrevDay(), day=[pd,today].includes(S.blDate)?S.blDate:today; const BSEL='id,status,table_id,table_name,guest_count,opened_at,closed_at,business_date,bill_customers(customer_id),bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)';
     const tb=await todayBills(BSEL,day,false); const error=tb.error;
     if(error){ $('setList').innerHTML=`<div class="muted">${esc(error.message)}</div>`; return; }
