@@ -3,7 +3,7 @@
 // 同伴ノルマ罰金＝足りない回数×時間給×4時間。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算）。厚生費「標準」＝出勤 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円
 let ksMonth=null;
 const KS_COLS=[
-  ['成績',[['manager','担当','t'],['days','日数','d'],['hours','時間','h'],['ratio','給率','r'],['ratio3','3mAvg','r3'],['sub','提出率','sb'],['sales',''+KL+'小計','y'],['points','ポイント','p'],['douhan','同伴','dq'],['reactions','反応','n']]],
+  ['成績',[['manager','担当','t'],['days','日数','d'],['hours','時間','h'],['ratio','給率','r'],['ratio3','3mAvg','r3'],['sub','提出率','sb'],['avg','平均','av'],['sales',''+KL+'小計','y'],['points','ポイント','p'],['douhan','同伴','dq'],['reactions','反応','n']]],
   ['支給',[['wage','決定時給','w'],['time_pay','時間報酬','y'],['kakari_back','小計バック','y'],['seppan_pay','折半','y'],['item_back','商品バック','y'],['allowance','手当','y'],['special_pay','個別支給','y']]],
   ['罰金',[['fines','罰金','m'],['quota_fine','同伴ノルマ','m']]],
   ['控除',[['ctax','消費税','m'],['welfare','厚生費','m'],['special_deduct','個別控除','m'],['adv_only','日払','m'],['tatekae','立替','m'],['withholding','源泉徴収','m']]],
@@ -26,7 +26,7 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
   const rows=r.data?.rows||[], n=v=>Number(v||0), nf=v=>Math.round(n(v)).toLocaleString('ja-JP'), yen0=v=>v?nf(v):'—', neg=v=>v?`<span style="color:var(--warn)">−${nf(Math.abs(n(v)))}</span>`:'—';
   const pct=(t,s)=>n(s)>0?(Math.round(n(t)/n(s)*1000)/10).toFixed(1)+'%':'—';  /* 給率＝課税対象額÷係小計（Excel の給率と同じ式） */
   const rto=x=>{ const f=RT[x.id]?.fixed; return f?pct(f.taxable,f.sales):pct(x.taxable,x.sales); }, rto3=x=>{ const z=RT[x.id]; return z?pct(z.taxable,z.sales):'—'; };
-  const fmt=(k,typ,x)=>{ const v=x[k]; if(typ==='t') return esc(v||'—'); if(typ==='d') return n(v)?String(n(v)):'—'; if(typ==='h') return n(v)?n(v).toLocaleString('ja-JP',{maximumFractionDigits:2})+'H':'—'; if(typ==='r') return rto(x); if(typ==='r3') return rto3(x); if(typ==='sb'){ const z=SB[x.id]; return z&&n(z.worked)>0?Math.round(n(z.submitted)/n(z.worked)*100)+'%':'—'; }
+  const fmt=(k,typ,x)=>{ const v=x[k]; if(typ==='t') return esc(v||'—'); if(typ==='d') return n(v)?String(n(v)):'—'; if(typ==='h') return n(v)?n(v).toLocaleString('ja-JP',{maximumFractionDigits:2})+'H':'—'; if(typ==='r') return rto(x); if(typ==='r3') return rto3(x); if(typ==='sb'){ const z=SB[x.id]; return z&&n(z.worked)>0?Math.round(n(z.submitted)/n(z.worked)*100)+'%':'—'; } if(typ==='av'){ const z=SB[x.id]; return z&&n(z.worked)>0?`<u class="avg" data-avg="${x.id}" style="text-decoration:underline dotted;cursor:pointer">${Math.round(n(z.contacts)/n(z.worked))}人</u>`:'—'; }
     if(typ==='p') return n(v)?n(v).toLocaleString('ja-JP',{maximumFractionDigits:1}):'—'; if(typ==='n') return n(v)?String(n(v)):'—';
     if(typ==='dq') return `${n(x.douhan)}${x.quota!=null?`<small class="muted">／${x.quota}</small>`:''}`;
     if(typ==='w') return v==null?(x.seppan?'—':'<span class="badge warnb">未設定</span>'):nf(v)+(x.pay_type==='daily'?' <small class="muted">日給</small>':'');
@@ -37,13 +37,19 @@ PAGES.cast_sales=async()=>{ const st=storeId, now=csNowMonth(); if(!ksMonth) ksM
   const KC=KS_COLS.map(([g,cs])=>[g,cs.filter(c=>c[0]!=='prev_adjust'||rows.some(x=>n(x.prev_adjust)))]);
   const cols=KC.flatMap(([g,cs])=>cs.map(c=>[g,...c]));
   const sumR=k=>rows.reduce((a,x)=>{ const z=k?RT[x.id]:(RT[x.id]?.fixed||x); return z?[a[0]+n(z.taxable),a[1]+n(z.sales)]:a; },[0,0]);
-  const totCell=([g,k,l,typ])=>{ if(typ==='r'||typ==='r3') return `<td>${pct(...sumR(typ==='r3'))}</td>`; if(typ==='sb'){ const w=rows.reduce((a,x)=>a+n(SB[x.id]?.worked),0), d=rows.reduce((a,x)=>a+n(SB[x.id]?.submitted),0); return `<td>${w?Math.round(d/w*100)+'%':'—'}</td>`; } if(!sumKeys.includes(k)) return '<td></td>'; if(typ==='dq') return `<td>${tot.douhan}</td>`; return `<td>${fmt(k,typ,tot)}</td>`; };
+  const totCell=([g,k,l,typ])=>{ if(typ==='r'||typ==='r3') return `<td>${pct(...sumR(typ==='r3'))}</td>`; if(typ==='sb'){ const w=rows.reduce((a,x)=>a+n(SB[x.id]?.worked),0), d=rows.reduce((a,x)=>a+n(SB[x.id]?.submitted),0); return `<td>${w?Math.round(d/w*100)+'%':'—'}</td>`; } if(typ==='av'){ const w=rows.reduce((a,x)=>a+n(SB[x.id]?.worked),0), c=rows.reduce((a,x)=>a+n(SB[x.id]?.contacts),0); return `<td>${w?Math.round(c/w)+'人':'—'}</td>`; } if(!sumKeys.includes(k)) return '<td></td>'; if(typ==='dq') return `<td>${tot.douhan}</td>`; return `<td>${fmt(k,typ,tot)}</td>`; };
   $('main').innerHTML=head+'<h2 style="margin:4px 0 8px">キャスト</h2>'+(rows.length?`<div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">名前</th>${KC.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr>
     <tr>${cols.map(([g,k,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     ${rows.map(x=>`<tr><td class="nm">${esc(x.name)}${x.active?'':' <small class="muted">（退店）</small>'}${x.seppan?' <small class="muted">折半</small>':''}</td>${cols.map(([g,k,l,typ])=>`<td>${fmt(k,typ,x)}</td>`).join('')}</tr>`).join('')}
     <tr class="kst"><td class="nm"><b>合計</b></td>${cols.map(totCell).join('')}</tr></tbody></table></div>`:'<div class="card muted">この月のキャストはいません</div>')
     +`<div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">会計済の伝票と、タイムカードの打刻（丸めた時刻）で計算します<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">決定時給：選んだスライド表と保証時給（日給の人は日給）のうち一番高い金額。時間報酬＝決定時給×稼働時間（日給の人は 日給×稼働日数）<br>小計バック＝${KL}小計×スタッフ設定のバック％（時給・日給に加算）。折半＝${KL}小計×小計バック％（報酬が折半の人。時給・保証時給・同伴ノルマ罰金はなし）。商品バック・手当・日払（立替）・罰金は POS で入れたもの。％の罰金は月末の時給で計算します<br>同伴ノルマ罰金＝足りない回数×時給×4時間（日給の人の時給は 日給÷所定時間）<br>課税対象額＝支給の合計。源泉＝（課税対象額−5,000円×その月の日数）×10.21%（罰金は引かずに計算。スタッフ設定で「しない」の人は0円）<br>厚生費「標準」：稼働日数 1〜3日 5,000円／4〜10日 10,000円／11日以上 15,000円<br>残り支給額＝課税対象額−罰金−控除。体験の人はその日に支払済のため含めていません<br>給率＝課税対象額÷${KL}小計。毎月1日に前月分を確定し、その後の伝票の修正は反映しません。3mAvg＝前月までの3か月の課税対象額の合計÷${KL}小計の合計</div></div>`+'<div id="hpBox" style="margin-top:22px"></div>';
-  hallPayDraw(hr,st,m,rows); wire(); ksKpbDraw(st,m); };
+  hallPayDraw(hr,st,m,rows); wire(); ksKpbDraw(st,m); $('main').querySelectorAll('[data-avg]').forEach(u=>u.onclick=()=>ksAvgOpen(u.dataset.avg,rows,SB,m)); };
+/* 平均（SQL 665）の数字をタップ：提出率と1回平均（提出日の連絡人数÷提出日）。今月は 1日〜昨日、前の月はその月の全部（提出率と同じ範囲） */
+function ksAvgOpen(id,rows,SB,m){ const z=SB[id]; const x=rows.find(r=>r.id===id); if(!z||!x) return; const w=Number(z.worked), sb=Number(z.submitted), c=Number(z.contacts||0), now=csNowMonth(), bd=businessDate(), d=Number(bd.slice(8,10)), mm=Number(String(m).slice(5,7));
+  const per=m===now?`今月${d>1?` ${mm}/1〜${mm}/${d-1}`:''}`:`${mm}月`;
+  const el=mkModal(60); el.innerHTML=`<div class="box"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-weight:700;font-size:20px">${esc(x.name)}</div><div class="muted" style="font-size:14px">${per}</div>
+    <div style="display:flex;justify-content:space-between"><span>提出率</span><b>${w>0?Math.round(sb/w*100)+'%':'—'}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">出勤 ${w}日・提出 ${sb}日</div>
+    <div style="display:flex;justify-content:space-between"><span>1回平均</span><b>${sb>0?Math.round(c/sb)+'人':'—'}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">提出日の連絡 ${c}人 ÷ ${sb}日</div></div>`; document.body.appendChild(el); el.querySelector('[data-x]').onclick=()=>el.remove(); }
 // 本日ボトル提案の月の表（SQL 589・銀座）：係ごとに 提案・ニューボトル・閉店作業で選んだ理由。係が2人の卓は2人とも数える。本日ボトル提案の無い店（広島）と、関数の前は出さない
 async function ksKpbDraw(st,m){ const r=await sb.rpc('admin_kpb_month',{p_store:st,p_month:m}); if(r.error||!r.data?.on||page!=='cast_sales'||storeId!==st||ksMonth!==m) return;
   const R=r.data.rows||[], T=r.data.total||{}, c=v=>Number(v||0)?String(Number(v)):'—', H=['提案','ニューボトル','お断り','次回ご注文','未提案','残量あり'], K=['n','nb','r1','r2','r3','r4'];
