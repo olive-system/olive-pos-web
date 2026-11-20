@@ -9,8 +9,8 @@ const sname=id=>{ const s=staffBy(id); return s?s.name+(s.active?'':'（退店�
 
 // ---------- 一覧 ----------
 const csAt=c=>Math.max(Date.parse(c.act)||0,Date.parse(c.created_at)||0), csOrder=(a,b)=>csAt(b)-csAt(a)||jaCmp(a.name,b.name)||String(a.id).localeCompare(String(b.id));
-async function loadList(){ $('rows').innerHTML='<div class="loading">読み込み中…</div>';
-  try{ custs=await rpc('cs_list',{p_token:token})||[]; custs.sort(csOrder); /* 最近出てきた順（来店・予約・情報の更新。オーナー）。POS と同じ並び */ renderList(); }catch(e){ $('rows').innerHTML=''; await csFail(e); } }
+async function loadList(pre){ $('rows').innerHTML='<div class="loading">読み込み中…</div>'; /* pre：開いた時に先に読み始めた一覧（{d}＝中身／{e}＝失敗） */
+  try{ const r=pre?await pre:null; if(r&&r.e) throw r.e; custs=(r?r.d:await rpc('cs_list',{p_token:token}))||[]; custs.sort(csOrder); /* 最近出てきた順（来店・予約・情報の更新。オーナー）。POS と同じ並び */ renderList(); }catch(e){ $('rows').innerHTML=''; await csFail(e); } }
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ mode=b.dataset.mode; renderList(); });
 $('q').oninput=()=>renderList();
 function renderList(){ const q=$('q').value.trim();

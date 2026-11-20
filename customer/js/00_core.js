@@ -66,7 +66,8 @@ async function start(){ if(!token){ showLogin(); return; }
   kSet(boot&&boot.store&&boot.store.kakari_label);
   $('storeName').textContent=(boot.store&&boot.store.name||'')+'　顧客'; document.title=(boot.store&&boot.store.name||'OLIVE')+' 顧客';
   if(!monthsSel) monthsSel=boot.bottle_keep_months||6;
-  show('vList'); if(!EMB){ const k=await csRenew(); if(k===null) return; } paintEdit(); await loadList(); rtSub(); } /* 開くたびに、編集用でログインした人か（cs_edit_renew）を確かめる */
+  show('vList'); const lp=EMB?null:rpc('cs_list',{p_token:token}).then(d=>({d}),e=>({e})); /* 一覧は、編集の券の確かめ（cs_edit_renew）と同時に読み始める（順番に待たない。一覧の中身は券に関係しない） */
+  if(!EMB){ const k=await csRenew(); if(k===null) return; } paintEdit(); await loadList(lp); rtSub(); } /* 開くたびに、編集用でログインした人か（cs_edit_renew）を確かめる */
 /* リアルタイム。店の設定・伝票がほかで変わったら、すぐ読み直す（入力中・確認の画面の間は読み直さない。つながらない時は1分ごとのまま） */
 let rtCh=null, rtT=0;
 function rtSub(){ const sid=boot&&boot.store&&boot.store.id; if(rtCh||!sid||!window.supabase) return;
