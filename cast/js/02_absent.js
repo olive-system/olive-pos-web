@@ -45,7 +45,7 @@ async function hallAbsent(){
   if(A.sent){ hallAbsentDone(A.date, A.sent.at, A.sent.status, A.monthly, true, true, A.sent.line === 0); return; }
   show(`${segHtml('absent')}<div class="subh">${dTxt(A.date)} ${tTxt(A.now)}</div>
     <div class="card"><label class="f" for="abR">理由</label><textarea id="abR" maxlength="300"></textarea></div>
-    <button class="btn" id="abGo">欠勤連絡</button><p class="muted sm" style="margin:10px 2px">送信内容は公式 LINE のトークにも送信されます</p>`); segBind();
+    <button class="btn" id="abGo">欠勤連絡</button>`); segBind();
   const go = $('abGo');
   go.onclick = async () => {
     const rs = $('abR').value.trim(); if(!rs){ await uiAlert('理由を入力してください'); return; }
@@ -53,9 +53,8 @@ async function hallAbsent(){
     go.disabled = true;
     const q = await sb.rpc('hall_absence_submit', { p_token: TOKEN, p_reason: rs });
     if(q.error){ go.disabled = false; await uiAlert(q.error.message); return; }
-    let lineOk = true;
-    try{ await liff.sendMessages([{ type:'text', text:`【当日欠勤】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
-    hallAbsentDone(q.data.date, q.data.at, 'pending', A.monthly, false, lineOk, q.data.sent === 0);
+    /* 黒服の欠勤連絡は LINE のトークに送らない（朝礼の「本日の出勤」に出る・SQL 661。オーナー 2026-11-20）。承認者への LINE は今までどおり */
+    hallAbsentDone(q.data.date, q.data.at, 'pending', A.monthly, false, true, q.data.sent === 0);
   };
 }
 function hallAbsentDone(date, at, st, monthly, already, lineOk = true, noAppr = false){
