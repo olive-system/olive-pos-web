@@ -152,12 +152,18 @@ function hcBodyBdayReq(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', ge
       <div>お誕生日 ${esc(q.birthday)}</div><div style="display:flex;gap:8px;margin-top:6px">${tBtn('bqa', i, '登録')}${tBtn('bqr', i, '却下', true)}</div></div>`).join('') || '<div class="muted">申請はありません</div>'}</div>
       ${sv('', D.length ? '全件「登録」か「却下」の後に保存します' : '')}`;
   return { body, getData }; }
-function hcBodyCheck(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
-    const c = v => esc(v || '');
-    body = `<div class="card"><div class="muted sm" style="margin-bottom:6px">今日の伝票　${D.length}枚</div>${D.length ? `<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px">
-      <tr>${['卓', 'お客様', KL, '同伴', '反応◎'].map(h => `<th style="text-align:left;font-weight:400;color:var(--muted);padding:5px 4px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
-      ${D.map(b => `<tr>${[b.table, b.customers, b.kakari, b.douhan, b.good].map(v => `<td style="padding:6px 4px;border-bottom:1px solid var(--line)">${c(v)}</td>`).join('')}</tr>`).join('')}</table></div>` : '<div class="muted">今日の伝票はありません</div>'}
-      <div class="muted sm" style="margin-top:8px">誤りは POS の伝票で修正します</div></div>${sv('確認')}`;
+// 係・同伴・反応◎の確認：伝票1枚ずつ［確認］か［修正］（SQL 655・オーナー 2026-11-20「甘い」）。1枚は2行（1行目 卓・お客様・印、2行目 係・同伴・反応◎）。印のある伝票を上に、確認済みを下に
+const ckBadge = t => `<span style="flex:none;font-size:11px;padding:1px 6px;border-radius:999px;white-space:nowrap;${t === '修正待ち' ? 'background:var(--gold-soft);color:var(--ink)' : 'background:var(--warn-soft);color:var(--warn)'}">${esc(kl(t))}</span>`;
+const ckBtn = (k, i, t, g) => tBtn(k, i, t, g).replace('padding:7px 14px;font-size:14px', 'padding:0 10px;font-size:13px;min-height:0;height:36px;line-height:36px');
+function hcBodyCheck(H){ const {D, sv} = H; let body = '', getData = () => ({});
+    const ord = b => b.state === 'ok' ? 2 : ((b.marks || []).length || b.state === 'fix') ? 0 : 1, L = D.map((b, i) => ({ ...b, i })).sort((a, b) => ord(a) - ord(b) || a.i - b.i), left = D.filter(b => b.state !== 'ok').length;
+    const row = (b, j) => { const mk = [...(b.marks || []), ...(b.state === 'fix' ? ['修正待ち'] : [])];
+      return `<div style="display:flex;align-items:center;gap:6px;padding:8px 0;${j ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:none;width:2.2em;font-weight:700">${esc(b.table || '')}</span>
+      <div style="flex:1;min-width:0;line-height:1.5"><div style="display:flex;align-items:center;gap:4px;min-width:0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.customers || '')}</span>${mk.map(ckBadge).join('')}</div>
+      <div class="muted sm">${[`${KL} ${esc(b.kakari || '—')}`, b.note ? esc(kl(b.note)) : '', b.douhan ? `同伴 ${esc(b.douhan)}` : '', b.good ? `反応◎ ${esc(b.good)}` : ''].filter(Boolean).join('　')}</div></div>
+      ${b.state === 'ok' ? `<span class="muted sm" style="flex:none">${esc(b.at || '')} 確認済</span>` : `<div style="display:flex;gap:8px;flex:none">${ckBtn('cka', b.i, '確認')}${ckBtn('ckf', b.i, '修正', true)}</div>`}</div>`; };
+    body = `<div class="card"><div class="muted sm" style="margin-bottom:6px">今日の伝票　${D.length}枚${D.length ? `・未確認 ${left}枚` : ''}</div>${L.map(row).join('') || '<div class="muted">今日の伝票はありません</div>'}</div>
+      ${sv('', left ? '全件「確認」の後に保存します' : '')}`;
   return { body, getData }; }
 function hcBodyKimono(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', getData = () => ({});
     body = `<div class="card">${D.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${D.map((c, i) => `<button class="btn${c.kimono ? '' : ' g'}" data-km="${i}" ${c.done || c.other_day ? 'disabled' : ''} style="display:inline-block;width:auto;padding:8px 12px;font-size:14px">${esc(c.name)}${c.kimono ? '　着物' : ''}${c.done ? '<br><small>新調済</small>' : ''}${c.other_day ? `<br><small>着物 ${td(c.other_day)}</small>` : ''}</button>`).join('')}</div>` : '<div class="muted">今日出勤したキャストがいません</div>'}
@@ -279,6 +285,11 @@ function hcWireDrinks(H, again){ const {x, r, D} = H;
     if($('drCp')) $('drCp').onclick = () => copyText(drText(r.data, T2, drOut[x.id])); }
   rtWire(x, again);
 }
+function hcWireCheck(H, again){ const {x, D} = H;
+  [['cka', 'ok'], ['ckf', 'fix']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]]; b.disabled = true;
+    const z = await sb.rpc('hall_close_check_mark', { p_token: TOKEN, p_task: x.id, p_bill: q.id, p_state: st }); if(z.error){ await uiAlert(z.error.message); again(); return; }
+    if(st === 'fix') await uiAlert(`POS［設定］→［伝票一覧］→\n${q.table || ''}［編集］で修正してください\n修正後、ここで［確認］を押してください`); again(); }));
+}
 function hcWireMemoReq(H, again){ const {x, ph, r, k, D, td, sv} = H;
   [['rqa', 'applied'], ['rqr', 'rejected']].forEach(([a, st]) => $('main').querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = async () => { const q = D[+b.dataset[a]];
     if(st === 'rejected' && !await uiConfirm('この申請を却下しますか？', '却下')) return; b.disabled = true;
@@ -313,7 +324,7 @@ async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s
   s.onclick = async () => { s.disabled = true; const q = await sb.rpc('hall_kpb_review_save', { p_token: TOKEN, p_task: x.id, p_rows: L.map((t, i) => ({ bill_id: t.bill_id, reason: sel(i) })) });
     if(q.error){ s.disabled = false; await uiAlert(q.error.message); return; } s.disabled = false; hcSave(x, ph, s, hcBodyBottle(H).getData); };
 }
-const HC_WIRE = { shift_none: hcWireShiftNone, guarantee: hcWireGuarantee, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: (H, a) => hcWireShiire(H, a), kaidashi: (H, a) => hcWireKaidashi(H, a), memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono };
+const HC_WIRE = { shift_none: hcWireShiftNone, guarantee: hcWireGuarantee, bottle: hcWireBottle, drinks: hcWireDrinks, shiire: (H, a) => hcWireShiire(H, a), kaidashi: (H, a) => hcWireKaidashi(H, a), memo_req: hcWireMemoReq, bday_req: hcWireBdayReq, trial_judge: hcWireTrialJudge, kimono: hcWireKimono, check: hcWireCheck };
 /* 写真とコメントの欄（その作業に要る時だけ） */
 function hcPhotoBox(x, s){
   if(s && (x.need_photo || x.need_comment)) s.insertAdjacentHTML('beforebegin', `<div class="card">${x.need_photo ? `<div style="display:flex;align-items:center;gap:8px"><span style="flex:1" id="clPhN">写真${opShots[x.id] ? `　${opShots[x.id].length}枚` : ''}</span><label class="btn g" id="clPl" style="display:inline-block;width:auto;flex:none;padding:7px 12px;font-size:14px;margin:0">写真<input type="file" accept="image/*" capture="environment" id="clPh" style="display:none"></label></div><div id="clPg"></div>` : ''}
