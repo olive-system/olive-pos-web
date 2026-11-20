@@ -98,14 +98,16 @@ function rcDrawShop(g,d,W,H,MI,sp,hl){
 function rcAddr(g,a,mw){ a=String(a||'').trim(); if(!a) return []; const m=a.match(/^(〒?\s*\d{3}-?\d{4})[\s　]*([\s\S]*)$/), out=m?[m[1].replace(/\s+/g,'')]:[]; let r=(m?m[2]:a).replace(/\s+/g,' ').trim();
   while(r&&g.measureText(r).width>mw){ let k=r.length; while(k>1&&g.measureText(r.slice(0,k)).width>mw) k--; const sp=r.lastIndexOf(' ',k); if(sp>0) k=sp; out.push(r.slice(0,k).trim()); r=r.slice(k).trim(); }
   if(r) out.push(r); return out; }
-function receiptPrint(cv){ const W=576,H=1240; const r=document.createElement('canvas'); r.width=W; r.height=H; const g=r.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.translate(W,0); g.rotate(Math.PI/2); g.drawImage(cv,0,0);
-  imagePrint(r); }
+function receiptPrint(cvs){ imagePrint([].concat(cvs).map(cv=>{ const W=576,H=1240; const r=document.createElement('canvas'); r.width=W; r.height=H; const g=r.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.translate(W,0); g.rotate(Math.PI/2); g.drawImage(cv,0,0); return r; })); }   /* 何枚かの領収書は1回の印刷の頼みにまとめる */
 // 576ドット幅の絵を印刷する（領収書・名札で共通）。白黒は明るさ 150 未満が黒
-function imagePrint(r){ const W=r.width,H=r.height, g=r.getContext('2d');
-  if(PRINT.method==='browser'){ $('printArea').innerHTML=`<img src="${r.toDataURL('image/png')}" style="width:72mm">`; setTimeout(()=>window.print(),80); return; }
+// 1枚の絵を印刷機の白黒の画像の文に（1枚ごとに切る）
+function eposImage(r){ const W=r.width,H=r.height, g=r.getContext('2d');
   const px=g.getImageData(0,0,W,H).data, bw=W/8, buf=new Uint8Array(bw*H); for(let yy=0;yy<H;yy++) for(let xx=0;xx<W;xx++){ const i=(yy*W+xx)*4; if((px[i]*299+px[i+1]*587+px[i+2]*114)/1000<150) buf[yy*bw+(xx>>3)]|=(0x80>>(xx&7)); }
   let bin=''; for(let i=0;i<buf.length;i+=8192) bin+=String.fromCharCode.apply(null,buf.subarray(i,i+8192));
-  const xml=`<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><image width="${W}" height="${H}" color="color_1" mode="mono">${btoa(bin)}</image>${r.dataset.nt?'<cut type="feed"/>':'<feed line="3"/><cut type="feed"/>'}</epos-print>`;
+  return `<image width="${W}" height="${H}" color="color_1" mode="mono">${btoa(bin)}</image>${r.dataset.nt?'<cut type="feed"/>':'<feed line="3"/><cut type="feed"/>'}`; }
+function imagePrint(rs){ const L=[].concat(rs);
+  if(PRINT.method==='browser'){ $('printArea').innerHTML=L.map(r=>`<img src="${r.toDataURL('image/png')}" style="width:72mm;display:block;break-after:page">`).join(''); setTimeout(()=>window.print(),80); return; }
+  const xml=`<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">${L.map(eposImage).join('')}</epos-print>`;
   location.href='tmprintassistant://tmprintassistant.epson.com/print?ver=1&data-type=eposprintxml&reselect=yes&data='+encodeURIComponent(xml)+'&back='+encodeURIComponent(location.href); }
 // ボトルの名札（オーナー）：名札のカード（よこ 53mm・たて 55mm・「様」の付いた丸い枠にキープ名）をレシートの紙に
 // はさみで切るのを1か所に（オーナー「左右をカットする手間」「点線もいらない」）。カードのたてを紙の出る向きにして、印刷機が 55mm ちょうどで切る。カードの横は紙の端に合わせる（反対側の1か所だけ切る）
@@ -138,25 +140,39 @@ function rcSave(o,d,sig){
     return insOnce('receipts',{store_id:S.store.id,bill_id:S.cur.id,issue_date:jd,visit_date:S.cur.business_date,name:d.name||null,guest_count:d.guests,amount:d.amount,cash_amount:d.cash,card_amount:d.card,tax_amount:d.tax,signature:s2.toDataURL('image/png'),reissue_reason:o.why||null}); }
 // 領収書の画面の文（宛名・金額・人数・現金・カード・見本・ボタン）
 function rcHtml(o){
-  return `<div class="box" style="width:min(980px,96vw);max-height:94vh;overflow:auto"><div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:6px 10px"><label>宛名<input data-rc="name" style="width:100%"></label><label>金額<input data-rc="amount" inputmode="numeric" style="width:100%;text-align:right"></label>`+
+  return `<div class="box" style="width:min(980px,96vw);max-height:94vh;overflow:auto"><div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:6px 10px"><label>宛名<input data-rc="name" style="width:100%"></label><label>金額<input data-rc="amount" inputmode="numeric" style="width:100%;text-align:right"></label><label>枚数<input data-rc="n" inputmode="numeric" maxlength="2" style="width:100%;text-align:right"></label>`+
     `<label>人数<input data-rc="guests" inputmode="numeric" style="width:100%;text-align:right"></label><label>現金<input data-rc="cash" inputmode="numeric" style="width:100%;text-align:right"></label><label>カード<input data-rc="card" readonly style="width:100%;text-align:right;background:var(--soft)"></label></div>${(o.names||[]).length>1?`<div class="chips" data-rcnames style="margin-top:6px">${o.names.map((n,i)=>`<button type="button" class="chip ${i?'':'on'}" style="padding:6px 12px;font-size:14px">${esc(n)}</button>`).join('')}</div>`:''}<div data-rcmix class="hidden" style="color:var(--warn);font-size:14px;margin-top:6px">この伝票は現金とカードの両方で払われています。この領収書の現金・カードの分け方を確かめてください（現金の欄を直すと、残りがカードになります）</div>
   <canvas data-rc="pv" style="width:100%;border:1px solid var(--line);margin-top:10px;display:block"></canvas>
-  <div style="display:flex;align-items:center;margin-top:10px"><span data-rc="stamp" class="badge hidden" style="background:var(--warn);font-size:15px;padding:6px 14px">収入印紙</span><div class="bar" style="margin-left:auto"><button class="ghost" data-rc="no">キャンセル</button><button class="primary" data-rc="ok">発行</button></div></div></div>`;
+  <div style="display:flex;align-items:center;gap:10px;margin-top:10px"><span data-rc="split" style="font-size:16px"></span><span data-rc="stamp" class="badge hidden" style="background:var(--warn);font-size:15px;padding:6px 14px">収入印紙</span><div class="bar" style="margin-left:auto"><button class="ghost" data-rc="no">キャンセル</button><button class="primary" data-rc="ok">発行</button></div></div></div>`;
 }
+// 同じ金額で何枚かに分ける（オーナー 11/20「100円単位で、総額は変わらずに」）：2枚目以降＝（総額÷枚数）の100円未満を切り捨て、1枚目＝残り全部
+function rcSplit(total, n){ n=Math.max(1,Math.min(10,Math.floor(n)||1)); if(n===1) return [total]; const e=Math.floor(total/n/100)*100; return [total-e*(n-1), ...Array(n-1).fill(e)]; }
+// 現金も同じ形で分け、1枚の金額を超えた分は次の枚へ（現金とカードで払った伝票）
+function rcCashSplit(cash, A){ const C=rcSplit(cash, A.length).map((c,i)=>Math.min(c,A[i])); let left=cash-C.reduce((a,c)=>a+c,0); for(let i=0;i<C.length&&left>0;i++){ const add=Math.min(left,A[i]-C[i]); C[i]+=add; left-=add; } return C; }
+const rcSplitText=A=>{ const y=v=>yen(v), n=A.length; return n<2?'':A[0]===A[1]?`${y(A[1])} × ${n}枚`:`${y(A[0])} × 1枚・${y(A[1])} × ${n-1}枚`; };
+// ［発行］の後：要る収入印紙を知らせる → 黒服のサインは1回 → 1枚ずつ記録 → まとめて印刷。記録できた分だけ印刷する
+async function rcIssue(o,L,data,rate,m){
+  const st=L.map(x=>stampYen(x.c,rate)); if(st.some(v=>v)){ m.style.zIndex=59; await uiAlert(L.length<2?`収入印紙　${yen(st[0])}`:'収入印紙　'+st.map((v,i)=>v?`${i+1}枚目 ${yen(v)}`:'').filter(Boolean).join('・')); m.style.zIndex=60; } /* 小窓（z-index 60）を領収書の画面の上に出す。要る印紙の金額は発行の時に小窓で（オーナー） */
+  const sg=await askSign(); if(!sg) return null;   /* サインは1回で、何枚でも同じサイン（オーナー「ア サインは1回」） */
+  const cvs=[]; for(const x of L){ const d={...data(x),sig:sg}; const r=await rcSave(o,d,sg); if(r.error){ toast('領収書を記録できません：'+r.error.message); if(cvs.length) receiptPrint(cvs); return null; }
+    await logOp(o.why?'領収書再発行':'領収書発行',{name:d.name||null,amount:d.amount,...(L.length>1?{sheets:L.length}:{})},o.why); const cv=document.createElement('canvas'); drawReceipt(cv,d); cvs.push(cv); }
+  receiptPrint(cvs); return sg; }
 function openReceipt(o){ const rate=Number(S.cur.totals?.tax_rate)||10; const m=mkModal(60);
   m.innerHTML=rcHtml(o);
   document.body.appendChild(m); const q=k=>m.querySelector(`[data-rc=${k}]`); const num=k=>numIn(q(k).value);
-  q('name').value=o.name||''; q('amount').value=o.amount; q('guests').value=''; let cashTouched=false; q('cash').value=Math.min(o.amount,o.cashAvail);
+  q('name').value=o.name||''; q('amount').value=o.amount; q('n').value='1'; q('guests').value=''; let cashTouched=false; q('cash').value=Math.min(o.amount,o.cashAvail);
   let sigCv=null;
   let logo=null; if(S.settings?.receipt_logo){ const im=new Image(); im.onload=()=>{ logo=im; paint(); }; im.src=S.settings.receipt_logo; }
-  const data=()=>{ const amount=num('amount'); const cash=Math.min(num('cash'),amount); const now=new Date(); return { name:q('name').value.trim(), amount, guests:num('guests')||null, cash, card:amount-cash, rate, tax:rcTax(amount,rate), issue:now, store:S.store?.name||'', address:S.store?.address||'', tel:S.store?.phone||S.store?.tel||'', regno:S.settings?.invoice_reg_no||'', logo, sig:sigCv, stamp:stampYen(cash,rate) }; };
-  const paint=()=>{ const d=data(); q('card').value=d.card; q('stamp').classList.toggle('hidden',!d.stamp); /* 収入印紙が要る時だけしるし（オーナー 案イ） */ drawReceipt(q('pv'),d); };
-  q('amount').oninput=()=>{ if(!cashTouched) q('cash').value=Math.min(num('amount'),o.cashAvail); /* 現金とカードの両方で払われた伝票は、金額を変えたら現金の欄を確かめるように出す（ゲネプロ #38） */ const mx=m.querySelector('[data-rcmix]'); if(mx) mx.classList.toggle('hidden',!(o.cashAvail>0&&o.cashAvail<o.amount&&num('amount')!==o.amount)); paint(); }; q('cash').oninput=()=>{ cashTouched=true; paint(); }; q('name').oninput=q('guests').oninput=paint;
+  const total=()=>{ const amount=num('amount'); const cash=Math.min(num('cash'),amount); return {amount,cash}; };
+  const sheets=()=>{ const t=total(), A=rcSplit(t.amount,num('n')), C=rcCashSplit(t.cash,A); return A.map((a,i)=>({a,c:C[i]})); };
+  const data=(sh)=>{ const {a:amount,c:cash}=sh||sheets()[0]; const now=new Date(); return { name:q('name').value.trim(), amount, guests:num('guests')||null, cash, card:amount-cash, rate, tax:rcTax(amount,rate), issue:now, store:S.store?.name||'', address:S.store?.address||'', tel:S.store?.phone||S.store?.tel||'', regno:S.settings?.invoice_reg_no||'', logo, sig:sigCv, stamp:stampYen(cash,rate) }; };
+  const paint=()=>{ const t=total(), L=sheets(), d=data(L[0]); q('card').value=t.amount-t.cash; q('split').textContent=rcSplitText(L.map(x=>x.a)); q('stamp').classList.toggle('hidden',!L.some(x=>stampYen(x.c,rate))); /* 収入印紙が要る時だけしるし（オーナー 案イ） */ drawReceipt(q('pv'),d); };   /* 見本の絵は1枚目 */
+  q('amount').oninput=()=>{ if(!cashTouched) q('cash').value=Math.min(num('amount'),o.cashAvail); /* 現金とカードの両方で払われた伝票は、金額を変えたら現金の欄を確かめるように出す（ゲネプロ #38） */ const mx=m.querySelector('[data-rcmix]'); if(mx) mx.classList.toggle('hidden',!(o.cashAvail>0&&o.cashAvail<o.amount&&num('amount')!==o.amount)); paint(); }; q('cash').oninput=()=>{ cashTouched=true; paint(); }; q('name').oninput=q('guests').oninput=q('n').oninput=paint;
   m.querySelectorAll('[data-rcnames] .chip').forEach(b=>b.onclick=()=>{ q('name').value=b.textContent; m.querySelectorAll('[data-rcnames] .chip').forEach(x=>x.classList.toggle('on',x===b)); paint(); }); /* 領収書名が2社以上の時は宛名の下で選択 */
   q('no').onclick=()=>m.remove(); paint();
-  const ok=q('ok'); ok.onclick=guard(ok,async()=>{ const d=data(); if(!d.amount||d.amount<1){ toast('金額が正しくありません'); return; } if(d.amount>o.max){ toast(`上限は ${yen(o.max)} です`); return; } if(num('cash')>d.amount){ toast('現金が金額を超えています'); return; } if(d.stamp){ m.style.zIndex=59; await uiAlert(`収入印紙　${yen(d.stamp)}`); m.style.zIndex=60; } /* 小窓（z-index 60）を領収書の画面の上に出す */ /* 要る印紙の金額は発行の時に小窓で（オーナー） */ const sg=await askSign(); if(!sg) return; sigCv=sg;
-    const r=await rcSave(o,d,sigCv); if(r.error){ toast('領収書を記録できません：'+r.error.message); return; }
-    await logOp(o.why?'領収書再発行':'領収書発行',{name:d.name||null,amount:d.amount},o.why); paint(); receiptPrint(q('pv')); m.remove(); }); }
+  const ok=q('ok'); ok.onclick=guard(ok,async()=>{ const t=total(), n=num('n'); if(!t.amount||t.amount<1){ toast('金額が正しくありません'); return; } if(t.amount>o.max){ toast(`上限は ${yen(o.max)} です`); return; } if(num('cash')>t.amount){ toast('現金が金額を超えています'); return; }
+    if(!(n>=1&&n<=10)){ toast('枚数は1〜10にしてください'); return; } const L=sheets(); if(L.some(x=>x.a<1)){ toast('金額が枚数に対して少なすぎます'); return; }
+    const sg=await rcIssue(o,L,data,rate,m); if(sg){ sigCv=sg; paint(); m.remove(); } }); }
 $('extAdd').textContent=`${S.settings?.ext_minutes||30}分延長`;
 $('extAdd').onclick=guard($('extAdd'),async()=>{ const { error } = await insOnce('bill_extensions',{bill_id:S.cur.id,minutes:S.settings.ext_minutes,unit_price:S.settings.ext_unit_price,qty:S.cur.guest_count,is_auto:false}); if(error){ if(await stale(error)) return; toast(error.message); return; } await logOp('延長追加（手動）',{minutes:S.settings.ext_minutes,amount:S.settings.ext_unit_price*S.cur.guest_count}); await openBill(S.cur.id); });
 $('bBack').onclick=()=>{ if(S.billFrom==='bills'){ renderSettings('bills'); show('v-settings'); return; } loadHall(); show('v-hall'); };
