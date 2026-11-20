@@ -20,11 +20,13 @@ function setLocal(def){ $('setAdd').style.display='none'; $('setEdit').style.dis
     $('setForm').innerHTML=`<label>印刷方法<select id="pmSel"><option value="tmpa" ${PRINT.method==='tmpa'?'selected':''}>プリンター（Epson TM Print Assistant）</option><option value="browser" ${PRINT.method==='browser'?'selected':''}>ブラウザ印刷（PDF）</option></select></label><div class="muted hint">プリンター印刷には「Epson TM Print Assistant」アプリが要ります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">プリンター印刷はタブレットに「Epson TM Print Assistant」アプリを入れ、TM-m30IIIとBluetoothまたはWi-Fiで接続しておく必要があります。設定はこの端末だけに保存されます。</div></div>`;
     $('pmSel').onchange=e=>{ PRINT.method=e.target.value; localStorage.setItem('print_method'+SLOT,PRINT.method); toast('保存しました'); };
 }
+/* 前の営業日（店の休みを飛ばす・SQL 656）は営業日ごとに1回だけ読む（画面を開くたびに聞きに行かない） */
+async function billPrevLoad(){ if(S.prevEditKey===businessDate()) return; const r=await sb.rpc('pos_prev_edit_day'); if(!r.error){ S.prevEditDay=r.data; S.prevEditKey=businessDate(); } }
 /* 伝票一覧の上の段：日付（操作ログと同じ形）と件数・金額 */
 const billListHead=(day,min,max,txt)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="blD" value="${day}" min="${min}" max="${max}" style="width:auto"><small class="muted">${txt}</small></div>`;
 /* 本日の伝票の一覧（金額・反応◎・人数の修正）。日付は本日と1つ前の営業日（同じ月のうち）を選べ、前の日は係と反応◎だけ変更できる（05_bill.js の billEditMode） */
 async function setBills(def){ $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; $('setList').innerHTML='<div class="muted">読み込み中…</div>';
-    if(S.prevEditKey!==businessDate()){ const r=await sb.rpc('pos_prev_edit_day'); if(!r.error){ S.prevEditDay=r.data; S.prevEditKey=businessDate(); } } /* 前の営業日は営業日ごとに1回だけ読む（画面を開くたびに聞きに行かない） */
+    await billPrevLoad();
     const today=businessDate(), pd=billPrevDay(), day=[pd,today].includes(S.blDate)?S.blDate:today; const BSEL='id,status,table_id,table_name,guest_count,opened_at,closed_at,business_date,bill_customers(customer_id),bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)';
     const tb=await todayBills(BSEL,day,false); const error=tb.error;
     if(error){ $('setList').innerHTML=`<div class="muted">${esc(error.message)}</div>`; return; }
