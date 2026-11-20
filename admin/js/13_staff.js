@@ -26,19 +26,19 @@ function hpPrep(K){ const {box,st,ed,m,sf,tm}=K;
 function hpCell(K,{s,t}){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp,own,hm5,cell}=K; const wf=t.welfare_mode==='amount'?yen(t.welfare_amount):t.welfare_mode==='none'?'なし':'標準';
     const sh=E&&own?`<span class="row" style="gap:4px;flex-wrap:nowrap"><input type="time" data-k="ss" value="${hm5(s.shift_start)}" style="width:120px">〜<input type="time" data-k="se" value="${hm5(s.shift_end)}" style="width:120px"></span>`:(s.shift_start||s.shift_end?`${hm5(s.shift_start)||'—'}〜${hm5(s.shift_end)||'—'}`:'<span class="badge warnb">未設定</span>');
     if(!E) return [t.pay_type?CS_HPAY[t.pay_type]:'<span class="badge warnb">未設定</span>', t.amount!=null?yen(t.amount):'—', sh, s.day_pay_ok==null?'—':s.day_pay_ok?'可':'不可',
-      s.contract_done==null?'—':s.contract_done?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', s.doc_id_ok?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', s.doc_roster_ok?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', t.withhold==null?'—':t.withhold?'する':'しない', t.ctax_pct==null?'—':t.ctax_pct+'%', wf, s.bonus_on===false?'対象外':'対象', s.task_limited_ok?'可':'不可',s.pay_view_ok?'可':'不可',s.trial_judge_ok===false?'しない':'する'];
+      s.contract_done==null?'—':s.contract_done?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', s.doc_id_ok?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', s.doc_roster_ok?'<span class="badge k">済</span>':'<span class="badge warnb">未</span>', t.withhold==null?'—':t.withhold?'する':'しない', t.ctax_pct==null?'—':t.ctax_pct+'%', wf, s.bonus_on===false?'対象外':'対象', s.task_limited_ok?'可':'不可',s.pay_view_ok?'全員':'本人',s.trial_judge_ok===false?'しない':'する'];
     return [sel('pt',t.pay_type||'',[['','未設定'],...Object.entries(CS_HPAY)]), inp('am',t.amount,100,!t.pay_type)+' 円', sh,
       sel('dp',s.day_pay_ok==null?'':String(s.day_pay_ok),[['','—'],['true','可'],['false','不可']]), sel('ct2',s.contract_done==null?'':String(s.contract_done),[['','—'],['true','提出済'],['false','未提出']]), sel('di',String(!!s.doc_id_ok),[['true','提出済'],['false','未提出']]), sel('dr',String(!!s.doc_roster_ok),[['true','提出済'],['false','未提出']]),
       sel('wh',t.withhold==null?'':String(t.withhold),[['','—'],['true','する'],['false','しない']]), inp('ct',t.ctax_pct??'',50)+' %',
-      sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'), sel('bo',String(s.bonus_on!==false),[['true','対象'],['false','対象外']]), sel('tl',String(!!s.task_limited_ok),[['true','可'],['false','不可']]), sel('pv',String(!!s.pay_view_ok),[['true','可'],['false','不可']]), sel('tj',String(s.trial_judge_ok!==false),[['true','する'],['false','しない']])];
+      sel('wm',t.welfare_mode,[['std','標準'],['amount','金額'],['none','なし']])+' '+inp('wa',t.welfare_amount,80,t.welfare_mode!=='amount'), sel('bo',String(s.bonus_on!==false),[['true','対象'],['false','対象外']]), sel('tl',String(!!s.task_limited_ok),[['true','可'],['false','不可']]), sel('pv',String(!!s.pay_view_ok),[['true','全員'],['false','本人']]), sel('tj',String(s.trial_judge_ok!==false),[['true','する'],['false','しない']])];
 }
 function hpHtml(K){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp,own,hm5,cell}=K;
-  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーのみ</small>':''),'日払（立替）','契約書','本人確認書類','従業者名簿','源泉徴収','消費税','厚生費','ボーナス','限定項目','報酬閲覧','体験のジャッジ']; /* 限定の項目をしてよいか（新しく入った人は不可）。顧客サイトの編集も同じ可・不可で決める（オーナー「限定項目だけと言う表示にして、ここで権限をつける」） */
+  const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーのみ</small>':''),'日払（立替）','契約書','本人確認書類','従業者名簿','源泉徴収','消費税','厚生費','ボーナス','限定項目','黒服報酬','体験のジャッジ']; /* 限定の項目をしてよいか（新しく入った人は不可）。顧客サイトの編集も同じ可・不可で決める（オーナー「限定項目だけと言う表示にして、ここで権限をつける」） */
   return `<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="chAdd">＋追加</button><button class="ghost" id="chEd">編集</button>`)):''}</div>
   ${rows.length?`<div class="cs-w o-hscroll ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${!E?`<a data-hed="${r.s.id}">${esc(r.s.display_name)}</a>`:esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍の黒服がいません</div>'}
-  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}<br>限定項目：可の黒服のみ、開店・閉店作業の限定の項目と、LINEマイページの顧客サイトの編集が可能です<br>報酬閲覧：可の黒服のみ、同じ店舗の黒服全員の報酬の閲覧が可能です（不可の黒服は本人のみ）</div>
+  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}<br>限定項目：可の黒服のみ、開店・閉店作業の限定の項目と、LINEマイページの顧客サイトの編集が可能です<br>黒服報酬：全員の黒服のみ、同じ店舗の黒服全員の報酬の閲覧が可能です</div>
 `; }
 /* 押した時の動き：編集・追加・名前・キャンセル・報酬と厚生費の欄・保存 */
 function hpBind(K){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp,own,hm5,cell}=K;
@@ -68,7 +68,7 @@ async function hpCollect(K,tb){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,s
       const r={staff_id:s.id}; if(JSON.stringify(so)!==JSON.stringify(so0)) r.staff=so; if(JSON.stringify(to)!==JSON.stringify(to0)){ r.terms=to; needP=true; }
       if(r.staff||r.terms) out.push(r);
       { const bo=q('bo').value==='true'; if(bo!==(s.bonus_on!==false)) bons.push({staff_id:s.id,on:bo}); } /* ボーナス対象（SQL 535） */
-      { const pv=q('pv').value==='true'; if(pv!==!!s.pay_view_ok) pvs.push({staff_id:s.id,on:pv}); } /* 報酬閲覧（SQL 662）：可の黒服は同じ店の黒服全員の報酬を見られる */
+      { const pv=q('pv').value==='true'; if(pv!==!!s.pay_view_ok) pvs.push({staff_id:s.id,on:pv}); } /* 黒服報酬（SQL 662）：「全員」の黒服は同じ店の黒服全員の報酬を見られる */
       if(own&&q('ss')){ const ss=q('ss').value||null, se=q('se').value||null; if(ss!==(hm5(s.shift_start)||null)||se!==(hm5(s.shift_end)||null)) shifts.push({staff_id:s.id,shift_start:ss,shift_end:se}); } }
   return {out,shifts,needP,bons,pvs}; }
 async function hpSave(K,tb){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp,own,hm5,cell}=K; const c=await hpCollect(K,tb); if(!c) return; const {out,shifts,needP,bons,pvs}=c;

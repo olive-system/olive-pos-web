@@ -19,7 +19,7 @@ function adminShowLogin(msg){ $('vApp').classList.add('hide'); $('vLogin').class
 /* 戻り値：入れる人の情報／null＝止められた・パスワードが変わった（ログアウト）／undefined＝通信の失敗・ログインの期限切れ（ログアウトしない）
    オーナー「同じ端末、同じブラウザなのに毎回ログイン求められるのはなぜ？」→ スリープ明けなどの失敗でログアウトしていた */
 async function loadMe(){ let r=await sb.rpc('admin_me'); if(r.error){ let re=null; try{ re=(await sb.auth.refreshSession()).error; }catch(e){ re=e; } if(re&&/refresh.?token|not found|invalid|expired/i.test(re.message||'')) return null; /* ログインの記録そのものが無効 */ r=await sb.rpc('admin_me'); } if(r.error) return undefined; const m=r.data||null;
-  /* オーナー以外：連携した黒服（自分の報酬だけ出す）と報酬閲覧（SQL 662）。1分ごとの読み直しでも消えないように、ここで一緒に読む（関数が無い時は undefined＝今までどおり） */
+  /* オーナー以外：連携した黒服（自分の報酬だけ出す）と黒服報酬「全員」か（SQL 662）。1分ごとの読み直しでも消えないように、ここで一緒に読む（関数が無い時は undefined＝今までどおり） */
   if(m&&!m.is_owner){ const [ms,pa]=await Promise.all([sb.rpc('admin_my_staff'),sb.rpc('admin_hall_pay_all')]); m.staff_id=ms.error?undefined:ms.data; m.pay_all=!pa.error&&pa.data===true; }
   return m; }
 async function start(){
