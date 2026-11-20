@@ -145,3 +145,6 @@ label.cllb{display:inline-block;cursor:pointer;border-radius:10px;padding:6px 14
 .rrow .nm .badge{font-size:11px;padding:1px 7px;vertical-align:2px}
 #joinBox input:not([type=checkbox]),#joinBox select,#joinBox #jnSl{height:44px;box-sizing:border-box}   /* 入店の小窓の枠の高さをそろえる（オーナー「枠の縦幅がバラバラ」） */
 #bLoad{display:none}#v-bill.ld>#bLoad{display:block}#v-bill.ld>:not(#bLoad){display:none} /* 卓を押してから中身が入るまで（billFromHall） */
+.ord4 .body>*{flex-shrink:0} /* 注文の列の行は縮めない：高さの決まった縦の箱で、長いメニューの名前が上下にはみ出してとなりと重なった（#576 と同じ） */
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}} /* iPad を縦にした時は伝票の列を2つずつ2段に：4列だとボトルの名前が1〜2字ずつ折り返し、VIP代と金額が重なった */
+#cuList .row .nm{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;min-width:0}#cuList .row .nm>small{margin-left:0!important;white-space:normal;overflow-wrap:anywhere;min-width:0} /* 顧客の一覧：会社名は枠の中で折り返す・来店日の行の始まりを会社名とそろえる */
