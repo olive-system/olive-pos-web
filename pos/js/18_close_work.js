@@ -180,7 +180,7 @@ async function clGap(after,d,D){ const f=dayAdd(after,1), t=dayAdd(d,-1); if(f>t
   { const e=[cd,cl].find(x=>x.error); if(e) return {net:0,days:[],error:e.error}; }
   return regGap(cd.data,(cl.data||[]).map(r=>r.business_date)); }
 function clRecalc(){ const c=S.clCtx; if(!c) return {}; const s=c.saved; const cnt=s?(s.counts||{}):S.clCounts; let counted=0; DENOMS.forEach(([v])=>{ const a=v*clNum(cnt[v]); counted+=a; const el=document.querySelector(`[data-denamt="${v}"]`); if(el) el.textContent=yen(a); });
-  const opening=s?s.opening_float:(c.hasPrev?c.prevFloat:S.clOpening); const sales=s?s.cash_sales:c.cashSales, cin=s?s.cash_in:c.inSum, cout=s?s.cash_out:(c.outSum+c.advSum); const expected=opening+sales+cin-cout; if(s) counted=s.counted; const diff=counted-expected; const deposit=s?s.deposit:S.clDeposit; const next=counted-deposit;
+  const R=regTotals(s,{opening:c.hasPrev?c.prevFloat:S.clOpening,sales:c.cashSales,cin:c.inSum,cout:c.outSum+c.advSum,counted,deposit:S.clDeposit}); /* 式は共通の部品1つ（管理サイトの現金管理と同じ） */ const {opening,sales,cin,cout,expected,diff,deposit,next}=R; counted=R.counted;
   const T=(id,t)=>{ const e=$(id); if(e) e.textContent=t; }; T('clCounted',yen(counted)); T('clOpenTxt',yen(opening)); T('clSales',yen(sales)); T('clIn',yen(cin)); T('clOut',yen(cout)); T('clExp',yen(expected)); T('clCnt2',yen(counted)); T('clDiff',(diff>0?'+':'')+yen(diff)); T('clDepTxt',yen(deposit)); T('clNext',yen(next)); const de=$('clDiff'); if(de) de.style.color=diff===0?'':'var(--warn)';
   return {opening,expected,counted,diff,deposit,next}; }
 // 前回の精算の翌日〜前日までに、動き（現金売上・入出金・日払い）があったのに精算していない日を赤で出す。日付を押すとその日を開く

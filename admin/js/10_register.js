@@ -75,13 +75,11 @@ function regHtmlCash(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat,nm,mov
 `; }
 // 計算は POS の閉店作業と同じ（本日釣銭＋現金売上＋入金−出金＝理論値、レジ内現金−理論値＝過不足、レジ内現金−預金＝翌日釣銭準備金）
 function regCalc(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat,nm,moves,inSum,outSum,advRows,advSum,cashSales,saved,prevRow,future,later,gapNet,gapDays,gapRd,idle,canMove,canSave,cnt,calc,goD}=K; let counted=0; DENOMS.forEach(([v])=>{ const a=v*numIn(cnt[v]); counted+=a; const e=$('main').querySelector(`[data-denamt="${v}"]`); if(e) e.textContent=a?yen(a):''; });
-    if(saved) counted=saved.counted;
-    const opening=saved?saved.opening_float:(prevRow?Number(prevRow.next_float)+gapNet:(canSave?regOpening:null));
-    const sales=saved?saved.cash_sales:cashSales, cin=saved?saved.cash_in:inSum, cout=saved?saved.cash_out:outSum+advSum;
-    const expected=opening==null?null:opening+sales+cin-cout;
+    const R=regTotals(saved,{opening:prevRow?Number(prevRow.next_float)+gapNet:(canSave?regOpening:null),sales:cashSales,cin:inSum,cout:outSum+advSum,counted,deposit:regDeposit}); /* 式は共通の部品1つ（POS の閉店作業と同じ） */
+    const {opening,sales,cin,cout,expected}=R; counted=R.counted;
     const showCnt=saved||canSave||idle; const cv=saved?counted:canSave?counted:idle?expected:null;
-    const diff=saved?saved.diff:canSave&&expected!=null?counted-expected:idle?0:null;
-    const deposit=saved?saved.deposit:canSave?regDeposit:idle?0:null, next=saved?(saved.next_float??saved.counted-saved.deposit):canSave?counted-regDeposit:idle?expected:null;
+    /* 見るだけの時・動きの無い日の出し方だけ、ここで決める */ const diff=saved||canSave?R.diff:idle?0:null;
+    const deposit=saved||canSave?R.deposit:idle?0:null, next=saved||canSave?R.next:idle?expected:null;
     const V=v=>v==null?'—':yen(v); const T=(id,t)=>{ const e=$(id); if(e) e.textContent=t; };
     T('rgCounted',showCnt&&cv!=null?yen(cv):'—'); T('rgOpen',opening==null?'初回は POS で入力':yen(opening)); T('rgSales',yen(sales)); T('rgIn',yen(cin)); T('rgOut',yen(cout)); T('rgExp',V(expected)); T('rgCnt2',V(cv));
     T('rgDiff',diff==null?'—':sgnYen(diff)); const de=$('rgDiff'); if(de) de.style.color=diff?'var(--warn)':''; T('rgDep',V(deposit)); T('rgNext',V(next));
