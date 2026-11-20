@@ -86,7 +86,7 @@ async function lateForm(hall){
   show(`${seg}<div class="subh">${dTxt(L.date)} ${tTxt(L.now)}</div>
     <div class="card"><div class="row" style="text-align:left"><span>シフト</span><b>${esc(L.shift)}</b></div><label class="f" for="ltE" style="margin-top:10px">出勤予定</label><select id="ltE" style="font:inherit;font-size:18px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)">${op}</select>
     <label class="f" for="ltR" style="margin-top:10px">理由</label><textarea id="ltR" maxlength="300"></textarea></div>
-    <button class="btn" id="ltGo">遅刻連絡</button><p class="muted sm" style="margin:10px 2px">送信内容は公式 LINE のトークにも送信されます</p>`);
+    <button class="btn" id="ltGo">遅刻連絡</button>${hall ? '' : '<p class="muted sm" style="margin:10px 2px">送信内容は公式 LINE のトークにも送信されます</p>'}`);
   segBind();
   $('ltGo').onclick = async () => {
     const eta = $('ltE').value, rs = $('ltR').value.trim(); if(!rs){ await uiAlert('理由を入力してください'); return; }
@@ -94,8 +94,8 @@ async function lateForm(hall){
     $('ltGo').disabled = true;
     const q = await sb.rpc(hall ? 'hall_late_submit' : 'cast_late_submit', { p_token: TOKEN, p_eta: eta, p_reason: rs });
     if(q.error){ if($('ltGo')) $('ltGo').disabled = false; await uiAlert(q.error.message); return; }
-    let lineOk = true;
-    try{ await liff.sendMessages([{ type:'text', text:`【遅刻連絡】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\nシフト ${q.data.shift}\n出勤予定 ${eta}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
+    let lineOk = true;   /* 黒服の遅刻連絡は LINE のトークに送らない（朝礼の「本日の出勤」に出る・SQL 658。オーナー 2026-11-20「いらない。朝礼でわかる」）。承認者への LINE は今までどおり */
+    if(!hall) try{ await liff.sendMessages([{ type:'text', text:`【遅刻連絡】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\nシフト ${q.data.shift}\n出勤予定 ${eta}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
     lateDone(hall, q.data.date, q.data.at, q.data.shift, eta, 'pending', false, lineOk, q.data.sent === 0);
   };
 }
