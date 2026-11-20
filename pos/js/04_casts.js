@@ -117,9 +117,15 @@ let caKr={at:0,m:{}};
 /* 提出（今月の出勤した日のうち連絡済リストを共有した日。SQL 590 の cast_sub_rate）も一緒に読む。オーナー「給率を出すときには必ず提出も」 */
 async function caRatio(){ if(Date.now()-caKr.at<600000) return caKr.m; const [r,u]=await Promise.all([sb.rpc('pos_cast_ratio'),sb.rpc('pos_cast_sub')]); if(!r.error){ const m=r.data||{}; if(!u.error) Object.entries(u.data||{}).forEach(([id,v])=>{ m[id]={...(m[id]||{}),...v}; }); caKr={at:Date.now(),m}; } return r.error?{}:caKr.m; }
 const subPct=z=>z&&Number(z.worked)>0?Math.round(Number(z.submitted)/Number(z.worked)*100)+'%':'—';
+/* 平均（SQL 665・オーナー 11/20）：今月の出勤日1日あたりの連絡済リストの人数（出さなかった日は0人）。数字をタップすると小窓に提出率と1回平均（出した日で割る） */
+const avgN=z=>z&&Number(z.worked)>0?Math.round(Number(z.contacts||0)/Number(z.worked))+'人':'—';
+function avgOpen(id){ const z=(caKr.m||{})[id]; if(!z) return; const nm=S.staffAll.find(x=>x.id===id)?.display_name||'', d=Number(businessDate().slice(8,10)), mm=Number(businessDate().slice(5,7)), w=Number(z.worked), sb=Number(z.submitted), c=Number(z.contacts||0);
+  const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-weight:700;font-size:20px">${esc(nm)}</div><div class="muted" style="font-size:14px">今月${d>1?` ${mm}/1〜${mm}/${d-1}`:''}</div>
+    <div style="display:flex;justify-content:space-between"><span>提出率</span><b>${subPct(z)}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">出勤 ${w}日・提出 ${sb}日</div>
+    <div style="display:flex;justify-content:space-between"><span>1回平均</span><b>${sb>0?Math.round(c/sb)+'人':'—'}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">提出日の連絡 ${c}人 ÷ ${sb}日</div></div>`; document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
 /* 黒服・体験・係専用の行には出さない（オーナー「黒服はいらん」）。給率＝課税対象額÷係小計（管理サイトと同じ式） */
 function caKrHtml(C,s){ const z=(C.krM||{})[s.id]; if(!z||!s.is_active||s.kind==='hall'||s.is_trial||s.kakari_only||cSorting||cDeleteMode) return ''; const krPct=(t,v)=>Number(v)>0?(Math.round(Number(t)/Number(v)*1000)/10).toFixed(1)+'%':'—';
-  return `<small class="kr">給率 <b>${krPct(z.taxable,z.sales)}</b> / 3M <b>${krPct(z.taxable3,z.sales3)}</b> ${s.spot_since?'':` / 提出率 <b>${subPct(z)}</b>`}</small>`; }   /* スポットの子は提出率を出さない（オーナー「イ 外す」） */
+  return `<small class="kr">給率 <b>${krPct(z.taxable,z.sales)}</b> / 3M <b>${krPct(z.taxable3,z.sales3)}</b> ${s.spot_since?'':` / 提出率 <b>${subPct(z)}</b> / <u class="avg" data-avg="${s.id}">平均 <b>${avgN(z)}</b></u>`}</small>`; }   /* スポットの子は提出率を出さない（オーナー「イ 外す」） */
 /* 一覧の1行：名前としるし（caRowHtml）と、時刻・日払・手当・ボタン（caRowCtl）
    しるし（スポット・条件再設定・折半・係専用・体験・受取待ち・当日欠勤・遅刻）は全部名前の行に小さく。本名未入力・体験の［退勤］［報酬明細］はその下（オーナー「しるしで4行にならないように」。ボタンを名前の行に並べると右の欄に重なる） */
 function caRowHtml(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; return `<div class="rrow ${s.is_active?'':'inactive'}" data-id="${s.id}">${cSorting?'<span class="hd">≡</span>':''}<span class="nm"${cMode==='today'?' style="white-space:nowrap"':''}>${esc(s.display_name)}${needMgr(s)&&s.is_active?(mgrOf(s)?` <small style="color:var(--muted);font-size:13px">${esc(mgrOf(s).display_name)}</small>`:' <small style="color:var(--warn);font-size:13px">未選択</small>'):''}${s.is_active&&absM[s.id]?' <span class="badge warnb">当日欠勤</span>':''}${!s.is_active?'':lateM[s.id]?.eta?` <span class="badge gray">遅刻 ${esc(lateM[s.id].eta)}</span>`:(lateM[s.id]?.nocontact?' <span class="badge warnb">無断遅刻</span>':'')}${
@@ -202,6 +208,7 @@ function caAdvSave(inp,kind,adv){ return async()=>{ const id=inp.dataset[kind], 
   if(error){ toast(nm+'の保存エラー：'+error.message); inp.value=old||''; return; }
   if(kind==='tat') S.advT[id]=v; else adv[id]=v; await logOp(kind==='tat'?'立替':'日払い',{name:snm(id),amount:v,total:data?.amount},null,true); toast(`${nm} ${v.toLocaleString()}円 を保存しました`); }; }
 function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
+  $('cList').querySelectorAll('[data-avg]').forEach(b=>b.onclick=()=>avgOpen(b.dataset.avg));
   $('cList').querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pin,'clock_in')); $('cList').querySelectorAll('[data-pout]').forEach(b=>b.onclick=()=>punchTrial(b.dataset.pout,'clock_out')); $('cList').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>{ const s=S.staffAll.find(x=>x.id===b.dataset.show); if(s) openTrialPay(s,tcalc[s.id],tev[s.id]||{},advX[s.id]||0,rcp[s.id]||null); });
   $('cList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ S.cSel=S.staffAll.find(s=>s.id===b.dataset.edit); renderCastForm(); castFormShow(); });
   $('cList').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>leaveDlg(S.staffAll.find(x=>x.id===b.dataset.del)));
