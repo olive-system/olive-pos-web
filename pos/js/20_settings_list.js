@@ -20,20 +20,23 @@ function setLocal(def){ $('setAdd').style.display='none'; $('setEdit').style.dis
     $('setForm').innerHTML=`<label>印刷方法<select id="pmSel"><option value="tmpa" ${PRINT.method==='tmpa'?'selected':''}>プリンター（Epson TM Print Assistant）</option><option value="browser" ${PRINT.method==='browser'?'selected':''}>ブラウザ印刷（PDF）</option></select></label><div class="muted hint">プリンター印刷には「Epson TM Print Assistant」アプリが要ります<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">プリンター印刷はタブレットに「Epson TM Print Assistant」アプリを入れ、TM-m30IIIとBluetoothまたはWi-Fiで接続しておく必要があります。設定はこの端末だけに保存されます。</div></div>`;
     $('pmSel').onchange=e=>{ PRINT.method=e.target.value; localStorage.setItem('print_method'+SLOT,PRINT.method); toast('保存しました'); };
 }
-/* 本日の伝票の一覧（金額・反応◎・人数の修正） */
+/* 伝票一覧の上の段：日付（操作ログと同じ形）と件数・金額 */
+const billListHead=(day,min,max,txt)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="blD" value="${day}" min="${min}" max="${max}" style="width:auto"><small class="muted">${txt}</small></div>`;
+/* 本日の伝票の一覧（金額・反応◎・人数の修正）。日付は本日と1つ前の営業日（同じ月のうち）を選べ、前の日は係と反応◎だけ変更できる（05_bill.js の billEditMode） */
 async function setBills(def){ $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; $('setList').innerHTML='<div class="muted">読み込み中…</div>';
-    const today=businessDate(); const BSEL='id,status,table_id,table_name,guest_count,opened_at,closed_at,business_date,bill_customers(customer_id),bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)';
-    const tb=await todayBills(BSEL,today,false); const error=tb.error;
+    const today=businessDate(), pd=billPrevDay(), day=[pd,today].includes(S.blDate)?S.blDate:today; const BSEL='id,status,table_id,table_name,guest_count,opened_at,closed_at,business_date,bill_customers(customer_id),bill_casts(id,staff_id,role,is_kakari),payments(method,amount,received_at,revenue_date)';
+    const tb=await todayBills(BSEL,day,false); const error=tb.error;
     if(error){ $('setList').innerHTML=`<div class="muted">${esc(error.message)}</div>`; return; }
     // 置き：未入金の間はどの日の一覧にも載せない。全額の入金を受けた日の伝票として載せる
-    const data=tb.all.filter(b=>{ if(b.status!=='closed') return b.business_date===today; if((b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)) return false; return billDay(b)===today; });
+    const data=tb.all.filter(b=>{ if(b.status!=='closed') return b.business_date===day; if((b.payments||[]).some(p=>p.method==='oki'&&p.amount>0&&!p.received_at)) return false; return billDay(b)===day; });
     const tot={}; { const d=await billDues(data||[]); (data||[]).forEach(b=>{ tot[b.id]=d[b.id]?.amount_due??null; }); }
     const SJ={open:'<span class="badge">来店中</span>',closed:'<span class="badge k">会計済</span>',void:'<span class="badge gray">削除</span>'};
     const grl=data.length?await sb.from('good_reactions').select('bill_id,staff_id').in('bill_id',data.map(b=>b.id)):{data:[]}; const grm={}; (grl.data||[]).forEach(g=>(grm[g.bill_id]=grm[g.bill_id]||[]).push(g.staff_id)); if(!S.staffAll.length) await loadStaffAll();
     const live=(data||[]).filter(b=>b.status==='closed'); const sum=live.reduce((a,b)=>a+(tot[b.id]||0),0);
-    $('setList').innerHTML=`<div class="muted" style="margin-bottom:6px">本日（${businessDate()}）　会計済 ${live.length}件・${yen(sum)}</div>`+((data||[]).map(b=>{ const cn=(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・'); const pm=[...new Set((b.payments||[]).filter(p=>p.amount>0).map(p=>METHOD[p.method]+(p.method==='oki'&&!p.received_at?'(未入金)':'')))].join('・');
-      return `<div class="row" data-bill="${b.id}" style="cursor:pointer">${SJ[b.status]||''}<span class="nm">${esc(billTable(b))}　${hm5(b.opened_at)}${b.closed_at?'〜'+hmJst(b.closed_at):''}　${b.guest_count}名　${esc(cn)} <small class="muted">${esc(pm)}${b.business_date&&b.business_date!==today?`（ご来店日 ${jmd(b.business_date)}）`:''}</small></span>${billPeopleChips(b,grm[b.id]||[],b.status==='closed'&&billDay(b)===today)}<b>${tot[b.id]!=null?yen(tot[b.id]):''}</b></div>`; }).join('')||'<div class="muted">本日の伝票はまだありません</div>');
+    $('setList').innerHTML=billListHead(day,pd||today,today,`会計済 ${live.length}件・${yen(sum)}`)+((data||[]).map(b=>{ const cn=(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・'); const pm=[...new Set((b.payments||[]).filter(p=>p.amount>0).map(p=>METHOD[p.method]+(p.method==='oki'&&!p.received_at?'(未入金)':'')))].join('・');
+      return `<div class="row" data-bill="${b.id}" style="cursor:pointer">${SJ[b.status]||''}<span class="nm">${esc(billTable(b))}　${hm5(b.opened_at)}${b.closed_at?'〜'+hmJst(b.closed_at):''}　${b.guest_count}名　${esc(cn)} <small class="muted">${esc(pm)}${b.business_date&&b.business_date!==day?`（ご来店日 ${jmd(b.business_date)}）`:''}</small></span>${billPeopleChips(b,grm[b.id]||[],!!billEditMode(b))}<b>${tot[b.id]!=null?yen(tot[b.id]):''}</b></div>`; }).join('')||`<div class="muted">${day===today?'本日の伝票はまだありません':'この日の伝票はありません'}</div>`);
     $('setList').querySelectorAll('[data-bill]').forEach(r=>r.onclick=()=>{ S.billFrom='bills'; openBill(r.dataset.bill); });
+    $('blD').onchange=()=>{ S.blDate=$('blD').value; renderSettings('bills'); };
     $('setList').querySelectorAll('[data-bpe]').forEach(x=>x.onclick=async e=>{ e.stopPropagation(); await billPeopleEdit(x.dataset.bpe); renderSettings('bills'); });
 }
 /* 操作ログ（日ごと） */

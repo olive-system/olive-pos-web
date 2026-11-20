@@ -55,41 +55,63 @@ async function renderGood(b){ const box=$('bGood'), sel=$('goodAdd'); if(!box||!
   const have=new Set(gl.map(x=>x.staff_id)); const cands=S.staffAll.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&!have.has(s.id)&&att.has(s.id));
   sel.style.display=open?'':'none'; sel.innerHTML='<option value="">＋反応◎</option>'+cands.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('');
   sel.onchange=async()=>{ const id=sel.value; if(!id) return; sel.disabled=true; const ins=await sb.rpc('pos_good_add',{p_store:S.store.id,p_bill:b.id,p_staff:id}); sel.disabled=false; if(ins.error&&!ins.error.message.includes('duplicate')) toast(ins.error.message); else if(!ins.error) await logOp('反応◎',{name:nm(id)}); renderGood(S.cur); }; }
-// 伝票一覧の行に 係・同伴・反応◎ を小さく表示。会計済の伝票は当日だけ［編集］で変更できる（翌営業日以降は変更不可）
+// 伝票一覧の行に 係・同伴・反応◎ を小さく表示。会計済の伝票は当日は全部、1つ前の営業日（同じ月のうち）は係と反応◎だけ［編集］で変更できる
+// 月をまたがないのは、毎月1日 9:00 に前の月の報酬を確定するため（オーナー 2026-11-20）。データベースの守りは bill_people_lock（SQL 653）
+function billPrevDay(){ const t=businessDate(), p=dayAdd(t,-1); return p.slice(0,7)===t.slice(0,7)?p:null; }
+function billEditMode(b){ if(!b||b.status!=='closed') return null; const d=billDay(b); return d===businessDate()?'today':(d&&d===billPrevDay()?'prev':null); }
 const snm2=id=>S.staffAll.find(x=>x.id===id)?.display_name||'';
 function billPeopleChips(b,gr,editable){ const cs=b.bill_casts||[]; const ch=(txt,col)=>`<span style="font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:${col||'var(--ink)'};white-space:nowrap">${txt}</span>`;
   const parts=[...cs.filter(c=>c.is_kakari).map(c=>ch(''+KL+' '+esc(snm2(c.staff_id)))),...cs.filter(c=>isDouhan(c.role)).map(c=>ch(esc(ROLE[c.role])+' '+esc(snm2(c.staff_id)))),...gr.map(id=>ch(esc(snm2(id))+'<span style="color:var(--gold)">◎</span>'))];
   return `<span style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:flex-end;margin:0 14px 0 auto;max-width:45%">${parts.join('')}${editable?`<button class="ghost sm" data-bpe="${b.id}" style="font-size:12px;padding:2px 10px;min-height:0">編集</button>`:''}</span>`; }
 async function billPeopleEdit(id){ let box=$('uiDlgList'); if(!box){ box=document.createElement('div'); box.id='uiDlgList'; box.style.cssText='max-height:60vh;overflow:auto;margin:10px 0;font-size:15px'; $('uiDlgMsg').after(box); } if(!S.staffAll.length) await loadStaffAll();
-  let b=null; const hc=()=>syncHcBack(id); /* 今開いている伝票（cur）を差し替えずに、この伝票を振り分ける */
+  let b=null, md=null, by=null; const hc=()=>syncHcBack(id); /* 今開いている伝票（cur）を差し替えずに、この伝票を振り分ける */
   const L=(action,d)=>logOp(action,d,undefined,false,b); /* 今開いている伝票（cur）を差し替えずに、この伝票の操作として残す */
   const draw=async()=>{ const r=await sb.from('bills').select('id,status,table_id,table_name,guest_count,opened_at,business_date,bill_casts(id,staff_id,role,is_kakari),after_bills(staff_id),after_none,payments(method,amount,received_at,revenue_date)').eq('id',id).single(); if(r.error){ box.innerHTML=`<div class="muted">${esc(r.error.message)}</div>`; return; } b=r.data;
-    const ok=b.status==='closed'&&billDay(b)===businessDate(); const g=await sb.from('good_reactions').select('id,staff_id').eq('bill_id',id); const gl=g.data||[]; const cs=b.bill_casts||[]; const att=await attendedOn(b.business_date);
-    box.innerHTML=billPeopleHtml(ok,cs,gl,att,b);
-    box.querySelectorAll('[data-bprm]').forEach(x=>x.onclick=async()=>{ const c=cs.find(z=>z.id===x.dataset.bprm); const d=await sb.rpc('pos_rows_del',{p_table:'bill_casts',p_where:{id:(c.id)??null}}); if(d.error){ toast(d.error.message); return; } await L('キャストを伝票から外す（会計後）',{name:snm2(c.staff_id)}); if(c.is_kakari) await hc(); draw(); });
-    box.querySelectorAll('[data-bpg]').forEach(x=>x.onclick=async()=>{ const gg=gl.find(z=>z.id===x.dataset.bpg); const d=await sb.rpc('pos_good_del',{p_id:gg.id}); if(d.error){ toast(d.error.message); return; } await L('反応◎を取り消し',{name:snm2(gg.staff_id)}); draw(); });
+    md=billEditMode(b); const g=await sb.from('good_reactions').select('id,staff_id').eq('bill_id',id); const gl=g.data||[]; const cs=b.bill_casts||[]; const att=await attendedOn(b.business_date);
+    box.innerHTML=billPeopleHtml(md,cs,gl,att,b); const P=md==='prev'?billPrevLog(b,by,cs,gl,L):null;
+    box.querySelectorAll('[data-bprm]').forEach(x=>x.onclick=()=>billPeopleRm(cs.find(z=>z.id===x.dataset.bprm),P,L,hc,draw));
+    box.querySelectorAll('[data-bpg]').forEach(x=>x.onclick=async()=>{ const gg=gl.find(z=>z.id===x.dataset.bpg); const d=await sb.rpc('pos_good_del',{p_id:gg.id}); if(d.error){ toast(d.error.message); return; } if(P) await P.good(gg.staff_id,false); else await L('反応◎を取り消し',{name:snm2(gg.staff_id)}); draw(); });
     box.querySelectorAll('[data-bpaf]').forEach(x=>x.onclick=async()=>{ const q=await sb.rpc('pos_after_set_bill',{p_bill:id,p_staff:x.dataset.bpaf,p_on:false}); if(q.error){ toast(q.error.message); return; } draw(); });
     box.querySelectorAll('[data-bpafn]').forEach(x=>x.onclick=async()=>{ const q=await sb.rpc('pos_after_none',{p_bill:id,p_on:x.dataset.bpafn==='1'}); if(q.error){ toast(q.error.message); return; } draw(); });
-    box.querySelectorAll('[data-bp]').forEach(s=>s.onchange=()=>billPeopleAdd(s,id,b,cs,L,hc,draw)); };
-  await draw(); const tn=billTable(b); try{ await uiAlert(`${tn}　${b?hm5(b.opened_at):''}〜　${KL}・同伴・アフター・反応◎`); } finally { box.remove(); } }
+    box.querySelectorAll('[data-bp]').forEach(s=>s.onchange=()=>billPeopleAdd(s,id,b,cs,L,hc,draw,P)); };
+  await draw();
+  if(md==='prev'){ /* 前の日の伝票は、先に操作者（黒服）を選ぶ。操作ログに残す */ box.style.display='none'; const v=await askBy('操作者'); box.style.display=''; if(v===null){ box.remove(); return; } by=v||null; await draw(); }
+  const tn=billTable(b); try{ await uiAlert(`${tn}　${b?hm5(b.opened_at):''}〜　${md==='prev'?KL+'・反応◎':KL+'・同伴・アフター・反応◎'}`); } finally { box.remove(); } }
+/* 会計後の伝票から係・同伴の子を外す（×）。前の日の伝票（P あり）は係だけ外す（同伴の子は同伴を残す） */
+async function billPeopleRm(c,P,L,hc,draw){
+  const del=()=>sb.rpc('pos_rows_del',{p_table:'bill_casts',p_where:{id:(c.id)??null}});
+  const d=P&&isDouhan(c.role)?await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(c.id)??null},p:{is_kakari:false}}):await del(); if(d.error){ toast(d.error.message); return; }
+  if(P) await P.kakari(c.staff_id,false); else await L('キャストを伝票から外す（会計後）',{name:snm2(c.staff_id)}); if(c.is_kakari) await hc(); draw(); }
+/* 前の日の伝票の係・反応◎の変更を、操作ログに「変更前・変更後・操作者」で残す（だれが・いつ・どの係からどの係へ） */
+function billPrevLog(b,by,cs,gl,L){ const nm=a=>a.map(snm2).join('・')||'なし', md=billDay(b).replace(/^\d{4}-0?(\d+)-0?(\d+)$/,'$1/$2');
+  const base={table:`${billTable(b)}（${md}）`,...(by?{by}:{})};
+  const chg=(action,list,sid,on)=>L(action,{...base,before:nm(list),after:nm(on?[...list,sid]:list.filter(x=>x!==sid))});
+  return { kakari:(sid,on)=>chg(`${KL}変更（会計後）`,cs.filter(c=>c.is_kakari).map(c=>c.staff_id),sid,on), good:(sid,on)=>chg('反応◎変更（会計後）',gl.map(x=>x.staff_id),sid,on) }; }
 /* 会計後の伝票に係・同伴・反応◎を足す（選んだ時） */
-async function billPeopleAdd(s,id,b,cs,L,hc,draw){
+async function billPeopleAdd(s,id,b,cs,L,hc,draw,P){
   const sid=s.value; if(!sid) return; s.disabled=true; const k=s.dataset.bp; const ex=cs.find(c=>c.staff_id===sid); let e=null, kak=false;
   if(k==='a'){ e=(await sb.rpc('pos_after_set_bill',{p_bill:id,p_staff:sid,p_on:true})).error; }
-  else if(k==='g'){ e=(await sb.rpc('pos_good_add',{p_store:S.store.id,p_bill:id,p_staff:sid})).error; if(!e) await L('反応◎',{name:snm2(sid)}); }
-  else if(k==='k'){ kak=true; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:{is_kakari:true}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role:'none',is_kakari:true}})).error; if(!e) await L('係を追加（会計後）',{name:snm2(sid)}); }
+  else if(k==='g'){ e=(await sb.rpc('pos_good_add',{p_store:S.store.id,p_bill:id,p_staff:sid})).error; if(!e) await (P?P.good(sid,true):L('反応◎',{name:snm2(sid)})); }
+  else if(k==='k'){ kak=true; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:{is_kakari:true}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role:'none',is_kakari:true}})).error; if(!e) await (P?P.kakari(sid,true):L('係を追加（会計後）',{name:snm2(sid)})); }
   else { if(cs.filter(c=>isDouhan(c.role)).length>=b.guest_count){ toast(`同伴は客数（${b.guest_count}名）までです`); draw(); return; } const role=douhanRole(b.opened_at); kak=!!S.settings.douhan_is_kakari; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:kak?{role,is_kakari:true}:{role}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role,is_kakari:kak}})).error; if(!e) await L('同伴を追加（会計後）',{name:snm2(sid),kind:ROLE[role]}); }
   if(e){ toast(e.message); } else if(kak) await hc(); draw(); }
+/* 小窓の反応◎の欄（当日・前の日で同じ） */
+function billGoodHtml(gl,att,sel){ return `<div class="muted" style="font-size:13px">反応◎</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">${gl.map(x=>`<span style="display:inline-flex;align-items:center;font-size:14px;padding:3px 2px 3px 10px;border:1px solid var(--line);border-radius:999px">${esc(snm2(x.staff_id))}<span style="color:var(--gold)">◎</span><button class="xb" data-bpg="${x.id}">×</button></span>`).join('')}${sel('g','＋反応◎',S.staffAll.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&att.has(s.id)&&!gl.some(x=>x.staff_id===s.id)))}</div>`; }
+/* 前の日の伝票の小窓の係の欄 */
+function billPrevHtml(cs,act,sel){ return `<div class="muted" style="font-size:13px">${KL}</div>`+(cs.filter(c=>c.is_kakari).map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">${esc(snm2(c.staff_id))}</span><button class="xb" data-bprm="${c.id}">×</button></div>`).join('')||'<div class="muted" style="padding:6px 0">なし</div>')+
+  `<div style="display:flex;gap:8px;margin:8px 0 14px">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}</div>`; }
 /* 会計後の伝票の係・同伴・反応◎の小窓の文 */
-function billPeopleHtml(ok,cs,gl,att,b){
+function billPeopleHtml(md,cs,gl,att,b){
   const act=S.staffAll.filter(s=>s.is_active&&(s.kind==='cast'||s.kakari_only)); const opt=(list,ph)=>`<option value="">${ph}</option>`+list.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('');
   const sel=(k,ph,list)=>`<select data-bp="${k}" style="width:auto;min-height:0;font-size:14px;padding:6px 10px">${opt(list,ph)}</select>`;
-  return !ok?'<div class="muted">この伝票は当日ではないため変更できません</div>':
+  const good=billGoodHtml(gl,att,sel);
+  if(md==='prev') return billPrevHtml(cs,act,sel)+good; /* 前の日の伝票：係と反応◎だけ（同伴・アフターは当日だけ） */
+  return md!=='today'?'<div class="muted">この伝票は変更期限を過ぎています</div>':
       `<div class="muted" style="font-size:13px">${KL}・同伴</div>`+(cs.filter(c=>c.is_kakari||isDouhan(c.role)).map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">${esc(snm2(c.staff_id))} <small class="muted">${[c.is_kakari?''+KL+'':'',ROLE[c.role]||''].filter(Boolean).join('・')}</small></span><button class="xb" data-bprm="${c.id}">×</button></div>`).join('')||'<div class="muted" style="padding:6px 0">なし</div>')+
       `<div style="display:flex;gap:8px;margin:8px 0 14px">${sel('k','＋'+KL+'',act.filter(s=>!cs.some(c=>c.staff_id===s.id&&c.is_kakari)))}${sel('d','＋同伴',act.filter(s=>!s.kakari_only&&!cs.some(c=>c.staff_id===s.id&&isDouhan(c.role))))}</div>`+
       `<div class="muted" style="font-size:13px">アフター</div>`+((b?.after_bills||[]).map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">${esc(snm2(a.staff_id))}</span><button class="xb" data-bpaf="${a.staff_id}">×</button></div>`).join('')||(b?.after_none?'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">なし</span><button class="xb" data-bpafn="0">×</button></div>':''))+
       `<div style="display:flex;gap:8px;margin:8px 0 14px">${sel('a','＋アフター',act.filter(s=>!s.kakari_only&&!(b?.after_bills||[]).some(a=>a.staff_id===s.id)))}${(b?.after_bills||[]).length||b?.after_none?'':'<button class="ghost sm" data-bpafn="1">なし</button>'}</div>`+
-      `<div class="muted" style="font-size:13px">反応◎</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">${gl.map(x=>`<span style="display:inline-flex;align-items:center;font-size:14px;padding:3px 2px 3px 10px;border:1px solid var(--line);border-radius:999px">${esc(snm2(x.staff_id))}<span style="color:var(--gold)">◎</span><button class="xb" data-bpg="${x.id}">×</button></span>`).join('')}${sel('g','＋反応◎',S.staffAll.filter(s=>s.is_active&&s.kind==='cast'&&!s.kakari_only&&att.has(s.id)&&!gl.some(x=>x.staff_id===s.id)))}</div>`;
+      good;
 }
 function renderBill(){ const b=S.cur, t=S.tables.find(x=>x.id===b.table_id);
   const mode=S.modes.find(m=>m.id===b.pricing_mode_id); const T0=b.totals;

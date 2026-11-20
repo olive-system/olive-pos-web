@@ -12,3 +12,8 @@ table.t th{font-size:13px;color:var(--muted);font-weight:400}
 .badge{font-size:12px;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--gold);color:#fff}
 .badge.warnb{background:var(--warn)}
 .badge.gray{background:var(--muted)}
+
+/* 縦に並べる箱（どのサイトも同じ）：中の行は縮めない。高さの決まった縦の箱で、iPad の Safari が行を中身より小さく縮め、長い名前がとなりの行に重なった（POS の顧客の一覧・注文の列）。
+   縦に並べて高さが決まる箱は、その場で flex-direction:column を書かずに o-stack を使う（見張り K10）。小窓（mkModal の .modal .box）の中の行も同じ */
+.o-stack{display:flex;flex-direction:column}
+.o-stack>*,.modal .box>*{flex-shrink:0}
