@@ -18,7 +18,7 @@ async function renderClosing(){ const today=businessDate(); if(!S.clDate){ S.clD
 function clFetch(d,from,to,D){ const G=(k,fn)=>clGet(D,k,fn); return Promise.all([
     G('mv',()=>sbAll(()=>sb.from('cash_movements').select('*').eq('store_id',S.store.id).eq('business_date',d).order('created_at').order('id'))), /* 1000行で切れないように分けて読む・店はデータベースで絞る */
     G('adv',()=>sbAll(()=>sb.from('daily_advances').select('staff_id,amount').eq('store_id',S.store.id).eq('business_date',d).order('id'))),
-    G('pay',()=>sbAll(()=>sb.from('payments').select('amount,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',S.store.id).gte('paid_at',from).lt('paid_at',to).order('id'))),
+    G('day_cd',()=>sb.rpc('cash_days',{p_store:S.store.id,p_from:d,p_to:d})), /* 現金売上は、データベースの cash_days から（月の表・未精算分・管理サイトの現金管理・P/L の日と同じ元） */
     G('cls',()=>sb.from('register_closings').select('*').eq('store_id',S.store.id).eq('business_date',d).maybeSingle()),
     G('prev',()=>sb.from('register_closings').select('business_date,next_float').eq('store_id',S.store.id).lt('business_date',d).order('business_date',{ascending:false}).limit(1)),
     G('bc',()=>sb.from('bill_customers').select('customer_id,bills!inner(business_date,status,store_id)').eq('bills.business_date',d)),
@@ -35,7 +35,7 @@ async function clPrep(d,today,box,R,D){ const [mv,adv,pay,cls,prev,bc,rq,od,lat,
   { const e=[adv,pay,prev,lat,ctk].find(x=>x.error); if(e){ box.innerHTML=`<div class="muted">閉店作業を読み込めません。再度開いてください：${esc(e.error.message)}</div>`; return; } } /* 通しチェック3：日払い・現金売上が読めないと0円のまま精算できた */
   const moves=mv.data||[]; const outSum=moves.filter(m=>m.kind==='out').reduce((a,m)=>a+m.amount,0), inSum=moves.filter(m=>m.kind==='in').reduce((a,m)=>a+m.amount,0);
   const advRows=(adv.data||[]).filter(a=>a.amount>0); const advSum=advRows.reduce((a,x)=>a+x.amount,0);
-  const cashSales=(pay.data||[]).filter(p=>p.bills&&p.bills.store_id===S.store.id&&p.bills.status!=='void').reduce((a,p)=>a+(p.amount||0),0);
+  const cashSales=regDayCash(pay.data,d);
   const saved=cls.data||null; const prevRow=(prev.data||[])[0]||null; const hasPrev=!!prevRow;
   // 前回の精算から今日までに未精算の日があれば、その日の現金の動きも本日釣銭に含める（未精算の日のお金はレジに残っているため）。後の日の精算がある日・未来の日は保存できない
   const gp=(!saved&&prevRow)?await clGap(prevRow.business_date,d,D):{net:0,days:[]}; if(S.setCur!=='closing'||S.clDate!==d) return; if(gp.error){ box.innerHTML=`<div class="muted">閉店作業を読み込めません。再度開いてください：${esc(gp.error.message)}</div>`; return; } const later=(lat.data||[]).length>0, future=d>today;
@@ -178,8 +178,7 @@ async function clGap(after,d,D){ const f=dayAdd(after,1), t=dayAdd(d,-1); if(f>t
   const [cd,cl]=await Promise.all([ clGet(D,'gap_cd',()=>sb.rpc('cash_days',{p_store:S.store.id,p_from:f,p_to:t}),[f,t]), /* 日ごとの現金の動きは、データベースの cash_days 1つで（月の表・管理サイトの現金管理・P/L の日と同じ。SQL 524） */
     clGet(D,'gap_cl',()=>sb.from('register_closings').select('business_date').eq('store_id',S.store.id).gt('business_date',after).lt('business_date',d),[f,t]) ]);
   { const e=[cd,cl].find(x=>x.error); if(e) return {net:0,days:[],error:e.error}; }
-  const done=new Set((cl.data||[]).map(r=>r.business_date)); const net={}; (cd.data||[]).forEach(x=>{ if(done.has(x.business_date)) return; const n=(Number(x.sales)||0)+(Number(x.cash_in)||0)-(Number(x.cash_out)||0)-(Number(x.advances)||0); if(n) net[x.business_date]=n; });
-  const days=Object.keys(net).sort(); return {net:days.reduce((s,k)=>s+net[k],0),days}; }
+  return regGap(cd.data,(cl.data||[]).map(r=>r.business_date)); }
 function clRecalc(){ const c=S.clCtx; if(!c) return {}; const s=c.saved; const cnt=s?(s.counts||{}):S.clCounts; let counted=0; DENOMS.forEach(([v])=>{ const a=v*clNum(cnt[v]); counted+=a; const el=document.querySelector(`[data-denamt="${v}"]`); if(el) el.textContent=yen(a); });
   const opening=s?s.opening_float:(c.hasPrev?c.prevFloat:S.clOpening); const sales=s?s.cash_sales:c.cashSales, cin=s?s.cash_in:c.inSum, cout=s?s.cash_out:(c.outSum+c.advSum); const expected=opening+sales+cin-cout; if(s) counted=s.counted; const diff=counted-expected; const deposit=s?s.deposit:S.clDeposit; const next=counted-deposit;
   const T=(id,t)=>{ const e=$(id); if(e) e.textContent=t; }; T('clCounted',yen(counted)); T('clOpenTxt',yen(opening)); T('clSales',yen(sales)); T('clIn',yen(cin)); T('clOut',yen(cout)); T('clExp',yen(expected)); T('clCnt2',yen(counted)); T('clDiff',(diff>0?'+':'')+yen(diff)); T('clDepTxt',yen(deposit)); T('clNext',yen(next)); const de=$('clDiff'); if(de) de.style.color=diff===0?'':'var(--warn)';

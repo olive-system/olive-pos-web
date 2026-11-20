@@ -10,10 +10,10 @@ function regTabs(){ $('main').querySelectorAll('[data-rt]').forEach(b=>b.onclick
 PAGES.register=()=>regTab==='month'?regMonthPage():regDayPage();
 // 期間（from〈含まない〉〜to〈含まない〉）の日ごとの 現金売上・入金・出金（日払い含む）
 async function regMoves(fromEx,toEx){ /* 日ごとの現金の動きは、データベースの cash_days 1つで（POS の閉店作業・P/L の日と同じ。SQL 524） */
-  if(dayAdd(fromEx,1)>dayAdd(toEx,-1)) return {sum:{}};
+  if(dayAdd(fromEx,1)>dayAdd(toEx,-1)) return {sum:{},rows:[]};
   const r=await sb.rpc('cash_days',{p_store:storeId,p_from:dayAdd(fromEx,1),p_to:dayAdd(toEx,-1)}); if(r.error) return {error:r.error};
   const sum={}; (r.data||[]).forEach(x=>{ sum[x.business_date]={sales:Number(x.sales)||0,cin:Number(x.cash_in)||0,cout:(Number(x.cash_out)||0)+(Number(x.advances)||0)}; });
-  return {sum}; }
+  return {sum,rows:r.data||[]}; }
 
 // POS の閉店作業と同じように、入出金の登録・削除とレジ金合わせ（精算の保存）ができる。POS と同じ表・同じ操作ログに入る
 let regCounts={}, regDeposit=0, regOpening=0;
@@ -32,7 +32,7 @@ async function regDayPage(){
 function regFetch(st,d){ return Promise.all([
     sb.from('cash_movements').select('*').eq('store_id',st).eq('business_date',d).order('created_at'),
     sb.from('daily_advances').select('staff_id,amount').eq('store_id',st).eq('business_date',d),
-    sb.from('payments').select('amount,bills!inner(status,store_id)').eq('method','cash').eq('bills.store_id',st).gte('paid_at',bdStart(d)).lt('paid_at',bdStart(dayAdd(d,1))),
+    sb.rpc('cash_days',{p_store:st,p_from:d,p_to:d}), /* 現金売上は、データベースの cash_days から（POS の閉店作業・P/L の日と同じ元） */
     sb.from('register_closings').select('*').eq('store_id',st).eq('business_date',d).maybeSingle(),
     sb.from('register_closings').select('business_date,next_float').eq('store_id',st).lt('business_date',d).order('business_date',{ascending:false}).limit(1),
     sb.from('staff').select('id,display_name').eq('store_id',st),
@@ -42,10 +42,10 @@ async function regPrep(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat}=K;
   const nm=id=>(stf.data||[]).find(x=>x.id===id)?.display_name||'';
   const moves=mv.data||[]; const inSum=moves.filter(m=>m.kind==='in').reduce((a,m)=>a+m.amount,0), outSum=moves.filter(m=>m.kind==='out').reduce((a,m)=>a+m.amount,0);
   const advRows=(adv.data||[]).filter(a=>a.amount>0); const advSum=advRows.reduce((a,x)=>a+x.amount,0);
-  const cashSales=(pay.data||[]).filter(p=>p.bills&&p.bills.status!=='void').reduce((a,p)=>a+(p.amount||0),0);
+  const cashSales=regDayCash(pay.data,d);
   const saved=cls.data||null, prevRow=(prev.data||[])[0]||null, future=d>today, later=(lat.data||[]).length>0;
   // 前回の精算から今日までに未精算の日があれば、その日の現金の動きも本日釣銭に含める（POS と同じ）
-  let gapNet=0, gapDays=[], gapRd=null; if(!saved&&prevRow){ const g=await regMoves(prevRow.business_date,d); if(page!=='register'||regDate!==d) return; const done=new Set(); const r2=await sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',prevRow.business_date).lt('business_date',d); gapRd=[g,r2]; /* 下の「未精算です」でも同じ期間なら読み直さずに使う */ const ge=g.error||r2.error; /* 読めないまま進むと、精算済みの日の現金を足したり、未精算の日を落としたりした本日釣銭が出て、そのまま保存できてしまう */ if(ge){ $('main').innerHTML=regHead()+`<div class="card err">${esc(ge.message)}</div>`; regTabs(); return; } (r2.data||[]).forEach(x=>done.add(x.business_date)); Object.entries(g.sum||{}).forEach(([k,v])=>{ if(done.has(k)) return; const n=v.sales+v.cin-v.cout; if(n){ gapNet+=n; gapDays.push(k); } }); gapDays.sort(); }
+  let gapNet=0, gapDays=[], gapRd=null; if(!saved&&prevRow){ const g=await regMoves(prevRow.business_date,d); if(page!=='register'||regDate!==d) return; const r2=await sb.from('register_closings').select('business_date').eq('store_id',st).gt('business_date',prevRow.business_date).lt('business_date',d); gapRd=[g,r2]; /* 下の「未精算です」でも同じ期間なら読み直さずに使う */ const ge=g.error||r2.error; /* 読めないまま進むと、精算済みの日の現金を足したり、未精算の日を落としたりした本日釣銭が出て、そのまま保存できてしまう */ if(ge){ $('main').innerHTML=regHead()+`<div class="card err">${esc(ge.message)}</div>`; regTabs(); return; } const G=regGap(g.rows,(r2.data||[]).map(x=>x.business_date)); gapNet=G.net; gapDays=G.days; }
   const idle=!saved&&d<today&&!outSum&&!inSum&&!advSum&&!cashSales;
   const canMove=ed&&!saved&&!future, canSave=ed&&!saved&&!future&&!later;
   const cnt=saved?(saved.counts||{}):regCounts;
