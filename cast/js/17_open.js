@@ -152,7 +152,7 @@ function hcBodyBdayReq(H){ const {x, ph, r, k, D, td, sv} = H; let body = '', ge
       <div>お誕生日 ${esc(q.birthday)}</div><div style="display:flex;gap:8px;margin-top:6px">${tBtn('bqa', i, '登録')}${tBtn('bqr', i, '却下', true)}</div></div>`).join('') || '<div class="muted">申請はありません</div>'}</div>
       ${sv('', D.length ? '全件「登録」か「却下」の後に保存します' : '')}`;
   return { body, getData }; }
-// 係・同伴・反応◎の確認：伝票1枚ずつ［確認］か［修正］（SQL 655・オーナー 2026-11-20「甘い」）。係（広島は誘客）が無い伝票は「なし」（付け忘れに黒服が気づけるように）。1枚は2行（1行目 卓・お客様・印、2行目 係・同伴・反応◎）。印のある伝票を上に、確認済みを下に
+// 係・同伴・反応◎の確認：伝票1枚ずつ［確認］か［修正］（SQL 655・オーナー 2026-11-20「甘い」）。係（広島は誘客）が無い伝票は「なし」（付け忘れに黒服が気づけるように）。1枚は2行（1行目 卓・お客様・印、2行目 係・同伴・反応◎。係相違の時は「係 ルナ　伝票 ママ・ルナ」＝お客様に登録してある係と伝票の係）。印のある伝票を上に、確認済みを下に
 const ckBadge = t => `<span style="flex:none;font-size:11px;padding:1px 6px;border-radius:999px;white-space:nowrap;${t === '修正待ち' ? 'background:var(--gold-soft);color:var(--ink)' : 'background:var(--warn-soft);color:var(--warn)'}">${esc(kl(t))}</span>`;
 const ckBtn = (k, i, t, g) => tBtn(k, i, t, g).replace('padding:7px 14px;font-size:14px', 'padding:0 10px;font-size:13px;min-height:0;height:36px;line-height:36px');
 function hcBodyCheck(H){ const {D, sv} = H; let body = '', getData = () => ({});
@@ -160,7 +160,7 @@ function hcBodyCheck(H){ const {D, sv} = H; let body = '', getData = () => ({});
     const row = (b, j) => { const mk = [...(b.marks || []), ...(b.state === 'fix' ? ['修正待ち'] : [])];
       return `<div style="display:flex;align-items:center;gap:6px;padding:8px 0;${j ? 'border-top:1px solid var(--line)' : ''}"><span style="flex:none;width:2.2em;font-weight:700">${esc(b.table || '')}</span>
       <div style="flex:1;min-width:0;line-height:1.5"><div style="display:flex;align-items:center;gap:4px;min-width:0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.customers || '')}</span>${mk.map(ckBadge).join('')}</div>
-      <div class="muted sm">${[`${KL} ${esc(b.kakari || 'なし')}`, b.note ? esc(kl(b.note)) : '', b.douhan ? `同伴 ${esc(b.douhan)}` : '', b.good ? `反応◎ ${esc(b.good)}` : ''].filter(Boolean).join('　')}</div></div>
+      <div class="muted sm">${[b.reg ? `${KL} ${esc(b.reg)}　伝票 ${esc(b.kakari || 'なし')}` : `${KL} ${esc(b.kakari || 'なし')}`, b.note ? esc(b.note) : '', b.douhan ? `同伴 ${esc(b.douhan)}` : '', b.good ? `反応◎ ${esc(b.good)}` : ''].filter(Boolean).join('　')}</div></div>
       ${b.state === 'ok' ? `<span class="muted sm" style="flex:none">${esc(b.at || '')} 確認済</span>` : `<div style="display:flex;gap:8px;flex:none">${ckBtn('cka', b.i, '確認')}${ckBtn('ckf', b.i, '修正', true)}</div>`}</div>`; };
     body = `<div class="card"><div class="muted sm" style="margin-bottom:6px">今日の伝票　${D.length}枚${D.length ? `・未確認 ${left}枚` : ''}</div>${L.map(row).join('') || '<div class="muted">今日の伝票はありません</div>'}</div>
       ${left ? sv('', '全件「確認」の後に保存します').replace('id="clSv"', 'id="clSv" disabled style="opacity:.5"') : sv()}`;   /* 未確認が残る間は押せない（データベースでも止める） */
