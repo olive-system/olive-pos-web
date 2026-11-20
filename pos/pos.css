@@ -37,7 +37,7 @@
   .ord4{display:grid;grid-template-columns:minmax(150px,1fr) minmax(200px,1.3fr) minmax(170px,1.2fr) minmax(170px,1.1fr);gap:10px;height:calc(100vh - 170px);min-height:420px}
   .ord4 .col{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--soft);display:flex;flex-direction:column;min-height:0}
   .ord4 .col h3{margin:0;padding:8px 10px;font-size:14px;border-bottom:1px solid var(--line);background:var(--soft);border-radius:10px 10px 0 0}
-  .ord4 .body{overflow:auto;padding:8px;flex:1;display:flex;flex-direction:column;gap:6px}
+  .ord4 .body{overflow:auto;padding:8px;flex:1;gap:6px}
   .ord4 .ocat{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:12px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);text-align:left;font-size:15px}.ord4 .ocat.on{background:var(--ink);color:#fff}
   .ord4 .oprod{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 10px;border-radius:8px;background:#fff;border:1px solid var(--line);text-align:left;font-size:15px}
   .ord4 .oprod .pb{background:var(--soft);border-radius:999px;padding:2px 10px;font-size:13px;white-space:nowrap}
@@ -63,8 +63,8 @@
   @media print{ @page{margin:0} body>*{display:none!important} #printArea{display:block!important;font-family:"Hiragino Sans",sans-serif;font-size:13px;width:72mm;padding:3mm 0} } /* v11.51：@page の余白0＝ブラウザの印刷で紙の端にサイトのアドレスと日付を出さない */
   #printArea{display:none}
   .settings{display:grid;grid-template-columns:170px 1fr 1.2fr;gap:12px;min-height:70vh}.settings .menu{display:flex;flex-direction:column;gap:6px}.settings .menu button{text-align:left}
-  .lst{display:flex;flex-direction:column;gap:6px}.lst .row{display:flex;flex-shrink:0;align-items:center;gap:8px;padding:12px;border-radius:10px;background:#fff;border:1px solid var(--line);font-size:16px;user-select:none;-webkit-user-select:none}
-  .lst .row.on{background:var(--soft);border-color:var(--blue);color:var(--ink)}#v-cust .card>div{min-width:0}#cuBtSel{min-width:0}.lst .row .nm{flex:1}.lst .row .hd{color:var(--muted);font-size:20px;padding:0 6px;touch-action:none}.lst .row.drag{opacity:.4} /* 行は縮めない：高さの上限がある一覧（顧客の一覧 max-height:70vh）で、iPad の Safari が行を中身より小さく縮め、2行に折り返した文が次の行に重なった */
+  .lst{gap:6px}.lst .row{display:flex;align-items:center;gap:8px;padding:12px;border-radius:10px;background:#fff;border:1px solid var(--line);font-size:16px;user-select:none;-webkit-user-select:none}
+  .lst .row.on{background:var(--soft);border-color:var(--blue);color:var(--ink)}#v-cust .card>div{min-width:0}#cuBtSel{min-width:0}.lst .row .nm{flex:1}.lst .row .hd{color:var(--muted);font-size:20px;padding:0 6px;touch-action:none}.lst .row.drag{opacity:.4}
   .form{display:flex;flex-direction:column;gap:10px}.form label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}.form input,.form select{font-size:16px}
   .form .sw{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink)}.form .sw input{width:22px;height:22px}
   #v-settings .settings{height:calc(100dvh - 150px);min-height:420px}#v-settings .settings>div{min-height:0;overflow-y:auto}#v-settings .settings>div:nth-child(2){display:flex;flex-direction:column;overflow:hidden}#setList{flex:1;overflow-y:auto;min-height:0;padding-bottom:24px}#setCat{position:sticky;top:0;z-index:1;flex:none}.form label.sw{flex-direction:row;align-items:center;font-size:15px;color:var(--ink)}.lst .row small{white-space:nowrap}
@@ -145,6 +145,5 @@ label.cllb{display:inline-block;cursor:pointer;border-radius:10px;padding:6px 14
 .rrow .nm .badge{font-size:11px;padding:1px 7px;vertical-align:2px}
 #joinBox input:not([type=checkbox]),#joinBox select,#joinBox #jnSl{height:44px;box-sizing:border-box}   /* 入店の小窓の枠の高さをそろえる（オーナー「枠の縦幅がバラバラ」） */
 #bLoad{display:none}#v-bill.ld>#bLoad{display:block}#v-bill.ld>:not(#bLoad){display:none} /* 卓を押してから中身が入るまで（billFromHall） */
-.ord4 .body>*{flex-shrink:0} /* 注文の列の行は縮めない：高さの決まった縦の箱で、長いメニューの名前が上下にはみ出してとなりと重なった（#576 と同じ） */
 @media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}} /* iPad を縦にした時は伝票の列を2つずつ2段に：4列だとボトルの名前が1〜2字ずつ折り返し、VIP代と金額が重なった */
 #cuList .row .nm{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;min-width:0}#cuList .row .nm>small{margin-left:0!important;white-space:normal;overflow-wrap:anywhere;min-width:0} /* 顧客の一覧：会社名は枠の中で折り返す・来店日の行の始まりを会社名とそろえる */
