@@ -36,7 +36,7 @@ PAGES.hist_cash=async()=>{ const st=storeId;
   const f=hiFrom, t=hiTo; let all=[], rows=[];
   const draw=()=>{ rows=all.filter(x=>hiCashK==='all'||x.kind===hiCashK); const sum=k=>rows.filter(x=>x.kind===k).reduce((a,x)=>a+Number(x.amount||0),0);
     $('hiBox').innerHTML=`<div class="row" style="margin-bottom:8px;gap:8px">${me?.is_owner?`<button class="ghost" id="hiXls" ${rows.length?'':'disabled'}>Excel</button>`:''}<span class="muted" style="font-size:13px">${rows.length}件</span></div>
-    <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm">営業日</th><th style="text-align:left">摘要</th><th>入金</th><th>出金</th></tr></thead><tbody>
+    <div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm">営業日</th><th style="text-align:left">摘要</th><th>入金</th><th>出金</th></tr></thead><tbody>
     <tr class="kst"><td class="nm"><b>合計</b></td><td></td><td>${yen(sum('in'))}</td><td>${yen(sum('out'))}</td></tr>
     ${rows.map(x=>`<tr><td class="nm">${hiDay(x.business_date)}</td><td style="text-align:left;white-space:normal">${esc(x.memo||'')}</td><td>${x.kind==='in'?yen(x.amount):''}</td><td>${x.kind==='out'?yen(x.amount):''}</td></tr>`).join('')||'<tr><td colspan="4" class="muted" style="text-align:left">入出金はありません</td></tr>'}</tbody></table></div>`;
     if($('hiXls')) $('hiXls').onclick=guard($('hiXls'),async()=>{ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
@@ -53,7 +53,7 @@ PAGES.hist_print=async()=>{ const st=storeId; hiPeriod('hist_print','','。領�
   if(page!=='hist_print'||storeId!==st||hiFrom!==f||hiTo!==t) return; if(r.error){ hiErr(r.error); return; }
   const rows=r.data||[];
   $('hiBox').innerHTML=`<div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:13px">${rows.length}件${rows.length>=1000?'（1000件まで。期間を短くしてください）':''}</span></div>
-    <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm">発行日</th><th>来店日</th><th style="text-align:left">宛名</th><th>客数</th><th>金額</th><th>現金</th><th>カード</th><th style="text-align:left">再発行の理由</th></tr></thead><tbody>
+    <div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm">発行日</th><th>来店日</th><th style="text-align:left">宛名</th><th>客数</th><th>金額</th><th>現金</th><th>カード</th><th style="text-align:left">再発行の理由</th></tr></thead><tbody>
     ${rows.map(x=>`<tr><td class="nm">${hiDay(x.issue_date)} <small class="muted">${hmJst(x.issued_at)}</small></td><td>${x.visit_date?md(x.visit_date):'—'}</td><td style="text-align:left">${esc(x.name||'')}</td><td>${x.guest_count??'—'}</td><td><b>${yen(x.amount)}</b></td><td>${Number(x.cash_amount||0)?yen(x.cash_amount):'—'}</td><td>${Number(x.card_amount||0)?yen(x.card_amount):'—'}</td><td style="text-align:left;white-space:normal">${x.reissue_reason?`<span class="badge warnb">再発行</span> ${esc(x.reissue_reason)}`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="muted" style="text-align:left">領収書の発行はありません</td></tr>'}</tbody></table></div>`; };
 
 // 削除履歴：操作ログ（pos_audit_log）のうち、名前に 削除・取消・取り消し・外す が入る操作。営業日は朝8時で区切る
@@ -65,7 +65,7 @@ const HI_DEL=/削除|取消|取り消し|外す/;
 PAGES.hist_del=async()=>{ const st=storeId; hiPeriod('hist_del','<select id="hiK" style="width:auto"><option value="all">全部</option></select>','。削除・取消の記録です（POS の操作ログから）'); const f=hiFrom, t=hiTo; let all=[], raw=0;
   const draw=()=>{ const rows=all.filter(x=>hiDelK==='all'||x.action===hiDelK);
     $('hiBox').innerHTML=`<div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:13px">${rows.length}件${raw>=1000?'（1000件まで。期間を短くしてください）':''}</span></div>
-    <div class="cs-w"><table class="t cs ks"><thead><tr><th class="nm">日時</th><th style="text-align:left">操作</th><th style="text-align:left">卓</th><th style="text-align:left">理由</th><th style="text-align:left">内容</th></tr></thead><tbody>
+    <div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm">日時</th><th style="text-align:left">操作</th><th style="text-align:left">卓</th><th style="text-align:left">理由</th><th style="text-align:left">内容</th></tr></thead><tbody>
     ${rows.map(x=>`<tr><td class="nm">${hiDT(x.created_at)}</td><td style="text-align:left"><b>${esc(actL(x.action))}</b></td><td style="text-align:left">${esc(x.detail?.table||'')}</td><td style="text-align:left;white-space:normal;min-width:120px;max-width:240px">${esc(x.reason||x.detail?.reason||'')}</td><td style="text-align:left;white-space:normal;min-width:220px;max-width:460px">${esc(hiDetail(x.detail))}</td></tr>`).join('')||'<tr><td colspan="5" class="muted" style="text-align:left">記録はありません</td></tr>'}</tbody></table></div>`; };
   $('hiK').onchange=()=>{ hiDelK=$('hiK').value; draw(); };
   const q=()=>sb.from('pos_audit_log').select('id,action,detail,reason,created_at').eq('store_id',st).gte('created_at',bdStart(f)).lt('created_at',bdStart(dayAdd(t,1)));

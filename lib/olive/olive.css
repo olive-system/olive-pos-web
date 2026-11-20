@@ -14,6 +14,14 @@ table.t th{font-size:13px;color:var(--muted);font-weight:400}
 .badge.gray{background:var(--muted)}
 
 /* 縦に並べる箱（どのサイトも同じ）：中の行は縮めない。高さの決まった縦の箱で、iPad の Safari が行を中身より小さく縮め、長い名前がとなりの行に重なった（POS の顧客の一覧・注文の列）。
-   縦に並べて高さが決まる箱は、その場で flex-direction:column を書かずに o-stack を使う（見張り K10）。小窓（mkModal の .modal .box）の中の行も同じ */
+   縦に並べて高さが決まる箱は、その場で flex-direction:column を書かずに o-stack を使う（見張り K12）。小窓（mkModal の .modal .box）の中の行も同じ */
 .o-stack{display:flex;flex-direction:column}
 .o-stack>*,.modal .box>*{flex-shrink:0}
+/* 横に広い表の箱（どのサイトも同じ）：箱より広い時は横に動かせる。続きのある側の端を薄くして、動かせると分かるようにする（付け外しは core.js の oHint）。
+   影を地に描くと表のマスの白い地に隠れたので、中身の端を薄くする形（iPad で伝票一覧の右の列・応募者の［詳細］が切れて見えた） */
+.o-hscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.o-hscroll.o-more-r{-webkit-mask-image:linear-gradient(to left,transparent,#000 32px);mask-image:linear-gradient(to left,transparent,#000 32px)}
+.o-hscroll.o-more-l{-webkit-mask-image:linear-gradient(to right,transparent,#000 32px);mask-image:linear-gradient(to right,transparent,#000 32px)}
+.o-hscroll.o-more-l.o-more-r{-webkit-mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent)}
+/* 枠の中の長い文（どのサイトも同じ）：枠で切らずに折り返す（マイページのシフトの「出勤なし」が日のマスの線で切れた） */
+.o-wrap{min-width:0;white-space:normal!important;overflow-wrap:anywhere}

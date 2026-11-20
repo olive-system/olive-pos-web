@@ -22,14 +22,14 @@ PAGES.applicants=async()=>{ const st=storeId;
   const L=r.data||[], cnt=k=>L.filter(x=>aplHit(x,k)).length;
   $('main').innerHTML=`<h1>応募者 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
   <div class="row" style="margin-bottom:12px;gap:10px;flex-wrap:wrap"><span class="seg">${APL_SEG.map(([k,n])=>`<button data-aps="${k}" class="${k===aplSeg?'on':''}">${n} ${cnt(k)}</button>`).join('')}</span><input id="aplQ" placeholder="名前検索" value="${esc(aplQ)}" style="width:180px"></div>
-  <div class="card" id="aplList"></div>`;
+  <div class="card o-hscroll" id="aplList"></div>`;
   const draw=()=>{ const q=aplQ.trim(), R=L.filter(x=>aplHit(x,aplSeg)&&(!q||String(x.name||'').includes(q)||kanaKey(x.name).includes(kanaKey(q))));
     /* 列は幅を決めた枠に入れて、名前や日付の長さで縦の位置がずれないようにする（スキル olive-no-misalign） */
     const W=[120,52,96,140,140,96,80,76], col='flex:none;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
     const cell=(v,i,hd)=>`<span style="${col};width:${W[i]}px${hd?';font-size:12px;color:var(--muted)':''}">${v}</span>`;
-    const head=`<div style="display:flex;gap:12px;align-items:center;padding:0 0 6px;border-bottom:1px solid var(--line)">${['名前','区分','応募日','面接日','体験日','退店日','担当黒服','状態'].map((t,i)=>cell(t,i,1)).join('')}</div>`;
+    const head=`<div style="display:flex;gap:12px;align-items:center;padding:0 0 6px;border-bottom:1px solid var(--line);min-width:max-content">${['名前','区分','応募日','面接日','体験日','退店日','担当黒服','状態'].map((t,i)=>cell(t,i,1)).join('')}</div>`;
     const tday=x=>x.trial_at?aplDt(x.trial_at):(x.t==='s'&&x.st==='trial'?aplDay(x.sort_day):'');
-    $('aplList').innerHTML=R.length?head+R.map(x=>`<div style="display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">${cell(`<b>${esc(x.name||'（名前なし）')}</b>`,0)}${cell(x.kind==='hall'?'<span class="badge gray">黒服</span>':'',1)}${cell(aplDay(x.applied),2)}${cell(aplDt(x.interview_at),3)}${cell(tday(x),4)}${cell(aplDay(x.left_on),5)}${cell(esc(x.hall||''),6)}${cell(`<span class="badge ${x.st==='joined'?'':'gray'}">${aplStLabel(x)}</span>`,7)}<button class="primary sm" style="flex:none" data-apd="${x.t}:${x.id}">詳細</button></div>`).join(''):'<div class="muted">該当なし</div>';
+    $('aplList').innerHTML=R.length?head+R.map(x=>`<div style="display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);min-width:max-content">${cell(`<b>${esc(x.name||'（名前なし）')}</b>`,0)}${cell(x.kind==='hall'?'<span class="badge gray">黒服</span>':'',1)}${cell(aplDay(x.applied),2)}${cell(aplDt(x.interview_at),3)}${cell(tday(x),4)}${cell(aplDay(x.left_on),5)}${cell(esc(x.hall||''),6)}${cell(`<span class="badge ${x.st==='joined'?'':'gray'}">${aplStLabel(x)}</span>`,7)}<button class="primary sm" style="flex:none" data-apd="${x.t}:${x.id}">詳細</button></div>`).join(''):'<div class="muted">該当なし</div>';
     $('aplList').querySelectorAll('[data-apd]').forEach(b=>b.onclick=()=>{ const x=R.find(y=>`${y.t}:${y.id}`===b.dataset.apd); if(x) aplOpen(x); }); };
   $('main').querySelectorAll('[data-aps]').forEach(b=>b.onclick=()=>{ aplSeg=b.dataset.aps; $('main').querySelectorAll('[data-aps]').forEach(y=>y.classList.toggle('on',y===b)); draw(); });
   $('aplQ').oninput=()=>{ aplQ=$('aplQ').value; draw(); };

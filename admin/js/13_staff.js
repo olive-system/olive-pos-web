@@ -35,7 +35,7 @@ function hpCell(K,{s,t}){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp
 function hpHtml(K){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp,own,hm5,cell}=K;
   const HD=['報酬','金額','出勤〜退勤'+(E&&!own?'<br><small class="muted">オーナーのみ</small>':''),'日払（立替）','契約書','本人確認書類','従業者名簿','源泉徴収','消費税','厚生費','ボーナス','限定項目','体験のジャッジ']; /* 限定の項目をしてよいか（新しく入った人は不可）。顧客サイトの編集も同じ可・不可で決める（オーナー「限定項目だけと言う表示にして、ここで権限をつける」） */
   return `<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">黒服</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="chCancel">キャンセル</button><button class="primary" id="chSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="chAdd">＋追加</button><button class="ghost" id="chEd">編集</button>`)):''}</div>
-  ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
+  ${rows.length?`<div class="cs-w o-hscroll ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${!E?`<a data-hed="${r.s.id}">${esc(r.s.display_name)}</a>`:esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍の黒服がいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}<br>限定項目：可の黒服のみ、開店・閉店作業の限定の項目と、LINEマイページの顧客サイトの編集が可能です</div>

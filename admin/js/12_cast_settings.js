@@ -92,7 +92,7 @@ function csCastEditRow(K,s,t,{sp,daily,back,wf}){ const {box,st,ed,m,sf,tm,ft,nt
       sel('dp',s.day_pay_ok==null?'':String(s.day_pay_ok),[['','—'],['true','可'],['false','不可']]), sel('ct2',s.contract_done==null?'':String(s.contract_done),[['','—'],['true','提出済'],['false','未提出']])];
 }
 function csCastHtml(K){ const {box,st,ed,m,sf,tm,ft,nt,stb,all,halls,casts,nc,tbls,unitOf,slOk,slTxt,slShort,fines,rows,hallName,E,lock,sel,inp,yn,PT,HD,cell}=K; return `<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">キャスト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="csCancel">キャンセル</button><button class="primary" id="csSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="csAdd">＋追加</button><button class="ghost" id="csEd">編集</button>`)):''}</div>
-  ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
+  ${rows.length?`<div class="cs-w o-hscroll ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${E?esc(r.s.display_name):`<a data-open="${r.s.id}">${esc(r.s.display_name)}</a>`}${r.s.spot_since?' <span class="badge gray">スポット</span>':''}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}<td>${nc[r.s.id]?nc[r.s.id]+'件':'—'}</td></tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍のキャストがいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'担当黒服・日払・契約書以外を変更すると、保存の時に「○月以降／○月のみ」を選びます':'名前を押すと、メモと個別設定が開きます'}${ed&&!E?'。修正は「編集」から':''}</div>`; }
@@ -190,7 +190,7 @@ async function csShiftPart(box,st,ed,m){
   const HD=['希望出勤日数','出勤可能時間','提出','入店日'];
   box.innerHTML=`<div class="row" style="margin-bottom:8px;align-items:center"><h2 style="margin:0">シフト</h2><span style="flex:1"></span>${ed?(E?'<button class="ghost" id="cshCancel">キャンセル</button><button class="primary" id="cshSave">保存</button>':(lock?csLockTag():`<button class="ghost" id="cshEd">編集</button>`)):''}</div>
   ${E&&rows.length?'<div id="cshCap" style="border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:14px"></div>':''}
-  ${rows.length?`<div class="cs-w ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
+  ${rows.length?`<div class="cs-w o-hscroll ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(c=>`<tr data-sid="${c.id}"><td class="nm">${E?`<span style="display:flex;justify-content:space-between;align-items:center;gap:8px">${esc(c.name)}${sel('r',String(c.rank||0),[['1','優先'],['0','標準'],['-1','控え']])}</span>`:`<a data-shopen="${c.id}">${esc(c.name)}</a>${rkTag(c.rank)}`}</td>${cell(c).map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`:'<div class="card muted">在籍のキャストがいません</div>'}
   <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">優先：自動作成で同伴の次に入れる／控え：足りない日だけ入れる（管理サイトだけ・本人には出ない）<br>提出　休み希望：休む日を提出／出勤希望：出られる日を提出（自動作成で優先）<br>入店から2か月は売り出し中（自動作成で優先）${ed&&!E?'。修正は「編集」から':''}</div>`;
   // シフトの表の名前からも、メモと個別設定を開く（キャストの表と同じ）
