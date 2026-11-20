@@ -10,23 +10,27 @@ $('cNew').onclick=()=>{ cPast=false; S.cSel={_new:true,display_name:'',real_name
 // 狭い画面（iPad の縦向き）は詳細が一覧の上に出るので、編集・新規登録を押したらそこへ動く（ゲネプロ #8）
 function castFormShow(){ if(innerWidth<=900) setTimeout(()=>$('cForm')?.closest('.cside')?.scrollIntoView({block:'start',behavior:'smooth'}),50); }
 const needMgr=s=>s.kind!=='hall'&&!s.kakari_only;
-async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').classList.remove('on'); cMode='today'; { const ta=$('cTabAll'); if(ta) ta.style.display='none'; } /* 在籍リストと全員を1つにまとめる（出勤した人が上） */ await expireTrials(); await loadStaffAll(); attDrop(); /* 在籍リストは出勤を読み直す */ const present=await updateCastBadge(); const q=$('cSearch').value.trim();
-  const C=await caLoadDay(); C.present=present; C.q=q;
-  /* 報酬の種類（手当・ポイント） */ let rdErr=false; /* 読めなかった項目（手当／ポイント・当日欠勤・遅刻）は黙って消さず、一覧の上に1行出す（点検 B5） */ { const r=await sb.rpc('pos_rewards',{p_day:businessDate()}); if(r.error) rdErr=true; S.RW=r.error?{point_slide:false,types:[],points:[],auto:{}}:(r.data||S.RW); }
+async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').classList.remove('on'); cMode='today'; { const ta=$('cTabAll'); if(ta) ta.style.display='none'; } /* 在籍リストと全員を1つにまとめる（出勤した人が上） */ await expireTrials();
+  /* その日の中身は入口の関数1回で読む（SQL 652。前は13回を1つずつ順番に読み、開くまで1.4秒かかった）。読めない時は知らせて止まる（半端な一覧で日払を打たない） */ const D=await caEntry(); if(!D) return;
+  staffAllSet(entryPart(D,'staff')); attDrop(); /* 在籍リストは出勤を読み直す */ if(!entryPart(D,'events').error) attSeed(businessDate(),D.events); const present=await updateCastBadge(); const q=$('cSearch').value.trim();
+  const C=caLoadDay(D); C.present=present; C.q=q;
+  /* 報酬の種類（手当・ポイント） */ let rdErr=false; /* 読めなかった項目（手当／ポイント・当日欠勤・遅刻）は黙って消さず、一覧の上に1行出す（点検 B5） */ { const r=entryPart(D,'rewards'); if(r.error) rdErr=true; S.RW=r.error?{point_slide:false,types:[],points:[],auto:{}}:(r.data||S.RW); }
   C.rdErr=rdErr; C.tcalc=await caTrialPay(C);
-  /* 閉店作業「シフト未定の確認」で退店を選んだ子：行に［退店］を最初から出す（［削除］を押して探さなくて済むように。SQL 619） */ { const r=await sb.rpc('pos_shift_leave_marks'); S.snLeave=new Set(r.error?[]:(r.data||[])); }
-  /* 15日の閉店作業で「条件再設定」にした子：名前の行に灰色のしるし（済むまで。SQL 635） */ { const r=await sb.rpc('pos_guarantee_reset_marks'); S.gcReset=new Set(r.error?[]:(r.data||[])); }
+  /* 閉店作業「シフト未定の確認」で退店を選んだ子：行に［退店］を最初から出す（［削除］を押して探さなくて済むように。SQL 619） */ { const r=entryPart(D,'leave'); S.snLeave=new Set(r.error?[]:(r.data||[])); }
+  /* 15日の閉店作業で「条件再設定」にした子：名前の行に灰色のしるし（済むまで。SQL 635） */ { const r=entryPart(D,'greset'); S.gcReset=new Set(r.error?[]:(r.data||[])); }
   if(S.cSel&&!S.cSel._new&&!S.staffAll.some(x=>x.id===S.cSel.id&&(x.is_active||x.leave_pending))) S.cSel=null; /* 在籍リストに出ない人（体験の次の営業日の自動削除など）の編集は閉じる（オーナー「名前が無いのに編集にサツキの画面がある」） */
   Object.assign(C,caRows(C)); Object.assign(C,caKitA(C)); Object.assign(C,caKitB(C));
   $('cTodayN').textContent=[...present].filter(i=>S.staff.some(z=>z.id===i)).length; $('cTabToday').classList.toggle('on',cMode==='today'); $('cTabAll').classList.toggle('on',cMode==='all'); $('cSort').textContent=cSorting?'完了':'並べ替え';
-  Object.assign(C,await caMarks(C)); C.rowHtml=s=>caRowHtml(C,s);
+  Object.assign(C,await caMarks(C,D)); C.rowHtml=s=>caRowHtml(C,s);
   C.saveAlw=id=>caSaveAlw(C,id); C.rwPick=(id,title,types,extra)=>caRwPick(C,id,title,types,extra); C.alwYen=id=>caAlwYen(C,id); C.alwPoint=id=>caAlwPoint(C,id);
   caList(C); caBindA(C); caBindB(C);
   renderCastForm(); }
-/* その日の日払（立替）・手当・打刻・体験の受領・罰金・精算を読む */
-async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev={}, rcp={}, fixN={}, finT={}, finP={}, clDone=false;
-  { const bd=businessDate();
-  const [ra,re,rc,rr,rf,hl]=await Promise.all([ sb.from('daily_advances').select('*').eq('business_date',bd), sb.from('attendance_events').select('*').eq('business_date',bd).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at'), sb.from('register_closings').select('id').eq('store_id',S.store.id).eq('business_date',bd), sb.from('trial_receipts').select('id,staff_id,business_date,amount,calc,signed_at').eq('business_date',bd), sb.from('staff_fines').select('*').eq('store_id',S.store.id).eq('business_date',bd), hallLateRows(bd,bd) ]);
+/* 在籍リストの入口：その日の中身をまとめて1回で（SQL 652 pos_staff_day。元の関数を呼んでそろえるだけ） */
+async function caEntry(){ const r=await sb.rpc('pos_staff_day',{p_store:S.store.id,p_day:businessDate()}); if(r.error){ toast('在籍リストを読み込めません。再度開いてください：'+r.error.message); return null; } return r.data||{}; }
+/* その日の日払（立替）・手当・打刻・体験の受領・罰金・精算 */
+function caLoadDay(D){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev={}, rcp={}, fixN={}, finT={}, finP={}, clDone=false;
+  {
+  const [ra,re,rc,rr,rf]=['advances','events','closings','receipts','fines'].map(k=>entryPart(D,k)), hq=entryPart(D,'hall_late'), hl=hq.error?null:hallLateMap(hq.data);
   if(rf.error) toast('罰金を読み込めません：'+rf.error.message);
   { const e=[ra,re,rc,rr].find(x=>x.error);
   if(e) toast('打刻・日払いを読み込めません。再度開いてください：'+e.error.message);
@@ -59,7 +63,7 @@ async function caLoadDay(){ let adv={}, advX={}, advN={}, advA={}, advM={}, tev=
   clDone=!!(rc.data||[]).length;
   }
   /* 応募情報・ヒアリングシート・写真がそろっていない体験の子（SQL 577。そろうまで日払を渡さない） */
-  { const t=await sb.rpc('pos_trial_pay_state',{p_store:S.store.id}); S.trialPay=t.error?{}:(t.data||{}); }
+  { const t=entryPart(D,'trial_pay'); S.trialPay=t.error?{}:(t.data||{}); }
   return {adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone}; }
 /* 体験の子の日払（立替）を、打刻から計算し直して保存する */
 async function caTrialPay(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
@@ -98,13 +102,13 @@ function caKitB(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,f
   // 本名が未入力の人（住民票の提出がない＝報酬を渡せない）。在籍中で、係専用（店・ママ）以外。名前の横と一覧の上に赤で出す（オーナー）
   const noReal=s=>s.is_active&&!s.kakari_only&&!(s.real_name||'').trim();
   return {tmCalc,orgH,tmHtml,advFineHtml,noReal}; }
-async function caMarks(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; let rdErr=C.rdErr;
+async function caMarks(C,D){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; let rdErr=C.rdErr;
   // LINEマイページの当日欠勤（名前の横に赤で「当日欠勤」、一覧の上に名前・時刻・理由）。SQL 098 が無い時は出さない
-  const absM={}; { const ar=await sb.rpc('pos_absences',{p_date:businessDate()}); if(ar.error) rdErr=true; else (ar.data||[]).forEach(a=>{ absM[a.staff_id]=a; }); }
+  const absM={}; { const ar=entryPart(D,'absences'); if(ar.error) rdErr=true; else (ar.data||[]).forEach(a=>{ absM[a.staff_id]=a; }); }
   // LINEマイページの遅刻連絡（出勤予定）と、連絡なしの遅刻
-  const lateM={}; { const lr=await sb.rpc('pos_late_notices',{p_date:businessDate()}); if(lr.error) rdErr=true; else (lr.data||[]).forEach(a=>{ lateM[a.staff_id]={...(lateM[a.staff_id]||{}),...a}; }); }
+  const lateM={}; { const lr=entryPart(D,'late'); if(lr.error) rdErr=true; else (lr.data||[]).forEach(a=>{ lateM[a.staff_id]={...(lateM[a.staff_id]||{}),...a}; }); }
   // アプローチ。今日出勤して、連絡済リストをまだ共有していない人を一覧の上に（強く出さない。オーナー「あくまでもお願い」）
-  { const sr=await sb.rpc('pos_sales_today'); S.salesM={}; if(!sr.error) (sr.data.rows||[]).forEach(r=>{ S.salesM[r.staff_id]=r; }); }
+  { const sr=entryPart(D,'sales'); S.salesM={}; if(!sr.error) (sr.data.rows||[]).forEach(r=>{ S.salesM[r.staff_id]=r; }); }
   const slTxt=Object.values(S.salesM).filter(r=>r.worked&&r.count==null).map(r=>esc(S.staffAll.find(x=>x.id===r.staff_id)?.display_name||'')).join('・');
   const krM=await caRatio();
   return {absM,lateM,slTxt,rdErr,krM}; }
