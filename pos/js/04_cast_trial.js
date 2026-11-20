@@ -13,7 +13,7 @@ function trialRound(inAt,outAt){ const Q=900000; const a=Math.ceil(new Date(inAt
 async function showTrialPay(s,c,ev,extra,rc,mg){ let d, sig=null;
   if(rc){ d=rc.calc||{}; const r=await sb.from('trial_receipts').select('signature').eq('id',rc.id).single(); if(r.error){ await uiConfirm(r.error.message); return; } sig=r.data.signature; }
   else { if(!c?.ready||!ev.in||!ev.out) return; const t=trialRound(ev.in,ev.out); d={name:s.display_name,real_name:s.real_name||null,date:businessDate(),pay_type:s.trial_pay_type==='daily'?'daily':'hourly',unit:Number(s.trial_pay_amount||0),in:new Date(t.a).toISOString(),out:new Date(t.b).toISOString(),hours:s.trial_pay_type==='daily'?null:(t.b-t.a)/3600000,base:c.base,extra:extra||0,gross:c.gross,tax_rate:Number(S.settings?.trial_withholding_rate??10),tax:c.tax,pay:c.pay,note:c.note,store_name:S.store?.name||null,manager_id:mg?.id||null,manager_name:mg?.display_name||null}; }
-  const o=document.createElement('div'); o.id='trialPay'; o.style.cssText='position:fixed;inset:0;z-index:55;background:#fff;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:12px 24px';
+  const o=document.createElement('div'); o.id='trialPay'; o.className='o-stack'; o.style.cssText='position:fixed;inset:0;z-index:55;background:#fff;overflow:auto;align-items:center;padding:12px 24px';
   o.innerHTML=trialPayHtml(d,rc,sig);
   document.body.appendChild(o); o.querySelector('[data-tp=close]').onclick=()=>o.remove(); if(rc) return; trialPaySign(o,s,d); }
 /* 体験の報酬の画面の文（計算の内訳・サイン欄） */

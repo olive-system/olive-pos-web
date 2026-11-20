@@ -85,10 +85,10 @@
 
 <section class="view" id="v-order"><div class="card">
   <div class="ord4">
-    <div class="col"><h3>カテゴリー</h3><div class="body" id="oCats"></div></div>
-    <div class="col"><h3>メニュー</h3><div class="body" id="oProds"></div></div>
-    <div class="col"><h3>振り分け（バックを付ける人）</h3><div class="body" id="oCasts"></div></div>
-    <div class="col"><h3>注文</h3><div class="body" id="oCart"></div><div style="padding:8px"><button class="primary" id="oConfirm" style="width:100%;min-height:52px;font-size:17px">確定</button></div></div>
+    <div class="col"><h3>カテゴリー</h3><div class="body o-stack" id="oCats"></div></div>
+    <div class="col"><h3>メニュー</h3><div class="body o-stack" id="oProds"></div></div>
+    <div class="col"><h3>振り分け（バックを付ける人）</h3><div class="body o-stack" id="oCasts"></div></div>
+    <div class="col"><h3>注文</h3><div class="body o-stack" id="oCart"></div><div style="padding:8px"><button class="primary" id="oConfirm" style="width:100%;min-height:52px;font-size:17px">確定</button></div></div>
   </div>
   <div class="bar"><button class="ghost" id="orderBack">伝票へ戻る</button></div>
 </div></section>
@@ -109,7 +109,7 @@
 </div></section>
 
 <section class="view" id="v-cust"><div class="card settings" style="grid-template-columns:280px minmax(0,1.25fr) minmax(0,1fr)">
-  <div style="min-width:0"><div style="display:flex;gap:6px;margin-bottom:8px"><input id="cuSearch" placeholder="名前・フリガナ・会社名で検索" style="flex:1 1 0;min-width:0;width:0"><button class="primary sm" id="cuNew" style="white-space:nowrap;flex:none">＋新規</button></div><div id="cuModes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><select id="cuMonths" aria-label="期間"></select><button class="chip" data-cm="req" id="cuReqChip" style="display:none"></button></div><div class="muted" id="cuCount" style="font-size:13px;margin-bottom:6px"></div><div class="lst" id="cuList" style="max-height:70vh;overflow:auto"></div></div>
+  <div style="min-width:0"><div style="display:flex;gap:6px;margin-bottom:8px"><input id="cuSearch" placeholder="名前・フリガナ・会社名で検索" style="flex:1 1 0;min-width:0;width:0"><button class="primary sm" id="cuNew" style="white-space:nowrap;flex:none">＋新規</button></div><div id="cuModes" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><select id="cuMonths" aria-label="期間"></select><button class="chip" data-cm="req" id="cuReqChip" style="display:none"></button></div><div class="muted" id="cuCount" style="font-size:13px;margin-bottom:6px"></div><div class="lst o-stack" id="cuList" style="max-height:70vh;overflow:auto"></div></div>
   <div id="cuForm" class="form"></div>
   <div id="cuSide"></div>
 </div></section>
@@ -132,7 +132,7 @@
 
 <section class="view" id="v-settings"><div class="card settings">
   <div class="menu" id="setMenu"></div>
-  <div><div class="bar" style="margin:0 0 10px"><button class="ok sm" id="setAdd">追加</button><input id="setFilter" placeholder="検索" style="flex:1"><button class="sm" id="setEdit">編集</button></div><div class="lst" id="setList"></div></div>
+  <div><div class="bar" style="margin:0 0 10px"><button class="ok sm" id="setAdd">追加</button><input id="setFilter" placeholder="検索" style="flex:1"><button class="sm" id="setEdit">編集</button></div><div class="lst o-stack" id="setList"></div></div>
   <div><h2>詳細</h2><div class="form" id="setForm"><div class="muted">左の一覧から選ぶか「追加」</div></div></div>
 </div></section>
 </main>
