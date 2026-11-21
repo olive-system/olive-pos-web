@@ -81,6 +81,8 @@ function castGo(k){
   else if(k === 'dress') dressReport(); else if(k === 'meeting') mtCast(); else if(k === 'memo' && SHIFT_ALL) memoList(); /* 締め切りのリマインドの LINE から、新調日・ミーティングの画面を直接開く */
 }
 
+/* 誘客制の店（広島）の女の子には、売上の金額（誘客小計）を見せず、ポイントを出す（見分けは店の客の形。店の名前では分けない） */
+const castNoSales = () => !!ME && ME.customer_mode === 'yukyaku', castPt = v => (Math.round(Number(v||0)*10)/10).toLocaleString('ja-JP');
 // スライド表の「次の段」の文：あと○○で 時給○円
 const UNIT = { sales:v=>`${Math.round(v/10000).toLocaleString('ja-JP')}万円`, points:v=>`${v}ポイント`, douhan:v=>`${v}回`, days:v=>`${v}日`, reactions:v=>`${v}回`, groups:v=>`${v}組`, guests:v=>`${v}名` };
 function nextTxt(s){
@@ -99,7 +101,7 @@ function home(){
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
   const st = ME.stats||{}, sl = (ME.slides||[]).find(s=>s.basis==='sales') || (ME.slides||[])[0];
-  let top = `<div class="row"><span>今月の${esc(KL)}小計</span><b>${Math.round(Number(st.sales||0)/10000).toLocaleString('ja-JP')}万円</b></div>`;
+  let top = castNoSales() ? `<div class="row"><span>今月のポイント</span><b>${castPt(st.points)}P</b></div>` : `<div class="row"><span>今月の${esc(KL)}小計</span><b>${Math.round(Number(st.sales||0)/10000).toLocaleString('ja-JP')}万円</b></div>`;
   if(sl && sl.next_threshold != null){
     const pct = Math.max(0, Math.min(100, Number(sl.value||0) / Number(sl.next_threshold) * 100));
     top += `<div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div><div class="muted sm">${esc(nextTxt(sl))}</div>`;
@@ -151,7 +153,7 @@ function perf(){
   const fines = (ME.fines||[]), fsum = Number(st.fines||0);
   const fl = fines.map(f=>`<div class="muted sm">${Number(String(f.date).slice(5,7))}/${Number(String(f.date).slice(8,10))} ${esc(f.reason||'')}　${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</div>`).join('');
   show(`<div class="subh">${m}月（${m}/${d} まで）</div>
-    <div class="card">${r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
+    <div class="card">${castNoSales()?'':r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
     <div class="card">${r('給率', '—')}${r('提出率', '—')}${r('平均', '—')}</div>
     <div class="card">${dhCard}</div>
     <div class="card">${r('出勤日数', `${Number(st.days||0)}日`)}${r('稼働時間', HM(st.hours))}${r('ポイント', `${Number(st.points||0)}`)}${r('反応◎', `${Number(st.reactions||0)}回`)}</div>
