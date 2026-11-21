@@ -81,6 +81,8 @@ function castGo(k){
   else if(k === 'dress') dressReport(); else if(k === 'meeting') mtCast(); else if(k === 'memo' && SHIFT_ALL) memoList(); /* 締め切りのリマインドの LINE から、新調日・ミーティングの画面を直接開く */
 }
 
+/* 誘客制の店（広島）の女の子には、売上の金額（誘客小計）を見せず、ポイントを出す（見分けは店の客の形。店の名前では分けない） */
+const castNoSales = () => !!ME && ME.customer_mode === 'yukyaku', castPt = v => (Math.round(Number(v||0)*10)/10).toLocaleString('ja-JP');
 // スライド表の「次の段」の文：あと○○で 時給○円
 const UNIT = { sales:v=>`${Math.round(v/10000).toLocaleString('ja-JP')}万円`, points:v=>`${v}ポイント`, douhan:v=>`${v}回`, days:v=>`${v}日`, reactions:v=>`${v}回`, groups:v=>`${v}組`, guests:v=>`${v}名` };
 function nextTxt(s){
@@ -99,14 +101,14 @@ function home(){
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
   const st = ME.stats||{}, sl = (ME.slides||[]).find(s=>s.basis==='sales') || (ME.slides||[])[0];
-  let top = `<div class="row"><span>今月の${esc(KL)}小計</span><b>${Math.round(Number(st.sales||0)/10000).toLocaleString('ja-JP')}万円</b></div>`;
+  let top = castNoSales() ? `<div class="row"><span>今月のポイント</span><b>${castPt(st.points)}P</b></div>` : `<div class="row"><span>今月の${esc(KL)}小計</span><b>${Math.round(Number(st.sales||0)/10000).toLocaleString('ja-JP')}万円</b></div>`;
   if(sl && sl.next_threshold != null){
     const pct = Math.max(0, Math.min(100, Number(sl.value||0) / Number(sl.next_threshold) * 100));
     top += `<div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div><div class="muted sm">${esc(nextTxt(sl))}</div>`;
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = homeTile;
   const bdCard = homeBdCard();
-  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
+  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths&&!castNoSales()?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
     <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
   /* トップの整理（オーナー「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
@@ -151,7 +153,7 @@ function perf(){
   const fines = (ME.fines||[]), fsum = Number(st.fines||0);
   const fl = fines.map(f=>`<div class="muted sm">${Number(String(f.date).slice(5,7))}/${Number(String(f.date).slice(8,10))} ${esc(f.reason||'')}　${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</div>`).join('');
   show(`<div class="subh">${m}月（${m}/${d} まで）</div>
-    <div class="card">${r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
+    <div class="card">${castNoSales()?'':r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
     <div class="card">${r('給率', '—')}${r('提出率', '—')}${r('平均', '—')}</div>
     <div class="card">${dhCard}</div>
     <div class="card">${r('出勤日数', `${Number(st.days||0)}日`)}${r('稼働時間', HM(st.hours))}${r('ポイント', `${Number(st.points||0)}`)}${r('反応◎', `${Number(st.reactions||0)}回`)}</div>
