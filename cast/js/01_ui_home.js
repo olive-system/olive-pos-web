@@ -108,7 +108,7 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = homeTile;
   const bdCard = homeBdCard();
-  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
+  top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths&&!castNoSales()?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
     <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
   /* トップの整理（オーナー「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
