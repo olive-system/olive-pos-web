@@ -90,13 +90,14 @@ async function clScan(file){ const img=await new Promise((ok,ng)=>{ const i=new 
 async function clScanPdf(sc){ await clLoadPdf(); const W=210, H=Math.round(W*sc.h/sc.w*10)/10; const pdf=new window.jspdf.jsPDF({unit:'mm',format:[W,H],orientation:H>=W?'p':'l'}); pdf.addImage(sc.url,'JPEG',0,0,W,H); return pdf.output('blob'); }
 // 精算の手引きの項目を確かめる（オーナー「宛名・日付・軽減税率・但し書き・発行店名・電話番号・登録番号・飲食の参加者・自分の名前・鮮明さ」）
 // ・receipt-read が全部の項目を読み、合っているかはここで決める。不備が1つでもあると OK を押せない
-// ・不備の項目はその場で入力して修正できる（入力できたら通す）。登録番号が無い時は［確認］→ 理由のコメントで通す。不鮮明の時は再撮影だけ（入力欄は出さない）
+// ・不備の項目はその場で入力して修正できる（入力できたら通す）。登録番号が無い時は［記載なし］を押すだけで通す（理由は聞かない。住所・電話番号が無い時は今までどおり通さない）。不鮮明の時は再撮影だけ（入力欄は出さない）
 // ・立替者名（右下の手書きの名前）は cash_movements.payer に入れ、② の一覧に出す。確かめた中身は receipt_check
 // ・登録番号を国税庁の公表サイトで照らすのは、アプリケーション ID が届いてから（今は T と13桁の形だけ）
 // レシート（宛名の欄が無いもの）は宛名を見ない（オーナー「レシートには宛名は入っていません」）
 // 立替者名は紙に書かないので、写真の写りに関係なく、その日に出勤した黒服のプルダウンから選ぶ（オーナー「建て替え者はレシートに記入しない」「出勤している黒服で」）
 const CL_RK=[['to','宛名'],['date','日付'],['reduced','軽減税率'],['purpose','但し書き'],['issuer','発行店名'],['tel','電話番号'],['inv','登録番号'],['guests','参加者名'],['payer','立替者名'],['clear','鮮明度']];
 const clInvOk=v=>/^T\d{13}$/.test(v);
+const clNoInv=m=>{ const v=m&&m.receipt_check&&m.receipt_check.inv; return !!v&&(!!v.none||!!v.note); }; /* ② の一覧に出す「記載なし」の印（前の形の理由つきも同じ） */
 async function clPayers(d){ if(!S.staffAll.length) await loadStaffAll(); const r=await sb.from('attendance_events').select('staff_id').eq('store_id',S.store.id).eq('business_date',d).in('event_type',['clock_in','douhan']); if(r.error) return null; const on=new Set((r.data||[]).map(e=>e.staff_id)); return S.staffAll.filter(s=>s.kind==='hall'&&on.has(s.id)); }
 // AI に送る写真は小さくする（送る量と AI が読む量が減り、待ち時間が短くなる。オーナー「イ」）。保存する PDF は元の大きさのまま。細長いレシートの字がつぶれないよう、長辺ではなく面積（60万画素）で縮める
 async function clSmall(url){ const i=new Image(); await new Promise((ok,ng)=>{ i.onload=ok; i.onerror=ng; i.src=url; }); const k=Math.min(1,Math.sqrt(600000/(i.naturalWidth*i.naturalHeight))); if(k>=1) return url; const c=document.createElement('canvas'); c.width=Math.round(i.naturalWidth*k); c.height=Math.round(i.naturalHeight*k); c.getContext('2d').drawImage(i,0,0,c.width,c.height); return c.toDataURL('image/jpeg',0.8); }
@@ -124,19 +125,20 @@ function clRcptBox(){
 // 読み取った中身の行（宛名・日付・登録番号など。不備は入れ直せる）
 function clRcptRows(X,PY,blur){
   return CL_RK.map(([k,n])=>{ const x=X[k], inp=!blur&&k!=='clear'&&(x.ng||x.typed);
-      const v=k==='payer'?`<select data-py${x.ng?' class="ng"':''}><option value="">選択</option>${PY.map(p=>`<option${p.display_name===x.v?' selected':''}>${esc(p.display_name)}</option>`).join('')}</select>`:k==='inv'&&x.note?`<span>記載なし</span><small class="muted">${esc(x.note)}</small>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>確認</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
+      const v=k==='payer'?`<select data-py${x.ng?' class="ng"':''}><option value="">選択</option>${PY.map(p=>`<option${p.display_name===x.v?' selected':''}>${esc(p.display_name)}</option>`).join('')}</select>`:k==='inv'&&x.none?`<span>記載なし</span><button class="ghost sm" data-cfx>取消</button>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>記載なし</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
       return `<div class="r"><span class="k">${n}</span><span class="v">${v}</span><span class="s">${clMark(x.ng)}</span></div>`; }).join('');
 }
-// 行の入れ直し・支払った人・登録番号の記載なしの理由
+// 行の入れ直し・支払った人・登録番号の記載なし
 function clRcptRowWire(CK,X,can,draw){
   CK.querySelectorAll('[data-in]').forEach(i=>i.oninput=()=>{ const k=i.dataset.in, x=X[k]; x.v=k==='inv'?i.value.trim().toUpperCase():i.value.trim(); x.typed=true; x.ng=k==='inv'?!clInvOk(x.v):!x.v; i.classList.toggle('ng',x.ng); i.closest('.r').querySelector('.s').innerHTML=clMark(x.ng); const cf=i.parentNode.querySelector('[data-cf]'); if(cf) cf.style.display=x.ng?'':'none'; can(); });
   const py=CK.querySelector('[data-py]'); if(py) py.onchange=()=>{ Object.assign(X.payer,{v:py.value,ng:!py.value,typed:true}); py.classList.toggle('ng',X.payer.ng); py.closest('.r').querySelector('.s').innerHTML=clMark(X.payer.ng); can(); };
-  const cf=CK.querySelector('[data-cf]'); if(cf) cf.onclick=async()=>{ const w=await uiDlg('登録番号の記載がない理由を入力してください',true,'','理由を入力してください'); if(w===null) return; if(!w.trim()){ toast('理由を入力してください'); return; } Object.assign(X.inv,{v:'',note:w.trim(),ng:false,typed:false}); draw(); };
+  const cf=CK.querySelector('[data-cf]'); if(cf) cf.onclick=()=>{ Object.assign(X.inv,{v:'',none:true,ng:false,typed:false}); draw(); }; /* 押すだけで「記載なし」で通す（オーナー） */
+  const cx=CK.querySelector('[data-cfx]'); if(cx) cx.onclick=()=>{ Object.assign(X.inv,{none:false,ng:true,typed:false}); draw(); };
 }
 // OK：PDF を作って保存し、レジ出金に登録する
 async function clRcptSave(m,d,sc,X,amount){
     let blob; try{ blob=await (sc.pdf||clScanPdf(sc)); }catch(e){ await uiAlert('PDF を作成できません：'+(e.message||'')); return; }
-    const chk={}; for(const [k] of CL_RK) chk[k]={v:X[k].v,...(X[k].typed?{typed:true}:{}),...(X[k].note?{note:X[k].note}:{})};
+    const chk={}; for(const [k] of CL_RK) chk[k]={v:X[k].v,...(X[k].typed?{typed:true}:{}),...(X[k].none?{none:true}:{})};
     const id=crypto.randomUUID(), path=`${S.store.id}/${id}.pdf`; const up=await sb.storage.from('receipts').upload(path,blob,{contentType:'application/pdf',upsert:false}); if(up.error){ await uiAlert('領収書を保存できません：'+up.error.message); return; }
     const r=await sb.rpc('pos_rows_add',{p_table:'cash_movements',p:{id,store_id:S.store.id,business_date:d,kind:'out',amount,memo:CL_RCPT,receipt_path:path,payer:X.payer.v||null,receipt_check:chk}}); if(r.error){ await sb.storage.from('receipts').remove([path]); await uiAlert('登録できません：'+r.error.message); return; }
     await logOp('レジ出金の登録',{date:d,amount,memo:CL_RCPT,receipt:true,payer:X.payer.v||null},null,true); m.remove(); renderClosing();
