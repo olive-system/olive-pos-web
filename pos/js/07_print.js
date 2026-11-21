@@ -6,7 +6,7 @@ const PRINT={ method: localStorage.getItem('print_method'+SLOT)||'tmpa' };
 const PZ=1.7;
 const VIPL='VIP charge'; /* 明細の VIP の部屋の料金の言い方（オーナー「VIP代ってダサい」） */
 const hmS=t=>hmJst(t).replace(/^0/,''); /* 〜1:30（時の頭の 0 は付けない。オーナー「〜1:30の方がかっこいい」） */
-// d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, pays:[{l,r}], note }
+// d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, note }
 // c：描く道具（g＝canvas・W＝幅・fs＝字の大きさ・y＝今の高さ）。部品は c.y を進める
 function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
   const c={ cv, g, W, fs:22*z, y:0, yen:n=>'¥'+(Number(n)||0).toLocaleString(),
@@ -36,13 +36,12 @@ function slipDetail(c,d){ const {g,W,fs}=c;
   (d.sums||[]).forEach((s,i)=>{ c.y+=Math.round(fs*(i?1.4:1.6)); c.lr(s.l,s.r,c.y,c.MI(fs*0.8,400),c.BK(fs*0.95)); });
   c.y+=Math.round(fs*2.3); c.lr('合計',c.yen(d.due),c.y,c.MI(fs*0.95,600),c.BK(fs*1.75)); }
 // 会計票（Bill）：写真の手書きの会計票と同じ形（オーナー 2026-11-21「③」）。左上に小さい Receipt・金額だけ（¥ も , も付けず、3桁ごとに少し空ける）・金額の下に短い線・ロゴは小さく右下
-// 細い線が潰れないよう（203dpi＝1mm 8ドット）、Receipt は Bill の見出しと同じ大きさ・短い線は2ドット・ロゴは幅 170。支払い方法が2つの時だけ、その金額を線の下に並べる
+// 細い線が潰れないよう（203dpi＝1mm 8ドット）、Receipt は Bill の見出しと同じ大きさ・短い線は2ドット・ロゴは幅 170。支払い方法の内訳（現金・カード）は出さず、合計の金額だけにする（会計票は値段を見せる紙。オーナー 2026-11-21「お会計票って値段を見せるもの」）
 function slipMoney(g,n,x,y,gap,al){ const gs=String(Math.max(0,Math.round(Number(n)||0))).replace(/\B(?=(\d{3})+$)/g,',').split(','), ws=gs.map(t=>g.measureText(t).width), tot=ws.reduce((u,v)=>u+v,0)+gap*(gs.length-1); let sx=al==='right'?x-tot:x-tot/2; g.textAlign='left'; gs.forEach((t,k)=>{ g.fillText(t,sx,y); sx+=ws[k]+gap; }); }
 function drawBill(d,z){ const c=slipTools(z), {g,W,fs}=c, MX=56, LW=170; let y=Math.round(fs*1.9);
   g.textAlign='left'; g.font=c.BK(fs*1.45,true); g.fillText(d.title,MX,y);
   const bh=Math.round(fs*3.6); y+=Math.round(fs*0.8); g.font=c.BK(fs*2.4); slipMoney(g,d.due,W/2,y+Math.round(bh/2+fs*0.85),fs*0.75,'center'); y+=bh;
   g.lineWidth=2; g.beginPath(); g.moveTo(W/2-60,y-Math.round(fs*0.1)+.5); g.lineTo(W/2+60,y-Math.round(fs*0.1)+.5); g.stroke();
-  (d.pays||[]).forEach((p,i)=>{ y+=Math.round(fs*(i?1.4:1.7)); g.textAlign='left'; g.font=c.MI(fs*0.8,400); g.fillText(p.l,MX,y); g.font=c.BK(fs); slipMoney(g,p.r,W-MX,y,fs*0.5,'right'); });
   if(d.logo){ const lc=slipLogo(d.logo,LW); y+=Math.round(fs*0.5); g.drawImage(lc,W-MX-LW,y); y+=lc.height; }
   y+=Math.round(fs*0.9); const out=document.createElement('canvas'); out.width=W; out.height=y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
 // 領収書と同じ明朝と Baskerville。ロゴ・見出し・金額を、余白と細い線で並べる。576 ドット幅の絵（imagePrint で白黒に）
@@ -56,7 +55,6 @@ async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
   const src=S.settings?.receipt_logo; if(src){ try{ const im=new Image(); im.src=src; await im.decode(); d.logo=im; }catch(_){} } /* ロゴが読めない時は、ロゴなしで出す */
   if(kind==='estimate'){ const r=await sb.rpc('pos_bill_est',{p_bill:b.id}); if(r.error){ toast('概算の金額を出せません：'+r.error.message); return null; }
     d.rows=[{l:'',m:'〜'+hmS(r.data.until),r:r.data.now.amount_due},...(r.data.ext||[]).map(e=>({l:`${e.minutes}分延長`,m:'〜'+hmS(e.until),r:e.due}))]; }
-  if(kind==='bill'){ const ps=(b.payments||[]).filter(p=>p.amount>0); d.pays=ps.length>1?ps.map(p=>({l:METHOD[p.method],r:p.amount})):[]; } /* 支払い方法が1つの時は、合計と同じ数字なので出さない */
   if(kind==='detail'){ const yen=n=>'¥'+(Number(n)||0).toLocaleString(), it=[];
     /* 延長は POS の伝票の画面と同じく1行にまとめる（30分延長 ×回数。延長ごとの人数は出さない）。VIP の延長は VIP charge のすぐ下（オーナー「VIP chargeの下に延長分のVIP charge」） */
     const ex=b.bill_extensions||[], xl=`${S.settings.ext_minutes}分延長 ×${ex.length}`;
