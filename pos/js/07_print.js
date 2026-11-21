@@ -1,7 +1,7 @@
 // ---------- 印刷（Epson TM-m30III：TM Print Assistant経由。設定でブラウザ印刷に切替可） ----------
 const PRINT={ method: localStorage.getItem('print_method'+SLOT)||'tmpa' };
 // 伝票の印刷（［概算印刷］Estimate・［会計印刷］Bill・［明細印刷］Details）。オーナー（2026-11-17）「ロゴ入り・OLIVE らしいデザイン」「シンプルに洗練して」
-// 概算：今の金額と、30分・60分延長した場合の金額だけ（延長した場合は pos_bill_est＝calc_bill を呼ぶ。SQL 562）／会計：合計と（消費税込）だけ／明細：品・バックのキャスト・小計・サービス料・消費税・合計（伝票のキャストは出さない。オーナー「いらん」）
+// 概算：今の金額と、30分・60分延長した場合の金額だけ（延長した場合は pos_bill_est＝calc_bill を呼ぶ。SQL 562）／会計：金額だけ（下の drawBill・（消費税込）は付けない）／明細：品・バックのキャスト・小計・サービス料・消費税・合計（伝票のキャストは出さない。オーナー「いらん」）
 // お客様の名前・日付・卓・端数切上は出さない（オーナー「いらん」）。字は font_a の 1.7 倍（オーナー「1.7倍」。前の字は 3mm で「小さくて見えない」と言われた）
 const PZ=1.7;
 const VIPL='VIP charge'; /* 明細の VIP の部屋の料金の言い方（オーナー「VIP代ってダサい」） */
@@ -16,10 +16,12 @@ function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.widt
   c.wrap=(t,mw)=>{ /* 幅 mw に入るように折り返す */ const out=[]; let cur=''; for(const ch of [...String(t)]){ if(cur&&g.measureText(cur+ch).width>mw){ out.push(cur); cur=ch===' '||ch==='　'?'':ch; } else cur+=ch; } out.push(cur); return out; };
   c.lr=(l,r,y,fl,fr)=>{ g.textAlign='left'; g.font=fl; g.fillText(l,0,y); g.textAlign='right'; g.font=fr; g.fillText(r,W,y); };
   return c; }
-// ロゴ（白黒にすると薄い葉が消えるので、色のある所を全部黒にする）・見出し・細い線。店名はロゴが無い時だけ（オーナー「上にロゴあるし、いらない」）
+// ロゴ（白黒にすると薄い葉が消えるので、色のある所を全部黒にする）。幅 lw の絵を返す
+function slipLogo(im,lw){ const lh=Math.round(im.height*lw/im.width), lc=document.createElement('canvas'); lc.width=lw; lc.height=lh; const lg=lc.getContext('2d'); lg.drawImage(im,0,0,lw,lh); const px=lg.getImageData(0,0,lw,lh);
+  for(let k=0;k<px.data.length;k+=4){ const on=px.data[k+3]>24&&(px.data[k]+px.data[k+1]+px.data[k+2])<720; px.data[k]=px.data[k+1]=px.data[k+2]=on?0:255; px.data[k+3]=255; } lg.putImageData(px,0,0); return lc; }
+// 見出しと細い線（概算・明細）。店名はロゴが無い時だけ（オーナー「上にロゴあるし、いらない」）
 function slipHead(c,d){ const {g,W,fs}=c; c.y=Math.round(fs*0.6);
-  if(d.logo){ const lw=Math.round(Math.min(340,W*0.6)), lh=Math.round(d.logo.height*lw/d.logo.width), lc=document.createElement('canvas'); lc.width=lw; lc.height=lh; const lg=lc.getContext('2d'); lg.drawImage(d.logo,0,0,lw,lh); const px=lg.getImageData(0,0,lw,lh);
-    for(let i=0;i<px.data.length;i+=4){ const on=px.data[i+3]>24&&(px.data[i]+px.data[i+1]+px.data[i+2])<720; px.data[i]=px.data[i+1]=px.data[i+2]=on?0:255; px.data[i+3]=255; } lg.putImageData(px,0,0); g.drawImage(lc,Math.round((W-lw)/2),c.y); c.y+=lh; }
+  if(d.logo){ const lw=Math.round(Math.min(340,W*0.6)), lc=slipLogo(d.logo,lw); g.drawImage(lc,Math.round((W-lw)/2),c.y); c.y+=lc.height; }
   else { c.y+=Math.round(fs*1.3); g.font=c.MI(fs*0.75,400); c.sp(d.store||'',c.y,fs*0.12); }
   c.y+=Math.round(fs*2.6); g.font=c.BK(fs*1.45,true); c.sp(d.title||'',c.y,fs*0.12); /* 見出しは領収書の Receipt と同じ Baskerville の斜体 */
   c.y+=Math.round(fs*1.0); c.hl(c.y,W/2-fs*1.2,W/2+fs*1.2); c.y+=Math.round(fs*1.6); }
@@ -33,17 +35,24 @@ function slipDetail(c,d){ const {g,W,fs}=c;
   c.y+=Math.round(fs); c.hl(c.y,0,W);
   (d.sums||[]).forEach((s,i)=>{ c.y+=Math.round(fs*(i?1.4:1.6)); c.lr(s.l,s.r,c.y,c.MI(fs*0.8,400),c.BK(fs*0.95)); });
   c.y+=Math.round(fs*2.3); c.lr('合計',c.yen(d.due),c.y,c.MI(fs*0.95,600),c.BK(fs*1.75)); }
-// 会計：金額だけ（真ん中）。支払い方法が2つの時だけ、その金額
-function slipBill(c,d){ const {g,W,fs}=c; c.y+=Math.round(fs*1.2); g.textAlign='center'; g.font=c.BK(fs*2.1); g.fillText(c.yen(d.due),W/2,c.y); c.noteX=Math.round(W/2+g.measureText(c.yen(d.due)).width/2); /* （消費税込）は金額の右の端にそろえる（オーナー「真ん中嫌」） */ /* 見出しが Bill で金額は1つなので「合計」は出さず、真ん中に大きく（オーナー「bill に合計っている？」） */
-  (d.pays||[]).forEach((p,i)=>{ c.y+=Math.round(fs*(i?1.4:2.0)); c.lr(p.l,c.yen(p.r),c.y,c.MI(fs*0.8,400),c.BK(fs)); }); }
+// 会計票（Bill）：写真の手書きの会計票と同じ形（オーナー 2026-11-21「③」）。左上に小さい Receipt・金額だけ（¥ も , も付けず、3桁ごとに少し空ける）・金額の下に短い線・ロゴは小さく右下
+// 細い線が潰れないよう（203dpi＝1mm 8ドット）、Receipt は Bill の見出しと同じ大きさ・短い線は2ドット・ロゴは幅 170。支払い方法が2つの時だけ、その金額を線の下に並べる
+function slipMoney(g,n,x,y,gap,al){ const gs=String(Math.max(0,Math.round(Number(n)||0))).replace(/\B(?=(\d{3})+$)/g,',').split(','), ws=gs.map(t=>g.measureText(t).width), tot=ws.reduce((u,v)=>u+v,0)+gap*(gs.length-1); let sx=al==='right'?x-tot:x-tot/2; g.textAlign='left'; gs.forEach((t,k)=>{ g.fillText(t,sx,y); sx+=ws[k]+gap; }); }
+function drawBill(d,z){ const c=slipTools(z), {g,W,fs}=c, MX=56, LW=170; let y=Math.round(fs*1.9);
+  g.textAlign='left'; g.font=c.BK(fs*1.45,true); g.fillText(d.title,MX,y);
+  const bh=Math.round(fs*3.6); y+=Math.round(fs*0.8); g.font=c.BK(fs*2.4); slipMoney(g,d.due,W/2,y+Math.round(bh/2+fs*0.85),fs*0.75,'center'); y+=bh;
+  g.lineWidth=2; g.beginPath(); g.moveTo(W/2-60,y-Math.round(fs*0.1)+.5); g.lineTo(W/2+60,y-Math.round(fs*0.1)+.5); g.stroke();
+  (d.pays||[]).forEach((p,i)=>{ y+=Math.round(fs*(i?1.4:1.7)); g.textAlign='left'; g.font=c.MI(fs*0.8,400); g.fillText(p.l,MX,y); g.font=c.BK(fs); slipMoney(g,p.r,W-MX,y,fs*0.5,'right'); });
+  if(d.logo){ const lc=slipLogo(d.logo,LW); y+=Math.round(fs*0.5); g.drawImage(lc,W-MX-LW,y); y+=lc.height; }
+  y+=Math.round(fs*0.9); const out=document.createElement('canvas'); out.width=W; out.height=y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
 // 領収書と同じ明朝と Baskerville。ロゴ・見出し・金額を、余白と細い線で並べる。576 ドット幅の絵（imagePrint で白黒に）
-function drawSlip(d,z){ const c=slipTools(z), {g,W,fs}=c; slipHead(c,d);
-  (d.kind==='estimate'?slipEst:d.kind==='detail'?slipDetail:slipBill)(c,d);
-  if(d.note){ const x=d.kind==='bill'&&!(d.pays||[]).length&&c.noteX?c.noteX:W; c.y+=Math.round(fs*1.5); g.textAlign='right'; g.font=c.MI(fs*0.75,400); g.fillText(d.note,x,c.y); } /* 金額の下に右寄せ（会計で金額だけの時は、真ん中の金額の右の端に） */
+function drawSlip(d,z){ if(d.kind==='bill') return drawBill(d,z); const c=slipTools(z), {g,W,fs}=c; slipHead(c,d);
+  (d.kind==='estimate'?slipEst:slipDetail)(c,d);
+  if(d.note){ c.y+=Math.round(fs*1.5); g.textAlign='right'; g.font=c.MI(fs*0.75,400); g.fillText(d.note,W,c.y); } /* 金額の下に右寄せ */
   c.y+=Math.round(fs*1.4); const out=document.createElement('canvas'); out.width=W; out.height=c.y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
 // 伝票から紙の中身を作る（概算は延長した場合の金額をデータベースで出す）。出せない時は null
 async function slipData(kind){ const b=S.cur, T=b.totals; if(!T) return null;
-  const d={ kind, title:kind==='estimate'?'Estimate':kind==='bill'?'Bill':'Details', store:S.store?.name||'OLIVE', due:T.amount_due, note:kind==='detail'?'':'（消費税込）' };
+  const d={ kind, title:kind==='estimate'?'Estimate':kind==='bill'?'Receipt':'Details', store:S.store?.name||'OLIVE', due:T.amount_due, note:kind==='estimate'?'（消費税込）':'' };
   const src=S.settings?.receipt_logo; if(src){ try{ const im=new Image(); im.src=src; await im.decode(); d.logo=im; }catch(_){} } /* ロゴが読めない時は、ロゴなしで出す */
   if(kind==='estimate'){ const r=await sb.rpc('pos_bill_est',{p_bill:b.id}); if(r.error){ toast('概算の金額を出せません：'+r.error.message); return null; }
     d.rows=[{l:'',m:'〜'+hmS(r.data.until),r:r.data.now.amount_due},...(r.data.ext||[]).map(e=>({l:`${e.minutes}分延長`,m:'〜'+hmS(e.until),r:e.due}))]; }
