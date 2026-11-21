@@ -125,7 +125,7 @@ function clRcptBox(){
 // 読み取った中身の行（宛名・日付・登録番号など。不備は入れ直せる）
 function clRcptRows(X,PY,blur){
   return CL_RK.map(([k,n])=>{ const x=X[k], inp=!blur&&k!=='clear'&&(x.ng||x.typed);
-      const v=k==='payer'?`<select data-py${x.ng?' class="ng"':''}><option value="">選択</option>${PY.map(p=>`<option${p.display_name===x.v?' selected':''}>${esc(p.display_name)}</option>`).join('')}</select>`:k==='inv'&&x.none?`<span>記載なし</span><button class="ghost sm" data-cfx>取消</button>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>記載なし</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
+      const v=k==='payer'?`<select data-py${x.ng?' class="ng"':''}><option value="">選択</option>${PY.map(p=>`<option${p.display_name===x.v?' selected':''}>${esc(p.display_name)}</option>`).join('')}</select>`:k==='inv'&&x.none?`<span>記載なし</span>`:inp?`<input data-in="${k}" value="${esc(x.typed?x.v:'')}" placeholder="${esc(x.v||'記載なし')}"${x.ng?' class="ng"':''}>${k==='inv'?`<button class="ghost sm" data-cf${x.ng?'':' style="display:none"'}>記載なし</button>`:''}`:`<span${x.ng?' class="ngt"':''}>${esc(x.v||'記載なし')}</span>`;
       return `<div class="r"><span class="k">${n}</span><span class="v">${v}</span><span class="s">${clMark(x.ng)}</span></div>`; }).join('');
 }
 // 行の入れ直し・支払った人・登録番号の記載なし
@@ -133,7 +133,6 @@ function clRcptRowWire(CK,X,can,draw){
   CK.querySelectorAll('[data-in]').forEach(i=>i.oninput=()=>{ const k=i.dataset.in, x=X[k]; x.v=k==='inv'?i.value.trim().toUpperCase():i.value.trim(); x.typed=true; x.ng=k==='inv'?!clInvOk(x.v):!x.v; i.classList.toggle('ng',x.ng); i.closest('.r').querySelector('.s').innerHTML=clMark(x.ng); const cf=i.parentNode.querySelector('[data-cf]'); if(cf) cf.style.display=x.ng?'':'none'; can(); });
   const py=CK.querySelector('[data-py]'); if(py) py.onchange=()=>{ Object.assign(X.payer,{v:py.value,ng:!py.value,typed:true}); py.classList.toggle('ng',X.payer.ng); py.closest('.r').querySelector('.s').innerHTML=clMark(X.payer.ng); can(); };
   const cf=CK.querySelector('[data-cf]'); if(cf) cf.onclick=()=>{ Object.assign(X.inv,{v:'',none:true,ng:false,typed:false}); draw(); }; /* 押すだけで「記載なし」で通す（オーナー） */
-  const cx=CK.querySelector('[data-cfx]'); if(cx) cx.onclick=()=>{ Object.assign(X.inv,{none:false,ng:true,typed:false}); draw(); };
 }
 // OK：PDF を作って保存し、レジ出金に登録する
 async function clRcptSave(m,d,sc,X,amount){
