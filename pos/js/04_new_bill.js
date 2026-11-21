@@ -1,12 +1,26 @@
 // ---------- 新しい伝票（人数・お客様を選んで伝票を作る） ----------
-let newT=null, newN=0, newCust=null;
-function openNew(t){ newT=t; newN=0; newCust=null; $('nTable').textContent=t.name; renderNew(); show('v-new'); }
-function renderNew(){ $('nCount').textContent=newN; $('nCust').textContent=newCust?newCust.name:'新規'; }
+// 予約は「今の時刻の前後1時間」（伝票がもうあるお客様の予約は、関数 pos_resv_near_now が外す。SQL 681）。最大10件（10個目は［ほか ○件］）
+let newT=null, newN=0, newCust=null, newResvId=null, newResvList=[], newResvSeq=0;
+function openNew(t){ newT=t; newN=0; newCust=null; newResvId=null; newResvList=[]; $('nTable').textContent=t.name; renderNew(); show('v-new'); loadNewResv(); }
+function renderNew(){ $('nCount').textContent=newN; renderNewResv(); }
 $('nPlus').onclick=()=>{ if(newN<50) newN++; renderNew(); };
 $('nMinus').onclick=()=>{ if(newN>0) newN--; renderNew(); };
 $('nBack').onclick=()=>{ loadHall(); show('v-hall'); };
-$('nCust').onclick=()=>{ S.custPick=c=>{ newCust=c; renderNew(); }; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); };
 $('nNext').onclick=guard($('nNext'),async()=>{ if(newN<1){ toast('お客様の人数を入力してください'); return; } await createBill(newT, newN, newCust); });
+const hmOf=d=>`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+async function loadNewResv(){ const seq=++newResvSeq; const now=new Date();
+  $('nResvHead').textContent=`予約　${hmOf(new Date(now-3600000))}〜${hmOf(new Date(now.getTime()+3600000))}`;
+  const r=await sb.rpc('pos_resv_near_now'); if(seq!==newResvSeq) return;
+  if(r.error){ newResvList=[]; $('nResv').innerHTML=`<div class="muted" style="grid-column:1/-1">予約の一覧を読めません：${esc(r.error.message)}</div>`; return; }
+  newResvList=(r.data||[]); renderNewResv(); }
+// 予約の箱：押すと人数（予約の人数）とお客様が入る。お客様が登録された予約だけ、お客様も入る
+function renderNewResv(){ const box=$('nResv'); if(!box) return; const L=newResvList;
+  if(!L.length){ box.innerHTML='<div class="muted" style="grid-column:1/-1">予約はありません</div>'; return; }
+  const shown=L.length>10?L.slice(0,9):L;
+  const cells=shown.map(r=>`<div class="rb${newResvId===r.id?' sel':''}" data-rid="${esc(r.id)}"><div class="rb1"><b>${esc(r.time)}</b> ${esc(r.name)}　様</div><div class="rb2">${r.douhan?'<span class="rtag">同伴</span>':'<span></span>'}<span>${r.guests}名</span></div></div>`).join('');
+  const more=L.length>10?`<div class="rb more">ほか ${L.length-9}件</div>`:'';
+  box.innerHTML=cells+more;
+  box.querySelectorAll('[data-rid]').forEach(el=>el.onclick=()=>{ const r=L.find(x=>x.id===el.dataset.rid); if(!r) return; newResvId=r.id; newN=r.guests||1; newCust=r.customer_id?{id:r.customer_id,name:r.name}:null; renderNew(); }); }
 async function createBill(t, n, c){ const normal=S.modes.find(m=>m.code==='normal');
   const ex=await sb.from('bills').select('id').eq('table_id',t.id).eq('status','open').limit(1); if(ex.data?.length){ toast('この卓はすでに伝票があります'); await openBill(ex.data[0].id); return; }
   const { data:b, error } = await sb.rpc('pos_rows_add',{p_table:'bills',p:{ store_id:S.store.id, business_date:businessDate(), table_id:t.id, guest_count:n||1, pricing_mode_id:normal?.id, set_start:ceil5(Date.now()).toISOString(), set_minutes:S.settings.set_minutes, set_unit_price:S.settings.set_unit_price }}).then(oneRow);
