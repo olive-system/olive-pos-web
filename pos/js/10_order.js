@@ -31,7 +31,7 @@ function renderCart(){ $('oCart').innerHTML=oCart.map((l,i)=>`<div class="oline 
   $('oCart').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ oCart[b.dataset.p].qty++; renderCart(); });
   $('oCart').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.m); oCart[i].qty--; if(oCart[i].qty<=0){ oCart.splice(i,1); oSel=Math.min(oSel,oCart.length-1); renderOrderCasts(); } renderCart(); }); }
 function buildSplits(itemId, line){ const q=line.qty, back=line.p.back_amount*q, pts=Number(line.p.back_points)*q, n=line.casts.length; // 売上は常に係。ここはバックとポイントだけ
-  return line.casts.map((id,i)=>({bill_item_id:itemId,staff_id:id,sales_amount:0,back_amount:Math.floor(back/n)+(i===0?back-Math.floor(back/n)*n:0),back_points:Math.floor(pts/n*10)/10})); } /* 端数は最初の人に（前は消えていた） */
+  return line.casts.map((id,i)=>({bill_item_id:itemId,staff_id:id,sales_amount:0,back_amount:Math.floor(back/n)+(i===0?back-Math.floor(back/n)*n:0),back_points:i===0?Math.round((pts-Math.floor(pts/n*10)/10*(n-1))*10)/10:Math.floor(pts/n*10)/10})); } /* 端数は最初の人に足して合計をぴったりに（管理サイトの伝票の直しと同じ式） */
 $('oConfirm').onclick=guard($('oConfirm'),async()=>{ /* 通しチェック3：確かめの読み込みの間の二度押しで二重に入っていた */ if(!oCart.length){ toast('メニューを選んでください'); return; }
   // キープ可の商品：伝票のお客様にボトルを自動登録する。お客様が未登録なら注文を入れない／複数なら誰のボトルか選ぶ
   const keepFor=new Map(); const keepLines=oCart.filter(l=>l.p.is_keepable); if(keepLines.length){ const bcs=[...new Set((S.cur.bill_customers||[]).map(x=>x.customer_id))]; if(!bcs.length){ await uiConfirm('先にお客様名を登録してください'); return; }
