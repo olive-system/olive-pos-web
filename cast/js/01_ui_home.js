@@ -4,7 +4,7 @@ async function start(){
   try{ await liff.init({ liffId: LIFF[STORE] }); }catch(e){ fail('LINE の初期化に失敗しました：' + (e.message||e)); return; }
   if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
   if(goParam() === 'apply'){ await applyStart(); return; } /* みんな用のメニューの「予約状況の確認」（LINE連携していない人も開く） */
-  if(['book', 'voice', 'sheet', 'judge'].includes(goParam())){ await apLiff(goParam()); return; } /* judge＝体験のジャッジ */ /* 応募の人に届く LINE のボタン（面接予約・ご感想・ヒアリングシート）。LINE連携していない人も開く */
+  if(['book', 'voice', 'sheet', 'judge', 'scout'].includes(goParam())){ await apLiff(goParam()); return; } /* judge＝体験のジャッジ */ /* 応募の人に届く LINE のボタン（面接予約・ご感想・ヒアリングシート）。LINE連携していない人も開く */
   await login();
 }
 
