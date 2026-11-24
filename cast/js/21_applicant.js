@@ -178,12 +178,13 @@ function apIvAddDlg(w, iso, store, back, done){ const d = new Date(iso + 'T00:00
 // 応募の人に届く LINE のボタン（LINE連携していない人も開く）。［面接予約］は押した時刻を残して予約ページへ・［ご感想］は体験の翌日
 async function apLiff(go){
   if($('tSub')) $('tSub').textContent = ''; document.title = 'OLIVE'; /* 応募の人に「LINEマイページ」は出さない。店の名前は店の表から（ジャッジの画面は自分の題を出すので上書きしない） */
-  if(go !== 'judge') sb.rpc('ap_store_title', { p_store: STORE }).then(r => { if(r.data) document.title = r.data; });
+  if(go !== 'judge' && go !== 'scout') sb.rpc('ap_store_title', { p_store: STORE }).then(r => { if(r.data) document.title = r.data; });
   const idt = liff.getIDToken(); if(!idt){ liff.login({ redirectUri: location.href }); return; }
   show('<div class="card c muted">読み込み中…</div>');
   if(go === 'book'){ const r = await sb.rpc('ap_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }
     show('<div class="card c muted">面接予約のページを表示しています…</div>'); try{ liff.openWindow({ url: r.data, external: false }); }catch(e){ location.href = r.data; } return; }
   if(go === 'judge'){ document.title = '体験のジャッジ'; await judgeLiff(idt); return; } /*（24_judge.js） */
+  if(go === 'scout'){ document.title = 'スカウト請求書'; await scoutLiff(idt); return; } /* 25日のスカウト請求書（27_scout.js・オーナーだけ） */
   if(go === 'sheet'){ await sheetForm(idt); return; } /*（22_sheet.js） */
   const g = await sb.rpc('ap_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
   if(!g.data.ok){ fail('表示できません'); return; }
