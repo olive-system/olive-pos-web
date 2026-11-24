@@ -72,7 +72,7 @@ async function pastOpen(s){ pastClose(); S.pastSel=s;
     const hrs=x=>{ const h=x.hours!=null?Number(x.hours):trialHours(x.in,x.out); return h==null?'':`${h}時間`; };
     if(days.some(x=>pastDay(x.day).split('/').length===3)) W[0]=92; /* 去年の日は年も出す */
     A.push(['体験日',`<div class="muted" style="display:flex;gap:10px;font-size:12px;padding-bottom:2px">${cells('日付','時刻','稼働時間','日払（立替）','')}</div>`
-      +days.map((x,i)=>`<div data-pday="${x.day}" style="display:flex;align-items:center;gap:10px;padding:6px 0;${i?'border-top:1px solid var(--line)':''}">${cells(pastDay(x.day),x.in?`${hmJst(x.in)} 〜 ${x.out?hmJst(x.out):''}`:'',hrs(x),x.paid!=null?f(x.paid)+'円':'',x.rc?`<span class="badge" data-prc="${x.day}" style="cursor:pointer">受領済</span>`:'')}</div>`).join(''),true]);
+      +days.map((x,i)=>`<div data-pday="${x.day}" style="display:flex;align-items:center;gap:10px;padding:6px 0;${i?'border-top:1px solid var(--line)':''}">${cells(pastDay(x.day),x.in?`${hmJst(x.in)} 〜 ${x.out?hmJst(x.out):''}`:'',hrs(x),x.paid!=null?f(x.paid):'',x.rc?`<span class="badge" data-prc="${x.day}" style="cursor:pointer">受領済</span>`:'')}</div>`).join(''),true]);
   } else if(s.is_trial) A.push(['体験日',pastDay(s.day)]);
   more.innerHTML=pastGrid(A);
   more.querySelectorAll('[data-prc]').forEach(b=>b.onclick=()=>{ const x=days.find(y=>y.day===b.dataset.prc); if(x) openTrialPay(s,null,{},0,x.rc); });

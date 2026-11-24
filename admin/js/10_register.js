@@ -96,14 +96,14 @@ function regBind(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat,nm,moves,i
     const ad=$('rgAdd'); ad.onclick=guard(ad,async()=>{ const amount=numIn($('rgAmt').value), kind=$('rgKind').value, memo=(kind==='out'&&$('rgMemoSel').value!=='__other')?$('rgMemoSel').value:$('rgMemo').value.trim();
       if(!amount){ await uiAlert('金額を入力してください'); return; } if(!memo){ await uiAlert('内容を入力してください'); return; }
       const r=await rpc('admin_add_cash_move',{p_store:st,p_date:d,p_kind:kind,p_amount:amount,p_memo:memo}); if(!r.ok) return; toast(kind==='out'?'出金を登録しました':'入金を登録しました'); PAGES.register(); }); }
-  $('main').querySelectorAll('[data-mvdel]').forEach(x=>x.onclick=guard(x,async()=>{ const m=moves.find(z=>z.id===x.dataset.mvdel); if(!m||!await uiConfirm(`${m.kind==='out'?'出金':'入金'} ${yen(m.amount)}（${m.memo||''}）を削除しますか？`,'削除','danger')) return;
+  $('main').querySelectorAll('[data-mvdel]').forEach(x=>x.onclick=guard(x,async()=>{ const m=moves.find(z=>z.id===x.dataset.mvdel); if(!m||!await uiConfirm(`${m.kind==='out'?'出金':'入金'} ${yenU(m.amount)}（${m.memo||''}）を削除しますか？`,'削除','danger')) return;
     const r=await rpc('admin_del_cash_move',{p_id:m.id}); if(!r.ok) return; toast('削除しました'); PAGES.register(); }));
 }
 /* 精算の保存 */
 function regBindSave(K){ const {today,d,st,ed,mv,adv,pay,cls,prev,stf,lat,nm,moves,inSum,outSum,advRows,advSum,cashSales,saved,prevRow,future,later,gapNet,gapDays,gapRd,idle,canMove,canSave,cnt,calc,goD}=K;
   if($('rgSave')){ const sv=$('rgSave'); sv.onclick=guard(sv,async()=>{ const v=calc(); if(v.opening==null){ await uiAlert('本日釣銭を入力してください'); return; }
     if(v.deposit>v.counted){ await uiAlert('預金金額がレジ内現金より多くなっています'); return; }
-    if(!await uiConfirm(`${d} のレジ精算を保存しますか？\nレジ内現金 ${yen(v.counted)}／過不足 ${sgnYen(v.diff)}\n保存すると、この日の入出金は変更できなくなります（POS も同じ）`)) return;
+    if(!await uiConfirm(`${d} のレジ精算を保存しますか？\nレジ内現金 ${yenU(v.counted)}／過不足 ${sgnYen(v.diff)}\n保存すると、この日の入出金は変更できなくなります（POS も同じ）`)) return;
     const counts={}; DENOMS.forEach(([dv])=>{ const c=numIn(regCounts[dv]); if(c) counts[dv]=c; });
     const r=await rpc('admin_save_register_closing',{p_store:st,p_date:d,p_counts:counts,p_opening:v.opening,p_sales:v.sales,p_in:v.cin,p_out:v.cout,p_expected:v.expected,p_counted:v.counted,p_diff:v.diff,p_deposit:v.deposit,p_next:v.next});
     if(!r.ok) return; regCounts={}; regDeposit=0; toast('精算を保存しました'); PAGES.register(); }); }

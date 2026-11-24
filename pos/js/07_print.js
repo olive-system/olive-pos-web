@@ -177,7 +177,7 @@ function openReceipt(o){ const rate=Number(S.cur.totals?.tax_rate)||10; const m=
   q('amount').oninput=()=>{ if(!cashTouched) q('cash').value=Math.min(num('amount'),o.cashAvail); /* 現金とカードの両方で払われた伝票は、金額を変えたら現金の欄を確かめるように出す（ゲネプロ #38） */ const mx=m.querySelector('[data-rcmix]'); if(mx) mx.classList.toggle('hidden',!(o.cashAvail>0&&o.cashAvail<o.amount&&num('amount')!==o.amount)); paint(); }; q('cash').oninput=()=>{ cashTouched=true; paint(); }; q('name').oninput=q('guests').oninput=q('n').oninput=paint;
   m.querySelectorAll('[data-rcnames] .chip').forEach(b=>b.onclick=()=>{ q('name').value=b.textContent; m.querySelectorAll('[data-rcnames] .chip').forEach(x=>x.classList.toggle('on',x===b)); paint(); }); /* 領収書名が2社以上の時は宛名の下で選択 */
   q('no').onclick=()=>m.remove(); paint();
-  const ok=q('ok'); ok.onclick=guard(ok,async()=>{ const t=total(), n=num('n'); if(!t.amount||t.amount<1){ toast('金額が正しくありません'); return; } if(t.amount>o.max){ toast(`上限は ${yen(o.max)} です`); return; } if(num('cash')>t.amount){ toast('現金が金額を超えています'); return; }
+  const ok=q('ok'); ok.onclick=guard(ok,async()=>{ const t=total(), n=num('n'); if(!t.amount||t.amount<1){ toast('金額が正しくありません'); return; } if(t.amount>o.max){ toast(`上限は ${yenU(o.max)} です`); return; } if(num('cash')>t.amount){ toast('現金が金額を超えています'); return; }
     if(!(n>=1&&n<=10)){ toast('枚数は1〜10にしてください'); return; } const L=sheets(); if(L.some(x=>x.a<1)){ toast('金額が枚数に対して少なすぎます'); return; }
     const sg=await rcIssue(o,L,data,rate,m); if(sg){ sigCv=sg; paint(); m.remove(); } }); }
 $('extAdd').textContent=`${S.settings?.ext_minutes||30}分延長`;

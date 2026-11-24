@@ -44,7 +44,7 @@ function aplDays(days){ if(!days?.length) return '';
   const col='flex:none;font-variant-numeric:tabular-nums;white-space:nowrap', W=[days.some(x=>aplDay(x.day).split('/').length===3)?92:56,116,64,92,56];
   const aplCells=(...v)=>v.map((t,i)=>`<span style="${col};width:${W[i]}px${i===3?';text-align:right':''}">${t}</span>`).join('');
   return `<div class="muted" style="display:flex;gap:10px;font-size:12px;padding-bottom:2px">${aplCells('日付','時刻','稼働時間','日払（立替）','')}</div>`
-    +days.map((x,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${i?'border-top:1px solid var(--line)':''}">${aplCells(aplDay(x.day),x.in?`${hmJst(x.in)} 〜 ${x.out?hmJst(x.out):''}`:'',x.hours!=null?`${Number(x.hours)}時間`:'',x.paid!=null?aplYen(x.paid)+'円':'',x.rc?'<span class="badge">受領済</span>':'')}</div>`).join(''); }
+    +days.map((x,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${i?'border-top:1px solid var(--line)':''}">${aplCells(aplDay(x.day),x.in?`${hmJst(x.in)} 〜 ${x.out?hmJst(x.out):''}`:'',x.hours!=null?`${Number(x.hours)}時間`:'',x.paid!=null?aplYen(x.paid):'',x.rc?'<span class="badge">受領済</span>':'')}</div>`).join(''); }
 const aplPay=(t,a)=>a?`${t==='hourly'?'時給':'日給'} ${aplYen(a)}円`:'';
 
 async function aplOpen(x){ aplClose(); aplSel=x; const st=storeId;
