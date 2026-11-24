@@ -144,6 +144,8 @@ function rbCasts(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit
   $('bCasts').querySelectorAll('[data-rmcast]').forEach(x=>x.onclick=async()=>{ const bc=(b.bill_casts||[]).find(c=>c.id===x.dataset.rmcast); { const dl=await sb.rpc('pos_rows_del',{p_table:'bill_casts',p_where:{id:(x.dataset.rmcast)??null}}); if(dl.error){ toast('キャストを外せません：'+dl.error.message); return; } } await logOp('キャストを伝票から外す',{name:snm(bc?.staff_id)}); if(bc?.is_kakari) await syncHcBack(); /* その人のバックが付いた注文が残っていたら知らせる（ゲネプロ #51） */ const left=(b.bill_items||[]).filter(i=>!i.is_void&&i.name!=='HC'&&(i.bill_item_splits||[]).some(sp=>sp.staff_id===bc?.staff_id)).map(i=>`${i.name}×${i.qty}`); await openBill(b.id); if(left.length) await uiAlert(`${snm(bc?.staff_id)} のバックが付いた注文が残っています。\n${left.join('・')}\n修正する時は、注文の「振分」を押してください`); });
   renderGood(b); // 反応◎
 }
+/* 右上の × と金額を持つ行に印を付ける（:has() は古い iOS で効かないので JS で付ける） */
+function markXr(ids){ ids.forEach(id=>{ const el=$(id); if(!el) return; Array.prototype.forEach.call(el.children,r=>{ let a=false,x=false; Array.prototype.forEach.call(r.children,c=>{ if(c.classList.contains('amt')) a=true; if(c.tagName==='BUTTON'&&c.classList.contains('xb')) x=true; }); if(a&&x) r.classList.add('xr'); }); }); }
 /* セット・VIP・延長 */
 function rbSetHtml(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bSet').innerHTML=`<div class="item"><span class="n">セット ${b.set_minutes}分<br><small>${yen(b.set_unit_price)}×${b.set_guest_count??b.guest_count}</small></span><span class="amt">${yen(b.set_unit_price*(b.set_guest_count??b.guest_count))}</span></div>`+
@@ -156,6 +158,7 @@ function rbSetHtml(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEd
     (b.ext_pay_shift_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">会計中猶予 ${b.ext_pay_shift_minutes}分（料金なし）</div>`:'')+
     (b.status==='open'&&b.pay_open_at?`<div class="muted" style="font-size:12px;padding:2px 4px">お会計中　延長停止 ${hmJst(b.pay_open_at)}</div>`:'')+
     (t?.vip_set_fee>0&&b.vip_set_off?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した VIP代（料金なし）</div>`:'');
+  markXr(['bSet']);
 }
 function rbSetBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   if($('extSum')) $('extSum').onclick=()=>{ S.extOpen=!S.extOpen; openBill(b.id); };
@@ -179,6 +182,7 @@ function rbItemKit(R){ const {b,t,mode,T0}=R;
 function rbItems(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bItems').innerHTML=grp.filter(isBottle).map(itemRow).join('')||'<div class="muted">なし</div>';
   $('bItems2').innerHTML=grp.filter(i=>!isBottle(i)).map(itemRow).join('')||'<div class="muted">なし</div>';
+  markXr(['bItems','bItems2']);
 }
 /* 注文の値段・取消・振分・数量 */
 function rbItemBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
