@@ -70,7 +70,7 @@ function rdBindBottles(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; c
   D.querySelectorAll('[data-sh]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.sh); if(b.own===false){ if(!await uiConfirm(`${b.name} は ${b.share} 様のボトルです。\n共同を解除しますか？`,'共同解除')) return; if(!await needEdit()) return; await bottleAct(b,'share','共同を解除しました','',true); return; } /* 相手のボトルは解除だけ */ if(!await needEdit()) return; const v=await shForm(b,c); if(v!=null) await bottleAct(b,'share',v?'共同ボトルにしました':'共同を解除しました',v,true); }); /* 共同ボトル（1本を2人のお客様につなぐ） */
   D.querySelectorAll('[data-shgo]').forEach(x=>x.onclick=()=>{ if(x.dataset.shgo) openDetail(x.dataset.shgo); });
   D.querySelectorAll('[data-unexp]').forEach(x=>x.onclick=async()=>{ const b=bts.find(z=>z.id===x.dataset.unexp); if(!await uiConfirm(`${b.name} の${b.moved?'ボトル移動':'期限切れ'}を取り消して、キープ中に戻しますか？`,'戻す')) return; if(!await needEdit()) return; await bottleAct(b,'unexpire','キープ中に戻しました',null,true); });
-  /* キープ名は常に表示。書き換えて枠を離れたら、編集パスワードを確認してから保存（POS と同じ形） */
+  /* キープ名は常に表示。書き換えて枠を離れたら、編集の券を確かめて（needEdit）から保存（POS と同じ形） */
   D.querySelectorAll('[data-kn]').forEach(x=>x.onchange=async()=>{ const b=bts.find(z=>z.id===x.dataset.kn); const v=x.value.trim(); const before=b.keep_name||c.name; if((v||c.name)===before){ x.value=before; return; } if(!await needEdit()){ x.value=before; return; } await bottleAct(b,'keep_name','キープ名を保存しました',v,true); });
 }
 /* ボトルの追加（リストに無い銘柄も） */
