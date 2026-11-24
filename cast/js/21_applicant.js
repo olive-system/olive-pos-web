@@ -184,7 +184,7 @@ async function apLiff(go){
   if(go === 'book'){ const r = await sb.rpc('ap_book', { p_store: STORE, p_id_token: idt }); if(r.error){ fail(r.error.message); return; }
     show('<div class="card c muted">面接予約のページを表示しています…</div>'); try{ liff.openWindow({ url: r.data, external: false }); }catch(e){ location.href = r.data; } return; }
   if(go === 'judge'){ document.title = '体験のジャッジ'; await judgeLiff(idt); return; } /*（24_judge.js） */
-  if(go === 'scout'){ document.title = 'スカウト請求書'; await scoutLiff(idt); return; } /* 月末のスカウト請求書（27_scout.js・オーナーだけ） */
+  if(go === 'scout'){ document.title = 'スカウト請求書'; await scoutLiff(idt); return; } /* 25日のスカウト請求書（27_scout.js・オーナーだけ） */
   if(go === 'sheet'){ await sheetForm(idt); return; } /*（22_sheet.js） */
   const g = await sb.rpc('ap_voice_get', { p_store: STORE, p_id_token: idt }); if(g.error){ fail(g.error.message); return; }
   if(!g.data.ok){ fail('表示できません'); return; }
