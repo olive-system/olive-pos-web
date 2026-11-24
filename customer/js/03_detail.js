@@ -1,5 +1,4 @@
 // ---------- 詳細 ----------
-/* 並び順を POS とそろえる（名前・卓名は日本語順、数字は数の順） */
 async function openDetail(id){ curId=id; cur=null; const c=custs.find(x=>x.id===id); $('dName').textContent=c?c.name+' 様':''; $('detail').innerHTML='<div class="loading">読み込み中…</div>'; show('vDetail'); paintEdit();
   try{ const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id) return; cur=d; renderDetail(); }catch(e){ if(curId===id){ $('detail').innerHTML=''; } await csFail(e); if(e.code==='CS_NOTFOUND'){ show('vList'); loadList(); } } }
 async function reloadDetail(){ if(!curId) return; try{ const d=await rpc('cs_detail',{p_token:token,p_id:curId}); cur=d; renderDetail(); }catch(e){ await csFail(e); } }
@@ -9,7 +8,7 @@ async function cxLoad(c){ let d; try{ d=await rpc('cs_contacts',{p_token:token,p
   const key=x=>String(x||'').replace(/[\s　]/g,''), un=((d&&d.unlinked)||[]).slice().sort((a,b)=>(key(b.name)===key(c.name))-(key(a.name)===key(c.name)));
   box.innerHTML=`${((d&&d.casts)||[]).length?d.casts.map(esc).join('・'):'<span class="muted">なし</span>'}`+(editing()&&un.length?`<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><select id="cxSel" style="flex:1;min-width:0;padding:8px 6px"><option value="">未選択の連絡先交換</option>${un.map(x=>`<option value="${x.id}">${esc(x.name)} 様（${esc(x.cast)} ${cuMd(x.date)}）</option>`).join('')}</select><button class="ghost sm" id="cxGo" style="flex:none">選択</button></div>`:'');
   const go=$('cxGo'); if(go) go.onclick=async()=>{ const id=$('cxSel').value; if(!id){ await uiAlert('連絡先交換を選んでください'); return; } const x=un.find(z=>z.id===id); if(!await uiConfirm(`${x.name} 様（${x.cast}）の連絡先交換を\n${c.name} 様にしますか？`)) return; if(!await needEdit()) return; go.disabled=true; try{ await rpc('cs_contact_link',{p_token:token,p_edit_token:editTok,p_id:id,p_customer:c.id}); toast('顧客を選択しました'); cxLoad(c); }catch(e){ go.disabled=false; await csFail(e); } }; }
-function renderDetail(){ if(!cur) return; const c=cur.customer; /* モードが無いので、編集のボタンはいつも同じ形（閲覧だけの人には出さない） */ $('dName').textContent=c.name+' 様';
+function renderDetail(){ if(!cur) return; const c=cur.customer; /* モードが無いので、編集のボタンはいつも同じ形（閲覧だけの人は、preview.html の html.ro の決まりで隠す） */ $('dName').textContent=c.name+' 様';
   const bts=(cur.bottles||[]).slice().sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); /* 開けた日の新しい順（POS と同じ） */ const open=bts.filter(b=>!b.is_finished&&!b.expired_on), fin=bts.filter(b=>b.is_finished&&!b.expired_on), exp=bts.filter(b=>b.expired_on);
   const kakari=c.kakari_staff_id?sname(c.kakari_staff_id):'';
   const good=(cur.good||[]).slice().sort((a,b)=>b.n-a.n||jaCmp(sname(a.staff_id),sname(b.staff_id))).slice(0,3)/* 全員を受け取り、多い順・同じ回数は名前順で3名（POS と同じ） */.map(g=>`<span style="margin-right:14px;white-space:nowrap;display:inline-block">${esc(sname(g.staff_id))} <small class="muted">${g.n}回</small></span>`).join('')||'<span class="muted">なし</span>';

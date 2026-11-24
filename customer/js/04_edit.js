@@ -1,9 +1,9 @@
 // 基本情報・メモの編集（編集パスワードが必要）
-CU_SITE.rnInp = 'margin:0'; /* 本名の欄（lib/olive/customer.js の rnBox）の入力欄の形 */
+CU_SITE.rnInp = 'margin:0'; /* 領収書名の欄（lib/olive/customer.js の rnBox）の入力欄の形 */
 const rnFirst=v=>String(v||'').split('\n')[0].trim();
 const EF=[['name','お名前'],['kana','フリガナ'],['birthday','お誕生日'],['company','会社名'],['receipt_name','領収書名'],['kakari_staff_id',''+KL+''],['company_address','会社住所'],['tobacco','タバコ'],['haisha','配車']]; /* タバコ・配車（オーナー。メモの【タバコ】【配車】から移した。2行になることがあるので入力は2行の枠） */
 function editForm(memoOnly,draft){ const c=cur.customer, dv=k=>draft&&(k in draft)?draft[k]:c[k]; const casts=(boot.staff||[]).filter(s=>s.kind==='cast'&&s.active); const curK=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?staffBy(c.kakari_staff_id):null;
-  const fields=efFields(c,dv,casts,curK,memoOnly,draft); /* 強化リスト（店ごと・上限は出勤人数×3） */
+  const fields=efFields(c,dv,casts,curK,memoOnly,draft); /* 強化リスト（店ごと。上限（出勤人数×3）は、この画面では確かめていない） */
   return sheet(`<h3>${esc(c.name)} 様　${memoOnly?'メモを編集':'お客様の情報を編集'}</h3>${fields}${memoOnly?`<label class="f">メモ<textarea data-k="memo" rows="12">${esc(dv('memo')||'')}</textarea></label>`:''}<div class="btns"><button class="ghost" data-x>キャンセル</button><button class="edit" data-ok>保存</button></div>`,(s,done)=>{ s.querySelectorAll('[data-rn]').forEach(rnBox); const rnNo=s.querySelector('[data-k=receipt_none]'); if(rnNo) rnNo.onchange=()=>s.querySelector('[data-rn]').classList.toggle('hide',rnNo.checked);
     s.querySelector('[data-x]').onclick=()=>done(false);
     s.querySelector('[data-ok]').onclick=e=>efSave(e,s,done,c,memoOnly); }); }
@@ -42,8 +42,6 @@ CU_SITE.clashBox=(mine,theirs)=>sheet(`<h3>同じ箇所をほかの人も修正�
   <div class="f" style="margin-top:8px">あなた<div class="memo" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">${mine}</div></div>
   <div class="f">ほかの人<div class="memo" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">${theirs}</div></div>
   <div class="btns"><button class="ghost" data-v="x">キャンセル</button><button class="ghost" data-v="b">両方残す</button><button class="ghost" data-v="t">ほかの人</button><button class="edit" data-v="m">あなた</button></div>`,(s,done)=>{ s.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>done(b.dataset.v)); }); /* メモの食い違いを選ぶ箱の見た目（顧客サイトの下から出る箱）。選ぶ決まりは lib/olive/customer.js の pickClash */
-/* メモを行ごとに合わせる（3者マージ）。base＝書き始めた時のメモ、mine＝自分の入力、theirs＝ほかで変わった今のメモ。同じ所を両方が別々に直した時だけ conflicts に入る */
-/* conflicts の choice（'m'／'t'／'b'）で仕上げる */
 
 
 // 戻るボタン（スマホの戻る操作）で一覧へ
