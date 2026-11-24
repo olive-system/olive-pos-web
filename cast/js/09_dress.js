@@ -32,7 +32,7 @@ async function dressReport(){
     if(!(a > 0)){ await uiAlert('ドレスの金額を入力してください'); return; }
     if(!dfile){ await uiAlert('ドレスの写真を選んでください'); return; }
     if(!file){ await uiAlert('レシートの写真を選んでください'); return; }
-    if(!await uiConfirm(`ドレス ${yen(a)} を提出しますか？\n提出は1回だけです`)) return;
+    if(!await uiConfirm(`ドレス ${yenU(a)} を提出しますか？\n提出は1回だけです`)) return;
     $('drGo').disabled = true;
     try{
       const q = await sb.rpc('cast_dress_submit', { p_token: TOKEN, p_amount: a }); if(q.error) throw q.error;

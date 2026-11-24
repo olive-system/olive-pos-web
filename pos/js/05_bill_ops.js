@@ -16,9 +16,9 @@ $('bMove').onclick=guard($('bMove'),async()=>{ if(!S.cur||S.cur.status!=='open')
   if(!await uiConfirm(`${tk(to)}にはお客様がいます。\n${tk(to)}の伝票とまとめますか？\n（${x.guest_count}名＋${S.cur.guest_count}名＝${x.guest_count+S.cur.guest_count}名。セットは${tk(to)}の来店の時刻のまま）`)) return;
   const r=await sb.rpc('pos_bill_merge',{p_from:S.cur.id,p_to:x.id}); if(r.error){ await uiAlert(r.error.message); return; } toast(`${tk(to)}の伝票にまとめました`); await openBill(x.id); });
 $('gLeave').onclick=guard($('gLeave'),async()=>{ if(!S.cur||S.cur.status!=='open'||S.cur.guest_count<2) return; const gb=S.cur.guest_count, ru=Number(S.settings?.total_round_unit)||1000, up=x=>Math.ceil(x/ru)*ru; /* 店の「合計の切り上げ単位」（管理サイト POS設定。銀座 1000・広島 100） */ const due=up(S.cur.totals?.amount_due??0), unpaid=Math.max(0,S.cur.totals?.unpaid??0); let n=1; if(gb>2){ n=await uiPick('退店人数',Array.from({length:gb-1},(_,k)=>({label:`${k+1}名`,value:k+1}))); if(!n) return; } const share=Math.min(unpaid,up(unpaid/gb)*n);
-  const av=await uiPrompt(`途中退店（${gb}名→${gb-n}名）\n今の請求額 ${yen(due)}\nお支払い金額`,share); if(av===null) return; const v=numIn(av); if(isNaN(v)||v<0){ toast('金額が正しくありません'); return; } if(v>unpaid){ toast(`未収は ${yen(unpaid)} です`); return; }
+  const av=await uiPrompt(`途中退店（${gb}名→${gb-n}名）\n今の請求額 ${yenU(due)}\nお支払い金額`,share); if(av===null) return; const v=numIn(av); if(isNaN(v)||v<0){ toast('金額が正しくありません'); return; } if(v>unpaid){ toast(`未収は ${yenU(unpaid)} です`); return; }
   let method=null; if(v>0){ method=await uiPick('お支払い方法',[{label:METHOD.cash,value:'cash'},{label:METHOD.card,value:'card'}]); if(!method) return; }
-  if(!await uiConfirm(`途中退店（${gb}名→${gb-n}名）\n${v>0?`${METHOD[method]} ${yen(v)}`:'お支払いなし'}\n確定しますか？`)) return;
+  if(!await uiConfirm(`途中退店（${gb}名→${gb-n}名）\n${v>0?`${METHOD[method]} ${yenU(v)}`:'お支払いなし'}\n確定しますか？`)) return;
   /* 入金・退店の記録・人数を1回で（途中で切れても半端に残らない。もう1台で人数が変わっていたら止める） */
   const p=await cashClosed(()=>sb.rpc('pos_mid_leave',{p_bill:S.cur.id,p_guests:gb,p_left:n,p_amount:v,p_method:method,p_due:due,p_share:share}),`途中退店の現金（${tblName()} ${yenU(v)}）`); if(p.error){ if(p.error.cancel) return; if(await stale(p.error)) return; toast(p.error.message); return; }
   await logOp('途中退店',{before:gb,after:gb-n,left:n,total:due,amount:v,method:method?METHOD[method]:null}); openBill(S.cur.id); });
