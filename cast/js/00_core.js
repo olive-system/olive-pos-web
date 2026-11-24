@@ -1,4 +1,4 @@
-// LINEマイページ：公式 LINE のメニュー → LINE ログイン（LIFF）→ 連携済みなら本人のページ、未連携なら4桁の番号。言葉を熟語に
+// LINEマイページ：公式 LINE のメニュー → LINE ログイン（LIFF）→ 連携済みなら本人のページ、未連携なら4桁の番号
 // 銀座と広島で入口（LIFF）が別。?s= に店のコード
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
 /* 読むだけの関数は必ず中身を返す。中身が空で届いた時（通信の途中で切れた等）は、読み込みの失敗として扱う（画面が止まらず、読み込めない時の決まりの表示になる） */
@@ -7,7 +7,6 @@ const RPC_OBJ = new Set(['hall_absence_info','cast_absence_info','cast_attendanc
 const LIFF = { ginza:'2012027414-zlSsSUTA', hiroshima:'2012027414-BSyLe8IB' };
 const STORE = new URLSearchParams(location.search).get('s') || (()=>{ try{ return localStorage.getItem('olive_cast_store'); }catch(e){ return null; } })() || '';
 const jd = s => new Date(String(s).slice(0,10)+'T00:00:00+09:00'), mdWD = x => `${x.getMonth()+1}/${x.getDate()}（${WD[x.getDay()]}）`, mdDay = s => { const x = jd(s); return `${x.getMonth()+1}/${x.getDate()}`; };
-/* お客様のフリガナで検索（ひらがな・カタカナどちらでも。空白は無視） */
 const DRESS = '<img src="../icons/dress.svg" alt="黒ドレス" style="width:15px;height:15px;vertical-align:-2px;margin-left:2px">'; /* 黒ドレスの着用者の名前の横（オーナー「イ 黒いドレスの形」。Phosphor） */
 const HM = h => { const t=Math.round(Number(h||0)*60); return `${Math.floor(t/60)}時間${String(t%60).padStart(2,'0')}分`; };
 let TOKEN = null, ME = null, pollT = null, SHIFT_ALL = false; /* KL（係の呼び方）は共通の部品 lib/olive/core.js */
@@ -46,7 +45,6 @@ window.addEventListener('popstate', () => { if(!backFn) return; const f = backFn
 
 //点検 B5：読めなかった時に、ボタン・件数が黙って消えないように、画面の上に1行（1回だけ）
 function loadNg(){ const m = $('main'); if(!m || m.querySelector('.ldng')) return; m.insertAdjacentHTML('afterbegin', '<p class="err sm ldng" style="margin:0 2px 8px">読み込めない項目があります。開き直してください</p>'); }
-// 空や文字の数を数に（空は0）。報酬・伝票・黒服の画面が使う
 // リッチメニューの ?go= で画面を開いた後、開き直した時にもう一度飛ばないように消す（キャストと黒服のホームで同じ）
 const goClear = () => { try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} };
 // ホームの四角いボタン（キャストと黒服のホームで同じ形）
