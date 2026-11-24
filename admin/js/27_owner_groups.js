@@ -1,4 +1,4 @@
-// ---------- オーナーのタブをまとめる（adminオーナー「これだけのために1つタブを作るのは嫌」→ ア：4つ） ----------
+// ---------- オーナーのタブをまとめる（adminオーナー「これだけのために1つタブを作るのは嫌」→ まとめたタブ。今は o_view・o_idpw・o_link の3つ） ----------
 // 中の画面は今のまま。まとめたタブを開くと最初の画面を出し、上の切り替えでほかの画面へ（page は中の画面の名前のまま＝今までの確かめがそのまま動く）
 const OWNER_GROUPS={o_view:['o_perms','o_share'] /* 「顧客情報の共有」は「OLIVE 顧客情報」（アクセスの許可。オーナー） */,o_idpw:['o_ids','pw'],o_link:['o_key','o_line_auto','o_waive','o_shiftreq','o_daily','o_line','o_square','o_purge'] /* LINE自動送信。並びはよく使う順（オーナー「使用頻度の順番にしたい」） */ /* 鍵 */ /* 出勤希望 */ /* LINE メニュー・罰金免除申請 */};
 const ownerGroupOf=k=>Object.keys(OWNER_GROUPS).find(g=>OWNER_GROUPS[g].includes(k))||'';
