@@ -84,7 +84,8 @@ function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   const cpCell=(w,v)=>`<span style="display:inline-block;width:${w}px;flex:none;white-space:nowrap">${v}</span>`;
   const cpAmt=(k,id,t,c)=>`<span data-${k}="${id}" style="font-size:14px;padding:2px 4px;cursor:pointer;border-bottom:1px dotted #999;font-variant-numeric:tabular-nums;color:${c}">${t}</span>`;
   const lateHtml=(s,l,f,a,id)=>{ const late=!!l?.late, y=f?f.y:Number(l?.fine||0), p=f?f.p:0, hall=s.kind==='hall', fine=y>0||p>0, alw=!hall&&a; if(!late&&!fine&&!alw) return '';
-    return cpCell(70,!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
+    const ab=!late&&!!f?.L?.some(x=>/^無断欠勤/.test(String(x.reason||''))); /* 打刻の無い子の無断欠勤（営業日の 0:00 に付く・SQL 689）も同じ枠にしるし（オーナー「④に出して」） */
+    return cpCell(70,ab?'<span class="badge warnb">無断欠勤</span>':!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
       +cpCell(132,fine?(f?cpAmt('cpfn',id,'罰金 '+fineSumTxt(y,p),'var(--warn)'):`<span style="color:var(--warn);font-size:14px">罰金 ${fineSumTxt(y,p)}</span>`):late&&l.notice==='approved'?'<span class="badge gray">免除</span>':'')
       +cpCell(132,alw?cpAmt('cpal',id,'手当 '+yen(a.y),'inherit'):''); }; // しるしは「遅刻」「無断遅刻」（オーナー「遅刻連絡ではなく遅刻・連絡なし遅刻ではなく無断遅刻」）
   return {tm,lateHtml}; }
