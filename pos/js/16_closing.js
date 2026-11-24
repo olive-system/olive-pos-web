@@ -47,7 +47,7 @@ async function clChkRender(d,D){ const el=$('clChk'); if(!el) return; if(!S.staf
   const upd=()=>{ $('clChkSave').disabled=!($('clChkBox').checked&&$('clChkWho').value); }; $('clChkBox').onchange=upd; $('clChkWho').onchange=upd;
   $('clChkOpen').onclick=()=>{ S.setCur='bills'; renderSettings('bills'); };
   $('clChkSave').onclick=async()=>{ $('clChkSave').disabled=true; const s=S.staffAll.find(x=>x.id===$('clChkWho').value); await logOp(CL_CHK,{by:s?.display_name||'',staff_id:s?.id||null,business_date:d},null,true); clChkRender(d); }; }
-// ② 出退勤確認（③ マイページの閉店作業の前）（オーナー「閉店作業で全員の出退勤時間の確認。本日打刻があった人の一覧（編集可能）。最終のお客様の退店時間と一緒に」「POS 画面でのみ。②に入れたい。コンパクトに」「列揃えたい」）
+// ② 出退勤罰金確認（③ マイページの閉店作業の前）（オーナー「閉店作業で全員の出退勤時間の確認。本日打刻があった人の一覧（編集可能）。最終のお客様の退店時間と一緒に」「POS 画面でのみ。②に入れたい。コンパクトに」「列揃えたい」）
 // 時刻は在籍と同じ（丸めた時刻）。キャストの時刻を押すと在籍と同じ修正（罰金も同じ）。黒服・体験は表示のみ。修正できるのは今日の営業日だけ
 async function clPunchRender(d,D){ const el=$('clPunch'); if(!el) return; if(!S.staffAll.length) await loadStaffAll();
   const [ev,bl,lt,af,fn,al,hl]=await Promise.all([ clGet(D,'p_ev',()=>sb.from('attendance_events').select('staff_id,event_type,event_at,rounded_at,is_corrected,orig_at,orig_rounded_at').eq('store_id',S.store.id).eq('business_date',d).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at')),
@@ -84,11 +84,12 @@ function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   const cpCell=(w,v)=>`<span style="display:inline-block;width:${w}px;flex:none;white-space:nowrap">${v}</span>`;
   const cpAmt=(k,id,t,c)=>`<span data-${k}="${id}" style="font-size:14px;padding:2px 4px;cursor:pointer;border-bottom:1px dotted #999;font-variant-numeric:tabular-nums;color:${c}">${t}</span>`;
   const lateHtml=(s,l,f,a,id)=>{ const late=!!l?.late, y=f?f.y:Number(l?.fine||0), p=f?f.p:0, hall=s.kind==='hall', fine=y>0||p>0, alw=!hall&&a; if(!late&&!fine&&!alw) return '';
-    return cpCell(70,!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
+    const ab=!late&&!!f?.L?.some(x=>/^無断欠勤/.test(String(x.reason||''))); /* 打刻の無い子の無断欠勤（営業日の 0:00 に付く・SQL 689）も同じ枠にしるし（オーナー「④に出して」） */
+    return cpCell(70,ab?'<span class="badge warnb">無断欠勤</span>':!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
       +cpCell(132,fine?(f?cpAmt('cpfn',id,'罰金 '+fineSumTxt(y,p),'var(--warn)'):`<span style="color:var(--warn);font-size:14px">罰金 ${fineSumTxt(y,p)}</span>`):late&&l.notice==='approved'?'<span class="badge gray">免除</span>':'')
       +cpCell(132,alw?cpAmt('cpal',id,'手当 '+yen(a.y),'inherit'):''); }; // しるしは「遅刻」「無断遅刻」（オーナー「遅刻連絡ではなく遅刻・連絡なし遅刻ではなく無断遅刻」）
   return {tm,lateHtml}; }
-/* 出退勤確認の1人の行（シフト・出・退・遅刻・罰金・同伴） */
+/* 出退勤罰金確認の1人の行（シフト・出・退・遅刻・罰金・同伴） */
 function cpRow(K,{id,s,t}){ const {d,edit,P,T,B,DH,open,last,LT,FN,AL,oW,sW,lW,tm,lateHtml}=K; const on=edit&&s.kind!=='hall'&&!s.is_trial&&!t.none, tag=s.kind==='hall'?'':s.is_trial?'体験':''; /* 同伴かどうかは伝票の係（同伴・同伴①・同伴②）で見る。シフトの同伴・予約・同伴の打刻は予定でキャンセルがあるため（オーナー） */ // 黒服のしるしは出さない（オーナー「黒服って名前でわかるから…スペースがもったいない」）
     return `<div class="item" style="padding:6px 10px"><span class="n" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.display_name||'')}${tag?`<small class="muted"> ${tag}</small>`:''}</span>${sW?`<span class="muted" style="width:${sW}px;flex:none;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums">${LT[id]?PL_SH+esc(LT[id].shift):''}</span>`:''}<span style="width:${84+oW}px;flex:none">${tm(on,DH.has(id)?PL_DH:PL_IN,t.in?hmJst(t.in):'―',t.inFix||!t.in&&!t.none,'pfin',id,t.inO)}</span><span style="width:${118+oW}px;flex:none">${t.out?tm(on,PL_OUT,hmJst(t.out),t.outFix,'pfout',id,t.outO):t.none?tm(false,PL_OUT,'―',false,'pfout',id):tm(on,'','未退勤',s.kind!=='hall','pfout',id)}</span>${lW?`<span style="width:${lW}px;flex:none;display:flex;gap:6px;align-items:center">${lateHtml(s,LT[id],FN?.[id],AL[id],id)}</span>`:''}</div>`;
 }
