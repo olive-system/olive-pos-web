@@ -108,7 +108,7 @@ async function caMarks(C,D){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fi
   // LINEマイページの遅刻連絡（出勤予定）と、連絡なしの遅刻
   const lateM={}; { const lr=entryPart(D,'late'); if(lr.error) rdErr=true; else (lr.data||[]).forEach(a=>{ lateM[a.staff_id]={...(lateM[a.staff_id]||{}),...a}; }); }
   // アプローチ。今日出勤して、連絡済リストをまだ共有していない人を一覧の上に（強く出さない。オーナー「あくまでもお願い」）
-  { const sr=entryPart(D,'sales'); S.salesM={}; if(!sr.error) (sr.data.rows||[]).forEach(r=>{ S.salesM[r.staff_id]=r; }); }
+  { const sr=entryPart(D,'sales'); S.salesM={}; if(!sr.error) (sr.data?.rows||[]).forEach(r=>{ S.salesM[r.staff_id]=r; }); }
   const slTxt=Object.values(S.salesM).filter(r=>r.worked&&r.count==null).map(r=>esc(S.staffAll.find(x=>x.id===r.staff_id)?.display_name||'')).join('・');
   const krM=await caRatio();
   return {absM,lateM,slTxt,rdErr,krM}; }
@@ -216,7 +216,7 @@ function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{ const { error } = await sb.rpc('pos_row_update',{p_table:'staff',p_id:b.dataset.restore,p:{is_active:true}}); if(!error) await logOp('キャストを戻す',{name:snm(b.dataset.restore)},null,true); toast(error?error.message:'戻しました'); renderCasts(); });
   /* 応募情報なしの間は手当も打てない（打てる欄が手当だけだと、日払を手当に打ってしまう。11/18 銀座）。押すと理由を出す */
   $('cList').querySelectorAll('[data-noap]').forEach(b=>b.onclick=()=>uiAlert('応募者ページでヒアリングシートと写真の登録後、報酬をお渡しください'));
-  $('cList').querySelectorAll('[data-extra]').forEach(inp=>inp.onchange=async()=>{ const s=S.staffAll.find(x=>x.id===inp.dataset.extra); const ex=Math.max(0,parseInt(inp.value||'0',10)||0); const c=trialCalc(s,tev[s.id]||{},ex); const ok=c.ready&&!S.trialPay?.[s.id]; /* 応募情報なしの子は金額を書かない（自動の計算と同じ。SQL 577） */ const r=await sb.rpc('pos_trial_adv_save',{p_staff:s.id,p_day:businessDate(),p_amount:ok?c.pay:null,p_extra:ex,p_note:c.note}); /* 体験の日払いは入口だけから（SQL 601。応募情報なしの子は金額を書かない） */ if(r.error){ toast('保存エラー：'+r.error.message); return; } await logOp('日払い（体験・手当の変更）',{name:s.display_name,extra:ex,amount:ok?c.pay:null,calc:c.note},null,true); toast('手当を保存しました'); renderCasts(); });
+  $('cList').querySelectorAll('[data-extra]').forEach(inp=>inp.onchange=async()=>{ const s=S.staffAll.find(x=>x.id===inp.dataset.extra); if(!s) return; /* 一覧を開いた後に在籍から外れた子 */ const ex=Math.max(0,parseInt(inp.value||'0',10)||0); const c=trialCalc(s,tev[s.id]||{},ex); const ok=c.ready&&!S.trialPay?.[s.id]; /* 応募情報なしの子は金額を書かない（自動の計算と同じ。SQL 577） */ const r=await sb.rpc('pos_trial_adv_save',{p_staff:s.id,p_day:businessDate(),p_amount:ok?c.pay:null,p_extra:ex,p_note:c.note}); /* 体験の日払いは入口だけから（SQL 601。応募情報なしの子は金額を書かない） */ if(r.error){ toast('保存エラー：'+r.error.message); return; } await logOp('日払い（体験・手当の変更）',{name:s.display_name,extra:ex,amount:ok?c.pay:null,calc:c.note},null,true); toast('手当を保存しました'); renderCasts(); });
   $('cList').querySelectorAll('[data-adv]').forEach(inp=>inp.onchange=caAdvSave(inp,'adv',adv));
   $('cList').querySelectorAll('[data-tat]').forEach(inp=>inp.onchange=caAdvSave(inp,'tat',adv));
   if (cSorting) dragSort($('cList'),'.rrow',async ids=>{ const rs=[await sb.rpc('pos_staff_sort',{p_ids:ids})]; const er=rs.find(r=>r.error); toast(er?('並び順を保存できませんでした：'+er.error.message):'並び順を保存しました'); renderCasts(); });
