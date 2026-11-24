@@ -19,7 +19,7 @@ PAGES.set_pay=async()=>{
   <div class="psec">報酬</div>
   ${rwt.error?`<div class="card err">報酬の種類を読み込めません：${esc(rwt.error.message)}</div>`:rwCard(rwt.data||{},ed)}
   <div class="psec">キャスト</div>
-  ${stb.error?`<div class="card err">スライド表を読み込めません：${esc(stb.error.message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed,act.error?null:(act.data||[]).map(x=>x.id))}
+  ${/* 表の行（srw）か条件（ctm）だけ読めない時も、表を出さない（空の行のまま保存すると、本当の行を空で上書きしてしまうため） */''}${(stb.error||srw.error||ctm.error)?`<div class="card err">スライド表を読み込めません：${esc((stb.error||srw.error||ctm.error).message)}</div>`:stSection(stb.data||[],srw.data||[],ctm.data||[],ed,act.error?null:(act.data||[]).map(x=>x.id))}
   ${payPtCard(pos,ed)}
   <div id="cardBox"></div>
   <div id="dressBox"></div>
