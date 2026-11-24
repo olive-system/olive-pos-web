@@ -43,5 +43,5 @@ async function resvDouhan(c){ if(!c||!S.cur) return; const r=await sb.rpc('pos_r
     const q=ex?await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:upd}):await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:S.cur.id,staff_id:s.id,role,is_kakari:!!S.settings.douhan_is_kakari}});
     if(q.error){ toast(q.error.message); break; } n++; await logOp('同伴を追加',{name:s.name,kakari:ex?(upd.is_kakari??ex.is_kakari):!!S.settings.douhan_is_kakari,kind:ROLE[role],update:!!ex||undefined,resv:true}); }
   if(S.settings.douhan_is_kakari) await syncHcBack(); await openBill(S.cur.id); }
-function douhanRole(ts){ const d=ts?new Date(ts):new Date(); const m=d.getHours()*60+d.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; }
+function douhanRole(ts){ return douhanRoleAt(ts); }  /* 同伴①②の決め方は共通の部品（lib/olive）の1か所 */
 
