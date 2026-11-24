@@ -80,7 +80,7 @@ function afterDue(now){ const [h,m]=(S.closeHM||'01:00').split(':').map(Number);
 // 卓の札のアフターの行：決まった卓は「アフター ナナ」「アフター なし」、まだの卓は時刻を過ぎたら「アフター未確認」
 function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="casts">アフター ${esc(b.after_bills.map(x=>S.staff.find(s=>s.id===x.staff_id)?.display_name||'').join('・'))}</div>`;
   if(b.after_none) return '<div class="casts">アフター なし</div>';
-  return afterDue(now)?'<div style="margin-top:6px;padding:4px 8px;border-radius:6px;background:var(--warn);color:#fff;font-size:13px;font-weight:700;text-align:center">アフター未確認</div>':''; }
+  return afterDue(now)?'<div class="rtag">アフター未確認</div>':''; }
 /* 押している最中は描き直しを待つ（ほかの iPad の変更の知らせで卓を全部作り直すと、押した卓が消えて反応しなかった） */
 function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } renderHallNow(totals); }
 function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
@@ -93,7 +93,7 @@ function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_cu
     else if (!b) { el.className='tbl'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="empty">空 席</div>`; el.onclick=()=>openNew(t); }
     else { const end=billEnd(b), remain=Math.round((end-now)/60000); const pay=!!b.pay_open_at; el.className='tbl busy'+(remain<10&&!pay?' over':'');
       const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?S.staff.find(s=>s.id===k.staff_id)?.display_name:'';
-      el.innerHTML=`${tsukeNameHtml(b.id,t.name,now)}${cnames(b)?`<div class="cust">${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>${b.guest_count}名</span><span>${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
+      el.innerHTML=`${tsukeNameHtml(b.id,t.name,now)}${cnames(b)?`<div class="cust">${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>${b.guest_count}名</span><span>${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${kpbTag(b.id,now)}${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
       el.onclick=()=>billFromHall(b,pay); } /* ホールから伝票を開いたら、お会計を閉じたのと同じ */
     $('tables').appendChild(el); }
   for (const b of okiBills) { const el=document.createElement('div'); const unpaid=(b.payments||[]).filter(p=>p.method==='oki'&&!p.received_at).reduce((a,p)=>a+p.amount,0);
@@ -115,14 +115,16 @@ async function tsukeLoad(){ tsukeCp=tsukeCpNow(); const r=await sb.rpc('pos_tsuk
 async function tsukeOut(){ const ag=S.tsuke?.agari||[]; if(!ag.length) return;
   const r=await sb.from('attendance_events').select('staff_id').in('staff_id',ag.map(a=>a.staff_id)).in('event_type',['clock_out','after']).gte('event_at',S.tsuke.at); if(r.error) return;
   const out=new Set((r.data||[]).map(e=>e.staff_id)); if(out.size) S.tsuke.agari=ag.filter(a=>!out.has(a.staff_id)); }
-/* 本日ボトル提案（SQL 589）：入店の時から（途中で開けたボトルは空く見込みの30分前から）札の上をオリーブの帯に。時刻は kpb_due で、1分ごとの描き直しで出す */
+/* 本日ボトル提案（SQL 589）：入店の時から（途中で開けたボトルは空く見込みの30分前から）札の下を赤い帯に。時刻は kpb_due で、1分ごとの描き直しで出す */
 const tsukeKpbOn=(id,now)=>{ const t=(S.tsuke?.tables||[]).find(x=>x.bill_id===id); return !!t&&(t.kpb||(!!t.kpb_due&&new Date(t.kpb_due)<=now)); };
-function tsukeNameHtml(id,name,now){ return tsukeKpbOn(id,now)?`<div class="name kb">${esc(name)}<span>本日ボトル提案</span></div>`:`<div class="name">${esc(name)}</div>`; }
+function tsukeNameHtml(id,name,now){ return `<div class="name">${esc(name)}</div>`; }
+// 卓の札の下の赤い帯（アフター未確認と同じ出方。2つ同時の時はボトル提案が上）
+function kpbTag(id,now){ return tsukeKpbOn(id,now)?'<div class="rtag">本日ボトル提案</div>':''; }
 /* 新しい卓が入ったら、5分を待たずに読む（入店の時から出すため） */
 const tsukeNewBill=()=>!!S.tsuke&&S.openBills.some(b=>!(S.tsuke.tables||[]).some(t=>t.bill_id===b.id));
 /* 上がり判断の「本日 ◯人」（SQL 596・オーナー 11/20）：その日の連絡済リストの人数。未提出は 0人（数え方は 590 の cast_sub_day の1か所） */
 const tsukeTodayN=a=>Number(a.contacts)||0;
 function tsukeAgariHtml(){ const ag=S.tsuke?.agari||[]; if(!ag.length) return ''; const kr=caKr.m||{}, pct=(t,v)=>Number(v)>0?(Math.round(Number(t)/Number(v)*1000)/10).toFixed(1)+'%':'—';
   const keep=(S.tsuke.tables||[]).filter(t=>t.kpb&&t.hold==='keep').map(t=>{ const b=S.openBills.find(x=>x.id===t.bill_id); const c=b?(b.bill_customers||[]).map(x=>S.customers.find(y=>y.id===x.customer_id)?.name).filter(Boolean).join('・'):''; return `<div class="agn">${esc(t.table_name||'')}　${c?esc(c)+'様　':''}本日ボトル提案（${t.target}人のまま）</div>`; }).join('');
-  return `<div class="agari"><div class="agh">上がり判断<span>（給率の高い順）</span></div>${ag.map(a=>{ const z=kr[a.staff_id]||{}; return `<div class="agr"><span class="nm">${esc(a.name)}</span><span class="rt">給率 ${pct(z.taxable,z.sales)} / 3M ${pct(z.taxable3,z.sales3)} / 提出 ${subPct(z)} / 本日 ${tsukeTodayN(a)}人</span><button class="ghost sm" data-agk="${a.staff_id}">残す</button></div>`; }).join('')}${keep}</div>`; }
+  return `<div class="agari"><div class="agh">上がり判断</div>${ag.map(a=>{ const z=kr[a.staff_id]||{}; return `<div class="agr"><span class="nm">${esc(a.name)}</span><span class="rt">給率 ${pct(z.taxable,z.sales)} / 3M ${pct(z.taxable3,z.sales3)} / 提出 ${subPct(z)} / 本日 ${tsukeTodayN(a)}人</span><button class="ghost sm" data-agk="${a.staff_id}">残す</button></div>`; }).join('')}${keep}</div>`; }
 function tsukeBind(){ document.querySelectorAll('[data-agk]').forEach(btn=>btn.onclick=guard(btn,async()=>{ const r=await sb.rpc('pos_agari_keep',{p_staff:btn.dataset.agk}); if(r.error){ await uiAlert(r.error.message); return; } await tsukeLoad(); })); }
