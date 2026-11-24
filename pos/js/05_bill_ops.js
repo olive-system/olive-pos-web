@@ -20,7 +20,7 @@ $('gLeave').onclick=guard($('gLeave'),async()=>{ if(!S.cur||S.cur.status!=='open
   let method=null; if(v>0){ method=await uiPick('お支払い方法',[{label:METHOD.cash,value:'cash'},{label:METHOD.card,value:'card'}]); if(!method) return; }
   if(!await uiConfirm(`途中退店（${gb}名→${gb-n}名）\n${v>0?`${METHOD[method]} ${yen(v)}`:'お支払いなし'}\n確定しますか？`)) return;
   /* 入金・退店の記録・人数を1回で（途中で切れても半端に残らない。もう1台で人数が変わっていたら止める） */
-  const p=await cashClosed(()=>sb.rpc('pos_mid_leave',{p_bill:S.cur.id,p_guests:gb,p_left:n,p_amount:v,p_method:method,p_due:due,p_share:share}),`途中退店の現金（${tblName()} ${yen(v)}）`); if(p.error){ if(p.error.cancel) return; if(await stale(p.error)) return; toast(p.error.message); return; }
+  const p=await cashClosed(()=>sb.rpc('pos_mid_leave',{p_bill:S.cur.id,p_guests:gb,p_left:n,p_amount:v,p_method:method,p_due:due,p_share:share}),`途中退店の現金（${tblName()} ${yenU(v)}）`); if(p.error){ if(p.error.cancel) return; if(await stale(p.error)) return; toast(p.error.message); return; }
   await logOp('途中退店',{before:gb,after:gb-n,left:n,total:due,amount:v,method:method?METHOD[method]:null}); openBill(S.cur.id); });
 // 来店時刻の変更：セットの終了・延長・同伴①②を新しい時刻で計算し直す
 function uiTimeHM(def,bd){ return new Promise(res=>{ const st=new Date(bdStart(bd||businessDate())).getTime();

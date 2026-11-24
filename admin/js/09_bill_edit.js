@@ -95,8 +95,8 @@ function beDiffRows(E,ops,note){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bc
     const bk=items=>Object.fromEntries(items.map(i=>[i.id,(i.splits||[]).map(z=>sn(z.staff_id)).join('・')]));
     { const a=bk(O.items), b=bk(S.items); S.items.forEach(i=>{ if(a[i.id]!==undefined&&a[i.id]!==b[i.id]&&!i.is_void) note.push(`バック ${i.name} ${a[i.id]||'なし'}→${b[i.id]||'なし'}`); }); }
     const oe=O.exts.length, se=S.exts.length; rows('bill_extensions',O.exts,S.exts,['minutes','unit_price','qty','is_auto'],()=>''); if(oe!==se) note.push(`延長 ${oe}→${se}回`);
-    rows('bill_adjustments',O.adjs,S.adjs,['kind','amount','reason'],(x,y)=>x?`${x.kind==='discount'?'値引':'値増'} ${yen(x.amount)}`:`${y.kind==='discount'?'値引':'値増'}を取消 ${yen(y.amount)}`);
-    rows('payments',O.pays,S.pays,['method','amount','paid_at','revenue_date','received_at'],(x,y)=>!y?`支払いを追加 ${BE_M[x.method]} ${yen(x.amount)}`:!x?`支払いを取消 ${BE_M[y.method]} ${yen(y.amount)}`:`支払い ${BE_M[y.method]} ${yen(y.amount)}→${BE_M[x.method]} ${yen(x.amount)}`); }
+    rows('bill_adjustments',O.adjs,S.adjs,['kind','amount','reason'],(x,y)=>x?`${x.kind==='discount'?'値引':'値増'} ${yenU(x.amount)}`:`${y.kind==='discount'?'値引':'値増'}を取消 ${yenU(y.amount)}`);
+    rows('payments',O.pays,S.pays,['method','amount','paid_at','revenue_date','received_at'],(x,y)=>!y?`支払いを追加 ${BE_M[x.method]} ${yenU(x.amount)}`:!x?`支払いを取消 ${BE_M[y.method]} ${yenU(y.amount)}`:`支払い ${BE_M[y.method]} ${yenU(y.amount)}→${BE_M[x.method]} ${yenU(x.amount)}`); }
 /* 直した後の請求額を、保存せずにデータベースで計算して出す（p_dry） */
 async function beCheck(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const my=++E.calcSeq, {ops}=diff(), el=box.querySelector('#beSum'); if(!el) return; if(!ops.length){ E.last={due:O.calc.amount_due,paid:O.calc.paid}; }
     else{ el.innerHTML='<span class="muted">計算中…</span>'; const z=await sb.rpc('admin_bill_edit',{p_bill:id,p_ops:ops,p_note:[],p_reason:'',p_dry:true}); if(my!==E.calcSeq) return; if(z.error){ E.last=null; el.innerHTML=`<span style="color:var(--warn)">${esc(z.error.message)}</span>`; return; } E.last=z.data; }
