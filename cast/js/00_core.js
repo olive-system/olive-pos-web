@@ -51,3 +51,15 @@ function loadNg(){ const m = $('main'); if(!m || m.querySelector('.ldng')) retur
 const goClear = () => { try{ const u = new URL(location.href); u.searchParams.delete('go'); history.replaceState(history.state, '', u.toString()); }catch(e){} };
 // ホームの四角いボタン（キャストと黒服のホームで同じ形）
 const homeTile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'disabled'}>${on?'':'<span class="soon">準備中</span>'}<b>${t}</b>${s?`<small>${s}</small>`:''}</button>`;
+
+/* 公式 LINE への送信。失敗は oliveErr で記録する（e.code・e.message・LINE のトークで開いたか・どの画面か）。成功なら true */
+async function lineSend(text, where){
+  let inC = null; try{ inC = liff.isInClient(); }catch(e){}
+  if(inC === false){ if(window.oliveErr) oliveErr({ msg: 'LINE のトーク以外で開いたため送信なし [' + where + ']' }); return false; }
+  try{ await liff.sendMessages([{ type:'text', text }]); return true; }
+  catch(e){ if(window.oliveErr) oliveErr({ msg: 'liff.sendMessages 失敗 [' + where + '] code=' + ((e && e.code) || '') + ' message=' + ((e && e.message) || e) + ' inClient=' + inC }); return false; }
+}
+/* 送信失敗の文：受付は済んでいるので、申請し直さず黒服へ連絡してもらう */
+const lineNg = (what, to) => `<p class="err sm">${what}は受付済みです。公式 LINE への送信は失敗しました。再申請せず、${to}に LINE でご連絡ください</p>`;
+/* LINE のトーク以外で開いている時の注意（送る前の確認の箱に足す） */
+const lineOutNote = () => { try{ return liff.isInClient() ? '' : '\nLINE のトーク以外で表示中：公式 LINE への送信なし（受付は完了）'; }catch(e){ return ''; } };

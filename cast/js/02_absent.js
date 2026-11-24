@@ -22,8 +22,7 @@ async function absent(){
     go.disabled = true;
     const q = await sb.rpc('cast_absence_submit', { p_token: TOKEN, p_reason: rs });
     if(q.error){ go.disabled = false; await uiAlert(q.error.message); return; }
-    let lineOk = true;
-    try{ await liff.sendMessages([{ type:'text', text:`【当日欠勤】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
+    const lineOk = await lineSend(`【当日欠勤】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\n理由：${rs}`, '当日欠勤');
     absentDone(q.data.date, q.data.at, q.data.fine_name, false, lineOk, A.exempt);
   };
 }
@@ -31,7 +30,7 @@ function absentDone(date, at, fine, already, lineOk = true, exempt = false){
   setBack(home);
   show(`${already ? segHtml('absent') : ''}<div class="card c"><div class="big">${already ? '送信済' : '送信完了'}</div><p>${dTxt(date)}の欠勤連絡を受付しました。</p>
     <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div>${exempt ? '' : `<div class="row" style="text-align:left"><span>罰金</span><b>${esc(fine || 'なし')}</b></div>`}
-    <div class="muted sm">取消は黒服にご連絡ください</div>${lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>
+    <div class="muted sm">取消は黒服にご連絡ください</div>${lineOk ? '' : lineNg('欠勤連絡', '黒服')}</div>
     <button class="btn g" id="abHome">ホーム</button>`);
   $('abHome').onclick = home; segBind();
 }
@@ -63,7 +62,7 @@ function hallAbsentDone(date, at, st, monthly, already, lineOk = true, noAppr = 
   show(`${segHtml('absent')}<div class="card c"><div class="big">${already ? '送信済' : '送信完了'}</div><p>${dTxt(date)}の欠勤連絡を受付しました。</p>
     <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div>
     ${monthly && !na ? `<div class="row" style="text-align:left"><span>減算</span><b>${st === 'approved' ? 'なし（免除）' : st === 'rejected' ? '1日分' : '承認者が確認中'}</b></div>` : ''}
-    <div class="muted sm">取消はオーナーにご連絡ください</div>${na ? '<p class="err sm">承認者に LINE が届いていません。オーナーに LINE でもご連絡ください</p>' : lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。オーナーに LINE でもご連絡ください</p>'}</div>
+    <div class="muted sm">取消はオーナーにご連絡ください</div>${na ? '<p class="err sm">承認者に LINE が届いていません。オーナーに LINE でもご連絡ください</p>' : lineOk ? '' : lineNg('欠勤連絡', 'オーナー')}</div>
     <button class="btn g" id="abHome">ホーム</button>`);
   $('abHome').onclick = hallHome; segBind();
 }
@@ -94,7 +93,7 @@ async function lateForm(hall){
     const q = await sb.rpc(hall ? 'hall_late_submit' : 'cast_late_submit', { p_token: TOKEN, p_eta: eta, p_reason: rs });
     if(q.error){ if($('ltGo')) $('ltGo').disabled = false; await uiAlert(q.error.message); return; }
     let lineOk = true;   /* 黒服の遅刻連絡は LINE のトークに送らない（朝礼の「本日の出勤」に出る・SQL 658。オーナー 2026-11-20「いらない。朝礼でわかる」）。承認者への LINE は今までどおり */
-    if(!hall) try{ await liff.sendMessages([{ type:'text', text:`【遅刻連絡】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\nシフト ${q.data.shift}\n出勤予定 ${eta}\n理由：${rs}` }]); }catch(e){ lineOk = false; }
+    if(!hall) lineOk = await lineSend(`【遅刻連絡】${dTxt(q.data.date)} ${tTxt(q.data.at)}\n${ME.name}\nシフト ${q.data.shift}\n出勤予定 ${eta}\n理由：${rs}`, '遅刻連絡');
     lateDone(hall, q.data.date, q.data.at, q.data.shift, eta, 'pending', false, lineOk, q.data.sent === 0);
   };
 }
@@ -104,7 +103,7 @@ function lateDone(hall, date, at, shift, eta, st, already, lineOk = true, noAppr
   show(`${already ? segHtml('late') : ''}<div class="card c"><div class="big">${already ? '送信済' : '送信完了'}</div><p>${dTxt(date)}の遅刻連絡を受付しました。</p>
     <div class="row" style="text-align:left"><span>連絡時刻</span><b>${tTxt(at)}</b></div><div class="row" style="text-align:left"><span>出勤予定</span><b>${esc(eta)}</b></div>
     ${na ? '' : `<div class="row" style="text-align:left"><span>罰金</span><b>${st === 'approved' ? 'なし（免除）' : st === 'rejected' ? '遅刻（通常）' : '承認者が確認中'}</b></div>`}
-    ${na ? '<p class="err sm">承認者に LINE が届いていません。黒服に LINE でもご連絡ください</p>' : lineOk ? '' : '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>'}</div>
+    ${na ? '<p class="err sm">承認者に LINE が届いていません。黒服に LINE でもご連絡ください</p>' : lineOk ? '' : lineNg('遅刻連絡', '黒服')}</div>
     <button class="btn g" id="ltHome">ホーム</button>`);
   $('ltHome').onclick = hall ? hallHome : home; if(already) segBind();
 }
