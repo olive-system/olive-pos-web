@@ -116,9 +116,9 @@ async function clRcptRender(d,moves,D){ const el=$('clRcpt'); if(!el) return; co
   const send=async by=>{ const to=String(S.settings?.receipt_mail_to||'').trim(); if(!to){ await uiAlert('領収書メールの宛先がありません\n管理サイトの POS設定「店の情報」で入力してください'); return; }
     let U; try{ U=await links; }catch(e){ await uiAlert('領収書を読み込めません：'+(e.message||'')); return; }
     const subject=`【${S.store?.name||''}】現金払い（名前→${by}）`;
+    await logOp(CL_RMAIL,{business_date:d,by,count:R.length+SC.length,ids:R.map(m=>m.id).concat(SC.map(x=>x.id))},null,true); /* 記録を先に：ショートカットへ移った後は画面が止まることがあり、記録が残らないと送っていないように見えて2回送るため */
     clGo('shortcuts://run-shortcut?name='+encodeURIComponent('領収書メール')+'&input=text&text='+encodeURIComponent(`${to}\n${subject}\n${U.join(' ')}`));
-    await logOp(CL_RMAIL,{business_date:d,by,count:R.length+SC.length,ids:R.map(m=>m.id).concat(SC.map(x=>x.id))},null,true);
     if(SC.length){ const k=await sb.rpc('pos_scout_mailed',{p_day:d,p_ids:SC.map(x=>x.id)}); if(k.error) toast(k.error.message); }
     clRcptRender(d,moves); };
-  if($('clRcptWho')){ $('clRcptWho').onchange=()=>{ $('clRcptSend').disabled=!$('clRcptWho').value; }; $('clRcptSend').onclick=()=>send($('clRcptWho').value); }
-  if($('clRcptAgain')) $('clRcptAgain').onclick=()=>send(last.detail?.by||''); }
+  if($('clRcptWho')){ $('clRcptWho').onchange=()=>{ $('clRcptSend').disabled=!$('clRcptWho').value; }; $('clRcptSend').onclick=guard($('clRcptSend'),()=>send($('clRcptWho').value)); } /* 二度押しで2回送らないように */
+  if($('clRcptAgain')) $('clRcptAgain').onclick=guard($('clRcptAgain'),()=>send(last.detail?.by||'')); }
