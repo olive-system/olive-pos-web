@@ -1,15 +1,21 @@
-// ---------- 閉店作業（入出金の登録 → ボトル残量 → 顧客メモの更新申請の確認（顧客ウェブサイトから届いた分） → 今日出たお酒・ドリンク → レジ金合わせ → 月間一覧） ----------
-S.clDate=null; S.clCounts={}; S.clDeposit=0; S.clOpening=0; S.clMonth=null; S.clCtx=null; let clReqAuthor='';
+// ---------- 閉店作業の画面の部品（お客様登録・出退勤罰金確認・お酒の数・カードの照合・TODO・着物・伝票の確認）。並びと①②…の番号は 18_close_work.js が店ごとに決める ----------
+S.clDate=null; S.clCounts={}; S.clDeposit=0; S.clOpening=0; S.clMonth=null; S.clCtx=null; /* 閉店作業の画面の状態。18_close_work.js・19_close_receipt.js と共用 */
+/* 打刻の時刻：rounded_at（データベースで丸めた時刻）が無い時だけ、ここで15分に丸める。出勤は切り上げ・退勤は切り捨て（給与と同じ決まり。05 の「時間」） */
+const CL_Q=15*60*1000, clRoundQ=(at,up)=>{ const t=new Date(at).getTime()/CL_Q; return (up?Math.ceil(t):Math.floor(t))*CL_Q; };
+/* 確認者の候補：在籍の黒服と、係だけの人。係だけの「店」（店の係のアカウント）は人ではないので除く */
+const clCheckers=()=>S.staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
+/* 閉店作業の操作ログ（action）の、その営業日の最新1件（だれがいつ完了・確認したか） */
+const clLastLog=(D,key,action,d)=>clGet(D,key,()=>sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',action).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1));
 function clRange(d){ const a=new Date(bdStart(d)); return [a.toISOString(), new Date(a.getTime()+24*3600*1000).toISOString()]; }
-// 閉店作業の④ 今日出たお酒・ドリンク（発注用）。取消の伝票・取消した注文は除く。フード・その他（h.c・b.c・立替金など）は出さない
+// 閉店作業：今日出たお酒・ドリンク（発注用）。取消の伝票・取消した注文は除く。フード・その他（h.c・b.c・立替金など）は出さない
 function clOrderHtml(od){ if(od.error) return `<div class="muted">${esc(od.error.message)}</div>`; const skip=new Set(S.categories.filter(c=>['フード','その他'].includes(c.name)).map(c=>c.id)); const agg=new Map();
   (od.data||[]).forEach(i=>{ const cid=i.category_id||S.products.find(p=>p.id===i.product_id)?.category_id||null; if(skip.has(cid)) return; const k=i.product_id||i.name; const a=agg.get(k)||{name:i.name,cid,qty:0}; a.qty+=Number(i.qty)||0; agg.set(k,a); });
   const items=[...agg.values()].filter(a=>a.qty>0); if(!items.length) return '<div class="muted">なし</div>';
   const cats=[...S.categories.map(c=>c.id),null]; return `<div class="list">${cats.map(cid=>{ const xs=items.filter(a=>(a.cid||null)===cid).sort((a,b)=>b.qty-a.qty); if(!xs.length) return ''; const cn=S.categories.find(c=>c.id===cid)?.name||'未分類'; return `<div class="item" style="flex-wrap:wrap;gap:4px 14px"><b style="flex:0 0 auto">${esc(cn)}</b>${xs.map(a=>`<span>${esc(a.name)} ×${a.qty}</span>`).join('')}</div>`; }).join('')}</div>`; }
 const clNum=numIn;
-// 閉店作業④ 係・同伴・反応◎の登録に間違いがないかを伝票一覧で確認し、確認者を記録する（操作ログに残る。誰が確認したかで責任の所在が分かる）
+// 閉店作業：係・同伴・反応◎の登録に間違いがないかを伝票一覧で確認し、確認者を記録する（操作ログに残る。誰が確認したかで責任の所在が分かる）
 const CL_CHK='伝票の確認（係・同伴・反応◎）';
-// ⑤ 着物（ドレス新調日の免除。オーナー「閉店作業で、着物の項目。本日出勤のキャストの中から選ぶ形で」）
+// 閉店作業：着物（ドレス新調日の免除。オーナー「閉店作業で、着物の項目。本日出勤のキャストの中から選ぶ形で」）
 // 出勤したキャストから着物の子を押す → その月のドレス新調日が免除（付いた罰金は取消）。もう一度押すと取消。ドレス新調日をしない店は出さない
 // カード売上の照合（Square と POS。オーナー「スクエアと API 連携して自動で照合し結果を表示。照合ボタン」）。閉店作業を開くと自動、「照合」でやり直し
 async function clCardRender(d,btn){ const el=$('clCard'); if(!el) return; el.innerHTML='<div class="muted">カード売上の照合…</div>';
@@ -21,7 +27,7 @@ async function clCardRender(d,btn){ const el=$('clCard'); if(!el) return; el.inn
     el.innerHTML=`<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;${ok?'':'background:var(--warn-soft)'}"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>カード売上の照合</b>${ok?'<span class="badge k">一致</span>':`<b style="color:var(--warn)">差 ${D.diff>0?'+':''}${yen(D.diff)}</b>`}<span style="flex:1"></span>${go}</div>
       <div style="display:grid;grid-template-columns:auto auto 1fr;gap:2px 14px;margin-top:6px;font-size:15px"><span>Square</span><b class="right">${yen(D.square.total)}</b><span class="muted">${D.square.count}件</span><span>POS</span><b class="right">${yen(D.pos.total)}</b><span class="muted">${D.pos.count}件</span></div></div>`; }
   const b=$('clCardGo'); if(b) b.onclick=()=>clCardRender(d,true); if(btn&&!q.error) toast('照合しました'); }
-// 閉店作業「⑦ TODO」（v11.72 でレジ金合わせの前に。オーナー）（オーナー「POS の閉店作業で警告する。絶対に終わらせる。できない場合は理由を書かせる」）。未で理由も無いと精算を保存できない（データベースでも止める）
+// 閉店作業：TODO（レジ金合わせの前に置く。オーナー）（オーナー「POS の閉店作業で警告する。絶対に終わらせる。できない場合は理由を書かせる」）。未で理由も無いと精算を保存できない（データベースでも止める）
 async function clTodoRender(d,D){ const el=$('clTodo'); if(!el) return; const q=await clGet(D,'tdl',()=>sb.rpc('pos_todos',{p_day:d})); if(!$('clTodo')||S.clDate!==d) return;
   if(q.error){ el.innerHTML=`<div class="muted">読み込めません：${esc(q.error.message)}</div>`; return; }
   const L=q.data||[]; if(!L.length){ el.innerHTML='<div class="muted">この日の TODO はありません</div>'; return; }
@@ -35,10 +41,10 @@ async function clKmRender(d,D){ const el=$('clKmBox'); if(!el) return; const q=a
   el.querySelectorAll('[data-km]').forEach(b=>b.onclick=async()=>{ const c=C.find(x=>x.id===b.dataset.km), on=!c.kimono; b.disabled=true;
     const r=await sb.rpc('pos_kimono_set',{p_staff:c.id,p_day:d,p_on:on}); if(r.error){ b.disabled=false; await uiAlert(r.error.message); return; } toast(on?`${c.name}：着物（${mo}月のドレス新調日は免除）`:`${c.name}：着物を取消しました`); clKmRender(d); }); }
 async function clChkRender(d,D){ const el=$('clChk'); if(!el) return; if(!S.staffAll.length) await loadStaffAll();
-  const r=await clGet(D,'chk_log',()=>sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_CHK).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1)); if(!$('clChk')||S.clDate!==d) return;
+  const r=await clLastLog(D,'chk_log',CL_CHK,d); if(!$('clChk')||S.clDate!==d) return;
   const done=(r.data||[])[0]; if(done){ const x=new Date(done.created_at); el.innerHTML=`<div style="font-size:16px">${FX('ballotboxwithcheck')} 伝票一覧で確認済　<b>${esc(done.detail?.by||'')}</b>　<small class="muted">${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}</small></div>`; return; }
   if(d!==businessDate()){ el.innerHTML='<div class="muted">確認の記録なし</div>'; return; }
-  const who=S.staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
+  const who=clCheckers();
   el.innerHTML=`<div style="margin-bottom:8px">${KL}・同伴・反応◎の登録に間違いがないか、伝票一覧で確認してください。</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="ghost sm" id="clChkOpen">伝票一覧を開く</button>
     <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:16px;color:var(--ink)"><input type="checkbox" id="clChkBox" style="width:auto;margin:0">伝票一覧で確認した</label>
@@ -47,7 +53,7 @@ async function clChkRender(d,D){ const el=$('clChk'); if(!el) return; if(!S.staf
   const upd=()=>{ $('clChkSave').disabled=!($('clChkBox').checked&&$('clChkWho').value); }; $('clChkBox').onchange=upd; $('clChkWho').onchange=upd;
   $('clChkOpen').onclick=()=>{ S.setCur='bills'; renderSettings('bills'); };
   $('clChkSave').onclick=async()=>{ $('clChkSave').disabled=true; const s=S.staffAll.find(x=>x.id===$('clChkWho').value); await logOp(CL_CHK,{by:s?.display_name||'',staff_id:s?.id||null,business_date:d},null,true); clChkRender(d); }; }
-// ② 出退勤罰金確認（③ マイページの閉店作業の前）（オーナー「閉店作業で全員の出退勤時間の確認。本日打刻があった人の一覧（編集可能）。最終のお客様の退店時間と一緒に」「POS 画面でのみ。②に入れたい。コンパクトに」「列揃えたい」）
+// 閉店作業：出退勤罰金確認（マイページの閉店作業の前）（オーナー「閉店作業で全員の出退勤時間の確認。本日打刻があった人の一覧（編集可能）。最終のお客様の退店時間と一緒に」「POS 画面でのみ。②に入れたい。コンパクトに」「列揃えたい」）
 // 時刻は在籍と同じ（丸めた時刻）。キャストの時刻を押すと在籍と同じ修正（罰金も同じ）。黒服・体験は表示のみ。修正できるのは今日の営業日だけ
 async function clPunchRender(d,D){ const el=$('clPunch'); if(!el) return; if(!S.staffAll.length) await loadStaffAll();
   const [ev,bl,lt,af,fn,al,hl]=await Promise.all([ clGet(D,'p_ev',()=>sb.from('attendance_events').select('staff_id,event_type,event_at,rounded_at,is_corrected,orig_at,orig_rounded_at').eq('store_id',S.store.id).eq('business_date',d).in('event_type',['clock_in','clock_out','douhan','after']).order('event_at')),
@@ -62,8 +68,8 @@ async function clPunchRender(d,D){ const el=$('clPunch'); if(!el) return; if(!S.
 }
 /* 出退勤の表に使う値（打刻の丸め・同伴・最終退店・シフトと遅刻） */
 function cpPrep(d,ev,bl,lt,fn,al,hl){
-  const T={}, Q=900000; (ev.data||[]).forEach(e=>{ const t=T[e.staff_id]||(T[e.staff_id]={}); if(e.event_type==='clock_out'||e.event_type==='after'){ t.out=e.rounded_at||Math.floor(new Date(e.event_at).getTime()/Q)*Q; t.outFix=e.is_corrected; t.outO=e.orig_at?(e.orig_rounded_at||Math.floor(new Date(e.orig_at).getTime()/Q)*Q):null; t.after=e.event_type==='after'; }
-    else if(!t.in){ t.in=e.rounded_at||Math.ceil(new Date(e.event_at).getTime()/Q)*Q; t.inFix=e.is_corrected; t.inO=e.orig_at?(e.orig_rounded_at||Math.ceil(new Date(e.orig_at).getTime()/Q)*Q):null; t.douhan=e.event_type==='douhan'; } });
+  const T={}; (ev.data||[]).forEach(e=>{ const t=T[e.staff_id]||(T[e.staff_id]={}); if(e.event_type==='clock_out'||e.event_type==='after'){ t.out=e.rounded_at||clRoundQ(e.event_at,false); t.outFix=e.is_corrected; t.outO=e.orig_at?(e.orig_rounded_at||clRoundQ(e.orig_at,false)):null; t.after=e.event_type==='after'; }
+    else if(!t.in){ t.in=e.rounded_at||clRoundQ(e.event_at,true); t.inFix=e.is_corrected; t.inO=e.orig_at?(e.orig_rounded_at||clRoundQ(e.orig_at,true)):null; t.douhan=e.event_type==='douhan'; } });
   const B=bl.data||[], DH=new Set(B.flatMap(b=>(b.bill_casts||[]).filter(c=>/^douhan[12]?$/.test(c.role)).map(c=>c.staff_id))), open=B.filter(b=>b.status==='open').length, last=B.filter(b=>b.closed_at).sort((a,b)=>a.closed_at<b.closed_at?1:-1)[0];
   const lastHtml=open?`<span style="color:var(--warn)">来店中 ${open}組</span>`:last?`最終退店 <b style="font-size:18px">${hmJst(last.closed_at)}</b> <small class="muted">${esc(billTable(last))} ${esc((last.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).slice(0,1).map(n=>n+' 様').join(''))}</small>`:'<span class="muted">伝票なし</span>';
   // シフトの列と遅刻（遅刻連絡／連絡なし遅刻・罰金。免除は「免除」。黒服は罰金だけ・手当なし）（オーナー「これ、遅刻なんだよね。こーゆうこと、ここで知りたいな」）
@@ -79,8 +85,7 @@ function cpPrep(d,ev,bl,lt,fn,al,hl){
 /* 時刻の枠と遅刻のしるし */
 function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   const tm=(on,k,v,fix,key,id,o)=>`<span ${on?`data-${key}="${id}" `:''}style="font-size:14px;white-space:nowrap;padding:2px 4px;font-variant-numeric:tabular-nums;border-bottom:1px dotted ${on?'#999':'transparent'};${on?'cursor:pointer;':''}color:${fix?'var(--warn)':on?'inherit':'var(--muted)'}">${k}${o&&hmJst(o)!==v?`<small style="color:var(--muted)">${hmJst(o)}→</small>`:''}${v}</span>`;
-  // 遅刻・無断遅刻のしるしは同じ幅の枠に入れて、罰金・免除の始まりをそろえる（オーナー）。シフトが同伴の日は「同伴」
-  // 遅刻のしるし・罰金・手当は、それぞれ同じ幅の枠に入れて、行ごとに始まりをそろえる（無い行も同じ幅の空き）
+  // 遅刻のしるし・罰金・手当は、それぞれ同じ幅の枠に入れて、行ごとに始まりをそろえる（無い行も同じ幅の空き。オーナー）。シフトが同伴の日は「同伴」
   const cpCell=(w,v)=>`<span style="display:inline-block;width:${w}px;flex:none;white-space:nowrap">${v}</span>`;
   const cpAmt=(k,id,t,c)=>`<span data-${k}="${id}" style="font-size:14px;padding:2px 4px;cursor:pointer;border-bottom:1px dotted #999;font-variant-numeric:tabular-nums;color:${c}">${t}</span>`;
   const lateHtml=(s,l,f,a,id)=>{ const late=!!l?.late, y=f?f.y:Number(l?.fine||0), p=f?f.p:0, hall=s.kind==='hall', fine=y>0||p>0, alw=!hall&&a; if(!late&&!fine&&!alw) return '';
@@ -111,24 +116,24 @@ function clAfterHtml(AF,B,edit){ const R=AF.rows||[]; if(!R.length) return ''; c
     return `<div class="item" style="padding:6px;gap:5px;font-size:14px"><span style="width:58px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm(r.staff_id))}</span>${edit?`<button type="button" class="ghost" data-afsel="${r.staff_id}" style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;text-align:left;padding:5px 6px;font-size:14px;min-height:0;background:#fff">${inner}<span class="muted" style="flex:none">▾</span></button>`:`<span style="flex:1;min-width:0;display:flex;gap:6px;font-size:14px">${inner}</span>`}<span style="width:34px;flex:none;text-align:right;font-weight:700;font-variant-numeric:tabular-nums">${pt(r)}</span></div>`; };
   return `<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 6px"><b style="font-size:16px">アフター</b><small class="muted">お客様1名 ${v.toLocaleString()}${u} を人数で分配</small></div>
     <div class="list" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:10px">${R.map(row).join('')}</div>`; }
-// ② の「退」で退勤の時刻を直す（アフターは伝票で付ける・SQL 526）。時刻を変えない時は罰金なし
+// 出退勤罰金確認の「退」で退勤の時刻を直す（アフターは伝票で付ける・SQL 526）。時刻を変えない時は罰金なし
 async function clPunchOut(id,t,after){ const s=S.staffAll.find(x=>x.id===id); const wi=await sb.rpc('pos_waive_info',{p_staff:id,p_type:'clock_out'}); const kind=t&&t.after?'after':'clock_out';
   const w={...(wi.data||{}),label:s?.display_name||'',at:t&&t.out?new Date(t.out).getTime():null}; const v=await uiTime('clock_out',w); if(!v) return; const by=await askBy(); if(by===null) return; /* 修正した黒服を残す */
   const r=await sb.rpc('pos_punch_out',{p_staff:id,p_kind:v.kind||kind,p_at:v.at}); if(r.error){ await uiConfirm(r.error.message); return; } if(by) await punchBy(id,'clock_out',by); attDrop();
   if(v.w){ const q=await sb.rpc('pos_waive_request',{p_staff:id,p_type:'clock_out',p_applicant:v.w.applicant,p_reason:v.w.reason}); if(q.error) await uiConfirm('打刻は記録しました。免除申請は送信できませんでした：'+q.error.message); else toast('免除申請を送信しました'); } else toast((v.kind||kind)==='after'?'アフターを記録しました':'退勤を記録しました'); after(); }
-// 閉店作業「① お客様登録」（一番上）。伝票ごとにお客様を追加し、確認者を選んで完了 → 出勤したキャストへ連絡先交換の LINE（オーナー「閉店作業の一番最初に伝票のお客様の登録。完了次第、女の子に LINE」）
+// 閉店作業：お客様登録（一番上）。伝票ごとにお客様を追加し、確認者を選んで完了 → 出勤したキャストへ連絡先交換の LINE（オーナー「閉店作業の一番最初に伝票のお客様の登録。完了次第、女の子に LINE」）
 // 1組1行（卓・来店時刻・人数・お名前・未登録 n名・＋お客様）。お名前を押すとメモ。× は会計の後にここで追加したお客様だけ（会計の時のお客様は伝票で修正）。未登録が残っていても確かめの箱で止めて完了できる
 const CL_REG='お客様登録の完了';
 async function clRegRender(d,D){ const el=$('clReg'); if(!el) return; if(!S.staffAll.length) await loadStaffAll();
   const [bl,lg]=await Promise.all([ clGet(D,'reg_bills',()=>sb.from('bills').select('id,status,table_id,table_name,guest_count,opened_at,closed_at,bill_customers(customer_id,created_at),bill_casts(staff_id,is_kakari)').eq('store_id',S.store.id).eq('business_date',d).neq('status','void').order('opened_at')),
-    clGet(D,'reg_log',()=>sb.from('pos_audit_log').select('created_at,detail').eq('store_id',S.store.id).eq('action',CL_REG).eq('detail->>business_date',d).order('created_at',{ascending:false}).limit(1)) ]);
+    clLastLog(D,'reg_log',CL_REG,d) ]);
   if(!$('clReg')||S.clDate!==d) return; if(bl.error||lg.error){ el.innerHTML=RDERR; return; }
   const done=(lg.data||[])[0]; if(done){ const n=await clGet(D,'reg_lines',()=>sb.from('pos_audit_log').select('id',{count:'exact',head:true}).eq('store_id',S.store.id).eq('action','連絡先交換を LINE で聞く').eq('detail->>business_date',d),null,r=>({...r,count:r.data})); if(!$('clReg')||S.clDate!==d) return;
     el.innerHTML=`<div style="font-size:16px;font-variant-numeric:tabular-nums">${esc(done.detail?.by||'')}　<small class="muted">${hmJst(done.created_at)}</small>　完了${n.count?`　<small class="muted">連絡先交換の LINE ${n.count}名</small>`:''}</div>`; return; }
   const B=bl.data||[]; if(!B.length){ el.innerHTML='<div class="muted">伝票なし</div>'; return; }
   const cnm=id=>S.customers.find(c=>c.id===id)?.name||'', un=b=>Math.max((b.guest_count||0)-(b.bill_customers||[]).length,0), total=B.reduce((a,b)=>a+un(b),0);
   const late=(b,c)=>b.closed_at&&c.created_at&&c.created_at>b.closed_at;
-  const who=S.staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
+  const who=clCheckers();
   el.innerHTML=clRegHtml(B,un,late,who,cnm,total);
   clRegWire(el,d,B,total,cnm); }
 /* ① 来店のお客様の登録の画面のボタン（完了・お客様を足す・外す・メモ） */
@@ -149,7 +154,7 @@ function clRegHtml(B,un,late,who,cnm,total){
       <span style="width:84px;flex:none;text-align:right;font-size:14px;color:var(--warn)">${un(b)?`未登録 ${un(b)}名`:''}</span><button class="ghost sm" style="flex:none" data-clradd="${b.id}">＋お客様</button></div>`; }).join('')}</div>
     <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><select id="clRegWho" style="width:auto;min-width:0"><option value="">確認者</option>${who.map(s=>`<option value="${s.id}">${esc(s.display_name)}</option>`).join('')}</select><button class="primary sm" id="clRegDone" disabled>完了</button></div>`;
 }
-// ① のメモ：その場で編集（POS の顧客の画面と同じく直接。ほかの端末で先に変わっていたら行ごとに合わせる）
+// お客様登録のメモ：その場で編集（POS の顧客の画面と同じく直接。ほかの端末で先に変わっていたら行ごとに合わせる）
 async function clRegMemo(id){ const q=await sb.from('customers').select('id,name,memo').eq('id',id).maybeSingle(); if(q.error||!q.data){ toast(q.error?.message||'お客様が見つかりません'); return; } const c=q.data;
   const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(c.name)} 様　メモ</div><textarea data-m rows="8" style="width:100%">${esc(c.memo||'')}</textarea><div class="bar" style="justify-content:flex-end"><button class="primary" data-s>保存</button></div></div>`;
   document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove();
