@@ -1,15 +1,15 @@
-// 店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
+// このサイト全体の決まり：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 'use strict';
-/* フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
+/* このサイト全体の決まり：フリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも */
 /* 管理サイトの「顧客サイト」の中で開いた時（#admin）は、パスワードを聞かずに管理サイトから入場券をもらう。この端末の顧客サイトのログインには触らない（覚えるのはこの画面の中だけ） */
-/* 黒服マイページの中（#hall）も、パスワードを聞かずにマイページから入場券をもらう。管理サイトの中（EA）とちがい、編集は今までどおりメニューの編集パスワードで（オーナー） */
 const EMB=window.parent!==window&&(location.hash==='#admin'||location.hash==='#hall'), EA=EMB&&location.hash==='#admin', MEM={}; /* 黒服マイページの中（#hall）も管理サイトの中と同じく、編集の入場券があれば編集パスワードを聞かない（限定項目が可の黒服。オーナー）。下の EA は編集・メニューの扱いで EMB にした */
 /* （SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
 const LS0={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} keyDb('readwrite',s=>v==null?s.delete(k):s.put(v,k)); } };
 const SS0={ get(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v); }catch(e){} } };
 
 const MEMS={ get(k){ return MEM[k]??null; }, set(k,v){ if(v==null) delete MEM[k]; else MEM[k]=String(v); } }, LS=EMB?MEMS:LS0, SS=EMB?MEMS:SS0;
-let embWait=null, embEdit=null, embEditExp=0, csEdit=false, csNet=false; const setRO=()=>document.documentElement.classList.toggle('ro',EMB?!embEdit:!csEdit); setRO(); /* 「編集モード」をなくした。編集用パスワードでログインした人（csEdit）はずっと編集、閲覧用でログインした人は閲覧だけ（編集のボタンを出さない）。オーナー 点検 D1 */ // 券が来るまでは出さない // 管理サイトに入場券をたのむ（返事が来るまで待つ）
+let embWait=null, embEdit=null, embEditExp=0, csEdit=false, csNet=false; const setRO=()=>document.documentElement.classList.toggle('ro',EMB?!embEdit:!csEdit); setRO(); /* 「編集モード」をなくした。編集用パスワードでログインした人（csEdit）はずっと編集、閲覧用でログインした人は閲覧だけ（編集のボタンを出さない）。オーナー 点検 D1 */
+/* 管理サイト（またはマイページ）に入場券をたのみ、返事が来るまで待つ（券が来るまでは編集のボタンを出さない） */
 function embAsk(){ if(!embWait) embWait=new Promise(res=>{ const on=e=>{ if(e.origin!==location.origin||e.source!==window.parent||!e.data||e.data.type!=='olive-cs-auth') return;
     window.removeEventListener('message',on); embWait=null; const d=e.data; token=d.token||null; embEdit=d.edit_token||null; embEditExp=d.edit_expires_at?new Date(d.edit_expires_at).getTime():0; editTok=embEdit; editExp=embEditExp; setRO(); /* 管理サイトの中では、編集の入場券があれば最初から編集できる */ try{ paintEdit(); }catch(e){} res(d); };
   window.addEventListener('message',on); window.parent.postMessage({type:'olive-cs-need'},location.origin); }); return embWait; }
@@ -79,7 +79,7 @@ async function rtRefresh(k){ if(k==='settings'){ try{ const b=await rpc('cs_boot
 function editing(){ return !!editTok&&editExp>Date.now(); }
 function endEdit(silent){ editTok=null; editExp=0; SS.set('olive_cs_edit',null); SS.set('olive_cs_edit_exp',null); paintEdit(); if(!silent&&cur) renderDetail(); }
 let editTimer=0;
-/* 編集用のパスワードでログインした人は、読み直し・30分後も編集の券を出し直す。返事を分ける ok＝編集用でログイン／no＝閲覧用でログイン／pw＝編集用パスワードが変更された／net＝通信の失敗／auth＝ログアウト済 */
+/* 編集用のパスワードでログインした人は、読み直した時と、券が切れる2分前（paintEdit が30秒ごとに見る）に、編集の券を出し直す。返事を分ける ok＝編集用でログイン／no＝閲覧用でログイン／pw＝編集用パスワードが変更された／net＝通信の失敗／auth＝ログアウト済 */
 async function editRenew(){ if(EMB||!token) return 'no'; try{ const r=await rpc('cs_edit_renew',{p_token:token}); if(r&&r.edit_token){ editTok=r.edit_token; editExp=new Date(r.expires_at).getTime(); SS.set('olive_cs_edit',editTok); SS.set('olive_cs_edit_exp',String(editExp)); return 'ok'; } return r&&r.error==='CS_EDITPW'?'pw':'no'; }catch(e){ return e&&e.code==='CS_AUTH'?'auth':'net'; } }
 /* 結果を画面に当てる。編集できる時 true、閲覧だけの時 false、ログアウトした時 null */
 async function csRenew(){ const k=await editRenew(); csNet=k==='net';
@@ -87,14 +87,14 @@ async function csRenew(){ const k=await editRenew(); csNet=k==='net';
   if(k==='ok') csEdit=true; else if(k==='no'){ csEdit=false; editTok=null; editExp=0; SS.set('olive_cs_edit',null); SS.set('olive_cs_edit_exp',null); }
   setRO(); return csEdit&&editing(); }
 function paintEdit(){
-  if(EMB){ clearTimeout(editTimer); if(embEdit) editTimer=setTimeout(async()=>{ if(embEditExp<Date.now()+120000){ try{ await embAsk(); }catch(e){} } paintEdit(); },30000); return; } // 管理サイトの中：帯は出さず、期限が近づいたら入場券を取り直す
+  if(EMB){ clearTimeout(editTimer); if(embEdit) editTimer=setTimeout(async()=>{ if(embEditExp<Date.now()+120000){ try{ await embAsk(); }catch(e){} } paintEdit(); },30000); return; } // 管理サイト・マイページの中（EMB）：帯は出さず、期限が近づいたら入場券を取り直す
   clearTimeout(editTimer); if(token) editTimer=setTimeout(async()=>{ if(token&&(csEdit?editExp<Date.now()+120000:csNet)&&await csRenew()===null) return; paintEdit(); },30000); } /* 編集用：切れる2分前に取り直す。通信の失敗で決まらなかった時も取り直す */
 async function needEdit(){ if(editing()) return true;
   if(EMB){ let d=null; if(!embEdit||embEditExp<Date.now()+60000) d=await embAsk(); if(embEdit&&embEditExp>Date.now()){ editTok=embEdit; editExp=embEditExp; paintEdit(); return true; }
-    await uiAlert(d&&d.error||'顧客サイトを編集する権限がありません'); return false; } // 編集モードは普通の時と同じ30分
+    await uiAlert(d&&d.error||'顧客サイトを編集する権限がありません'); return false; }
   const k=await csRenew(); if(k) return true; if(k===false&&csNet) await uiAlert('通信できませんでした。電波の良い所で再度お試しください'); return false; } /* 編集パスワードを聞く窓は出さない（閲覧用でログインした人には編集のボタン自体を出さない） */
 
-if(EMB) $('menuBtn').style.display='none'; /* 管理サイトの中ではメニューを出さない（中身が無いため。オーナー） */
+if(EMB) $('menuBtn').style.display='none'; /* 管理サイト・マイページの中（EMB）ではメニューを出さない（中身が無いため。オーナー） */
 $('menuBtn').onclick=()=>sheet(`<button class="xb dx" data-x aria-label="閉じる">×</button><h3>メニュー</h3><div style="display:flex;flex-direction:column;gap:8px">${EMB?'':'<button class="ghost" data-a="out" style="color:var(--warn)">ログアウト</button>'}</div>`,(s,done)=>{
   s.querySelector('[data-x]').onclick=()=>done(); s.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; done();
     if(a==='reload') await loadList(); /* 「編集パスワードを入力」「編集モードを終了」は外した */
