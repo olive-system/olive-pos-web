@@ -37,17 +37,15 @@ function resvThanks(x){
   };
 }
 /* LINE の送信に失敗した時は、欠勤連絡と同じ文を一覧の上に出す（前は何も出さなかった） */
-const RV_LINE_NG = '<p class="err sm">公式 LINE への送信に失敗しました。黒服に LINE でもご連絡ください</p>';
-async function resvListNg(lineOk){ await resvList(); if(!lineOk) $('main').insertAdjacentHTML('afterbegin', RV_LINE_NG); }
+async function resvListNg(lineOk, what){ await resvList(); if(!lineOk) $('main').insertAdjacentHTML('afterbegin', lineNg(what, '黒服')); }
 async function resvCancel(x, b){
   if(!await uiConfirm(`${resvLine(x)}\nこの予約を取り消しますか？`, '取消')) return;
   if(b) b.disabled = true; /* 送っている間は押せない（2回押し） */
   const q = await sb.rpc('cast_resv_cancel', { p_token: TOKEN, p_id: x.id });
   if(q.error){ if(b) b.disabled = false; await uiAlert(q.error.message); return; }
-  let lineOk = true;
-  try{ await liff.sendMessages([{ type:'text', text: resvMsg('予約取消', x, x.kakari_name || '', ME.name) }]); }catch(e){ lineOk = false; }
+  const lineOk = await lineSend(resvMsg('予約取消', x, x.kakari_name || '', ME.name), '予約取消');
   await uiAlert('予約を取り消しました');
-  resvListNg(lineOk);
+  resvListNg(lineOk, '予約取消');
 }
 // 来店時刻は 20:00〜0:30 の15分ごとから選ぶ（type=time は iPhone で午前・午後が出て、午後10時のつもりが 10:00 で入った。オーナー「24時表記がいい」「20:00〜0:30」）
 const RV_TIMES = Array.from({ length: 19 }, (_, i) => { const m = (20 * 60 + i * 15) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); });
@@ -173,19 +171,18 @@ async function rvCheck(R){
   return { d, t, c, k, n, memo };
 }
 async function rvSubmit(R){
-  const v = await rvCheck(R); if(!v) return;
+  const go = $('rvGo'); if(go.disabled) return; go.disabled = true; /* 最初の確かめから押せない（確認の箱の間の2回押し） */
+  const v = await rvCheck(R); if(!v){ if($('rvGo')) $('rvGo').disabled = false; return; }
   const { ed, NK, me, dh, dhIds, blk, DAY } = R, { d, t, c, k, n, memo } = v, nmOf = id => rvNmOf(R, id);
   const vip = $('rvV').value || null, vn = vip ? (DAY.rooms.find(r => r.id === vip) || {}).name : null;
   const kn = NK ? '自分' : $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, guests:n, douhan:dh, meet:null, memo:memo || null, vip:vn, dh_names: dh ? dhIds.map(id => id === me?.id ? ME.name : nmOf(id)) : [] };
-  if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${rvSrOn(R)?`\n出勤希望 ${$('rvST').value}`:''}\nこの内容で${ed?'変更':'申請'}しますか？`)) return;
-  $('rvGo').disabled = true;
+  if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${rvSrOn(R)?`\n出勤希望 ${$('rvST').value}`:''}${lineOutNote()}\nこの内容で${ed?'変更':'申請'}しますか？`)){ if($('rvGo')) $('rvGo').disabled = false; return; }
   const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: R.cid, p_vip: vip, p_dh: R.dh ? R.dhIds : null, p_black: R.dh && R.blk && !R.DAY.black_taken ? R.blk : null });
   if(q.error){ if($('rvGo')) $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
   R.dft?.clear();
-  let lineOk = true;
-  try{ await liff.sendMessages([{ type:'text', text: resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name) }]); }catch(e){ lineOk = false; }
+  const lineOk = await lineSend(resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name), ed ? '予約変更' : '予約申請');
   let srMsg = ''; if(rvSrOn(R)){ const w = await sb.rpc('cast_shift_request', { p_token: TOKEN, p_resv: q.data.id, p_time: $('rvST').value });
     srMsg = w.error ? `\n出勤希望：${w.error.message}` : w.data?.auto ? '\n出勤のシフトが入りました' /* シフトが未確定の月は承認なしで出勤 */ : w.data?.sent ? '\n出勤希望は、承認者に LINE で送りました' : '\n出勤希望の LINE が承認者に届いていません。お店にご連絡ください'; }
   await uiAlert(`${ed?'予約を変更しました':'予約／同伴申請を受付しました'}${q.data.notified?`\n${NK?'':KL+'・'}同伴のキャストにも LINE で送りました`:''}${srMsg}`);
-  resvListNg(lineOk);
+  resvListNg(lineOk, ed ? '予約変更' : '予約');
 }
