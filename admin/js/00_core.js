@@ -1,4 +1,4 @@
-// 店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
+// 管理サイト全体の決まり（中身は lib/olive/core.js の KL・kReg・kSet）：店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
 // POS・タイムカードと同じサイト上にあるので、ログイン情報は別の場所にしまう（POSのログインを横取りしない）
 /* （SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
@@ -22,8 +22,7 @@ const fmtDT=t=>t?new Date(t).toLocaleString('ja-JP',{year:'numeric',month:'numer
 const sgnYen=n=>(n>0?'+':'')+yen(n);
 const md=mdS; /* 「11/3」は lib/olive/core.js の mdS */
 /* 日付と曜日「11/3（火）」は lib/olive/core.js の mdW・wdS */
-// 写真を長い辺 1600px・品質 0.85 の JPEG に縮める（お知らせの添付・共有メモ。前は同じものが 20_pos_settings.js と 32_shared_memo.js に1つずつあった。 コード整理）
-// 時刻（日本時間の 21:05）と、2つの時刻の間（2:05）。前は 08_pl・09_bill_edit・15_bills・25_admin_ids・28_open_tasks に同じものがあった（コード整理）
+// 2つの時刻の間（2:05）。時刻（日本時間の 21:05）は lib/olive/core.js の hmJst、写真を縮めるのは lib/olive/photo.js の shrinkJpeg
 const durHM=(a,b)=>{ if(!a||!b) return ''; const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
 const csNowMonth=()=>businessDate().slice(0,7)+'-01';
 // キャストの設定・スタッフの表の、選ぶ欄と数を入れる欄（3つの画面で同じ形）
