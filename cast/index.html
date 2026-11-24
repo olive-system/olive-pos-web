@@ -2,49 +2,49 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<script src="../lib/olive/err.js?v=v2.42"></script><!-- 画面のエラーを送る（一番初めに読む） -->
-<script src="../lib/olive/core.js?v=v2.42"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
-<script src="../lib/olive/photo.js?v=v2.42"></script><!-- 写真を小さくする -->
-<script src="../lib/olive/sheet.js?v=v2.42"></script><!-- ヒアリングシートの項目 -->
-<script src="../lib/olive/contract.js?v=v2.42"></script><!-- 契約書の中身（マイページの PDF・POS と管理サイトの書類で同じ） -->
+<script src="../lib/olive/err.js?v=v2.43"></script><!-- 画面のエラーを送る（一番初めに読む） -->
+<script src="../lib/olive/core.js?v=v2.43"></script><!-- 全部のサイトで使う小さい部品（esc・金額・通信の知らせ・カタカナ） -->
+<script src="../lib/olive/photo.js?v=v2.43"></script><!-- 写真を小さくする -->
+<script src="../lib/olive/sheet.js?v=v2.43"></script><!-- ヒアリングシートの項目 -->
+<script src="../lib/olive/contract.js?v=v2.43"></script><!-- 契約書の中身（マイページの PDF・POS と管理サイトの書類で同じ） -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>OLIVE LINEマイページ</title><!-- cast v2.42 -->
+<title>OLIVE LINEマイページ</title><!-- cast v2.43 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style><!-- 書体：Zen Kaku Gothic New（オーナー 2026-10-18） -->
-<link rel="stylesheet" href="../lib/olive/olive.css?v=v2.42"><link rel="stylesheet" href="cast.css?v=v2.42"><!-- 2026-10-19：見た目は cast.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
+<link rel="stylesheet" href="../lib/olive/olive.css?v=v2.43"><link rel="stylesheet" href="cast.css?v=v2.43"><!-- 2026-10-19：見た目は cast.css、プログラムは js/ に画面ごとに分けた（中身はそのまま） -->
 </head>
 <body>
 <div class="top"><b id="tStore">OLIVE</b><span class="sub" id="tSub">LINEマイページ</span><button id="tBack" class="hide">戻る</button></div>
 <main id="main"><div class="card c muted">読み込み中…</div></main>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="../lib/supabase-js@2.116.0.js"></script>
-<script src="js/00_core.js?v=v2.42"></script>
-<script src="js/01_ui_home.js?v=v2.42"></script>
-<script src="js/02_absent.js?v=v2.42"></script>
-<script src="js/03_attendance.js?v=v2.42"></script>
-<script src="js/04_pay.js?v=v2.42"></script>
-<script src="js/05_bills.js?v=v2.42"></script>
-<script src="js/06_hall.js?v=v2.42"></script>
-<script src="js/07_sign.js?v=v2.42"></script>
-<script src="js/08_card.js?v=v2.42"></script>
-<script src="js/09_dress.js?v=v2.42"></script>
-<script src="js/10_resv.js?v=v2.42"></script>
-<script src="js/11_kakari.js?v=v2.42"></script>
-<script src="js/12_contact.js?v=v2.42"></script>
-<script src="js/13_info.js?v=v2.42"></script>
-<script src="js/14_docs.js?v=v2.42"></script>
-<script src="js/15_sales.js?v=v2.42"></script>
-<script src="js/16_shift.js?v=v2.42"></script>
-<script src="js/26_nohin.js?v=v2.42"></script><!-- SQL 640：納品書の読み取り（17_open.js の作業の一覧が使うので先に読む） -->
-<script src="js/17_open.js?v=v2.42"></script>
-<script src="js/18_apply.js?v=v2.42"></script>
-<script src="js/19_meeting.js?v=v2.42"></script>
-<script src="js/20_key.js?v=v2.42"></script>
-<script src="js/21_applicant.js?v=v2.42"></script>
-<script src="js/22_sheet.js?v=v2.42"></script>
-<script src="js/23_memo.js?v=v2.42"></script><!-- v1.22・SQL 352：共有メモ -->
-<script src="js/24_judge.js?v=v2.42"></script><!-- v1.23・SQL 355：体験のジャッジ -->
-<script src="js/25_bday.js?v=v2.42"></script><!-- v1.27・SQL 365：お誕生日のカレンダー・v1.40・SQL 378：検索と登録申請 -->
-<script src="js/90_start.js?v=v2.42"></script><!-- 始めの処理（いちばん最後） -->
+<script src="js/00_core.js?v=v2.43"></script>
+<script src="js/01_ui_home.js?v=v2.43"></script>
+<script src="js/02_absent.js?v=v2.43"></script>
+<script src="js/03_attendance.js?v=v2.43"></script>
+<script src="js/04_pay.js?v=v2.43"></script>
+<script src="js/05_bills.js?v=v2.43"></script>
+<script src="js/06_hall.js?v=v2.43"></script>
+<script src="js/07_sign.js?v=v2.43"></script>
+<script src="js/08_card.js?v=v2.43"></script>
+<script src="js/09_dress.js?v=v2.43"></script>
+<script src="js/10_resv.js?v=v2.43"></script>
+<script src="js/11_kakari.js?v=v2.43"></script>
+<script src="js/12_contact.js?v=v2.43"></script>
+<script src="js/13_info.js?v=v2.43"></script>
+<script src="js/14_docs.js?v=v2.43"></script>
+<script src="js/15_sales.js?v=v2.43"></script>
+<script src="js/16_shift.js?v=v2.43"></script>
+<script src="js/26_nohin.js?v=v2.43"></script><!-- SQL 640：納品書の読み取り（17_open.js の作業の一覧が使うので先に読む） -->
+<script src="js/17_open.js?v=v2.43"></script>
+<script src="js/18_apply.js?v=v2.43"></script>
+<script src="js/19_meeting.js?v=v2.43"></script>
+<script src="js/20_key.js?v=v2.43"></script>
+<script src="js/21_applicant.js?v=v2.43"></script>
+<script src="js/22_sheet.js?v=v2.43"></script>
+<script src="js/23_memo.js?v=v2.43"></script><!-- v1.22・SQL 352：共有メモ -->
+<script src="js/24_judge.js?v=v2.43"></script><!-- v1.23・SQL 355：体験のジャッジ -->
+<script src="js/25_bday.js?v=v2.43"></script><!-- v1.27・SQL 365：お誕生日のカレンダー・v1.40・SQL 378：検索と登録申請 -->
+<script src="js/90_start.js?v=v2.43"></script><!-- 始めの処理（いちばん最後） -->
 </body>
 </html>
