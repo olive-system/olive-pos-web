@@ -153,22 +153,29 @@ const KS_PDF_CSS=`<style>.kp{width:1123px;height:794px;background:#fff;color:#22
     .kp table.dt{table-layout:auto;font-size:11px}.kp table.dt th{background:#f3f3f3;font-weight:400;text-align:right;padding:4px 6px;border-bottom:1px solid #ddd}.kp table.dt td{text-align:right;padding:4px 6px;height:auto;border-left:1px solid #ddd}
     .kp table.dt .l{text-align:left}.kp table.dt td.r{text-align:right}.kp table.dt tr.tt td{background:#f3f3f3;border-top:1px solid #bbb}</style>`;
 
+/* 黒服の表の上の行：ボーナス総額・売上計・人件費（スカウト料は hallScoutFill で足す）・人件費比率と区分 */
+function hallPayTop(D){ const sl=D.slide, RK={within:'目標以内',plus2:'＋2%まで',plus5:'＋5%まで',over:'5%超'};
+  return `<div class="card" style="font-size:14px;line-height:1.7">ボーナス総額 <b>${yen(N(D.pool))}</b>　<span class="muted">売上計 ${yen(N(D.sales))}・<span id="hpLabor">人件費 ${yen(N(D.labor))}</span>・人件費比率 ${N(D.ratio).toFixed(2)}%${sl?`（目標 ${N(sl.target).toFixed(2)}%・<span id="hpRank">${RK[sl.rank]||(/^p\d+$/.test(sl.rank||'')?`＋${sl.rank.slice(1)}%まで`:'')}</span>・「${N(sl.sales_man)}万円以上」の行）`:'（黒服ボーナススライドに当てはまる行がありません）'}</span></div>`; }
 // 月給の人の遅刻は15分ごとに 2,000円（連絡なしは2倍）。月給の時給は営業日数で割る・レジ精算より後の退勤は早退にしない。（集計「スタッフ」のキャストの下に移動）：黒服の報酬（その月）。基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額。直せるのはオーナーだけ（遅刻・早退の減算額とボーナス。操作ログに残る）
 function hallPayDraw(r,st,m,casts){ const box=$('hpBox'); if(!box) return;
   if(r.error){ box.innerHTML=`<div class="card err">黒服の報酬を読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data||{}, rows=D.rows||[], own=!!me?.is_owner, nf=v=>Math.round(N(v)).toLocaleString('ja-JP'), neg=v=>N(v)?`<span style="color:var(--warn)">−${nf(Math.abs(N(v)))}</span>`:'—', y0=v=>N(v)?nf(v):'—';  /* 表の値に単位を付けない（見出しでわかる。キャストの表と同じ） */
-  const sl=D.slide, RK={within:'目標以内',plus2:'＋2%まで',plus5:'＋5%まで',over:'5%超'};
   // 担当キャスト売上・売上シェア（POS の黒服の詳細と同じ）。担当キャスト売上＝その黒服が担当黒服になっているキャストの係小計の合計。売上シェア＝担当キャスト売上÷（担当黒服のいるキャスト全員の分）
   const hid=new Set(rows.map(x=>x.id)), ms={}, mn={}; (casts||[]).forEach(c=>{ const h=c.manager_id; if(!h||!hid.has(h)) return; ms[h]=(ms[h]||0)+N(c.sales); if(c.active) mn[h]=(mn[h]||0)+1; });
   const PA=rows.some(x=>N(x.prev_adjust)); /* 前月精算は、だれかにある月だけ列を出す */
   const share=x=>x.share!=null?N(x.share).toFixed(1)+'%':'—';
   box.innerHTML=`<h2 style="margin:0 0 8px">黒服</h2>
-    <div class="card" style="font-size:14px;line-height:1.7">ボーナス総額 <b>${yen(N(D.pool))}</b>　<span class="muted">売上計 ${yen(N(D.sales))}・人件費比率 ${N(D.ratio).toFixed(2)}%${sl?`（目標 ${N(sl.target).toFixed(2)}%・${RK[sl.rank]||(/^p\d+$/.test(sl.rank||'')?`＋${sl.rank.slice(1)}%まで`:'')}・「${N(sl.sales_man)}万円以上」の行）`:'（黒服ボーナススライドに当てはまる行がありません）'}</span></div>
+    ${hallPayTop(D)}
     <div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm">名前</th><th>報酬</th><th>担当キャスト売上</th><th>売上シェア</th><th>日数</th><th>時間</th><th>基本給</th><th>遅刻・早退</th><th>ボーナス</th><th>手当</th><th>個別支給</th><th>課税対象額</th><th>罰金</th><th>消費税</th><th>厚生費</th><th>個別控除</th><th>日払（立替）</th><th>源泉徴収</th>${PA?'<th>前月精算</th>':''}<th>残り支給額</th>${own?'<th></th>':''}</tr></thead><tbody>
     ${rows.map(x=>hallPayRow(x,{own,PA,N,neg,y0,ms,mn,share,nf})).join('')||`<tr><td colspan="20" class="muted">この月の黒服はいません</td></tr>`}</tbody></table></div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">基本給−遅刻・早退＋ボーナス＋手当＋個別支給＝課税対象額<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">基本給：月給＝月給の額、日給＝日給×稼働日数、時給＝時給×稼働時間<br>遅刻・早退：スタッフ設定→黒服の「出勤〜退勤」とタイムカードをくらべて、15分ごとに減算します。月給の人の遅刻は15分ごとに 2,000円（無断遅刻は 4,000円。［修正］で遅刻日ごとに選択）、早退は時給分です。日給の人は遅刻・早退とも時給分です。月給の人の時給＝月給÷（その月の営業日数×出勤〜退勤の時間）、日給の人の時給＝日給÷出勤〜退勤の時間。営業日数は、シフト設定の休の日を除いた日数です。レジ精算より後の退勤は、早退にしません（早仕舞いの日）。時給の人は稼働時間で支払うので減算しません。出勤・退勤の時刻が両方入力されていないと減算しません<br>ボーナス：黒服ボーナススライドの総額（売上計で行を選び、人件費比率と目標比率をくらべた額＋売上ボーナス）を、担当キャストの${KL}小計の割合で分けます。人件費比率＝（キャスト報酬＋キャスト日払い＋体験の報酬＋黒服の報酬〈ボーナスの前〉）÷売上計。係専用（店・ママ）は入りません<br>厚生費・消費税はスタッフ設定のとおり。源泉はスタッフ設定で「する」の人だけ<br>［修正］はオーナーのみ。遅刻・早退の減算額とボーナスを修正できます（空にすると自動の計算に戻ります）</div></div>`;
+  hallScoutFill(st,m,D);
   box.querySelectorAll('[data-hplate]').forEach(b=>b.onclick=()=>{ const x=rows.find(z=>z.id===b.dataset.hplate); if(x) hallLateView(x,m); });
   box.querySelectorAll('[data-hpfix]').forEach(b=>b.onclick=guard(b,async()=>{ const x=rows.find(z=>z.id===b.dataset.hpfix); if(!x) return; await hallPayFix(x,m); })); }
+/* 人件費の内のスカウト料（届いた請求書＋閉店作業②の「領収書精算（スカウト料）」・SQL 696）と、1%ごとの段の店（広島）で段を超えた区分（「5%超」は銀座の言葉なので「＋12%超」のように段の上限で出す） */
+async function hallScoutFill(st,m,D){ const r=await sb.rpc('admin_scout_month',{p_store:st,p_month:m}); if(r.error||storeId!==st) return; const x=r.data||{};
+  const lb=$('hpLabor'); if(lb&&N(x.scout)>0) lb.textContent=`人件費 ${yen(N(D.labor))}（内スカウト料 ${yen(N(x.scout))}）`;
+  const rk=$('hpRank'); if(rk&&D.slide?.rank==='over'&&x.step_max) rk.textContent=`＋${N(x.step_max)}%超`; }
 /* 黒服の報酬の表の1行 */
 function hallPayRow(x,{own,PA,N,neg,y0,ms,mn,share,nf}){
   return `<tr><td class="nm">${esc(x.name)}${x.active?'':' <small class="muted">（退店）</small>'}</td><td>${x.pay_type?CS_HPAY[x.pay_type]+(x.amount!=null?' '+nf(x.amount):''):'<span class="badge warnb">未設定</span>'}</td><td>${nf(ms[x.id])} <small class="muted">担当 ${N(mn[x.id])}人</small></td><td>${share(x)}</td><td>${N(x.days)?N(x.days):'—'}</td><td>${N(x.hours)?N(x.hours)+'H':'—'}</td><td>${y0(x.base)}</td>
