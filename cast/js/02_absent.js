@@ -70,7 +70,7 @@ function hallAbsentDone(date, at, st, monthly, already, lineOk = true, noAppr = 
 // 欠勤・遅刻連絡（オーナー 案ア「1つのボタン」）。上で欠勤／遅刻を選ぶ。黒服も同じ（620 から。前は遅刻連絡だけ）
 const segHtml = on => `<div class="seg"><button data-sg="absent" class="${on === 'absent' ? 'on' : ''}">欠勤</button><button data-sg="late" class="${on === 'late' ? 'on' : ''}">遅刻</button></div>`;
 function segBind(){ const h = !!(ME && ME.hall); $('main').querySelectorAll('[data-sg]').forEach(b => b.onclick = () => b.dataset.sg === 'absent' ? (h ? hallAbsent() : absent()) : lateForm(h)); }
-// 遅刻連絡：シフトの時刻より前だけ。出勤予定（15分ごと）と理由 → 承認者に公式 LINE（通常／免除）。トークにも送る（欠勤連絡と同じ）
+// 遅刻連絡：シフトの時刻より前だけ。出勤予定（15分ごと）と理由 → 承認者に公式 LINE（通常／免除）。キャストはトークにも送る（欠勤連絡と同じ。黒服は送らない：下の決まり）
 async function lateForm(hall){
   setBack(hall ? hallHome : home); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc(hall ? 'hall_late_info' : 'cast_late_info', { p_token: TOKEN });

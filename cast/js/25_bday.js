@@ -10,7 +10,7 @@ function bdPop(title, body){ const d = document.createElement('div'); d.classNam
   d.innerHTML = `<div class="box" style="max-height:calc(100vh - 90px);overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${title}</b><button class="xb" data-k="x" aria-label="閉じる" style="font-size:20px">×</button></div>${body}</div>`;
   document.body.appendChild(d); d.querySelector('[data-k=x]').onclick = () => d.remove(); return d; }
 const bdFld = 'width:100%;height:44px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
-// 未登録のお客様（両店とも 5,000人ほど）は押した時だけ読む。[id, 名前] の並び
+// 未登録のお客様（両店とも 5,000人ほど）は押した時だけ読む。[id, 名前, フリガナ] の並び
 async function bdLoad(force){ if(BDC.nobd && !force) return true; const r = await sb.rpc('cast_bday_nobd', { p_token: TOKEN }); if(r.error){ await uiAlert(r.error.message); return false; }
   BDC.nobd = (r.data.nobd || []).map(([id, name, kana]) => ({ id, name, kana })); /* フリガナ */ BDC.pend = r.data.pend || []; return true; }
 async function bdayFind(){ if(!await bdLoad()) return;
