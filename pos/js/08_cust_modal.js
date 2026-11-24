@@ -1,5 +1,5 @@
 // ---------- customer modal ----------
-S.custPick=null; S.custBill=null; /* 閉店作業「① お客様登録」から追加する時の伝票（新規のお連れ様の係に使う） */
+S.custPick=null; S.custBill=null; /* custPick＝選んだお客様を渡す先の関数（ある時は伝票に付けず、選ぶだけ）。custBill＝閉店作業のお客様登録から追加する時の伝票（新規のお客様の係に使う） */
 $('custAddBtn').onclick=()=>{ S.custPick=null; S.custBill=null; $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); cuFresh().then(()=>{ if($('custModal').classList.contains('on')) renderCust($('custSearch').value.trim()); }); };
 $('custCancel').onclick=()=>{ $('custModal').classList.remove('on'); if(S.custBill){ S.custPick=null; S.custBill=null; } };
 /* お客様を追加の並びも最近出てきた順（来店・予約・情報の更新。顧客の画面と同じ。オーナー）。顧客の画面をまだ開いていない時は、最近出てきた時刻だけ読む */
@@ -14,7 +14,7 @@ $('custNew').onclick=guard($('custNew'),async()=>{ /* 二度押しで同じお�
   const kk=await custTsureKakari(); const { data, error } = await custInsert(name); if(error){toast(error.message);return;}
   let km=''; if(kk){ const kr=await sb.rpc('pos_kakari_set',{p_customer:data.id,p_store:S.store.id,p_staff:kk}); if(kr.error) toast(''+KL+'を保存できません：'+kr.error.message); else { data.kakari_staff_id=kk; km=`係 ${snm(kk)} を登録しました`; } }
   S.customers.push(data); S.customers.sort((a,b)=>a.name.localeCompare(b.name,'ja')); await attachCust(data.id); if(km) toast(km); });
-/* 銀座（係の店）だけ。伝票に新規のお客様（お連れ様）を登録した時、伝票の最初のお客様の係を、新規のお客様の係にする。最初のお客様に係が無い時は伝票の係（1人の時だけ）。広島（担当の店）ではしない（オーナー「銀座ルール」） */
+/* 銀座（係の店）だけ。伝票に新規のお客様を登録した時の、そのお客様の係：伝票の最初のお客様の係（在籍している時だけ）。無い時（最初のお客様に係が無い・辞めた・伝票にまだお客様がいない）は、伝票の係（1人の時だけ・在籍している時だけ）。選ぶだけ（custPick）の時はしない。広島（担当の店）ではしない（オーナー「銀座ルール」） */
 async function custTsureKakari(){ const bl=S.custBill||S.cur; if((S.custPick&&!S.custBill)||!bl||KL!=='係') return null; const act=id=>S.staffAll.some(s=>s.id===id&&s.is_active);
   const r=await sb.from('bill_customers').select('customer_id').eq('bill_id',bl.id).order('created_at').limit(1); if(r.error) return null;
   if(r.data?.length){ const k=await sb.from('customer_kakari').select('staff_id').eq('customer_id',r.data[0].customer_id).eq('store_id',S.store.id).maybeSingle(); if(k.data?.staff_id&&act(k.data.staff_id)) return k.data.staff_id; }
