@@ -85,8 +85,8 @@ function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g
   g.lineWidth=1; g.strokeRect(18,18,W-36,H-36); g.strokeRect(26,26,W-52,H-52);
   g.font=BK(44,1); sp('Receipt',64,98,3); g.font=MI(21); sp(`${d.issue.getFullYear()}年${d.issue.getMonth()+1}月${d.issue.getDate()}日`,740,96,2,'right'); hl(64,118,740,118);
   g.textAlign='left'; g.font=MI(34,600); g.fillText(d.name||'',64,196,600); g.font=MI(24); g.fillText('様',694,196); hl(64,212,740,212);
-  g.font=BK(66); const aw=sp(`${yen(d.amount)}-`,64,300,2); g.font=MI(18); g.textAlign='left'; g.fillText('（消費税込み）',64+aw+14,298); hl(64,318,740,318); hl(64,323,740,323);
-  g.font=MI(21,600); g.fillText(`${d.rate}%対象 ${yen(d.amount)}　　内消費税 (${yen(d.tax)})`,64,362); g.fillText(`現金 ${yen(d.cash)}　　カード ${yen(d.card)}`,64,393);
+  g.font=BK(66); const aw=sp(`${yenU(d.amount)}-`,64,300,2); g.font=MI(18); g.textAlign='left'; g.fillText('（消費税込み）',64+aw+14,298); hl(64,318,740,318); hl(64,323,740,323);
+  g.font=MI(21,600); g.fillText(`${d.rate}%対象 ${yenU(d.amount)}　　内消費税 (${yenU(d.tax)})`,64,362); g.fillText(`現金 ${yenU(d.cash)}　　カード ${yenU(d.card)}`,64,393);
   g.font=MI(22,400); g.fillText(`但　${d.guests||'　　'}名様ご飲食代として`,64,446,676); /* ご利用日は印刷しない（オーナー） */ g.font=MI(21,600); g.fillText('上記正に領収いたしました',64,488); const sx=64+g.measureText('上記正に領収いたしました').width+18;
   if(d.stamp){ g.setLineDash([4,4]); g.strokeRect(656,340,84,64); g.setLineDash([]); g.font=MI(14); g.textAlign='center'; g.fillText('収入印紙',698,378); } /* 収入印紙の枠は印紙が要る時だけ */
   rcDrawShop(g,d,W,H,MI,sp,hl);
