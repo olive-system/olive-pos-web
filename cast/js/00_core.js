@@ -55,7 +55,6 @@ const homeTile = (k,t,s,on) => `<button class="tile" data-go="${k}" ${on?'':'dis
 /* 公式 LINE への送信。失敗は oliveErr で記録する（e.code・e.message・LINE のトークで開いたか・どの画面か）。成功なら true */
 async function lineSend(text, where){
   let inC = null; try{ inC = liff.isInClient(); }catch(e){}
-  if(inC === false){ if(window.oliveErr) oliveErr({ msg: 'LINE のトーク以外で開いたため送信なし [' + where + ']' }); return false; }
   try{ await liff.sendMessages([{ type:'text', text }]); return true; }
   catch(e){ if(window.oliveErr) oliveErr({ msg: 'liff.sendMessages 失敗 [' + where + '] code=' + ((e && e.code) || '') + ' message=' + ((e && e.message) || e) + ' inClient=' + inC }); return false; }
 }
