@@ -4,8 +4,8 @@ function renderCuForm(){ const c=S.cuSel==='__new'?S.cuDraft:S.customers.find(x=
   const casts=S.staff.filter(s=>s.kind==='cast');
   /* 係が辞めたキャストの時は「○○（退店）」で残す（前は「なし」になり、ほかの欄を保存すると係が消えていた。顧客サイトと同じ） */ const kGone=c.kakari_staff_id&&!casts.some(s=>s.id===c.kakari_staff_id)?(S.staffAll.find(s=>s.id===c.kakari_staff_id)||{id:c.kakari_staff_id,display_name:''}):null;
   $('cuForm').innerHTML=cufHtml(c,casts,kGone); $('cuForm').querySelectorAll('[data-rn]').forEach(rnBox);
-  /* 領収書名の横の「不要」（オーナー「なしと書くと宛名がなしと受け取られる」）。不要の時は領収書名の枠を非表示・会計の領収書の宛名に入れない */
   /* 名札はキープボトルが無くても、お名前の横から印刷する（欄の今の名前。オーナー「名前の横に統一」） */ $('cuForm').querySelector('[data-nprint]').onclick=e=>{ e.preventDefault(); const v=$('cuForm').querySelector('[data-k=name]').value.trim(); if(!v){ toast('お名前は必須です'); return; } nametagPrint(v); };
+  /* 領収書名の横の「不要」（オーナー「なしと書くと宛名がなしと受け取られる」）。不要の時は領収書名の枠を非表示・会計の領収書の宛名に入れない */
   const rnNo=$('cuForm').querySelector('[data-rnno]'); if(rnNo) rnNo.onchange=()=>{ $('cuForm').querySelector('[data-rn]').style.display=rnNo.checked?'none':'grid'; };
   if(!c.id){ const g=$('cuGood'); if(g) g.parentElement.remove(); $('cuSide').innerHTML=''; } else { cuGoodLoad(c);
   cuCxLoad(c); }
@@ -48,8 +48,8 @@ async function cufUpdate(c,patch){
 async function cufIndustry(c,e){ e.preventDefault(); const on=!c.is_industry; if(!c.id){ c.is_industry=on; e.currentTarget.classList.toggle('on',on); return; } /* 新規の時は登録の時に一緒に保存 */ const co=($('cuForm').querySelector('[data-k=company]')?.value||'').trim(); if(on){ if(!co){ await uiAlert('店名を会社名に入力してください'); return; } if(!await uiConfirm(`お店の名前は${co}ですね`)) return; } const r=await sb.rpc('pos_customer_save',{p_id:c.id,p:on?{is_industry:true,company:co}:{is_industry:false}}); if(r.error){ toast(r.error.message); return; } await logOp(on?'同業に登録':'同業の登録を解除',{name:c.name},null,true); c.is_industry=on; if(on) c.company=co; renderCuForm(); renderCuList();
 }
 /* 削除（来店履歴があれば止める・ボトルの記録も消す） */
-async function cufDelete(c){ /* 来店履歴があれば先に知らせる。ボトルの記録があれば一緒に消す（英語のエラーを出さない） */
-    /* ほかの店舗に来店・ボトルの記録があるお客様は削除できない */ const ot=await sb.rpc('pos_cust_others',{p_customer:c.id}); if(ot.error){ toast('削除できません：'+ot.error.message); return; } /* 読めないまま進むと、先にこの店のボトルだけ消えてお客様が残ることがある */ if(ot.data?.others_all){ await uiAlert(`「${c.name}」様はほかの店舗に来店・ボトルの記録があるので削除できません`); return; }
+async function cufDelete(c){ /* データベースに断られて英語のエラーが出る前に、画面で確かめて日本語で知らせる */
+    /* ほかの店舗に来店・ボトルの記録があるお客様は削除できない */ const ot=await sb.rpc('pos_cust_others',{p_customer:c.id}); if(ot.error){ toast('削除できません：'+ot.error.message); return; } /* ほかの店舗の記録を確かめられないまま消さないように、読めない時は止める */ if(ot.data?.others_all){ await uiAlert(`「${c.name}」様はほかの店舗に来店・ボトルの記録があるので削除できません`); return; }
     const [vc,bc]=await Promise.all([ sb.from('bill_customers').select('bill_id',{count:'exact',head:true}).eq('customer_id',c.id), sb.from('customer_bottles').select('id',{count:'exact',head:true}).eq('customer_id',c.id) ]); if(vc.error||bc.error){ toast('削除できません：'+(vc.error||bc.error).message); return; }
     if(vc.count){ await uiAlert(`「${c.name}」様は来店履歴があるので削除できません`); return; }
     if(!await uiConfirm(`「${c.name}」を削除しますか？${bc.count?`\nボトルの記録（${bc.count}本・飲み切りや期限切れも含む）も一緒に消えます。`:''}`,'削除','danger'))return;
