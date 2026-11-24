@@ -1,4 +1,4 @@
-// ---------- ボトルの期限切れ・移動と、顧客の一覧（15_customers.js）の横に出す情報（最終来店日・キープ中のボトル） ----------
+// ---------- ボトルの期限切れ・移動と、顧客の一覧（15_customers.js）の横に出す情報（最終来店日・キープ中のボトル）と、お客様のメモの食い違いを選ぶ小窓 ----------
 /* キープ名がお客様の名前とちがう時だけ「（キープ名：…）」を付ける（同じなら書かない） */
 function knLabel(b,cname){ return b.keep_name&&b.keep_name!==cname?`（キープ名：${b.keep_name}）`:''; }
 async function expireBottle(b,cname){ if(!b) return false; if(!await uiConfirm(`${b.name}（残り ${b.remaining??0}/10）を期限切れにしますか？\n残量はこのまま記録されます。`)) return false; const d=businessDate(); const { error } = await sb.rpc('pos_bottle_set',{p_id:b.id,p:{expired_on:d}}); if(error){ toast(error.message); return false; } await logOp('ボトル期限切れ',{customer:cname,bottle:b.name,remaining:b.remaining},null,true); b.expired_on=d; toast('期限切れにしました'); return true; }
@@ -20,7 +20,7 @@ function btMonths(){ return Number(S.settings?.bottle_keep_months)||6; } /* お�
 /* お客様のメモを、ほかの端末でも同じ所を直していた時に、どちらを残すかを選ぶ小窓（POS の見た目）。合わせ方と選び方の決まりは lib/olive/customer.js（pickClash）。返す値：m 自分・t ほかの人・b 両方・x キャンセル */
 CU_SITE.clashBox=(mine,theirs)=>new Promise(res=>{ const m=mkModal(60); const bx=h=>`<div style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:4px">${h}</div>`;
   m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><div style="font-size:18px;font-weight:700">同じ箇所をほかの人も修正していました</div><div class="muted" style="font-size:13px">どちらを残しますか？</div><div style="margin-top:10px">あなた${bx(mine)}</div><div style="margin-top:8px">ほかの人${bx(theirs)}</div><div class="bar" style="justify-content:flex-end;margin-top:12px"><button class="ghost" data-v="x">キャンセル</button><button class="ghost" data-v="b">両方残す</button><button class="ghost" data-v="t">ほかの人</button><button class="primary" data-v="m">あなた</button></div></div>`;
-  document.body.appendChild(m); m.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); }); /* メモの食い違いを選ぶ箱の見た目（POS の小窓）。選ぶ決まりは lib/olive/customer.js の pickClash */
+  document.body.appendChild(m); m.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ m.remove(); res(b.dataset.v); }); });
 /* ボトルの並び：開けた日の新しい順（同じ日は id の順）。渡した配列そのものを並べ替える */
 function btSort(list){ return list.sort((a,b)=>String(b.opened_on||'').localeCompare(String(a.opened_on||''))||String(a.id).localeCompare(String(b.id))); }
 /* 顧客の一覧（15_customers.js）の「n か月以上ご来店なし」の境の日：営業日から n か月前（n が無い時はボトルのキープ月数） */
