@@ -17,7 +17,7 @@ async function loadNewResv(){ const seq=++newResvSeq; const now=new Date();
 function renderNewResv(){ const box=$('nResv'); if(!box) return; const L=newResvList;
   if(!L.length){ box.innerHTML='<div class="muted" style="grid-column:1/-1">予約はありません</div>'; return; }
   const shown=L.length>10?L.slice(0,9):L;
-  const cells=shown.map(r=>`<div class="rb o-stack${newResvId===r.id?' sel':''}" data-rid="${esc(r.id)}"><div class="rb1"><b>${esc(r.time)}</b> ${esc(r.name)}　様</div><div class="rb2">${r.douhan?`<span class="rtag">同伴 ${esc(r.douhan_name||'')}</span>`:'<span></span>'}<span>${r.guests}名</span></div></div>`).join('');
+  const cells=shown.map(r=>`<div class="rb o-stack${newResvId===r.id?' sel':''}" data-rid="${esc(r.id)}"><div class="rb1"><span class="rbn"><b>${esc(r.time)}</b> ${esc(r.name)}　様</span><span class="rbg">${r.guests}名</span></div><div class="rb2"><div class="rbk">${esc(r.kakari_name||'')}</div><div class="rbd">${r.douhan?`<span class="dm">同</span>${esc(r.douhan_name||'')}`:''}</div></div></div>`).join('');
   const more=L.length>10?`<div class="rb o-stack more">ほか ${L.length-9}件</div>`:'';
   box.innerHTML=cells+more;
   box.querySelectorAll('[data-rid]').forEach(el=>el.onclick=()=>{ const r=L.find(x=>x.id===el.dataset.rid); if(!r) return; newResvId=r.id; newN=r.guests||1; newCust=r.customer_id?{id:r.customer_id,name:r.name}:null; newDouhanIds=r.douhan_ids||null; renderNew(); }); }
