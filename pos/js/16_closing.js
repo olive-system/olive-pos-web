@@ -1,6 +1,6 @@
 // ---------- 閉店作業の画面の部品（お客様登録・出退勤罰金確認・お酒の数・カードの照合・TODO・着物・伝票の確認）。並びと①②…の番号は 18_close_work.js が店ごとに決める（着物の見出しの「⑦」だけは、この部品が自分で書いている） ----------
 S.clDate=null; S.clCounts={}; S.clDeposit=0; S.clOpening=0; S.clMonth=null; S.clCtx=null; /* 閉店作業の画面の状態。18_close_work.js・19_close_receipt.js と共用 */
-/* 打刻の時刻：rounded_at（データベースで丸めた時刻）が無い時だけ、ここで15分に丸める。出勤は切り上げ・退勤は切り捨て（給与と同じ決まり。05 の「時間」） */
+/* 打刻の時刻：rounded_at（データベースで丸めた時刻）が無い時だけ、ここで15分に丸める。出勤は切り上げ・退勤は切り捨て（給与の時間の数え方と同じ決まり） */
 const CL_Q=15*60*1000, clRoundQ=(at,up)=>{ const t=new Date(at).getTime()/CL_Q; return (up?Math.ceil(t):Math.floor(t))*CL_Q; };
 /* 確認者の候補：在籍の黒服と、係だけの人。係だけの「店」（店の係のアカウント）は人ではないので除く */
 const clCheckers=()=>S.staffAll.filter(s=>s.is_active&&(s.kind==='hall'||(s.kakari_only&&s.display_name!=='店')));
@@ -91,7 +91,7 @@ function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   const cpCell=(w,v)=>`<span style="display:inline-block;width:${w}px;flex:none;white-space:nowrap">${v}</span>`;
   const cpAmt=(k,id,t,c)=>`<span data-${k}="${id}" style="font-size:14px;padding:2px 4px;cursor:pointer;border-bottom:1px dotted #999;font-variant-numeric:tabular-nums;color:${c}">${t}</span>`;
   const lateHtml=(s,l,f,a,id)=>{ const late=!!l?.late, y=f?f.y:Number(l?.fine||0), p=f?f.p:0, hall=s.kind==='hall', fine=y>0||p>0, alw=!hall&&a; if(!late&&!fine&&!alw) return '';
-    const ab=!late&&!!f?.L?.some(x=>/^無断欠勤/.test(String(x.reason||''))); /* 打刻の無い子の無断欠勤（営業日の 0:00 に付く・SQL 689）も同じ枠にしるし（オーナー「④に出して」） */
+    const ab=!late&&!!f?.L?.some(x=>/^無断欠勤/.test(String(x.reason||''))); /* 無断欠勤の罰金（打刻の無い子に、営業日の 0:00 に付く・SQL 689）があれば、遅刻と同じ枠にしるし（オーナー「④に出して」） */
     return cpCell(70,ab?'<span class="badge warnb">無断欠勤</span>':!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
       +cpCell(132,fine?(f?cpAmt('cpfn',id,'罰金 '+fineSumTxt(y,p),'var(--warn)'):`<span style="color:var(--warn);font-size:14px">罰金 ${fineSumTxt(y,p)}</span>`):late&&l.notice==='approved'?'<span class="badge gray">免除</span>':'')
       +cpCell(132,alw?cpAmt('cpal',id,'手当 '+yen(a.y),'inherit'):''); }; // しるしは「遅刻」「無断遅刻」（オーナー「遅刻連絡ではなく遅刻・連絡なし遅刻ではなく無断遅刻」）
@@ -107,7 +107,7 @@ function cpMoneyView(K,id,k){ const s=S.staffAll.find(x=>x.id===id), f=K.FN?.[id
     <div class="list">${R.map(([r,v])=>`<div class="item" style="padding:8px 10px;gap:10px"><span style="flex:1;min-width:0">${esc(r||'—')}</span><span style="flex:none;font-variant-numeric:tabular-nums${k==='fine'?';color:var(--warn)':''}">${esc(v)}</span></div>`).join('')}</div></div>`;
   document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
 // アフター（報酬の種類に「自動：アフター」がある店＝広島）。伝票でアフターの子（SQL 526）を出す → お客様1名の数を同じ伝票の子の人数で分配（オーナー）
-// 卓の名前は同じ幅の枠・人数は右の端（スキル olive-no-misalign）。並びは1列3名
+// 卓の名前は同じ幅の枠・人数は右の端（スキル olive-no-misalign）。並びは1行に3名
 const clBillName=b=>{ const c=(b.bill_customers||[]).map(x=>S.customers.find(z=>z.id===x.customer_id)?.name).filter(Boolean)[0]; return c?c+' 様':'お客様未登録'; };
 const clBillRow=b=>`<span style="display:inline-block;width:44px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(billTable(b))}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(clBillName(b))}</span><span style="width:30px;flex:none;text-align:right;font-variant-numeric:tabular-nums">${b.guest_count}名</span>`;
 function clAfterHtml(AF,B,edit){ const R=AF.rows||[]; if(!R.length) return ''; const v=Number(AF.value||0), u=AF.unit==='yen'?'円':'P';
