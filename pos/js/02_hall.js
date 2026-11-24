@@ -77,6 +77,10 @@ async function loadOki(){ const SEL='id,memo,guest_count,set_start,business_date
 // アフター未確認：閉店 −（20分＋未会計の組数 × 10分）を過ぎたら、アフターがまだ決まっていない卓の札に出す（オーナー 2026-11-15「1時に必ず全員がオールアップするように誘導したい」・⑭ イ・⑰ 卓の札だけ）
 function afterDue(now){ const [h,m]=(S.closeHM||'01:00').split(':').map(Number); const d=new Date(businessDate()+'T00:00:00'); d.setHours(h,m,0,0); if(h<12) d.setDate(d.getDate()+1); /* 閉店が朝なら次の日の時刻 */
   return now>=d.getTime()-(20+S.openBills.length*10)*60000; }
+// 卓の札の3行目：左の枠＝係（広島は誘客）の全員・右の枠＝同伴の全員（同伴①②の順）。半分ずつの同じ幅で、同伴がいなくても同伴の枠は出す。入りきらない枠だけ名前の切れ目で折り返す
+function hallPeople(b){ const cs=b.bill_casts||[], nm=c=>esc(S.staff.find(s=>s.id===c.staff_id)?.display_name||''), rk={douhan1:1,douhan2:2,douhan:3};
+  const names=a=>a.map((c,i)=>`<span class="nm">${nm(c)}${i<a.length-1?'<span class="mid">・</span>':''}</span>`).join('');
+  return `<div class="pr"><div class="casts k">${names(cs.filter(c=>c.is_kakari))}</div><div class="casts d"><span class="dm">同</span>${names(cs.filter(c=>isDouhan(c.role)).sort((x,y)=>rk[x.role]-rk[y.role]))}</div></div>`; }
 // 卓の札のアフターの行：決まった卓は「アフター ナナ」「アフター なし」、まだの卓は時刻を過ぎたら「アフター未確認」
 function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="casts">アフター ${esc(b.after_bills.map(x=>S.staff.find(s=>s.id===x.staff_id)?.display_name||'').join('・'))}</div>`;
   if(b.after_none) return '<div class="casts">アフター なし</div>';
@@ -92,8 +96,7 @@ function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_cu
     if (hd.length) { el.className='tbl hand'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="hmsg">お預かり品をお返しください</div>${hd.map(x=>`<div class="hitem">${FX('label')} ${tagLabel(x)}</div>`).join('')}`; el.onclick=()=>openHand(t); }
     else if (!b) { el.className='tbl'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="empty">空 席</div>`; el.onclick=()=>openNew(t); }
     else { const end=billEnd(b), remain=Math.round((end-now)/60000); const pay=!!b.pay_open_at; el.className='tbl busy'+(remain<10&&!pay?' over':'');
-      const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?S.staff.find(s=>s.id===k.staff_id)?.display_name:'';
-      el.innerHTML=`${tsukeNameHtml(b.id,t.name,now)}${cnames(b)?`<div class="cust">${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様</div>`:''}<div class="row"><span>${b.guest_count}名</span><span>${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>${kpbTag(b.id,now)}${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
+      el.innerHTML=`<div class="hd">${tsukeNameHtml(b.id,t.name,now)}<span class="rm">${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="nr"><span class="cust">${cnames(b)?`${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様`:''}</span><span class="gc">${b.guest_count}名</span></div>${hallPeople(b)}<div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div>${kpbTag(b.id,now)}${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
       el.onclick=()=>billFromHall(b,pay); } /* ホールから伝票を開いたら、お会計を閉じたのと同じ */
     $('tables').appendChild(el); }
   for (const b of okiBills) { const el=document.createElement('div'); const unpaid=(b.payments||[]).filter(p=>p.method==='oki'&&!p.received_at).reduce((a,p)=>a+p.amount,0);
