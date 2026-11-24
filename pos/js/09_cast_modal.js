@@ -1,4 +1,4 @@
-// ---------- cast modal（本日出勤者・同伴自動判定） ----------
+// ---------- 伝票にキャストを足す小窓（今日の出勤者を先に・同伴①②は伝票を開いた時刻で決める） ----------
 $('castAddBtn').onclick=async()=>{
   const { data, error } = await sb.from('attendance_events').select('staff_id,event_type,event_at').eq('business_date',businessDate()).in('event_type',['clock_in','douhan','clock_out']);
   if(error){ toast(error.message); return; } /* 読めないまま開くと、出勤中のキャストが「出勤していない」側に並ぶ */
