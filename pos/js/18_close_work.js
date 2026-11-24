@@ -28,7 +28,7 @@ function clFetch(d,from,to,D){ const G=(k,fn)=>clGet(D,k,fn); return Promise.all
     G('ctk',()=>sb.rpc('pos_close_tasks',{p_day:d})), G('tdl',()=>sb.rpc('pos_todos',{p_day:d})) ]); }
 /* 読んだものから、入金・出金・日払・現金売上・前回の精算・未精算の日を出す。読めない時は箱に出して null */
 async function clPrep(d,today,box,R,D){ const [mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl]=R;
-  /* 閉店作業をマイページでする店は、②〜⑦・⑨をマイページへ（v12.22 から ② 出退勤確認・③ マイページの閉店作業・④ レジ金合わせ）。ここは完了・作業中の一覧（全部完了でないと精算できない。オーナー） */
+  /* 閉店作業をマイページでする店は、②〜⑦・⑨をマイページへ（v12.22 から ② 出退勤罰金確認・③ マイページの閉店作業・④ レジ金合わせ）。ここは完了・作業中の一覧（全部完了でないと精算できない。オーナー） */
   const mp=!ctk.error&&ctk.data?.on, mpL=mp?(ctk.data.items||[]):[]; mpL.forEach(x=>{ if(x.kind==='todo') x.todo_all=tdl.error?1:(tdl.data||[]).length; }); /* TODO が1件も無い日（休みの日など）は「完了」ではなく「なし」と出す（終わらせた人がいないのに完了に見えるため） */
   if(S.setCur!=='closing') return;
   if(mv.error||cls.error){ box.innerHTML=`<div class="muted">読み込めません：${esc((mv.error||cls.error).message)}</div>`; return; }
@@ -64,7 +64,7 @@ function clHtml1(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
   <div class="r"><span class="badge gray">出金</span><span class="t" style="grid-column:span 3">日払（立替）　<small class="muted">${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('・')):'なし'}</small></span><span class="a">${yen(advSum)}</span><span></span></div></div><div id="clMvDone"></div>`; }
 function clHtml2(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K; return `
   ${H('③ 領収書メール')}<div id="clRcpt"></div>
-  ${mp?H('④ 出退勤確認')+'<div id="clPunch"></div>'+clMpHtml(mpL,H):clOldMid}
+  ${mp?H('④ 出退勤罰金確認<small class="muted" style="font-weight:400">（23:00 に自動で付きます）</small>')+'<div id="clPunch"></div>'+clMpHtml(mpL,H):clOldMid}
   ${H(mp?'⑥ レジ金合わせ':'⑩ レジ金合わせ')}
   <div id="clCard" style="margin-bottom:12px"></div>`; }
 function clHtml3(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K; return `
@@ -223,7 +223,7 @@ async function clUndone(d,mp){ const ok=r=>{ if(r.error) throw r.error; return r
   const sent=new Set((rg.data||[])[0]?.detail?.ids||[]); if((rm.data||[]).some(m=>!sent.has(m.id))) L.push({t:'③ 領収書メール',el:'clRcpt'});
   if(mp){ if(!S.staffAll.length) await loadStaffAll(); const IN=new Set(), OUT=new Set(); (ev.data||[]).forEach(e=>(e.event_type==='clock_out'||e.event_type==='after'?OUT:IN).add(e.staff_id));
     const nm=[...IN].filter(id=>!OUT.has(id)).map(id=>S.staffAll.find(x=>x.id===id)).filter(x=>x&&x.kind!=='hall'&&!x.is_trial).map(x=>x.display_name); /* 黒服・体験は POS で修正できないので止めない */
-    if(nm.length) L.push({t:`④ 出退勤確認（未退勤 ${nm.join('・')}）`,el:'clPunch'});
+    if(nm.length) L.push({t:`④ 出退勤罰金確認（未退勤 ${nm.join('・')}）`,el:'clPunch'});
     const T=(mt.data?.items||[]).filter(x=>x.status!=='done'); if(T.length) L.push({t:`⑤ マイページの閉店作業（${T.map(x=>x.name).join('・')}）`,el:'clMp'}); }
   else if(!has(ck)) L.push({t:`⑥ ${KL}・同伴・反応◎の確認`,el:'clChk'});
   const n=(tq.data||[]).filter(x=>x.status==='open').length; if(n) L.push({t:`⑨ TODO（${n}件）`,el:'clTodo'});
