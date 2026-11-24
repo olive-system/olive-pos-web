@@ -40,7 +40,7 @@ function tkHtmlMail(K){ const {pg,ph,nm,st,ed,d,head,again,D,I,T,hm,wd,nd,seg}=K
     <div class="muted" style="font-size:13px;margin-top:4px">開店作業・閉店作業の両方です。未完了の項目は、いつも日報メールに出ます</div></div>`; }
 /* 項目の一覧（編集できる人は並べ替え・写真・コメント・限定・削除） */
 function tkHtmlItems(K){ const {pg,ph,nm,st,ed,d,head,again,D,I,T,hm,wd,nd,seg}=K; return `
-  <div class="card"><b>項目</b><div class="muted" style="font-size:13px;margin:4px 0 8px">毎日、黒服マイページの「${nm}」にこの順で出ます。対象が限定の項目は、スタッフ設定の黒服の「限定項目」が可の人のみです。コメントが「要」の項目は、作業中にコメントの欄が出ます（書くのは任意）</div>
+  <div class="card"><b>項目</b><div class="muted" style="font-size:13px;margin:4px 0 8px">対象が限定の項目は、スタッフ設定の黒服の「限定項目」が可の人のみです。コメントが「要」の項目は、作業中にコメントの欄が出ます（書くのは任意）</div>
     ${!I.length?'<div class="muted">まだありません</div>':ed?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr style="font-size:13px;color:var(--muted);text-align:left"><th style="font-weight:400;padding:0 6px 6px 0">項目</th><th style="font-weight:400;padding:0 6px 6px 0">対象</th><th style="font-weight:400;padding:0 6px 6px 0">写真</th><th style="font-weight:400;padding:0 6px 6px 0">コメント</th><th></th></tr>
     ${I.map((x,i)=>{ const fx=x.kind==='todo'; return `<tr><td style="border-top:1px solid var(--line);padding:8px 6px 8px 0;width:100%"><input data-opn="${i}" value="${esc(x.name)}" maxlength="60" style="min-width:160px;width:100%"></td>
       <td style="border-top:1px solid var(--line);padding:8px 6px 8px 0">${seg('opl',i,!!x.limited,[[false,'全員'],[true,'限定']])}</td><td style="border-top:1px solid var(--line);padding:8px 6px 8px 0">${fx?'':seg('opph',i,!!x.need_photo,[[true,'要'],[false,'不要']])}</td><td style="border-top:1px solid var(--line);padding:8px 6px 8px 0">${fx?'':seg('opcm',i,!!x.need_comment,[[true,'要'],[false,'不要']])}</td>

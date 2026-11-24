@@ -90,7 +90,7 @@ function contactPick(T){
   K.paint(); }
 /* 連絡先交換の提出の画面（本日来店のお客様・その他・提出） */
 function cpHtml(K){ const { T, fld, d, dl, L, NK, KEY, S, save, clear, kk, cnt, paint } = K; return `<div class="ttl">${dl} 連絡先交換の提出</div>
-      ${L.length ? `<div class="card"><div class="gh">本日来店（敬称略）　${L.length}名（伝票順）</div>
+      ${L.length ? `<div class="card"><div class="gh">本日来店（敬称略）　${L.length}名</div>
         <input id="cpQ" type="search" placeholder="名前・フリガナで検索" style="${fld};margin:6px 0 8px">
         ${L.map(c => { const on = S.sel[c.id] !== undefined; return `<div data-cpr="${esc(c.name.replace(/[\s　]+/g, ''))}" data-cpk="${esc(kanaKey(c.kana))}"><label style="display:flex;align-items:center;gap:8px;border:1px solid ${on ? 'var(--ink)' : 'var(--line)'};border-radius:8px;padding:10px;margin-bottom:6px;${c.sent ? 'opacity:.5' : ''}">
           <input type="checkbox" data-cpc="${c.id}" ${on ? 'checked' : ''} ${c.sent ? 'disabled' : ''} style="width:20px;height:20px;flex:none"><span style="flex:1">${esc(c.name)}</span><span class="muted sm" style="width:6.5em;flex:none">${kk(c)}</span></label>
