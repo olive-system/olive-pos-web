@@ -60,6 +60,6 @@ async function lineSend(text, where){
   catch(e){ if(window.oliveErr) oliveErr({ msg: 'liff.sendMessages 失敗 [' + where + '] code=' + ((e && e.code) || '') + ' message=' + ((e && e.message) || e) + ' inClient=' + inC }); return false; }
 }
 /* 送信失敗の文：受付は済んでいるので、申請し直さず黒服へ連絡してもらう */
-const lineNg = (what, to) => `<p class="err sm">${what}は受付済みです。公式 LINE への送信は失敗しました。再申請せず、${to}に LINE でご連絡ください</p>`;
+const lineNg = (what, to) => `<p class="err sm">${what}は受付済みです。LINE の送信だけ失敗しました。もう一度申請せず、${to}に LINE でお知らせください</p>`;
 /* LINE のトーク以外で開いている時の注意（送る前の確認の箱に足す） */
-const lineOutNote = () => { try{ return liff.isInClient() ? '' : '\nLINE のトーク以外で表示中：公式 LINE への送信なし（受付は完了）'; }catch(e){ return ''; } };
+const lineOutNote = () => { try{ return liff.isInClient() ? '' : '\n公式 LINE のトークから開くと、お店に LINE が届きます'; }catch(e){ return ''; } };

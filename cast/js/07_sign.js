@@ -31,7 +31,7 @@ async function payslip(){
     const q = await sb.rpc('cast_pay_sign', { p_token: TOKEN, p_signature: png });
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; }
     const net = N(q.data.net);
-    if(!await lineSend(`${py}年${pmo}月分の報酬として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${mdHm(q.data.signed_at)}）`, '報酬の受取確認')) await uiAlert('受取確認は受付済みです。公式 LINE への送信は失敗しました。再申請せず、黒服に LINE でご連絡ください');
+    if(!await lineSend(`${py}年${pmo}月分の報酬として ${(net<0?'−':'')}${Math.abs(net).toLocaleString('ja-JP')}円 を受け取りました。\n${ME.name}（${mdHm(q.data.signed_at)}）`, '報酬の受取確認')) await uiAlert('受取確認は受付済みです。LINE の送信だけ失敗しました。もう一度申請せず、黒服に LINE でお知らせください');
     // サインの画像を保存して、店（公式 LINE）から本人のトークへ「○月分 報酬 ○円 の受取サイン」＋画像を送信
     await pushSign(q.data.id, png, false);
     payslip();
