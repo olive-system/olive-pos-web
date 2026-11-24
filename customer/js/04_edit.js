@@ -35,7 +35,7 @@ async function csClash(memoOnly,c0,patch,before,dr){ const c=cur&&cur.customer; 
     try{ await rpc('cs_customer_edit',{p_token:token,p_edit_token:editTok,p_id:c.id,p_patch:{memo},p_before:{memo:c.memo??null}}); toast('ほかの人の変更と合わせて保存しました'); await reloadDetail(); }
     catch(err){ if(err.code==='CS_CONFLICT'){ await reloadDetail(); return csClash(true,c0,{memo},{memo:c.memo??null},{memo}); } if(err.code==='CS_EDIT'){ await uiAlert(err.message); if(!await needEdit()) return; return editForm(true,{memo}); } await csFail(err); }
     return; }
-  const lb=Object.fromEntries(EF.concat([['is_industry','同業'],['receipt_none','領収書名 不要']])); const d={...dr}; clash.forEach(k=>{ d[k]=c[k]; });
+  const lb=Object.fromEntries(EF.concat([['is_industry','同業'],['receipt_none','領収書名 不要']])); const d={...dr}; Object.keys(d).forEach(k=>{ if(k!=='focus'&&!(k in patch)&&k in c) d[k]=k==='is_industry'||k==='receipt_none'?!!c[k]:c[k]; }); clash.forEach(k=>{ d[k]=c[k]; }); /* 自分が変えていない欄は最新の値で開き直す（前は開いた時の古い値のままで、保存し直すとほかの人の変更を古い値に戻していた） */
   await uiAlert(`ほかの人が先に「${clash.map(k=>lb[k]||k).join('・')}」を変更していました。そこは最新にして、ほかの欄は書いた内容を残したので、確かめて保存してください`);
   return editForm(memoOnly,d); }
 CU_SITE.clashBox=(mine,theirs)=>sheet(`<h3>同じ箇所をほかの人も修正していました</h3><div class="muted" style="font-size:13px">どちらを残しますか？</div>
