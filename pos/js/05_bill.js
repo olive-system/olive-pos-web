@@ -157,11 +157,21 @@ function rbSetHtml(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEd
     (b.ext_waived_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した延長 ${b.ext_waived_minutes}分（料金なし）</div>`:'')+
     (b.ext_pay_shift_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">会計中猶予 ${b.ext_pay_shift_minutes}分（料金なし）</div>`:'')+
     (b.status==='open'&&b.pay_open_at?`<div class="muted" style="font-size:12px;padding:2px 4px">お会計中　延長停止 ${hmJst(b.pay_open_at)}</div>`:'')+
-    (t?.vip_set_fee>0&&b.vip_set_off?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した VIP代（料金なし）</div>`:'');
+    (t?.vip_set_fee>0&&b.vip_set_off?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した VIP代（料金なし）</div>`:'')+
+    extAskHtml(b);
   markXr(['bSet']);
 }
+/* 延長確認（SQL 702）：LINE の確認が始まった伝票だけ、今の状態と選び直しの4つ（オーナー「修正は POS の伝票で」） */
+const EXT_CH=[['30','30分延長'],['60','1時間延長'],['auto','自動延長'],['pay','会計']];
+const hmN=d=>new Date(d).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'numeric',minute:'2-digit',hour12:false}); /* 22:00・1:30（時の頭の 0 は付けない） */
+function extAskState(b){ const m=b.ext_mode, ok=b.ext_ok_until&&new Date(b.ext_ok_until);
+  if(m==='none') return '確認なし'; if(m==='pay') return '会計'; if(m==='auto') return '自動延長';
+  return ok&&ok>=billEnd(b)?`${b.ext_choice==='60'?'1時間延長':'30分延長'} 〜${hmN(ok)}`:'確認中'; }
+function extAskHtml(b){ if(b.status!=='open'||!b.ext_mode) return ''; const st=extAskState(b), on=b.ext_mode==='none'?null:b.ext_choice;
+  return `<div class="item" style="display:block"><div class="n" style="margin-bottom:8px">延長　<b${b.ext_mode==='none'?' style="color:var(--warn)"':''}>${esc(st)}</b></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">${EXT_CH.map(([k,l])=>`<button class="sm${k===on?' primary':''}" data-extc="${k}" style="min-width:0;white-space:nowrap;${k===on?'':'background:var(--card);border:1px solid var(--line)'}">${l}</button>`).join('')}</div></div>`; }
 function rbSetBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   if($('extSum')) $('extSum').onclick=()=>{ S.extOpen=!S.extOpen; openBill(b.id); };
+  $('bSet').querySelectorAll('[data-extc]').forEach(x=>x.onclick=guard(x,async()=>{ const q=await sb.rpc('pos_ext_choose',{p_bill:b.id,p_choice:x.dataset.extc}); if(q.error){ toast(q.error.message); return; } toast(q.data?.label||'保存しました'); openBill(b.id); }));
   $('bSet').querySelectorAll('[data-vipoff]').forEach(x=>x.onclick=async()=>{ const why=await askWhy(`VIP代 ${yenU(t.vip_set_fee)}を削除します。`); if(why===null) return; { const up=await sb.rpc('pos_rows_set',{p_table:'bills',p_where:{id:(b.id)??null},p:{vip_set_off:true}}); if(up.error){ if(await stale(up.error)) return; toast('VIP代を削除できません：'+up.error.message); return; } } await logOp('VIP代削除',{table:t.name,amount:t.vip_set_fee},why); openBill(b.id); });
   $('bSet').querySelectorAll('[data-ext]').forEach(x=>x.onclick=async()=>{ const e=(b.bill_extensions||[]).find(z=>z.id===x.dataset.ext); const why=await askWhy(`延長 ${e?.minutes??''}分 ${yenU(e?e.unit_price*e.qty:0)}を削除します。`); if(why===null) return; { const dl=await sb.rpc('pos_rows_del',{p_table:'bill_extensions',p_where:{id:(x.dataset.ext)??null}}); if(dl.error){ if(await stale(dl.error)) return; toast('延長を削除できません：'+dl.error.message); return; } } await logOp('延長削除',{minutes:e?.minutes,amount:e?e.unit_price*e.qty:null,is_auto:e?.is_auto},why);
     // 削除後に時間が足りなくなる分は「料金なしの延長」として記録（自動延長で復活しないように）
