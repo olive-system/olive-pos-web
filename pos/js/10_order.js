@@ -28,8 +28,9 @@ const noBack=p=>!Number(p.back_amount)&&!Number(p.back_points); // バック金�
 function castLabel(line){ const nm=id=>S.staff.find(x=>x.id===id)?.display_name||''; if(noBack(line.p)) return ''; if(!line.casts.length) return '<small class="none">バックなし</small>'; return `<small>バック：${line.casts.map(nm).map(esc).join('・')}${line.casts.length>1?`で${line.casts.length}等分`:''}</small>`; }
 function renderCart(){ $('oCart').innerHTML=oCart.map((l,i)=>`<div class="oline ${i===oSel?'sel':''}" data-i="${i}"><div class="nm">${esc(l.p.name)}</div><div class="r1"><small class="amt">${yen(l.p.price*l.qty)}</small><span class="qty"><button data-m="${i}">−</button><b>${l.qty}</b><button data-p="${i}">＋</button></span></div>${castLabel(l)}</div>`).join('')||'<div class="muted">メニューをタップして追加</div>';
   $('oCart').querySelectorAll('.oline').forEach(d=>d.onclick=e=>{ if(e.target.closest('button')) return; oSel=Number(d.dataset.i); renderOrderCasts(); renderCart(); });
-  $('oCart').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ oCart[b.dataset.p].qty++; renderCart(); });
-  $('oCart').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.m); oCart[i].qty--; if(oCart[i].qty<=0){ oCart.splice(i,1); oSel=Math.min(oSel,oCart.length-1); renderOrderCasts(); } renderCart(); }); }
+  /* 確定の後、画面を描き直す前に残っている ＋／− を押すと、空になったカートを読んで止まっていた */
+  $('oCart').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ if(!oCart[b.dataset.p]) return; oCart[b.dataset.p].qty++; renderCart(); });
+  $('oCart').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.m); if(!oCart[i]) return; oCart[i].qty--; if(oCart[i].qty<=0){ oCart.splice(i,1); oSel=Math.min(oSel,oCart.length-1); renderOrderCasts(); } renderCart(); }); }
 function buildSplits(itemId, line){ const q=line.qty, back=line.p.back_amount*q, pts=Number(line.p.back_points)*q, n=line.casts.length; // 売上は常に係。ここはバックとポイントだけ
   return line.casts.map((id,i)=>({bill_item_id:itemId,staff_id:id,sales_amount:0,back_amount:Math.floor(back/n)+(i===0?back-Math.floor(back/n)*n:0),back_points:i===0?Math.round((pts-Math.floor(pts/n*10)/10*(n-1))*10)/10:Math.floor(pts/n*10)/10})); } /* 端数は最初の人に足して合計をぴったりに（管理サイトの伝票の直しと同じ式） */
 $('oConfirm').onclick=guard($('oConfirm'),async()=>{ /* 通しチェック3：確かめの読み込みの間の二度押しで二重に入っていた */ if(!oCart.length){ toast('メニューを選んでください'); return; }
