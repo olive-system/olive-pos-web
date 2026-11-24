@@ -78,7 +78,7 @@
   header .nav button.on{background:var(--brand-d)}
   header .nav .bd{position:absolute;top:-4px;right:-4px;background:var(--warn);color:#fff;border-radius:999px;font-size:12px;padding:2px 7px;font-weight:700}
   header .menuBtn{background:var(--brand);color:#fff;border-radius:50%;width:74px;height:74px;font-weight:700}
-  .tables{grid-template-columns:repeat(5,1fr);gap:16px}
+  .tables{grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
   .tbl{background:linear-gradient(var(--tile-a),var(--tile-b));color:var(--ink);border:2px solid var(--tile-bd);min-height:170px}
   /* v10.81〜82（82＝.pill・.casts を .tbl.busy に効くよう修正）：来店中の卓も170pxに収めて段の高さをそろえる */.tables .tbl{gap:2px}.tables .tbl.busy .pill{margin:2px 0}.tables .tbl .total{line-height:1.15}.tables .tbl.busy .casts{padding:2px 8px}.tables .tbl .name,.tables .tbl .cust,.tables .tbl .row{line-height:1.25}
   .tbl .empty{color:var(--head);font-size:28px;font-weight:600}
@@ -139,9 +139,12 @@ label.cllb{display:inline-block;cursor:pointer;border-radius:10px;padding:6px 14
 .agari .agn{background:var(--gold-soft);border-radius:8px;padding:6px 10px;margin-top:6px;color:var(--ink)}
 /* 卓の札：1行目＝卓名と残り時間・2行目＝お客様の名前と人数・3行目＝係（広島は誘客）の枠と同伴の枠を半分ずつ（同伴の枠はオリーブの細い線と「同」）。色は決まりの変数だけ */
 .tbl .hd{display:flex;align-items:baseline;justify-content:space-between}.tbl .hd .name{flex:none}.tbl .hd .rm{font-size:14px}
-.tbl .nr{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px;line-height:1.25}.tbl .nr .cust{flex:1 1 auto;min-width:0}.tbl .nr .gc{flex:none}
-.tbl .pr{display:flex;gap:4px;margin:2px 0;align-items:stretch}.tables .tbl.busy .pr .casts{margin:0;flex:1 1 0;min-width:0;min-height:27px;box-sizing:border-box;line-height:19px;white-space:normal;padding-left:5px;padding-right:5px}.tables .tbl.busy .pr .d{box-shadow:inset 0 0 0 1px var(--head)}.tbl .pr .nm{display:inline-block;white-space:nowrap}.tbl .pr .mid{display:inline-block;width:.5em;text-align:center}
-.tbl .dm{display:inline-block;vertical-align:middle;margin-right:3px;text-align:center;width:14px;height:14px;border-radius:3px;background:var(--head);color:var(--brand);font-size:10px;line-height:14px}
+.tbl .nr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:12px;line-height:1.25}.tbl .nr .cust{flex:1 1 auto;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:normal;word-break:keep-all}.tbl .nr .gc{flex:none}
+/* 係（上の行）と同伴（下の行）を上下2段に（オーナー 2026-11-24）。縦の iPad は札が細いので、名前の行・係と同伴の箱の最小の高さをそろえ、「人数」・時間帯・金額が札ごとにずれないようにする */
+.tbl .pr{display:flex;flex-direction:column;gap:4px;margin:2px 0}.tables .tbl.busy .pr .casts{margin:0;min-width:0;min-height:27px;box-sizing:border-box;line-height:19px;white-space:normal;font-size:12px;padding-left:4px;padding-right:4px}.tables .tbl.busy .pr .d{box-shadow:inset 0 0 0 1px var(--head)}.tbl .pr .nm{display:inline-block;white-space:nowrap}.tbl .pr .mid{display:inline-block;margin:0 -.25em;text-align:center}
+@media (max-width:900px){.tbl .nr{min-height:36px}.tables .tbl.busy .pr .casts{min-height:46px}}
+.tables .tbl.busy>.casts{font-size:12px;padding:3px 6px}
+.tbl .dm{display:inline-block;vertical-align:middle;margin-right:2px;text-align:center;width:12px;height:12px;border-radius:3px;background:var(--head);color:var(--brand);font-size:9px;line-height:12px}
 /* 卓の札の下の赤い帯（アフター未確認・本日ボトル提案。札の高さはこの帯の分だけ伸びる） */.tbl .rtag{margin-top:6px;padding:4px 8px;border-radius:6px;background:var(--warn);color:#fff;font-size:13px;font-weight:700;text-align:center}
 /* 閉店作業の領収書の撮影：POS の中のカメラと、撮った後の角の修正（19_close_receipt.js）。映像は枠の中に収め、上に角の丸を重ねる */
 .box.clcam{width:min(980px,96vw);padding:0;overflow:hidden;background:var(--ink);position:relative}.box.clcam .dx{color:var(--card);z-index:2}.clcv{position:relative;height:min(68vh,640px)}.clcv video,.clcv canvas{position:absolute;left:0;top:0;width:100%;height:100%}.clcv video{object-fit:contain}.clcb{height:88px;display:flex;align-items:center;justify-content:center}.clsh{width:66px;height:66px;border-radius:50%;border:4px solid var(--card);background:var(--card);box-shadow:inset 0 0 0 4px var(--ink);padding:0;cursor:pointer}.box.clcam .bar{background:var(--card)}
