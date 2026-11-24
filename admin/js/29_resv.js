@@ -1,5 +1,5 @@
 // ---------- 予約（オーナー「タブは シフト・予約 にして、開いたらシフトと予約に切り替え」「カレンダー表示」「同伴と予約の一覧」「ここからでも追加・表示も編集も（私以外の人も）」） ----------
-// 月のカレンダーに、その日の予約と同伴。日を押すと下にその日の一覧（直す・取消）と「予約を足す」。時刻が無い予約は「未定」。権限はシフトと同じ。ここで足した・直した予約は LINE の知らせを送らない
+// 月のカレンダーに、その日の予約と同伴。日を押すと小窓にその日の一覧（直す・取消）と「予約を足す」。時刻が無い予約は「未定」。権限はシフトと同じ。ここで足した・直した予約は LINE の知らせを送らない
 const shSwitch=cur=>`<div class="seg" style="margin-bottom:14px">${[['shift','シフト'],['resv','予約']].map(([k,n])=>`<button data-shsw="${k}" class="${k===cur?'on':''}">${n}</button>`).join('')}</div>`;
 document.addEventListener('click',async e=>{ const b=e.target.closest&&e.target.closest('[data-shsw]'); if(!b||b.dataset.shsw===page) return; if(!await leaveOk()) return; go(b.dataset.shsw); });
 // 広島はお店のお客様で、女の子に担当は無い（担当は誘客した子を報酬に付ける印だけ）→ 担当を出さず、誘客がキャストならその子を担当に入れる（マイページ v0.86 と同じ。 オーナー）

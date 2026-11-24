@@ -1,6 +1,6 @@
 // ---------- 収支 月次（1日1行）→ 日付を押すと日次（営業日報・現金管理・入出金・伝票一覧・勤怠）。d-system の収支と同じ形 ----------
-// 売上は会計済の伝票の入金を売上日で（置きは入金した日、請求＝請求書）。キャスト報酬は日ごと＝その日の時間報酬＋商品バック＋手当−日払。月で決まるものは合計の行だけ（合計＝集計「キャスト」の残り支給額）
-// 総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の報酬（月給・日給・時給）も入る（黒服日払いは黒服の報酬の先払いなので二重にしない）。人件費比率＝総人件費÷売上計。経費＝出金。勤怠の時刻は「収支」を変えられる人が直せる（理由は必須・操作ログ）
+// 売上は会計済の伝票の入金を売上日で（置きは入金した日、請求＝請求書）。キャスト報酬は総額＝所得税などを引く前に支払った額（日払いはこの中に入っている）。月で決まるものは合計の行だけ
+// 総人件費＝キャスト報酬（総額）＋黒服の報酬（月給・日給・時給。黒服の日払いはその先払いなので、大きい方だけ）＋スカウト料（2026年12月分から）。人件費比率＝総人件費÷売上計。経費＝出金。勤怠の時刻は「収支」を変えられる人が直せる（操作ログに残る。理由を入れる欄は無い）
 let plMonth=null, plDate=null;
 const plYen=v=>Number(v||0)?yen(v).replace(/^-/,'−'):'—';
 const plRate=(a,b)=>Number(b||0)?(Math.round(Number(a||0)/Number(b)*10000)/100).toFixed(2)+'%':'—%';
@@ -52,7 +52,7 @@ function pmHtml(K){ const {st,m,mOpts,data,T,cols,box,Nn,per,cm,lab,ex,kb,kl,pho
     <div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
     <tr class="kst"><td class="nm"><b>合計</b></td>${cols.map(([k])=>`<td>${plCell(k,T)}</td>`).join('')}</tr>
     ${(data.days||[]).map(x=>{ const wd=new Date(x.date+'T00:00:00').getDay(); return `<tr><td class="nm"><a data-pld="${x.date}" style="color:var(--blue);cursor:pointer">${md(x.date)}</a> <span style="color:${wd===0?'var(--warn)':wd===6?'var(--pri)':'var(--muted)'}">${WD[wd]}</span></td>${cols.map(([k])=>`<td>${plCell(k,x)}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>
-    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済の伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金日に、入金方法（現金・カード）で入ります<br>キャスト報酬：日ごとは目安です（月の報酬の合計とは合いません）。その日の時間報酬（月の決定時給×稼働時間、日給の人は日給）＋商品バック＋手当 − その日の日払。小計バック・個別支給・罰金・控除・源泉など月で決まるものは、合計の行だけに入ります（合計は源泉などを引く前の額。売上が税込みなので人件費も引く前で数えます）<br>総人件費＝キャスト報酬＋日払い（キャスト・黒服）。合計の行は 黒服の報酬（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の報酬」と同じ）も入ります。黒服日払いは黒服の報酬の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`; }
+    <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">売上は会計済の伝票の入金を売上日で数えます<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">置きは入金日に、入金方法（現金・カード）で入ります<br>キャスト報酬：その日の明細の支給の合計（時給・折半・係のバック・商品のバック・手当。時給の段は月の段）と体験の日払です。源泉・日払いの先払いなどの控除を減算する前の総額です。端数と月で決まる物（個別支給など）は、月の最後の日に入ります（売上が税込みなので、人件費も控除の前で数えます）<br>総人件費＝キャスト報酬（総額。日払いはこの中に入っています）＋黒服の報酬（基本給−遅刻・早退＋ボーナス＋手当など。スタッフ設定の「黒服の報酬」と同じ）＋スカウト料（2026年12月分から）。黒服日払いは黒服の報酬の先払いなので、二重には数えません<br>人件費比率＝総人件費÷売上計。上の「経費」は出金（領収書精算・支払いなど）の合計</div></div>`; }
 async function plExcel(d){ /* 請求書がある月は、フォルダのいちばん上に 00_請求書_… を入れる（plInvoices） */ try{ await ksLoad('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }catch(e){ await uiAlert(e.message); return; }
   const T=plTotals(d), cols=PL_COLS.flatMap(([g,cs])=>cs.map(c=>[g,...c])), [y,mo]=String(d.month).split('-').map(Number);
   const val=(k,x)=>k==='rate'?(Number(x.sales||0)?Math.round(plLabor(x)/Number(x.sales)*10000)/100:0):k==='labor'?plLabor(x):k==='adv'?Number(x.cast_adv||0)+Number(x.hall_adv||0):Number(x[k]||0);
