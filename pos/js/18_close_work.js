@@ -64,7 +64,7 @@ function clHtml1(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
   <div class="r"><span class="badge gray">出金</span><span class="t" style="grid-column:span 3">日払（立替）　<small class="muted">${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('・')):'なし'}</small></span><span class="a">${yen(advSum)}</span><span></span></div></div><div id="clMvDone"></div>`; }
 function clHtml2(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K; return `
   ${H('③ 領収書メール')}<div id="clRcpt"></div>
-  ${mp?H('④ 出退勤罰金確認<small class="muted" style="font-weight:400">（23:00 に自動で付きます）</small>')+'<div id="clPunch"></div>'+clMpHtml(mpL,H):clOldMid}
+  ${mp?H('④ 出退勤罰金確認（23:00 に自動で付きます）')+'<div id="clPunch"></div>'+clMpHtml(mpL,H):clOldMid}
   ${H(mp?'⑥ レジ金合わせ':'⑩ レジ金合わせ')}
   <div id="clCard" style="margin-bottom:12px"></div>`; }
 function clHtml3(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K; return `
