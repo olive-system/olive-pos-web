@@ -17,7 +17,7 @@ async function fineDlg(id){ const st=S.staffAll.find(x=>x.id===id); const nm=st?
   const F={id,st,nm,bd,m,close,isHall,daily,dw,ftR,exempt,types,hrs};
   await fineDraw(F); }
 /* 罰金の小窓の部品（fineDlg の入れ物 F を受け取る） */
-function fineTAmt(F,t){ const {dw}=F; return t.calc==='daily_late'||t.calc==='daily_early'?`時間分${t.value?`＋日給×${t.value}%`:''}`:t.calc==='yen'?`${Number(t.value).toLocaleString()}円${t.per_unit?'／1回':''}`:t.calc==='hourly_pct'?`時給×${t.value}%`:t.calc==='daily_pct'?(dw?`${Math.round(dw*t.value/100).toLocaleString()}円（日給×${t.value}%）`:`日給×${t.value}%`):'金額を入れる'; }
+function fineTAmt(F,t){ const {dw}=F; return t.calc==='daily_late_yen'?`時間分＋${Number(t.value).toLocaleString()}円`:t.calc==='daily_late'||t.calc==='daily_early'?`時間分${t.value?`＋日給×${t.value}%`:''}`:t.calc==='yen'?`${Number(t.value).toLocaleString()}円${t.per_unit?'／1回':''}`:t.calc==='hourly_pct'?`時給×${t.value}%`:t.calc==='daily_pct'?(dw?`${Math.round(dw*t.value/100).toLocaleString()}円（日給×${t.value}%）`:`日給×${t.value}%`):'金額を入れる'; }
 async function fineIns(F,o){ const {id,nm,bd}=F; const e=(await insOnce('staff_fines',{store_id:S.store.id,staff_id:id,business_date:bd,source:'manual',...o})).error; if(e){ toast('保存エラー：'+e.message); return false; } await logOp('罰金',{name:nm,amount:o.amount,reason:o.reason,...(o.wage_pct?{wage_pct:o.wage_pct}:{})},null,true); toast('罰金を保存しました'); return true; }
 async function fineAsk(F,r0,a0){ const {nm}=F; const rs0=await uiDlg(`${nm}　罰金の理由`,true,r0,'理由を入力してください'); if(rs0==null) return null; const rs=rs0.trim(); if(!rs){ toast('理由を入力してください'); return null; } const v=await uiPrompt(`${nm}　罰金の金額（円）`,String(a0)); if(v==null) return null; const a=numIn(v); if(!a){ toast('金額を入力してください'); return null; } return {rs,a}; }
 async function finePick(F,t){ const {id,nm,bd,dw,hrs}=F; const ins=o=>fineIns(F,o), ask=(r,a)=>fineAsk(F,r,a);
@@ -27,13 +27,13 @@ async function finePick(F,t){ const {id,nm,bd,dw,hrs}=F; const ins=o=>fineIns(F,
     if(t.calc==='hourly_pct') return ins({amount:0,wage_pct:t.value,reason:t.name});
     // 日給の人の遅刻・早上がり。決まった時刻と打刻の差 × 時間給（日給÷所定時間）＋ 日給の○%（無断の時）
     // 打刻はタイムカードの丸め（rounded_at・round_punch。アフターの延長もここに入っている）を使う。無い時は 出勤15分切り上げ・退勤15分切り下げ。アフターの打刻は退勤の代わり
-    if(t.calc==='daily_late'||t.calc==='daily_early') return fineDailyLate(F,t);
+    if(t.calc==='daily_late'||t.calc==='daily_early'||t.calc==='daily_late_yen') return fineDailyLate(F,t);
     const v=await uiPrompt(`${nm}　${t.name}\n罰金の金額（円）`,''); if(v==null) return false; const a=numIn(v); if(!a){ toast('金額を入力してください'); return false; } return ins({amount:a,reason:t.name});
 }
 /* 日給の人の遅刻・早上がりの罰金（決まった時刻と丸めた打刻の差 × 時間給 ＋ 日給の○%） */
 async function fineDailyLate(F,t){ const {id,nm,bd,dw,hrs}=F; const ins=o=>fineIns(F,o);
   if(!dw){ await uiAlert(`${nm} の日給が入っていません。\nキャストの詳細で日給の金額を入力してから、再度選んでください`); return false; }
-  const late=t.calc==='daily_late', ev=await sb.from('attendance_events').select('*').eq('staff_id',id).eq('business_date',bd).in('event_type',['clock_in','clock_out','after']).order('event_at'); if(ev.error){ toast(ev.error.message); return false; }
+  const late=t.calc==='daily_late'||t.calc==='daily_late_yen', yen=t.calc==='daily_late_yen' /* 遅刻の時間分＋金額（SQL 693） */, ev=await sb.from('attendance_events').select('*').eq('staff_id',id).eq('business_date',bd).in('event_type',['clock_in','clock_out','after']).order('event_at'); if(ev.error){ toast(ev.error.message); return false; }
   const L2=(ev.data||[]), pin=L2.find(e=>e.event_type==='clock_in'), pout=L2.filter(e=>e.event_type==='clock_out'||e.event_type==='after').pop(); const p0=late?pin:pout;
   if(!p0){ await uiAlert(`${nm} の${late?'出勤':'退勤（アフター）'}の打刻がありません。\n先にタイムカード（または在籍リストの「${late?'出':'退'}」）で打刻を入力してください`); return false; }
   const Q=900000, day0=new Date(`${bd}T00:00:00`).getTime(); let pt=p0.rounded_at?new Date(p0.rounded_at).getTime():late?Math.ceil(new Date(p0.event_at).getTime()/Q)*Q:Math.floor(new Date(p0.event_at).getTime()/Q)*Q; let aft='';
@@ -43,9 +43,9 @@ async function fineDailyLate(F,t){ const {id,nm,bd,dw,hrs}=F; const ins=o=>fineI
   if(!mt||h>29||mi>59){ await uiAlert('時刻は 20:00 のように入力してください'); return false; }
   const sch=day0+((h<12?h+24:h)*60+mi)*60000; const min=Math.round((late?pt-sch:sch-pt)/60000);
   if(min<=0){ await uiAlert(late?`出勤 ${hmJst(pt)}（丸めた時刻）は、決まった出勤時刻 ${hmJst(sch)} より遅れていません`:`${aft?'アフター':'退勤'} ${hmJst(pt)}（丸めた時刻）は、決まった退勤時刻 ${hmJst(sch)} より早くありません`); return false; }
-  const hw=dw/hrs, ta=Math.round(hw*min/60), add=t.value?Math.round(dw*t.value/100):0, f=n=>Number(n).toLocaleString();
-  if(!await uiConfirm(`${nm}　${t.name}\n${late?'遅れた':'早く上がった'}時間 ${min}分（${late?'出勤':'退勤'}予定 ${hmJst(sch)}・打刻 ${hmJst(pt)}）\n時間分 ${f(ta)}円（時間給 ${f(Math.round(hw))}円 ＝ 日給 ${f(dw)}円 ÷ ${hrs}時間）${add?`\n＋日給×${t.value}% ${f(add)}円`:''}\n合計 ${f(ta+add)}円 で登録しますか？`)) return false;
-  return ins({amount:ta+add,reason:`${t.name}（予定${hmJst(sch)}・${aft?'アフター':'打刻'}${hmJst(pt)}・${min}分${add?`＋日給×${t.value}%`:''}）`});
+  const hw=dw/hrs, ta=Math.round(hw*min/60), add=yen?Number(t.value):t.value?Math.round(dw*t.value/100):0, at=yen?`＋${Number(t.value).toLocaleString()}円`:`＋日給×${t.value}%`, f=n=>Number(n).toLocaleString();
+  if(!await uiConfirm(`${nm}　${t.name}\n${late?'遅れた':'早く上がった'}時間 ${min}分（${late?'出勤':'退勤'}予定 ${hmJst(sch)}・打刻 ${hmJst(pt)}）\n時間分 ${f(ta)}円（時間給 ${f(Math.round(hw))}円 ＝ 日給 ${f(dw)}円 ÷ ${hrs}時間）${add?`\n${at} ${f(add)}円`:''}\n合計 ${f(ta+add)}円 で登録しますか？`)) return false;
+  return ins({amount:ta+add,reason:`${t.name}（予定${hmJst(sch)}・${aft?'アフター':'打刻'}${hmJst(pt)}・${min}分${add?at:''}）`});
 }
 function finePickView(F){ const {m,nm,isHall,daily,dw,ftR,exempt,types}=F; const tAmt=t=>fineTAmt(F,t), pick=t=>finePick(F,t), draw=()=>fineDraw(F);
   m.innerHTML=`<div class="box" style="width:520px"><div style="font-size:18px;font-weight:700;margin-bottom:4px">${esc(nm)}　罰金を選ぶ</div><div class="muted" style="font-size:13px;margin-bottom:8px">${isHall?'黒服':daily?`日給の人（日給 ${dw?dw.toLocaleString()+'円':'未設定'}）`:'時給の人'}${types.some(t=>t.calc==='hourly_pct')?'　時給の％は月末に決まった時給で計算します':''}${ftR.error?'<br><span style="color:var(--warn)">罰金の種類を読み込めません：'+esc(ftR.error.message)+'</span>':''}</div><div style="max-height:56vh;overflow:auto">${types.map((t,i)=>`<button class="ghost" data-fp="${i}" style="display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;font-size:16px;padding:12px;margin-bottom:6px${exempt.has(t.name)?';opacity:.45;background:var(--soft)':''}"><span style="min-width:0">${esc(t.name)}</span><b style="flex:none;font-size:15px">${exempt.has(t.name)?'免除':esc(tAmt(t))}</b>`+

@@ -23,8 +23,8 @@ function rwEdit(st,i){ const x=i==null?{name:'',kind:RWPS?'point':'yen',value:nu
     const y={name,kind:q('rwK').value,value:v,auto:q('rwA').value||null}; const L=RWT.slice(); if(i==null) L.push(y); else L[i]=y; if(!await save(L)) return; md.remove(); toast('保存しました'); PAGES.set_pay(); }); }
 function rwWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-rwi]').forEach(e=>e.onclick=()=>rwEdit(st,Number(e.dataset.rwi))); const a=document.querySelector('[data-rewards] [data-rwadd]'); if(a) a.onclick=()=>rwEdit(st,null); }
 // 罰金1つを1行にして、時給の人・日給の人の決め方を横に並べる（表は今と同じ fine_types。時給と日給が同じ「円」か「その都度」なら target='all' の1行＝黒服にもかかる。違えば hourly・daily の2行）
-const FINE_H=[['','なし'],['hourly_pct','％'],['yen','円'],['input','その都度']], FINE_D=[['','なし'],['daily_pct','％'],['yen','円'],['input','その都度'],['daily_late','遅刻（時間分）'],['daily_early','早上がり（時間分）']];
-const FINE_TIME=c=>c==='daily_late'||c==='daily_early';
+const FINE_H=[['','なし'],['hourly_pct','％'],['yen','円'],['input','その都度']], FINE_D=[['','なし'],['daily_pct','％'],['yen','円'],['input','その都度'],['daily_late','遅刻（時間分）'],['daily_late_yen','遅刻（時間分＋金額）'],['daily_early','早上がり（時間分）']];
+const FINE_TIME=c=>c==='daily_late'||c==='daily_early'||c==='daily_late_yen'; /* daily_late_yen：遅刻の時間分＋金額（SQL 693） */
 // fine_types の行 → 名前ごとに {name, h:{calc,value,per_unit}, d:{…}}
 function fineGroup(rows){ const g=new Map();
   for(const r of rows){ const k=r.name; if(!g.has(k)) g.set(k,{name:k,h:null,d:null}); const x=g.get(k), c={calc:r.calc,value:r.value,per_unit:r.per_unit};
@@ -33,7 +33,7 @@ function fineGroup(rows){ const g=new Map();
   return [...g.values()]; }
 // 罰金の種類は「一覧は文、押して小窓で変える」（オーナー。見本ア）。時給・日給の2列と「個数」のチェックをやめた。円の罰金は POS でいつも回数を入れられる（per_unit を全部 true）
 let FINES=[], FINES0=[]; /* FINES0＝読んだ時の fine_types の行（保存の時に送る。報酬の種類と同じ） */
-const fineTxt=c=>!c?'なし':c.calc==='yen'?`${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='hourly_pct'?(c.value%100===0?`時給×${c.value/100}時間`:`時給の${c.value}%`):c.calc==='daily_pct'?`日給 ${c.value}%`:c.calc==='input'?'その都度':c.calc==='daily_late'?`遅刻時間分${c.value?`＋日給 ${c.value}%`:''}`:c.calc==='daily_early'?`早上がり時間分${c.value?`＋日給 ${c.value}%`:''}`:'—';
+const fineTxt=c=>!c?'なし':c.calc==='yen'?`${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='hourly_pct'?(c.value%100===0?`時給×${c.value/100}時間`:`時給の${c.value}%`):c.calc==='daily_pct'?`日給 ${c.value}%`:c.calc==='input'?'その都度':c.calc==='daily_late'?`遅刻時間分${c.value?`＋日給 ${c.value}%`:''}`:c.calc==='daily_late_yen'?`遅刻時間分＋${Number(c.value||0).toLocaleString('ja-JP')}円`:c.calc==='daily_early'?`早上がり時間分${c.value?`＋日給 ${c.value}%`:''}`:'—';
 const fineSame=(a,b)=>!!a&&!!b&&a.calc===b.calc&&(a.value??null)===(b.value??null);
 // 所定時間の保存も箱の右下（オーナー「ちぐはぐやめて」）
 function fineCard(rows,ed,hours){ FINES=fineGroup(rows); FINES0=rows.map(r=>({name:r.name,target:r.target,calc:r.calc,value:r.value,per_unit:r.per_unit})); return foldCard('fines','罰金の種類','',`${FINES.length}種類`,`<div class="muted" style="font-size:13px;margin-bottom:8px">POS の在籍リストの「＋罰金」で選びます。${ed?'押すと変えられます':''}</div>
@@ -44,7 +44,7 @@ function fineListHtml(ed){ return `<div style="border:1px solid var(--line);bord
 function fineEdit(st,i){ const g=i==null?{name:'',h:{calc:'yen',value:null},d:null}:FINES[i], hc=g.h?.calc||'none', same=fineSame(g.h,g.d)||(g.h&&g.d&&g.h.calc==='yen'&&g.d.calc==='yen'&&g.h.value===g.d.value);
   const dSel=same?'same':g.d?g.d.calc:'none';
   const md=mkModal(null,fineEditHtml(g,i,hc,dSel,same));
-  const q=id=>md.querySelector('#'+id), dp=()=>{ const v=q('fnD').value; q('fnDv').style.display=['yen','daily_pct','daily_late','daily_early'].includes(v)?'':'none'; q('fnDu').textContent=v==='yen'?'円':v==='daily_pct'?'%':'＋日給の %（空けてよい）'; }; q('fnD').onchange=dp; dp();
+  const q=id=>md.querySelector('#'+id), dp=()=>{ const v=q('fnD').value; q('fnDv').style.display=['yen','daily_pct','daily_late','daily_early','daily_late_yen'].includes(v)?'':'none'; q('fnDu').textContent=v==='yen'||v==='daily_late_yen'?'円':v==='daily_pct'?'%':'＋日給の %（空けてよい）'; }; q('fnD').onchange=dp; dp();
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   const save=async list=>{ const rows=[]; for(const x of list){ const same=fineSame(x.h,x.d); if(x.h&&x.d&&same&&(x.h.calc==='yen'||x.h.calc==='input')) rows.push({name:x.name,target:'all',...x.h,per_unit:x.h.calc==='yen'}); else { if(x.h) rows.push({name:x.name,target:'hourly',...x.h,per_unit:x.h.calc==='yen'}); if(x.d) rows.push({name:x.name,target:'daily',...x.d,per_unit:x.d.calc==='yen'}); } }
     const r=await rpc('admin_save_fine_types',{p_store:st,p_rows:rows,p_base:FINES0}); if(!r.ok) return false; return true; };
@@ -63,6 +63,7 @@ async function fineRead(md,q){
     if(dv==='same'){ if(!h){ await uiAlert('時給の人が「かからない」の時は、日給の人を選んでください'); return null; } if(h.calc==='hourly_pct'){ await uiAlert('時給の時間分は日給の人には使えません。日給の人を選んでください'); return null; } d={...h}; }
     else if(dv==='yen'||dv==='daily_pct'){ const v=slNum(q('fnDn').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert(dv==='yen'?'日給の人の金額を入力してください':'日給の何%かを入力してください'); return null; } d={calc:dv,value:v}; }
     else if(dv==='input') d={calc:'input',value:null};
+    else if(dv==='daily_late_yen'){ const v=slNum(q('fnDn').value); if(!(v>0)||!Number.isInteger(v)){ await uiAlert('遅刻の時間分に加算する金額を入力してください'); return null; } d={calc:dv,value:v}; }
     else if(dv==='daily_late'||dv==='daily_early'){ const v=slNum(q('fnDn').value); if(v!=null&&(!(v>0)||!Number.isInteger(v))){ await uiAlert('加算の%は1以上の整数にするか、空けてください'); return null; } d={calc:dv,value:v}; }
     if(!h&&!d){ await uiAlert('時給の人か日給の人のどちらかを選んでください'); return null; }
   return {h,d}; }
@@ -70,7 +71,7 @@ async function fineRead(md,q){
 function fineEditHtml(g,i,hc,dSel,same){
   return `<h2 style="margin:0">${i==null?'罰金の追加':esc(g.name)}</h2><label>名前<input id="fnN" value="${esc(g.name)}"></label>
     <div><div class="muted" style="font-size:13px;margin-bottom:4px">時給の人</div>${[['yen','金額',`<input id="fnHy" inputmode="numeric" value="${hc==='yen'?g.h.value??'':''}" style="width:110px;text-align:right"> 円`],['hourly_pct','時給の',`<input id="fnHp" inputmode="decimal" value="${hc==='hourly_pct'?g.h.value/100:''}" style="width:80px;text-align:right"> 時間分`],['input','その都度（POS で金額を入れる）',''],['none','かからない','']].map(([v,n,x])=>`<label style="display:flex;align-items:center;gap:8px;flex-direction:row;margin:4px 0;color:var(--ink);font-size:15px"><input type="radio" name="fnH" value="${v}" ${hc===v?'checked':''} style="width:auto">${n} ${x}</label>`).join('')}</div>
-    <div><div class="muted" style="font-size:13px;margin-bottom:4px">日給の人</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="fnD" style="width:auto">${[['same','時給の人と同じ'],['yen','金額'],['daily_pct','日給の'],['input','その都度'],['daily_late','遅刻の時間分'],['daily_early','早上がりの時間分'],['none','かからない']].map(([v,n])=>`<option value="${v}" ${dSel===v?'selected':''}>${n}</option>`).join('')}</select><span id="fnDv"><input id="fnDn" inputmode="numeric" value="${g.d&&!same?g.d.value??'':''}" style="width:100px;text-align:right"> <span id="fnDu"></span></span></div></div>
+    <div><div class="muted" style="font-size:13px;margin-bottom:4px">日給の人</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="fnD" style="width:auto">${[['same','時給の人と同じ'],['yen','金額'],['daily_pct','日給の'],['input','その都度'],['daily_late','遅刻の時間分'],['daily_late_yen','遅刻の時間分＋金額'],['daily_early','早上がりの時間分'],['none','かからない']].map(([v,n])=>`<option value="${v}" ${dSel===v?'selected':''}>${n}</option>`).join('')}</select><span id="fnDv"><input id="fnDn" inputmode="numeric" value="${g.d&&!same?g.d.value??'':''}" style="width:100px;text-align:right"> <span id="fnDu"></span></span></div></div>
     <div class="bar">${i==null?'':'<button class="ghost" data-k="del" style="color:var(--warn);margin-right:auto">削除</button>'}<button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`;
 }
 function fineListWire(st,ed){ if(!ed) return; document.querySelectorAll('[data-fi]').forEach(e=>e.onclick=()=>fineEdit(st,Number(e.dataset.fi))); const a=document.querySelector('[data-fines] [data-fadd]'); if(a) a.onclick=()=>fineEdit(st,null); }
