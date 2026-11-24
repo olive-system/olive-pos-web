@@ -82,8 +82,8 @@ function hallPeople(b){ const cs=b.bill_casts||[], nm=c=>esc(S.staff.find(s=>s.i
   const names=a=>a.map((c,i)=>`<span class="nm">${nm(c)}${i<a.length-1?'<span class="mid">・</span>':''}</span>`).join('');
   return `<div class="pr"><div class="casts k">${names(cs.filter(c=>c.is_kakari))}</div><div class="casts d"><span class="dm">同</span>${names(cs.filter(c=>isDouhan(c.role)).sort((x,y)=>rk[x.role]-rk[y.role]))}</div></div>`; }
 // 卓の札のアフターの行：決まった卓は「アフター ナナ」「アフター なし」、まだの卓は時刻を過ぎたら「アフター未確認」
-function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="casts">アフター ${esc(b.after_bills.map(x=>S.staff.find(s=>s.id===x.staff_id)?.display_name||'').join('・'))}</div>`;
-  if(b.after_none) return '<div class="casts">アフター なし</div>';
+function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="casts">アフター\u00a0${esc(b.after_bills.map(x=>S.staff.find(s=>s.id===x.staff_id)?.display_name||'').join('・'))}</div>`;
+  if(b.after_none) return '<div class="casts">アフター\u00a0なし</div>';
   return afterDue(now)?'<div class="rtag">アフター未確認</div>':''; }
 /* 押している最中は描き直しを待つ（ほかの iPad の変更の知らせで卓を全部作り直すと、押した卓が消えて反応しなかった） */
 function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } renderHallNow(totals); }
@@ -96,7 +96,7 @@ function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_cu
     if (hd.length) { el.className='tbl hand'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="hmsg">お預かり品をお返しください</div>${hd.map(x=>`<div class="hitem">${FX('label')} ${tagLabel(x)}</div>`).join('')}`; el.onclick=()=>openHand(t); }
     else if (!b) { el.className='tbl'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="empty">空 席</div>`; el.onclick=()=>openNew(t); }
     else { const end=billEnd(b), remain=Math.round((end-now)/60000); const pay=!!b.pay_open_at; el.className='tbl busy'+(remain<10&&!pay?' over':'');
-      el.innerHTML=`<div class="hd">${tsukeNameHtml(b.id,t.name,now)}<span class="rm">${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="nr"><span class="cust">${cnames(b)?`${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様`:''}</span><span class="gc">${b.guest_count}名</span></div>${hallPeople(b)}<div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div>${kpbTag(b.id,now)}${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
+      el.innerHTML=`<div class="hd">${tsukeNameHtml(b.id,t.name,now)}<span class="rm">${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="nr"><span class="cust">${cnames(b)?`${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様`:''}</span><span class="gc">${b.guest_count}名</span></div>${hallPeople(b)}<div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div>${kpbTag(b.id,now)}${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
       el.onclick=()=>billFromHall(b,pay); } /* ホールから伝票を開いたら、お会計を閉じたのと同じ */
     $('tables').appendChild(el); }
   for (const b of okiBills) { const el=document.createElement('div'); const unpaid=(b.payments||[]).filter(p=>p.method==='oki'&&!p.received_at).reduce((a,p)=>a+p.amount,0);
