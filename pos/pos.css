@@ -161,3 +161,4 @@ label.cllb{display:inline-block;cursor:pointer;border-radius:10px;padding:6px 14
 #bLoad{display:none}#v-bill.ld>#bLoad{display:block}#v-bill.ld>:not(#bLoad){display:none} /* 卓を押してから中身が入るまで（billFromHall） */
 @media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}} /* iPad を縦にした時は伝票の列を2つずつ2段に：4列だとボトルの名前が1〜2字ずつ折り返し、VIP代と金額が重なった */
 #cuList .row .nm{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;min-width:0}#cuList .row .nm>small{margin-left:0!important;white-space:normal;overflow-wrap:anywhere;min-width:0} /* 顧客の一覧：会社名は枠の中で折り返す・来店日の行の始まりを会社名とそろえる */
+/* 延長確認（SQL 702）：札の高さを変えずに、キャストの欄の上に大きく重ねる */.tbl .extbig{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--warn);color:#fff;border-radius:8px;font-size:26px;font-weight:800;letter-spacing:2px}

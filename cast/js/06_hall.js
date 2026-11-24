@@ -175,10 +175,17 @@ function hcTrialHtml(){ const T = hcT && hcT.trials || []; if(!T.length) return 
 function hcTrialBind(){ $('main').querySelectorAll('[data-th]').forEach(x => x.onchange = async () => { x.disabled = true;
   const r = await sb.rpc('hall_trial_host_set', { p_token: TOKEN, p_staff: x.dataset.th, p_hall: x.value || null }); x.disabled = false;
   if(r.error){ await uiAlert(r.error.message); hallChorei(true); return; } const t = hcT.trials.find(z => z.id === x.dataset.th); if(t) t.host = x.value || null; x.style.color = x.value ? 'var(--ink)' : 'var(--warn)'; toast('保存しました'); }); }
+/* 付け回し担当（SQL 701・延長の確認の LINE を受ける黒服）：自動延長しない店（広島）だけ・必須。POS の朝礼と同じ形（選ぶとすぐ保存・選ぶまで赤字） */
+let hcK = null;
+function hcTsukeHtml(){ if(!hcK || !hcK.required) return ''; const v = hcK.staff_id || '';
+  return `<div class="card"><div class="row" style="align-items:center;padding:0"><span class="gh" style="margin:0;flex:1">付け回し担当</span><select data-tk style="width:auto;font:inherit;font-size:15px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#fff;color:${v ? 'var(--ink)' : 'var(--warn)'}"><option value="">未選択</option>${(hcK.halls || []).map(h => `<option value="${h.id}" ${h.id === v ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}</select></div></div>`; }
+function hcTsukeBind(){ $('main').querySelectorAll('[data-tk]').forEach(x => x.onchange = async () => { x.disabled = true;
+  const r = await sb.rpc('hall_tsuke_staff_set', { p_token: TOKEN, p_staff: x.value || null }); x.disabled = false;
+  if(r.error){ await uiAlert(r.error.message); hallChorei(true); return; } hcK.staff_id = x.value || null; x.style.color = x.value ? 'var(--ink)' : 'var(--warn)'; toast('保存しました'); }); }
 async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
-  const [r, t] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN })]); if(r.error){ fail(r.error.message); return; }
-  hcT = t.error ? null : t.data;
+  const [r, t, k] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN }), sb.rpc('hall_tsuke_staff', { p_token: TOKEN })]); if(r.error){ fail(r.error.message); return; }
+  hcT = t.error ? null : t.data; hcK = k.error ? null : k.data;
   hcD = r.data; if(keepWx !== true) hcWx = null; hcPaint(); /* トップのボタンからは event が来るので true の時だけ */
   if(!hcWx) await hcWeather(hcD);
 }
@@ -207,13 +214,14 @@ function hcHallLate(C){ return (C.notes || (C.hall_late||[]).map(x => ({ ...x, w
 /* 朝礼の画面（お客様・天気・出勤・売上・お誕生日） */
 function hcHtml(V){ const { C, G, left, tag, guest, SH, y } = V; return `<div id="hcBox"><div class="ttl">朝礼　${mdW(C.date)}${C.event?' <small class="muted">イベント日</small>':''}</div>
     <div class="card"><div class="gh">本日来店予定のお客様 ${G.length}組${left?`　<span class="err">未確認 ${left}組</span>`:''}</div>${G.map(guest).join('')||'<div class="muted sm">なし</div>'}${G.length?'<div class="muted sm" style="margin-top:6px">未確認をタップで顧客メモを確認してください。</div>':''}</div>
+    ${hcTsukeHtml()}
     <div class="card"><div class="gh">天気</div><div id="hcWx" class="${hcWx ? hcWx.c : 'muted sm'}">${hcWx ? hcWx.h : '読み込み中…'}</div></div>
     <div class="card"><div class="gh">本日の出勤 ${(C.shifts||[]).length}人</div>${Object.keys(SH).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${SH[t].join('・')}</span></div>`).join('')||'<div class="muted sm">シフトなし</div>'}${hcHallLate(C)}</div>
     ${hcTrialHtml()}
     <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdWD(y)}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
     <div class="card"><div class="gh">お誕生日（前後1週間）</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; /* 前後1週間（キャストのトップと同じ） */ return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`; }
 /* 押した時の動き：お客様を開く・卓・確認 */
-function hcBind(V){ const { C, G, left, tag, guest, SH, y } = V; hcTrialBind();
+function hcBind(V){ const { C, G, left, tag, guest, SH, y } = V; hcTrialBind(); hcTsukeBind();
   $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* 読み直さない */
   $('main').querySelectorAll('[data-hs]').forEach(x => { x.onclick = e => e.stopPropagation(); x.onchange = async () => { const id = x.dataset.hs, g = G.find(g => String(g.id) === id), was = g?.seat || ''; x.disabled = true;
     const q = await sb.rpc('hall_resv_seat', { p_token: TOKEN, p_id: id, p_table: x.value || null }); x.disabled = false; if(q.error){ x.value = was; await uiAlert(q.error.message); return; } if(g) g.seat = x.value || null; }; });

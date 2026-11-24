@@ -24,7 +24,7 @@ async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class
   if(!S.staffAll?.length) await loadStaffAll(); const [cr,ar,sr,tr,kr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today'), sb.rpc('pos_chorei_trials'), sb.rpc('pos_tsuke_staff')]);
   if(S.setCur!=='chorei') return;
   if(cr.error){ box.innerHTML=`<div class="err">読み込めません：${esc(cr.error.message)}</div>`; return; }
-  const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g); V.trials=tr.error?null:tr.data; V.tsuke=kr.error?null:kr.data;
+  const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g); V.trials=tr.error?null:tr.data; V.tsuke=kr.error?null:kr.data; if(V.tsuke) S.tkDuty=V.tsuke;
   box.innerHTML=chHtmlTop(V)+chHtmlSide(V);
   chBind(V,box);
   const wx=await chWeather(V.C); if($('chWx')) $('chWx').outerHTML=`<div>${wx}</div>`;
@@ -79,11 +79,11 @@ function chTrialBind(V,box){ box.querySelectorAll('[data-cth]').forEach(x=>x.onc
   const q=await sb.rpc('pos_trial_host_set',{p_staff:x.dataset.cth,p_hall:x.value||null}); x.disabled=false;
   if(q.error){ await uiAlert(q.error.message); renderChorei(); return; } const t=V.trials.trials.find(z=>z.id===x.dataset.cth); if(t) t.host=x.value||null; x.style.color=x.value?'var(--ink)':'var(--warn)'; toast('保存しました'); }); }
 /* 付け回し担当（SQL 701・延長の確認の LINE を受ける黒服。オーナー 11/25「朝礼で決める」）：体験の［対応黒服］と同じ形。選ぶとすぐ保存・選ぶまで赤字 */
-function chTsukeCard(V){ const T=V.tsuke; if(!T) return ''; const v=T.staff_id||'';
+function chTsukeCard(V){ const T=V.tsuke; if(!T||!T.required) return ''; /* 自動延長しない店（広島）だけ・必須（オーナー「絶対選ぼう」）。銀座の朝礼は今のまま */ const v=T.staff_id||'';
   return `<div style="border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--card)"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:15px;color:var(--muted);font-weight:700;flex:1">付け回し担当</span><select data-tsk style="height:40px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:16px;background:var(--card);color:${v?'var(--ink)':'var(--warn)'}"><option value="">未選択</option>${(T.halls||[]).map(h=>`<option value="${h.id}" ${h.id===v?'selected':''}>${esc(h.name)}</option>`).join('')}</select></div></div>`; }
 function chTsukeBind(box){ box.querySelectorAll('[data-tsk]').forEach(x=>x.onchange=async()=>{ x.disabled=true;
   const q=await sb.rpc('pos_tsuke_staff_set',{p_staff:x.value||null}); x.disabled=false;
-  if(q.error){ await uiAlert(q.error.message); renderChorei(); return; } x.style.color=x.value?'var(--ink)':'var(--warn)'; toast('保存しました'); }); }
+  if(q.error){ await uiAlert(q.error.message); renderChorei(); return; } x.style.color=x.value?'var(--ink)':'var(--warn)'; if(S.tkDuty) S.tkDuty.staff_id=x.value||null; toast('保存しました'); }); }
 /* 押した時の動き：お客様を開く・卓・予約の取消・確認 */
 function chBind(V,box){ const {C,G,d,md,card,row,tag,left,TB,SH,abs,sl,todo,y,guest,ar}=V; chTrialBind(V,box); chTsukeBind(box);
   box.querySelectorAll('[data-cho]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cho; chOpen.has(k)?chOpen.delete(k):chOpen.add(k); renderChorei(); });

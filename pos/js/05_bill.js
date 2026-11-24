@@ -164,9 +164,8 @@ function rbSetHtml(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEd
 /* 延長確認（SQL 702）：LINE の確認が始まった伝票だけ、今の状態と選び直しの4つ（オーナー「修正は POS の伝票で」） */
 const EXT_CH=[['30','30分延長'],['60','1時間延長'],['auto','自動延長'],['pay','会計']];
 const hmN=d=>new Date(d).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'numeric',minute:'2-digit',hour12:false}); /* 22:00・1:30（時の頭の 0 は付けない） */
-function extAskState(b){ const m=b.ext_mode, ok=b.ext_ok_until&&new Date(b.ext_ok_until);
-  if(m==='none') return '確認なし'; if(m==='pay') return '会計'; if(m==='auto') return '自動延長';
-  return ok&&ok>=billEnd(b)?`${b.ext_choice==='60'?'1時間延長':'30分延長'} 〜${hmN(ok)}`:'確認中'; }
+function extAskState(b){ const m=b.ext_mode; if(m==='none') return '確認なし'; if(m==='pay') return '会計'; if(m==='auto') return '自動延長';
+  return b.ext_choice==='30'||b.ext_choice==='60'?`${b.ext_choice==='60'?'1時間延長':'30分延長'} 〜${hmN(billEnd(b))}`:'確認中'; } /* 30分・1時間は返事の時に付けた延長の終わり */
 function extAskHtml(b){ if(b.status!=='open'||!b.ext_mode) return ''; const st=extAskState(b), on=b.ext_mode==='none'?null:b.ext_choice;
   return `<div class="item" style="display:block"><div class="n" style="margin-bottom:8px">延長　<b${b.ext_mode==='none'?' style="color:var(--warn)"':''}>${esc(st)}</b></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">${EXT_CH.map(([k,l])=>`<button class="sm${k===on?' primary':''}" data-extc="${k}" style="min-width:0;white-space:nowrap;${k===on?'':'background:var(--card);border:1px solid var(--line)'}">${l}</button>`).join('')}</div></div>`; }
 function rbSetBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
