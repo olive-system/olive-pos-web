@@ -38,7 +38,7 @@ function hpHtml(K){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp,own,h
   ${rows.length?`<div class="cs-w o-hscroll ${E?'editing':''}"><table class="reg cs"><tr><th class="nm">名前</th>${HD.map(h=>`<th>${h}</th>`).join('')}</tr>
   ${rows.map(r=>`<tr data-sid="${r.s.id}"><td class="nm">${!E?`<a data-hed="${r.s.id}">${esc(r.s.display_name)}</a>`:esc(r.s.display_name)}${r.t.month===m&&r.t.only_month?`<br><small class="muted">${csMShort(m)}のみ</small>`:''}</td>${cell(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`
   :'<div class="card muted">在籍の黒服がいません</div>'}
-  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}<br>限定項目：可の黒服のみ、開店・閉店作業の限定の項目と、LINEマイページの顧客サイトの編集が可能です<br>黒服報酬：全員の黒服のみ、同じ店舗の黒服全員の報酬の閲覧が可能です</div>
+  <div class="muted" style="font-size:13px;margin-top:10px;line-height:1.6">${E?'報酬・金額・源泉徴収・消費税・厚生費を変更すると、保存の時に「○月以降／○月のみ」を選びます':'金額は、月給なら1か月、時給なら1時間、日給なら1日の金額です'}${ed&&!E?'。修正は「編集」から':''}<br>限定項目：可の黒服のみ、開店・閉店作業の限定の項目と、LINEマイページの顧客サイトの編集が可能です</div>
 `; }
 /* 押した時の動き：編集・追加・名前・キャンセル・報酬と厚生費の欄・保存 */
 function hpBind(K){ const {box,st,ed,m,sf,tm,halls,tr0,rows,E,lock,sel,inp,own,hm5,cell}=K;
