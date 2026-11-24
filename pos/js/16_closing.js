@@ -87,7 +87,7 @@ function cpPrep(d,ev,bl,lt,fn,al,hl){
 /* 時刻の枠と遅刻のしるし */
 function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   const tm=(on,k,v,fix,key,id,o)=>`<span ${on?`data-${key}="${id}" `:''}style="font-size:14px;white-space:nowrap;padding:2px 4px;font-variant-numeric:tabular-nums;border-bottom:1px dotted ${on?'#999':'transparent'};${on?'cursor:pointer;':''}color:${fix?'var(--warn)':on?'inherit':'var(--muted)'}">${k}${o&&hmJst(o)!==v?`<small style="color:var(--muted)">${hmJst(o)}→</small>`:''}${v}</span>`;
-  // 遅刻のしるし・罰金・手当は、それぞれ同じ幅の枠に入れて、行ごとに始まりをそろえる（無い行も同じ幅の空き。オーナー）。シフトが同伴の日は「同伴」
+  // 遅刻のしるし・罰金・手当は、それぞれ同じ幅の枠に入れて、行ごとに始まりをそろえる（無い行も同じ幅の空き。オーナー）
   const cpCell=(w,v)=>`<span style="display:inline-block;width:${w}px;flex:none;white-space:nowrap">${v}</span>`;
   const cpAmt=(k,id,t,c)=>`<span data-${k}="${id}" style="font-size:14px;padding:2px 4px;cursor:pointer;border-bottom:1px dotted #999;font-variant-numeric:tabular-nums;color:${c}">${t}</span>`;
   const lateHtml=(s,l,f,a,id)=>{ const late=!!l?.late, y=f?f.y:Number(l?.fine||0), p=f?f.p:0, hall=s.kind==='hall', fine=y>0||p>0, alw=!hall&&a; if(!late&&!fine&&!alw) return '';
@@ -118,7 +118,7 @@ function clAfterHtml(AF,B,edit){ const R=AF.rows||[]; if(!R.length) return ''; c
     return `<div class="item" style="padding:6px;gap:5px;font-size:14px"><span style="width:58px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm(r.staff_id))}</span>${edit?`<button type="button" class="ghost" data-afsel="${r.staff_id}" style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;text-align:left;padding:5px 6px;font-size:14px;min-height:0;background:#fff">${inner}<span class="muted" style="flex:none">▾</span></button>`:`<span style="flex:1;min-width:0;display:flex;gap:6px;font-size:14px">${inner}</span>`}<span style="width:34px;flex:none;text-align:right;font-weight:700;font-variant-numeric:tabular-nums">${pt(r)}</span></div>`; };
   return `<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:14px 0 6px"><b style="font-size:16px">アフター</b><small class="muted">お客様1名 ${v.toLocaleString()}${u} を人数で分配</small></div>
     <div class="list" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:10px">${R.map(row).join('')}</div>`; }
-// 出退勤罰金確認の「退」で、退勤の時刻を直す（最後の打刻がアフターなら、アフターの時刻を直す。新しくアフターにするのは伝票で付ける・SQL 526）。罰金を付けるかは pos_punch_out が決める
+// 出退勤罰金確認の「退」で、退勤の時刻を直す（最後の打刻がアフターなら、アフターの時刻）。時刻の小窓 uiTime（04_cast_punch.js）が、時刻を変えた時だけ免除申請の欄を出す。アフターを付けるのは伝票（SQL 526）
 async function clPunchOut(id,t,after){ const s=S.staffAll.find(x=>x.id===id); const wi=await sb.rpc('pos_waive_info',{p_staff:id,p_type:'clock_out'}); const kind=t&&t.after?'after':'clock_out';
   const w={...(wi.data||{}),label:s?.display_name||'',at:t&&t.out?new Date(t.out).getTime():null}; const v=await uiTime('clock_out',w); if(!v) return; const by=await askBy(); if(by===null) return; /* 修正した黒服を残す */
   const r=await sb.rpc('pos_punch_out',{p_staff:id,p_kind:v.kind||kind,p_at:v.at}); if(r.error){ await uiConfirm(r.error.message); return; } if(by) await punchBy(id,'clock_out',by); attDrop();
