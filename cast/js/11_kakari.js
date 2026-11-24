@@ -54,7 +54,7 @@ async function castResvForm(ed){
   setBack(resvList); show('<div class="card c muted">読み込み中…</div>');
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
   if(st.error){ fail(st.error.message); return; }
-  const today = new Date(Date.now() + 9*3600e3).toISOString().slice(0,10);
+  const today = jstDay();
   const me = (st.data||[]).find(s => s.name === ME.name), kk = ed ? ed.kakari : me?.id, NK = RV_NOKK();
   const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('');
   const R = { ed, me, NK, dh: ed ? !!ed.douhan : false, cid: ed ? ed.customer_id || null : null, cTimer: null, sr: false,

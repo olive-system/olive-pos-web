@@ -1,5 +1,5 @@
 // ---------- 日付 ----------
-function bd(){ return boot&&boot.business_date||new Date().toISOString().slice(0,10); }
+function bd(){ return boot&&boot.business_date||businessDate(); }
 CU_SITE.today = bd; /* 来店の年（lib/olive/customer.js の visYears）は、データベースの営業日で分ける */
 // 一覧のボトル：キープ中の銘柄を3本まで、4本以上は「ほか○本」。銘柄が届かない時は本数だけ。POSと同じ
 function cutoff(n){ return monthsBefore(bd(),n); }

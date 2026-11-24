@@ -8,7 +8,7 @@
 // 確定したシフトはカレンダーで、出勤時刻と同伴・予約・係予約（自分が係のお客様の予約）。日を押すと詳細
 let SHIFT = null;
 // 今日のマスはオリーブでぬる（文字は白。オーナー 案ウ）。今日＝営業日（朝8時で切りかわる。POS と同じ）
-const shToday = () => (SHALL && SHALL.today) || new Date(Date.now() + (9 - 8) * 3600e3).toISOString().slice(0, 10);
+const shToday = () => (SHALL && SHALL.today) || businessDate();
 const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), y = m.getFullYear(), mo = m.getMonth(), first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
   let h = '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">' + WD.map(w => `<div class="muted" style="text-align:left;padding-left:5px;font-size:11px">${w}</div>`).join('');
   for(let i = 0; i < first; i++) h += '<div></div>';

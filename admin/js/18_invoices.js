@@ -1,7 +1,6 @@
 // ---------- 請求書の未入金 売上は会計日のまま。振り込まれたら入金日を入れて「入金済」にする（ここだけ。POS は見るだけ）。間違えた時は理由を入れて未入金に戻す。操作ログに残る ----------
 let invTab='unpaid';
 const mdj=d=>{ const m=String(d||'').match(/^\d{4}-(\d{2})-(\d{2})/); return m?`${+m[1]}/${+m[2]}`:''; };
-const todayJst=()=>{ const x=new Date(Date.now()+9*3600000); return x.toISOString().slice(0,10); };
 // 収支の画面（月次）の中に出す。見る・直すの権限は収支と同じ
 async function invRender(st){ const ed=perm('pl')==='edit', box=()=>$('invBox'), again=()=>invRender(st);
   const r=await sb.rpc('admin_invoice_list',{p_store:st}); if(page!=='pl'||storeId!==st||plDate||!box()) return;
@@ -17,7 +16,7 @@ async function invRender(st){ const ed=perm('pl')==='edit', box=()=>$('invBox'),
   box().querySelectorAll('[data-iu]').forEach(b=>b.onclick=guard(b,async()=>{ const x=row(b.dataset.iu); if(!x) return; await invUnpaid(x,what,again); })); }
 /* 請求書を入金済にする小窓 */
 async function invPaid(x,what,again){
-  const t=todayJst(), m=mkModal(null,`<h2 style="margin:0">入金済にする</h2><div>${esc(what(x))}</div><label>入金日<input type="date" id="ipDate" value="${t}" min="${esc(x.business_date)}" max="${t}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">入金済にする</button></div>`);
+  const t=jstDay(), m=mkModal(null,`<h2 style="margin:0">入金済にする</h2><div>${esc(what(x))}</div><label>入金日<input type="date" id="ipDate" value="${t}" min="${esc(x.business_date)}" max="${t}"></label><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">入金済にする</button></div>`);
   const d=await new Promise(res=>{ m.querySelector('[data-k=no]').onclick=()=>{ m.remove(); res(null); }; m.querySelector('[data-k=ok]').onclick=()=>{ const v=m.querySelector('#ipDate').value; m.remove(); res(v||''); }; });
   if(d===null) return; if(!d){ await uiAlert('入金日を入力してください'); return; }
   const z=await rpc('admin_invoice_paid',{p_payment:x.id,p_date:d}); if(!z.ok) return; toast(`${mdj(d)} 入金済にしました`); again(); }
