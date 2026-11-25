@@ -1,10 +1,13 @@
-// 伝票一覧（自分が係の伝票。今月の分・前月の分は翌月3日まで。オーナー）。お客様を押すと明細が開く
-let billOpen = new Set();
-const PAYN = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
-let blD = null; /* 開いている月の伝票（明細を開く・閉じる時は読み直さない） */
+// このファイルは2つ：前半はキャストの伝票一覧（castBills・blPaint）、後半は黒服のマイページのホーム（hallLoad から下）。どちらも「自分の分を読んで並べる」画面で、ファイルを分けた時に同じ所に置いた
+// 伝票一覧（自分が係の伝票。今月の分・前月の分は翌月3日まで＝見せる月の決まりは cast_bill_months の側。下の画面の文はその説明）。お客様を押すと明細が開く
+let billOpen = new Set(); /* 明細を開いている伝票の id（月を変えても開いたまま。id は伝票ごとにちがうので、ほかの月の伝票には効かない） */
+const PAYN = { /* 支払い方法の名前（ここに無い方法は、そのまま出す） */ cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
+let blD = null; /* 伝票一覧の今の中身：M＝月ごとの件数・m＝開いている月・B＝その月の伝票（明細を開く・閉じる時は読み直さない） */
 async function castBills(month){
   setBack(home); if(!$('blBox')) show('<div class="card c muted">読み込み中…</div>');
-  /* 月がわかる時（月のボタン・トップで読んだ件数の最初の月）は、件数と伝票を同時に読む（前は順番に待っていた） */
+  /* 月がわかる時（月のボタン・トップで読んだ件数の最初の月）は、件数と伝票を同時に読む（前は順番に待っていた）。
+     g＝先に読み始めた月。件数を読んだ後に開く月 m が g とちがう時（トップの後に月が変わった）だけ、m で読み直す（先に読んだ pB は使わない）。
+     件数が0件で m も無い時は、p_month が null のまま呼び、関数は0件を返す */
   const g = month || (ME && ME.billMonths && ME.billMonths[0] && ME.billMonths[0].month) || null;
   const pM = sb.rpc('cast_bill_months', { p_token: TOKEN }), pB = g ? sb.rpc('cast_bills', { p_token: TOKEN, p_month: g }) : null;
   const ms = await pM; if(ms.error){ fail(ms.error.message); return; }
@@ -13,6 +16,7 @@ async function castBills(month){
   blD = { M, m, B: r.data || [] }; blPaint();
 }
 function blPaint(){
+  /* L＝明細の1行。セット・延長は VIP 卓の分（vip_set・vip_ext）も同じ行に足して出す */
   const { M, m, B } = blD, mo = x => `${Number(String(x).slice(5,7))}月`, tm = t => t ? new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
   const L = (k, v, c='') => `<div class="row ${c}" style="font-size:14px"><span>${k}</span><span>${v}</span></div>`;
   const bill = b => { const c = b.calc || {}, op = billOpen.has(b.id), d = new Date(b.date+'T00:00:00+09:00');
@@ -36,15 +40,16 @@ async function hallLoad(pre){ /* hall_me は castLoadMe で先に読み始めて
   ME = { ...r.data, hall: true }; KL = ME.kakari_label || '係'; $('tStore').textContent = ME.store_name || 'OLIVE'; hallHome();
   hallGo(goParam());
 }
-// リッチメニューのボタンから、その画面を直接開く（?go=。オーナー 案3）。開店・閉店作業（work）は 22時から朝8時（営業日の切り替え）までは閉店作業、それ以外は開店作業
+// 日本時間で 22時〜朝8時（営業日の切り替え）か。リッチメニューの［開店・閉店作業］と黒服のトップのボタンが、この間は閉店作業になる
+function hallNight(){ const h = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24; return h >= 22 || h < 8; }
+// リッチメニューのボタンから、その画面を直接開く（?go=。オーナー 案3）
 function hallGo(k){
   if(!k) return; goClear();
-  const h = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24;
   if(k === 'chorei') hallChorei(); else if(k === 'todo') hallTodo(); else if(k === 'cs') hallCs();
-  else if(k === 'work'){ opSwitch = true; hallTasks(h >= 22 || h < 8 ? 'close' : 'open'); }
+  else if(k === 'work'){ opSwitch = true; hallTasks(hallNight() ? 'close' : 'open'); } /* opSwitch（17_open.js）＝作業の画面の上に［開店作業］［閉店作業］の切り替えを出す */
   else if(k === 'memo') memoList(); /* 退店の LINE（要変更）から */
   else if(k === 'ap'){ const a = jgParam('a'); if(a) apPage(a, null, hallHome); } /* 【ヒアリングシート】の LINE から、その人のページ */
-  else if(k === 'daily'){ const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.click(); }
+  else if(k === 'daily'){ const b = $('main').querySelector('[data-go=daily]'); if(b && ME.form) b.click(); } /* 日報のボタンの動き（Safari で開く）を1か所にするため、ボタンを押す。フォームの無い店はボタンも無いので何もしない */
 }
 /* 黒服のトップの数（開店・閉店作業の完了・TODO・書類・ミーティング）は60秒まで覚えておく（ほとんどの画面の「戻る」がトップで、そのたびに5つ読んでいた）。
    読むだけの関数（HC_READ）のほかを呼んだら（保存・完了・取消など）すぐ忘れる */
@@ -52,9 +57,10 @@ let HC = null;
 const HC_READ = new Set(['cast_memo_list', 'cast_memo_get', 'hall_me', 'hall_tasks', 'hall_todos', 'hall_chorei_trials', 'hall_tsuke_staff', 'hall_todo_ahead', 'hall_meeting_get', 'hall_chorei', 'hall_casts', 'hall_close_data', 'hall_kpb_review_list', 'hall_cs_session', 'cast_docs_info', 'cast_who', 'cast_me',
   'cast_shift_all', 'cast_shift_day', 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll',
   'cast_key_my' /* 鍵のタイル（20_key.js）が読むだけ。前は入っておらず、トップを開いた直後に60秒のためおきが消えていた */]);
-{ const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)) HC = null; return rpc0(fn, ...a); }; }
+{ const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)) HC = null; return rpc0(fn, ...a); }; } /* マイページのどの画面の呼び出しもここを通る（このファイルは1回だけ読む）。読むだけの関数を新しく作った時は HC_READ にも足す（足さないと60秒の覚えがすぐ消えるだけで、まちがった数は出ない） */
 function hcGet(){
   if(HC && Date.now() - HC.at < 60000) return HC;
+  /* q＝1つ読む。失敗した時は覚えを消して、次にトップを開いた時に読み直す（まだ h が今の覚えの時だけ） */
   const q = fn => Promise.resolve(fn()).then(r => { if(r && r.error && HC === h) HC = null; return r; }, e => { if(HC === h) HC = null; return { error: e }; }); /* 読めなかった分は次にもう一度 */
   const h = { at: Date.now() };
   h.open = q(() => sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: 'open' })); h.close = q(() => sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: 'close' }));
@@ -67,7 +73,7 @@ function hallHome(){
   const tile = homeTile;
   /* トップの整理（オーナー「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。見出しで4つに分ける。
      開店作業・閉店作業は1つ（リッチメニューと同じく 22時〜朝8時は閉店作業。閉店作業を POS でする店は開店作業のみ）。ミーティングはシフトの中（全員のシフトの一番上）。書類は未提出の時だけ */
-  const hr = Number(new Date().toLocaleString('en-US', { timeZone:'Asia/Tokyo', hour:'numeric', hour12:false })) % 24, night = hr >= 22 || hr < 8;
+  const night = hallNight();
   const sh = t => `<div class="sm" style="font-weight:700;color:var(--muted);margin:14px 2px 6px">${t}</div>`;
   show(`<div class="hello">${esc(ME.name)} さん</div>${sh('本日の業務')}<div class="tiles">${tile('chorei','朝礼','来店予定・メモ',true)}${tile('work',night?'閉店作業':'開店作業','',true)}${tile('todo','TODO','今日の分',true)}${tile('daily','日報','',!!ME.form)}</div>
     ${sh('キャスト')}<div class="tiles">${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('shift','シフト','全員',true)}</div>
@@ -81,13 +87,13 @@ function hallHomeWire(H, night){
   keyTile(); /* 鍵（20_key.js）。店と更衣室 */
   memoTile(); /* 共有メモ（共有された時だけ。22_memo.js） */
   hallWorkTile(H, night);
-  H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b) return; if(r.error){ loadNg(); return; } /*点検 B5 */ const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* 休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* できないが混ざっていたら全部済にしない（ゲネプロ マイページ #7） */ if(n) b.style.color = 'var(--warn)'; });
+  H.todos.then(r => { const b = $('main').querySelector('[data-go=todo] small'); if(!b) return; if(r.error){ loadNg(); return; } /* 読めなかった時は1行の知らせ */ const L = r.data.items || [], n = L.filter(x => x.status === 'open').length, nc = L.filter(x => x.carry && x.status === 'open').length; /* 休日分 */ const sk = L.filter(x => x.status === 'skip').length; b.textContent = L.length ? (nc ? `休日分 ${nc}` : n ? `未完了 ${n}` : sk ? `完了（できない ${sk}）` : '全部完了') : 'なし'; /* できないが混ざっていたら全部済にしない */ if(n) b.style.color = 'var(--warn)'; });
   $('main').querySelector('[data-go=chorei]').onclick = hallChorei;
   $('main').querySelector('[data-go=hcasts]').onclick = hallCasts;
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   $('main').querySelector('[data-go=docs]').onclick = docsList; /* 黒服も自分の書類（契約書は黒服の条文。オーナー「その人の契約書をその人のマイページで」） */
-  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* 未提出の時だけ */ if(!ok) loadNg(); /*点検 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未完了 ${ME.docs.left}件</small>`); });
+  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* 未提出の時だけ */ if(!ok) loadNg(); /*点検 B5 */ return; } b.insertAdjacentHTML('beforeend', `<small>未完了 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
   $('main').querySelector('[data-go=late]').onclick = hallAbsent; /* 欠勤・遅刻連絡（キャストと同じく欠勤から。上で遅刻に切り替え。承認者に公式 LINE） */
   mtHallTile(H.mtg); /* ミーティング（担当の子の割当）。ボタンはシフトの中。未申請はシフトのボタンに */

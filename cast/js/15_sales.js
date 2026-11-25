@@ -1,7 +1,7 @@
 // ⑦アプローチ（オーナーにヒアリングして決めた形）。提案はあくまで目安（連絡先交換のお客様から30名・最後の来店が古い順・名前だけ・敬称略）
 // →「次へ（連絡済リスト共有）」→ 連絡したお客様を選ぶ（提案と同じ並び・提案以外も可・一覧にないお客様はフルネーム）→ ランダムで1名のスクショを送信 → 係（本人が係なら担当黒服）へ。スクショは次の日に消える
-let SALES = null;
-const g2 = 'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px';
+let SALES = null; /* cast_sales_today の答え：date・plan（提案の名前）・contacts（連絡先交換のお客様。提案の分が先頭）・report（共有した後の分）・store_off・off */
+const g2 = /* 名前のボタンを2列に並べる形（提案・一覧で同じ） */ 'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px';
 async function salesLoad(){ const r = await sb.rpc('cast_sales_today', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return false; } SALES = r.data; return true; }
 async function salesHome(){
   setBack(SAFARI ? null : home); show('<div class="card c muted">読み込み中…</div>');
@@ -45,6 +45,9 @@ function slReadHtml(P){
    同じ名前（記号・敬称を除く）か覚えた表示名＝一致（選択済みにする）。名字だけ・名前だけ＝候補（本人が［追加］で決め、次から一致になるよう覚える）。合わない名前は出さない */
 const slNorm = v => String(v || '').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, '').replace(/(様|さま|さん|くん|君|ちゃん)$/, '').toLowerCase();
 function slMatch(rows, info){
+  /* 照らす順（上で決まったら下は見ない）：①覚えた表示名 ②名前が同じお客様が1人だけ ③前に手打ちした名前 ④フリガナが同じお客様が1人だけ（4文字以上。短いと別の人と重なる）
+     ⑤ここまで決まらず2文字以上の時だけ、名前・フリガナの頭か終わりが同じ物を候補に（1つの表示名に3つまで。多いと選びにくい）
+     C＝お客様（k＝そろえた名前・kn＝フリガナ）・T＝前に手打ちした名前・A＝覚えた表示名 */
   const C = SALES.contacts.map(c => ({ id: c.id, name: c.name, k: slNorm(c.name), kn: kanaKey(c.kana) })), T = (info.typed || []).map(n => ({ name: n, k: slNorm(n) }));
   const A = {}; (info.alias || []).forEach(a => { A[a.read] = a; });
   const hits = [], cands = [], seen = new Set();
@@ -59,6 +62,7 @@ function slMatch(rows, info){
     C.filter(c => part(c) || (kn.length >= 2 && c.kn && c.kn !== kn && (c.kn.startsWith(kn) || c.kn.endsWith(kn)))).slice(0, 3).forEach(c => cands.push({ read: r.name, key: k, id: c.id, name: c.name }));
     T.filter(part).slice(0, 3).forEach(t => cands.push({ read: r.name, key: k, name: t.name }));
   });
+  /* 候補から、もう一致にした人と、同じ表示名に同じ人が2回出た物を外す */
   return { hits, cands: cands.filter((c, i) => !seen.has(c.id || 'x:' + c.name) && cands.findIndex(x => x.key === c.key && (x.id || x.name) === (c.id || c.name)) === i) };
 }
 const slB64 = blob => new Promise((ok, ng) => { const f = new FileReader(); f.onload = () => ok(String(f.result).split(',')[1]); f.onerror = ng; f.readAsDataURL(blob); });
@@ -116,8 +120,8 @@ function salesPick(){
 function salesShot(){
   setBack(SAFARI ? null : home);
   const R = SALES.report;
-  /* 719：選ばれたお客様が2名以上の店（広島の提出物手当：10名に1名）は、1名ずつスクショを送る。1名の時の見え方は前と同じ */
-  const PK = (R.picks && R.picks.length) ? R.picks : [{ idx:0, name:R.pick, shot:R.shot, sent:R.sent, to:R.to }];
+  /* SQL 719：選ばれたお客様が2名以上の店（広島の提出物手当：10名に1名）は、1名ずつスクショを送る。1名の時の見え方は前と同じ */
+  const PK = (R.picks && R.picks.length) ? R.picks : [{ idx:0, name:R.pick, shot:R.shot, sent:R.sent, to:R.to }]; /* 1人ずつ：idx＝何人目（0 が1人目）・shot＝写真の名前・sent＝送った・to＝送り先の名前。picks の無い答え（719 より前の形）は1人分にそろえる */
   const one = (p, i) => { i = i || ''; return `<div class="card"><div class="gh">やりとりのスクショ</div><div style="font-weight:700;font-size:17px">${esc(p.name)}</div>${p.sent?'':'<div class="sm" style="color:var(--warn);margin-top:4px">19:50 までに送ってください</div>'}
     ${p.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済${p.to?`（${esc(p.to)}）`:''}</div>`:`<label class="btn g" style="display:block;text-align:center;margin-top:10px"><span id="slPt${i}">スクショを選ぶ</span><input type="file" id="slP${i}" accept="image/*" style="display:none"></label><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?esc(KL):'担当黒服'}${p.to?`（${esc(p.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
     ${p.sent?'':`<button class="btn" id="slShot${i}"${PK.length>1?' style="margin-bottom:14px"':''}>送信</button>`}`; };
@@ -130,20 +134,20 @@ function salesShot(){
       $('slShot' + i).disabled = true;
       try{
         const blob = await shrinkJpeg(file);
-        const up = await sb.storage.from('sales-shots').upload(`${p.shot}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error;
+        const up = await sb.storage.from('sales-shots').upload(`${p.shot}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; /* 写真がもう上がっている時（送り直し）は、上がっている写真のまま送る（置き場は上書きを許していない） */
         const q = await sb.rpc('cast_sales_shot', p.idx ? { p_token: TOKEN, p_idx: p.idx } : { p_token: TOKEN }); if(q.error) throw q.error;
-        /*点検 A1・届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
+        /* 届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
         const ng = q.data.reason === 'no_to' ? '担当黒服 未選択のため、スクショは届いていません。黒服にご連絡ください'
           : q.data.reason === 'fail' ? 'スクショの送信に失敗しました。再度お試しください'
           : `送り先${q.data.to ? `（${q.data.to}）` : ''}が LINE 未連携のため、スクショは届いていません。黒服にご連絡ください`;
         await uiAlert(q.data.sent ? `スクショを送信しました（${q.data.to}）` : ng);
-        await salesLoad(); salesShot();
+        if(await salesLoad()) salesShot(); /* 読み直せない時は salesLoad がエラーの画面を出しているので、古い中身で描き直さない */
       }catch(e){ if($('slShot' + i)) $('slShot' + i).disabled = false; await uiAlert(e.message || String(e)); }
     };
   });
 }
 
-/* ホームの［アプローチ］は Safari（LINE の外）で開く（720・銀座のキャストの声「LINE の中ではお客様とのトークと行き来できず、名前を選びにくい」）。
+/* ホームの［アプローチ］は Safari（LINE の外）で開く（SQL 720・銀座のキャストの声「LINE の中ではお客様とのトークと行き来できず、名前を選びにくい」）。
    LINE の中で10分・1回だけの入場券を作り、Safari では入場券で12時間の入場券に替える。30日の入場券は URL に付けない（Safari の履歴に残るため）。開き方は［鍵］と同じ */
 let SAFARI = false;
 const safariKey = () => 'olive_cast_tk_' + STORE;
