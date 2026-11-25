@@ -328,6 +328,7 @@ async function punch(staff){
   document.getElementById('grid').classList.add('busy');
   try {
     if (type === 'clock_out' && !await tcJudge(staff)) return; /* 2026-11-04・SQL 355：体験のジャッジを押してから退勤（オーナー「押すまで退勤できない」） */
+    if (type === 'clock_in' && !await tcNyuten(staff)) return; /* SQL 728：出勤4日目で入店説明2 が未なら［出勤］を押せない（同伴は押せる。最初に押そうとした時刻はデータベースが残す） */
     if (type === 'clock_out') { /* 2026-10-18・SQL 161：出勤から30分より短い時は聞く（まちがえて押すのを防ぐ） */
       const q = await sb.rpc('tc_in_at', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
       const min = q.data ? Math.floor((Date.now() - new Date(q.data).getTime()) / 60000) : null;
@@ -380,6 +381,15 @@ async function tcJudge(staff){
   return true;
 }
 
+// 入店説明（SQL 728・オーナー 11/25）：体験を除き、入店説明2 は出勤3日目まで。4日目に済んでいなければ止めて、黒服に声をかけてもらう。押せる時は true
+async function tcNyuten(staff){
+  const r = await sb.rpc('tc_nyuten_wait', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
+  if (r.error || r.data !== true) return true;
+  await new Promise(res => { const el = document.createElement('div'); el.className = 'ask show';
+    el.innerHTML = `<div class="box"><div class="nm">${esc(staff.display_name)}</div><div>入店説明2 がまだです</div><div class="w">黒服に声をかけてください</div><div class="bt"><button class="yes" style="width:100%;background:var(--in)">OK</button></div></div>`;
+    document.body.appendChild(el); el.querySelector('button').onclick = () => { el.remove(); res(); }; });
+  return false;
+}
 function tcAsk(name, min){
   return new Promise(res => { const el = document.getElementById('ask');
     document.getElementById('askNm').textContent = name; document.getElementById('askMsg').innerHTML = min == null ? '出勤の記録がありません' : `出勤から <b>${min}分</b> です`;

@@ -93,8 +93,9 @@ function cpKit(K){ const {d,edit,P,T,B,DH,open,last,lastHtml,LT,oW,sW,lW}=K;
   const lateHtml=(s,l,f,a,id)=>{ const late=!!l?.late, y=f?f.y:Number(l?.fine||0), p=f?f.p:0, hall=s.kind==='hall', fine=y>0||p>0, alw=!hall&&a; if(!late&&!fine&&!alw) return '';
     const ab=!late&&!!f?.L?.some(x=>/^無断欠勤/.test(String(x.reason||''))); /* 無断欠勤の罰金（打刻の無い子に、営業日の 0:00 に付く・SQL 689）があれば、遅刻と同じ枠にしるし（オーナー「④に出して」） */
     return cpCell(70,ab?'<span class="badge warnb">無断欠勤</span>':!late?'':l.notice?'<span class="badge gray">遅刻</span>':'<span class="badge warnb">無断遅刻</span>')
-      +cpCell(132,fine?(f?cpAmt('cpfn',id,'罰金 '+fineSumTxt(y,p),'var(--warn)'):`<span style="color:var(--warn);font-size:14px">罰金 ${fineSumTxt(y,p)}</span>`):late&&l.notice==='approved'?'<span class="badge gray">免除</span>':'')
-      +cpCell(132,alw?cpAmt('cpal',id,'手当 '+yen(a.y),'inherit'):''); }; // しるしは「遅刻」「無断遅刻」（オーナー「遅刻連絡ではなく遅刻・連絡なし遅刻ではなく無断遅刻」）
+      +(!fine&&(late||ab)&&l?.nyuten_free&&!alw?cpCell(264,'<span class="muted" style="font-size:14px">入店説明2 未のため罰金なし</span>'):  /* 724：入店説明2 の前の日は罰金 0円。札はそのまま（オーナー「ア 札はそのまま出す」） */
+       cpCell(132,fine?(f?cpAmt('cpfn',id,'罰金 '+fineSumTxt(y,p),'var(--warn)'):`<span style="color:var(--warn);font-size:14px">罰金 ${fineSumTxt(y,p)}</span>`):late&&l.notice==='approved'?'<span class="badge gray">免除</span>':!fine&&late&&l?.nyuten_free?'<span class="muted" style="font-size:12px;white-space:normal;line-height:1.3">入店説明2 未のため罰金なし</span>':'')
+      +cpCell(132,alw?cpAmt('cpal',id,'手当 '+yen(a.y),'inherit'):'')); }; // しるしは「遅刻」「無断遅刻」（オーナー「遅刻連絡ではなく遅刻・連絡なし遅刻ではなく無断遅刻」）
   return {tm,lateHtml}; }
 /* 出退勤罰金確認の1人の行（シフト・出・退・遅刻・罰金・同伴） */
 function cpRow(K,{id,s,t}){ const {d,edit,P,T,B,DH,open,last,LT,FN,AL,oW,sW,lW,tm,lateHtml}=K; const on=edit&&s.kind!=='hall'&&!s.is_trial&&!t.none, tag=s.kind==='hall'?'':s.is_trial?'体験':''; /* 同伴かどうかは伝票の係（同伴・同伴①・同伴②）で見る。シフトの同伴・予約・同伴の打刻は予定でキャンセルがあるため（オーナー） */ // 黒服のしるしは出さない（オーナー「黒服って名前でわかるから…スペースがもったいない」）

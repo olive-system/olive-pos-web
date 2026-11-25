@@ -110,7 +110,7 @@ async function caMarks(C,D){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fi
   // アプローチ。今日出勤して、連絡済リストをまだ共有していない人を一覧の上に（強く出さない。オーナー「あくまでもお願い」）
   { const sr=entryPart(D,'sales'); S.salesM={}; if(!sr.error) (sr.data?.rows||[]).forEach(r=>{ S.salesM[r.staff_id]=r; }); }
   const slTxt=Object.values(S.salesM).filter(r=>r.worked&&r.count==null).map(r=>esc(S.staffAll.find(x=>x.id===r.staff_id)?.display_name||'')).join('・');
-  const krM=await caRatio();
+  const [krM]=await Promise.all([caRatio(),caNyLoad()]);
   return {absM,lateM,slTxt,rdErr,krM}; }
 /* キャストの給率（今月）と 3M（前の3か月）。数え方は管理サイトの集計「スタッフ」と同じ（SQL 514）。重い計算なので10分は前の答えを使う。関数が無い時は出さない */
 let caKr={at:0,m:{}};
@@ -130,7 +130,7 @@ function caKrHtml(C,s){ const z=(C.krM||{})[s.id]; if(!z||!s.is_active||s.kind==
   return `<small class="kr"><span class="k1">給率 <b>${krPct(z.taxable,z.sales)}</b>（3M <b>${krPct(z.taxable3,z.sales3)}</b>）</span>${s.spot_since?'':`<span class="k2">${APR_HK} <b>${subPct(z)}</b></span><span class="k3"><u class="avg" data-avg="${s.id}">平均</u> <b>${avgN(z)}</b></span><span>交換提出 <b>${cxPct(z)}</b></span>`}</small>`; }   /* 見出しのすぐ後に数（オーナー 11/25「スペースが多すぎてどの数字か分かりにくい」「もうちょっと詰めていい」）。4つの項目はどの行でも同じ位置から（pos.css .kr） */   /* スポットの子は提出率を出さない（オーナー「イ 外す」） */
 /* 一覧の1行：名前としるし（caRowHtml）と、時刻・日払・手当・ボタン（caRowCtl）
    しるし（スポット・条件再設定・折半・係専用・体験・受取待ち・当日欠勤・遅刻）は全部名前の行に小さく。本名未入力・体験の［退勤］［報酬明細］はその下（オーナー「しるしで4行にならないように」。ボタンを名前の行に並べると右の欄に重なる） */
-function caRowHtml(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; return `<div class="rrow ${s.is_active?'':'inactive'}" data-id="${s.id}">${cSorting?'<span class="hd">≡</span>':''}<span class="nm"${cMode==='today'?' style="white-space:nowrap"':''}>${esc(s.display_name)}${needMgr(s)&&s.is_active?(mgrOf(s)?` <small style="color:var(--muted);font-size:13px">${esc(mgrOf(s).display_name)}</small>`:' <small style="color:var(--warn);font-size:13px">未選択</small>'):''}${s.is_active&&absM[s.id]?' <span class="badge warnb">当日欠勤</span>':''}${!s.is_active?'':lateM[s.id]?.eta?` <span class="badge gray">遅刻 ${esc(lateM[s.id].eta)}</span>`:(lateM[s.id]?.nocontact?' <span class="badge warnb">無断遅刻</span>':'')}${
+function caRowHtml(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; return `<div class="rrow ${s.is_active?'':'inactive'}" data-id="${s.id}">${cSorting?'<span class="hd">≡</span>':''}<span class="nm"${cMode==='today'?' style="white-space:nowrap"':''}>${esc(s.display_name)}${needMgr(s)&&s.is_active?(mgrOf(s)?` <small style="color:var(--muted);font-size:13px">${esc(mgrOf(s).display_name)}</small>`:' <small style="color:var(--warn);font-size:13px">未選択</small>'):''}${caNyHtml(s)}${s.is_active&&absM[s.id]?' <span class="badge warnb">当日欠勤</span>':''}${!s.is_active?'':lateM[s.id]?.eta?` <span class="badge gray">遅刻 ${esc(lateM[s.id].eta)}</span>`:(lateM[s.id]?.nocontact?' <span class="badge warnb">無断遅刻</span>':'')}${
     ''}${s.is_trial?' <span class="badge warnb">体験</span>':''}${s.is_trial&&S.trialPay?.[s.id]?` <span class="badge warnb" data-noap="${s.id}" style="cursor:pointer">応募情報なし</span>`:''}${s.is_active&&s.spot_since?' <span class="badge gray">スポット</span>':''}${s.is_active&&S.gcReset?.has(s.id)?' <span class="badge gray">条件再設定</span>':''}${s.is_seppan?' <span class="badge gray">折半</span>':''}${s.kakari_only?' <span class="badge gray">'+KL+'専用</span>':''}${s.is_active?'':(s.leave_pending?leaveBadge(s):' <span class="badge" style="background:var(--muted)">退店</span>')}${(x=>x.trim()?`<span style="display:block;margin-top:4px">${x}</span>`:'')(`${cMode==='today'&&s.is_trial&&present.has(s.id)&&!tev[s.id]?.out?` <button class="sm" data-pout="${s.id}">退勤</button>`:''}${cMode==='today'&&s.is_trial&&rcp[s.id]?` <span class="badge" data-show="${s.id}" style="background:var(--acc);cursor:pointer">受領済</span>`:(cMode==='today'&&s.is_trial&&present.has(s.id)&&tev[s.id]?.out&&
       (S.trialPay?.[s.id]||tcalc[s.id]?.ready&&adv[s.id]===tcalc[s.id].pay)?` <button class="sm" data-show="${s.id}">報酬明細</button>`:'')}`)}${noReal(s)?'<small style="display:block;color:var(--warn);font-size:12px;line-height:1.3">本名未入力</small>':''}${caKrHtml(C,s)}</span>`+caRowCtl(C,s); }
 function caRowCtl(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
@@ -191,6 +191,7 @@ async function caAlwPoint(C,id){ const {present,q,adv,advX,advN,advA,advM,tev,rc
 /* 押した時の動き：手当・ポイント・罰金・写真・打刻の修正 */
 function caBindA(C){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C;
   $('cList').querySelectorAll('[data-alw]').forEach(i=>i.onclick=async()=>{ if(clDone) return; await alwYen(i.dataset.alw); renderCasts(); });
+  $('cList').querySelectorAll('[data-ny]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); caNyOpen(b.dataset.ny); });
   $('cList').querySelectorAll('[data-afk]').forEach(x=>x.onchange=()=>{ S.afMode[x.dataset.afk]=x.value; renderCasts(); });
   $('cList').querySelectorAll('[data-alwk]').forEach(x=>x.onchange=()=>{ S.alwMode[x.dataset.alwk]=x.value; renderCasts(); });
   $('cList').querySelectorAll('[data-alwp]').forEach(i=>i.onclick=async()=>{ if(clDone) return; await alwPoint(i.dataset.alwp); renderCasts(); }); // 精算済の日は立替・手当を変えられない（DB でも拒否）
@@ -223,3 +224,21 @@ function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-tat]').forEach(inp=>inp.onchange=caAdvSave(inp,'tat',adv));
   if (cSorting) dragSort($('cList'),'.rrow',async ids=>{ const rs=[await sb.rpc('pos_staff_sort',{p_ids:ids})]; const er=rs.find(r=>r.error); toast(er?('並び順を保存できませんでした：'+er.error.message):'並び順を保存しました'); renderCasts(); });
 }
+
+/* 入店説明（SQL 723・オーナー 11/25「ア この形で作る」）：担当黒服の横に［入店説明］の札。赤＝出勤3日目以降で入店説明2 が未／うすい赤＝未がある／灰色＝全部済。
+   押すと 1〜5 の小窓。未を押すとお店の Google アカウントの資料が開き、戻って説明者を選んで［説明を受けました］。マイページにはリンクを出さない（ノウハウを守るため） */
+let caNy={at:0,d:null};
+async function caNyLoad(force){ if(!force&&caNy.d&&Date.now()-caNy.at<60000) return caNy.d; const r=await sb.rpc('pos_nyuten_list'); if(!r.error) caNy={at:Date.now(),d:r.data}; return caNy.d; }
+function caNyHtml(s){ const z=caNy.d?.staff?.[s.id]; if(!z||!s.is_active||s.kind==='hall'||cSorting||cDeleteMode) return ''; const R=z.rows||[], n2=R.find(x=>x.no===2);
+  const cl=R.every(x=>x.done)?'class="badge gray"':(!n2?.done&&Number(z.days)>=3?'class="badge warnb"':'class="badge" style="background:var(--warn-soft);color:var(--warn)"');
+  return ` <span ${cl} data-ny="${s.id}" style="cursor:pointer">入店説明</span>`; }
+function caNyOpen(id){ const s=S.staffAll.find(x=>x.id===id), z=caNy.d?.staff?.[id]; if(!s||!z) return; let open=null; const m=mkModal(60); document.body.appendChild(m);
+  const draw=()=>{ m.innerHTML=`<div class="box" style="width:min(600px,94vw);text-align:left"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-weight:700;font-size:16px;margin-bottom:6px">${esc(s.display_name)}　入店説明</div>${(z.rows||[]).map(r=>`<div style="display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid var(--line);flex-wrap:wrap"><b style="flex:none;width:100px">入店説明${r.no}</b>${
+      r.done?`<span style="color:var(--gold);font-weight:700">済</span>${r.by?`<span>（${esc(r.by)} ${esc(r.at||'')}）</span>`:''}`:
+      open===r.no?`<span style="color:var(--warn);font-weight:700">未</span><span class="muted" style="font-size:13px">説明者</span><select data-nyb style="min-width:140px">${hallList().map(h=>`<option value="${h.id}" ${mgrOf(s)?.id===h.id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select><button class="sm" data-nyok style="background:var(--gold);color:#fff">説明を受けました</button>`:
+      `<u data-nyo="${r.no}" style="color:var(--warn);font-weight:700;cursor:pointer">未</u>`}</div>`).join('')}</div>`;
+    m.querySelector('[data-x]').onclick=()=>{ m.remove(); renderCasts(); };
+    m.querySelectorAll('[data-nyo]').forEach(u=>u.onclick=()=>{ open=Number(u.dataset.nyo); const url=caNy.d?.docs?.[open]; if(url) window.open(url,'_blank'); else toast(`入店説明${open}のリンクが未登録です`); draw(); });
+    const ok=m.querySelector('[data-nyok]'); if(ok) ok.onclick=async()=>{ const by=m.querySelector('[data-nyb]')?.value; if(!by){ toast('説明者を選択してください'); return; } ok.disabled=true;
+      const r=await sb.rpc('pos_nyuten_done',{p_staff:id,p_no:open,p_by:by}); if(r.error){ ok.disabled=false; toast(r.error.message); return; } z.rows=r.data; open=null; caNy.at=0; draw(); }; };
+  draw(); }
