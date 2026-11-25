@@ -13,5 +13,10 @@ async function csDocsTab(st, s){ const box = $('csDoc'), t = csTab;
     return `<div style="display:flex;gap:12px;padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="width:130px;flex:none"><b>${n}</b><div style="font-size:13px;margin-top:2px;display:flex;flex-direction:column">${sdStateHtml(sdState(D, k, f))}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">${body}</div></div>`; }).join('');
   const h = box.querySelector('[data-sdh]'); if(h) h.onclick = () => sdModal(sdHearHtml(s.display_name, D, sc));
   const c = box.querySelector('[data-sdc]'); if(c) c.onclick = () => contractPdfOpen(() => sb.rpc('admin_staff_contract', { p_store: st, p_staff: s.id }));
+  if(s.kind !== 'hall') await csNyuten(box, s);
   await sdFill(box, (id, ap) => sb.rpc('admin_staff_doc_photo', { p_store: st, p_id: id, p_ap: ap }));
 }
+// 入店説明（SQL 723・オーナー 11/25）：書類の下に、1〜5 をだれが・いつ（時刻まで）説明したか。始める時に済にした子は「済」だけ
+async function csNyuten(box, s){ const r = await sb.rpc('admin_nyuten_list', { p_staff: s.id }); if(r.error || !Array.isArray(r.data) || !box.isConnected) return;
+  box.insertAdjacentHTML('beforeend', `<div style="border:1px solid var(--line);border-radius:10px;padding:6px 14px;margin-top:10px"><b style="display:block;padding:8px 0">入店説明</b>${r.data.map(x =>
+    `<div style="display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line)"><b style="width:118px;flex:none">入店説明${x.no}</b>${x.done ? `<span><b style="color:var(--gold)">済</b>${x.by ? `（${esc(x.by)} ${esc(x.at || '')}）` : ''}</span>` : '<b style="color:var(--warn)">未</b>'}</div>`).join('')}</div>`); }
