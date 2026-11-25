@@ -6,10 +6,8 @@ const ykBig = urls => uiViewH(urls.map(u => `<img src="${esc(u)}" style="display
 const ykPick = {};   /* 選んだスクショ（お願いごと・3枚まで。提出の前に枠に出す） */
 const ykThumbs = (us, h, attr) => `<div ${attr} style="display:grid;grid-template-columns:repeat(${us.length},1fr);gap:4px;height:${h}px">${us.map(u => `<img src="${esc(u)}" style="width:100%;height:${h}px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:${h > 80 ? 10 : 6}px;display:block;min-width:0">`).join('')}</div>`;
 
-async function ykList(){
-  setBack(home); show('<div class="muted" style="padding:20px">読み込み中…</div>');
-  const r = await sb.rpc('cast_yukyaku_list', { p_token: TOKEN }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
-  const L = r.data || [];
+/* お願い1件のカード（ご来店｜締め・お客様・スクショの枠｜ボタン） */
+function ykCard(y){
   const slot = y => { const f = ykPick[y.id], us = f ? f.map(x => URL.createObjectURL(x)) : (y.urls || []);
     return us.length ? ykThumbs(us, 150, `data-ykv="${y.id}"`)
       : `<div style="height:150px;border:1.5px dashed var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">スクショ</div>`; };
@@ -19,19 +17,16 @@ async function ykList(){
     const st = `<div class="sm" style="color:var(--ok);font-weight:700">提出 ${esc(y.submitted_at || '')}</div><div class="muted sm" style="margin-top:2px">${y.shot_no >= 2 ? '再提出済' : '再提出は1回'}</div>`;
     if(y.shot_no >= 2 || !y.can_submit) return `${st}<button class="btn" disabled style="margin:auto 0 0;height:70px;opacity:.5">再提出</button>`;
     return ykPick[y.id] ? `${st}<button class="btn" data-yks="${y.id}" style="margin:auto 0 0;height:70px">再提出</button>` : `${st}${pick(y, '再提出')}`; };
-  const one = y => `<div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--line)">
+  return `<div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--line)">
       <div><div class="muted sm">ご来店</div><div style="font-weight:700;font-size:15px">${ykDay(y.visit_day)}</div></div>
       <div><div class="muted sm">締め</div><div style="font-weight:700;font-size:15px">${ykDay(y.close_day)} 閉店作業</div></div></div>
     <div style="margin-top:10px"><div class="muted sm">お客様</div><div style="font-weight:700;font-size:19px">${esc(y.customer || '')}様</div>
       <div class="muted sm" style="margin-top:2px">今回のご来店につながったやり取り<span style="white-space:nowrap">（着信履歴・LINE・メッセージ）</span></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">${slot(y)}<div style="display:flex;flex-direction:column">${side(y)}</div></div></div>`;
-  show(`<div class="ttl">誘客の確認</div>${L.map(one).join('') || '<div class="card muted">今日の誘客の確認はありません</div>'}`);
-  const M = $('main');
-  M.querySelectorAll('[data-ykf]').forEach(i => i.onchange = async () => { const fs = [...i.files]; i.value = ''; if(!fs.length) return;
-    if(fs.length > 3){ await uiAlert('スクショは3枚までです'); return; }
-    ykPick[i.dataset.ykf] = fs; ykList(); });
-  M.querySelectorAll('[data-ykv]').forEach(g => g.onclick = () => ykBig([...g.querySelectorAll('img')].map(im => im.src)));
-  M.querySelectorAll('[data-yks]').forEach(b => b.onclick = async () => { const y = L.find(z => z.id === b.dataset.yks), f = ykPick[y.id];
+}
+
+/* 提出・再提出（選んだスクショを縮めて置き場へ送ってから、提出を記録する） */
+async function ykSubmit(L, b){ const y = L.find(z => z.id === b.dataset.yks), f = ykPick[y.id];
     if(!f){ await uiAlert('スクショの写真を選んでください'); return; }
     b.disabled = true;
     try{
@@ -42,7 +37,19 @@ async function ykList(){
       await uiAlert(y.shot_no ? '再提出しました' : '提出しました');
       ykList();
     }catch(e){ b.disabled = false; await uiAlert(e.message || String(e)); }
-  });
+  }
+
+async function ykList(){
+  setBack(home); show('<div class="muted" style="padding:20px">読み込み中…</div>');
+  const r = await sb.rpc('cast_yukyaku_list', { p_token: TOKEN }); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
+  const L = r.data || [];
+  show(`<div class="ttl">誘客の確認</div>${L.map(ykCard).join('') || '<div class="card muted">今日の誘客の確認はありません</div>'}`);
+  const M = $('main');
+  M.querySelectorAll('[data-ykf]').forEach(i => i.onchange = async () => { const fs = [...i.files]; i.value = ''; if(!fs.length) return;
+    if(fs.length > 3){ await uiAlert('スクショは3枚までです'); return; }
+    ykPick[i.dataset.ykf] = fs; ykList(); });
+  M.querySelectorAll('[data-ykv]').forEach(g => g.onclick = () => ykBig([...g.querySelectorAll('img')].map(im => im.src)));
+  M.querySelectorAll('[data-yks]').forEach(b => b.onclick = () => ykSubmit(L, b));
 }
 
 /* 黒服の閉店作業「誘客の確認」（17_open.js の HC_BODY・HC_WIRE から呼ぶ） */
