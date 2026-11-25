@@ -4,7 +4,7 @@ async function start(){
   try{ await liff.init({ liffId: LIFF[STORE] }); }catch(e){ fail('LINE の初期化に失敗しました：' + (e.message||e)); return; }
   if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
   if(goParam() === 'apply'){ await applyStart(); return; } /* みんな用のメニューの「予約状況の確認」（LINE連携していない人も開く） */
-  if(['book', 'voice', 'sheet', 'judge'].includes(goParam())){ await apLiff(goParam()); return; } /* judge＝体験のジャッジ */ /* 応募の人に届く LINE のボタン（面接予約・ご感想・ヒアリングシート）。LINE連携していない人も開く */
+  if(['book', 'voice', 'sheet', 'judge', 'scout'].includes(goParam())){ await apLiff(goParam()); return; } /* judge＝体験のジャッジ */ /* 応募の人に届く LINE のボタン（面接予約・ご感想・ヒアリングシート）。LINE連携していない人も開く */
   await login();
 }
 
@@ -154,7 +154,7 @@ function perf(){
   const fl = fines.map(f=>`<div class="muted sm">${Number(String(f.date).slice(5,7))}/${Number(String(f.date).slice(8,10))} ${esc(f.reason||'')}　${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</div>`).join('');
   show(`<div class="subh">${m}月（${m}/${d} まで）</div>
     <div class="card">${castNoSales()?'':r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
-    <div class="card">${r('給率', '—')}${r('提出率', '—')}${r('平均', '—')}</div>
+    <div class="card">${r('給率', '—')}${r('アプローチ', '—')}${r('平均', '—')}</div>
     <div class="card">${dhCard}</div>
     <div class="card">${r('出勤日数', `${Number(st.days||0)}日`)}${r('稼働時間', HM(st.hours))}${r('ポイント', `${Number(st.points||0)}`)}${r('反応◎', `${Number(st.reactions||0)}回`)}</div>
     <div class="card">${r('罰金（今月）', fines.length?yen(fsum):'なし')}${fl}</div>`);

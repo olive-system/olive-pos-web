@@ -37,13 +37,14 @@ function slipDetail(c,d){ const {g,W,fs}=c;
   c.y+=Math.round(fs*2.3); c.lr('合計',c.yen(d.due),c.y,c.MI(fs*0.95,600),c.BK(fs*1.75)); }
 // 会計票（Bill）：写真の手書きの会計票と同じ形（オーナー 2026-11-21「③」）。左上に小さい Receipt・金額だけ（¥ も , も付けず、3桁ごとに少し空ける）・金額の下に短い線・ロゴは小さく右下
 // 細い線が潰れないよう（203dpi＝1mm 8ドット）、Receipt は Bill の見出しと同じ大きさ・短い線は2ドット・ロゴは幅 170。支払い方法の内訳（現金・カード）は出さず、合計の金額だけにする（会計票は値段を見せる紙。オーナー 2026-11-21「お会計票って値段を見せるもの」）
-function slipMoney(g,n,x,y,gap,al){ const gs=String(Math.max(0,Math.round(Number(n)||0))).replace(/\B(?=(\d{3})+$)/g,',').split(','), ws=gs.map(t=>g.measureText(t).width), tot=ws.reduce((u,v)=>u+v,0)+gap*(gs.length-1); let sx=al==='right'?x-tot:x-tot/2; g.textAlign='left'; gs.forEach((t,k)=>{ g.fillText(t,sx,y); sx+=ws[k]+gap; }); }
+function slipMoney(g,n,x,y,gap,al){ const gs=String(Math.max(0,Math.round(Number(n)||0))).replace(/\B(?=(\d{3})+$)/g,',').split(','), ws=gs.map(t=>g.measureText(t).width), tot=ws.reduce((u,v)=>u+v,0)+gap*(gs.length-1); let sx=al==='right'?x-tot:x-tot/2; g.textAlign='left'; const x0=sx; gs.forEach((t,k)=>{ g.fillText(t,sx,y); sx+=ws[k]+gap; }); return [x0,x0+tot]; }
 function drawBill(d,z){ const c=slipTools(z), {g,W,fs}=c, MX=56, LW=170; let y=Math.round(fs*1.9);
   g.textAlign='left'; g.font=c.BK(fs*1.45,true); g.fillText(d.title,MX,y);
-  const bh=Math.round(fs*3.6); y+=Math.round(fs*0.8); g.font=c.BK(fs*2.4); slipMoney(g,d.due,W/2,y+Math.round(bh/2+fs*0.85),fs*0.75,'center'); y+=bh;
-  g.lineWidth=2; g.beginPath(); g.moveTo(W/2-60,y-Math.round(fs*0.1)+.5); g.lineTo(W/2+60,y-Math.round(fs*0.1)+.5); g.stroke();
-  if(d.logo){ const lc=slipLogo(d.logo,LW); y+=Math.round(fs*0.5); g.drawImage(lc,W-MX-LW,y); y+=lc.height; }
-  y+=Math.round(fs*0.9); const out=document.createElement('canvas'); out.width=W; out.height=y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
+  const bh=Math.round(fs*3.6); y+=Math.round(fs*0.8); g.font=c.BK(fs*2.4); const ext=slipMoney(g,d.due,W/2,y+Math.round(bh/2+fs*0.85),8,'center'); y+=bh; /* 桁の間は 8 ドット（これより狭いと印刷で桁がつながって見える。オーナー 2026-11-25） */
+  const lx=Math.round((ext[0]+ext[1])/2); /* 線は数字の見える左右の真ん中 */
+  g.lineWidth=2; g.beginPath(); g.moveTo(lx-60,y-Math.round(fs*0.1)+.5); g.lineTo(lx+60,y-Math.round(fs*0.1)+.5); g.stroke();
+  if(d.logo){ const lc=slipLogo(d.logo,LW); y+=Math.round(fs*0.55); g.drawImage(lc,W-MX-LW,y); y+=lc.height; }
+  y+=Math.round(fs*0.55); const out=document.createElement('canvas'); out.width=W; out.height=y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
 // 領収書と同じ明朝と Baskerville。ロゴ・見出し・金額を、余白と細い線で並べる。576 ドット幅の絵（imagePrint で白黒に）
 function drawSlip(d,z){ if(d.kind==='bill') return drawBill(d,z); const c=slipTools(z), {g,W,fs}=c; slipHead(c,d);
   (d.kind==='estimate'?slipEst:slipDetail)(c,d);

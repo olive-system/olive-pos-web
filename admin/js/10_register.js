@@ -26,6 +26,7 @@ async function regDayPage(){
   const K=await regPrep({today,d,st,ed,mv,adv,pay,cls,prev,stf,lat}); if(!K) return;
   $('main').innerHTML=regHead()+regHtmlMoves(K)+regHtmlCash(K); regTabs();
   K.calc=()=>regCalc(K); K.calc();
+  regSlipNotes($('main'),st,d,d);
   K.goD=x=>{ regDate=x; regCounts={}; regDeposit=0; PAGES.register(); };
   regBind(K); regBindSave(K); await regWarnDays(K); }
 /* その日の入出金・日払・現金の会計・精算・前回の精算・名前・後の日の精算を読む */
@@ -136,6 +137,7 @@ async function regMonthPage(){
     <tr style="font-weight:700"><td>合計</td><td></td><td>${yen(tot.sales)}</td><td>${yen(tot.cin)}</td><td>${yen(tot.cout)}</td><td></td><td></td><td style="${tot.diff?'color:var(--warn)':''}">${sgnYen(tot.diff)}</td><td>${yen(tot.deposit)}</td><td></td></tr></table></div>
     <div class="muted" style="font-size:13px;margin-top:8px">行を押すと、その日の日次を開きます</div>`;
   $('rmBox').querySelectorAll('[data-rd]').forEach(t=>t.onclick=()=>{ regDate=t.dataset.rd; regTab='day'; PAGES.register(); });
+  regSlipNotes($('rmBox'),st,d1,dN);
 }
 
 
@@ -150,3 +152,10 @@ function regMonthRows(mo,last,today,byD,sum,pv){
     tot.sales+=t.sales; tot.cin+=t.cin; tot.cout+=t.cout;
     rows.push(`<tr data-rd="${dd}" style="color:var(--muted)">${C(dl)}${C(yen(carry))}${C(yen(t.sales))}${C(yen(t.cin))}${C(yen(t.cout))}${C(yen(exp))}${idle?C(yen(exp))+C(yen(0))+C(yen(0))+CS(dd<today?'（変動なし自動繰越）':''):C('')+C('')+C('')+CS('<span style="color:var(--warn)">未精算</span>')}</tr>`); }
   return {rows,tot}; }
+/* 精算の後に給与の修正（報酬支払明細書の日払・立替の修正・取消・SQL 704）で、精算の記録の出金・理論値・過不足が動いた日を1行ずつ。日次と月の表の両方に出す */
+async function regSlipNotes(box,st,d1,d2){ const r=await sb.from('slip_edits').select('business_date,kind,action,amount,new_amount,edited_by,edited_at,before,staff_id').eq('store_id',st).gte('business_date',d1).lte('business_date',d2).in('kind',['advance','tatekae']).order('edited_at');
+  if(r.error||!box.isConnected) return; const L=(r.data||[]).filter(x=>x.before&&x.before.closing); if(!L.length) return;
+  const sf=await sb.from('staff').select('id,display_name').in('id',[...new Set(L.map(x=>x.staff_id))]); const nm=id=>(sf.data||[]).find(s=>s.id===id)?.display_name||'';
+  const KN={advance:'日払',tatekae:'立替'}, md=d=>`${Number(d.slice(5,7))}/${Number(d.slice(8,10))}`, at=t=>{ const x=new Date(t); return `${x.getMonth()+1}/${x.getDate()} ${x.getHours()}:${String(x.getMinutes()).padStart(2,'0')}`; };
+  box.insertAdjacentHTML('beforeend',`<div class="card" style="margin-top:12px;font-size:14px"><div style="font-weight:700;margin-bottom:4px">精算の後に給与の修正</div>${L.map(x=>`<div>${md(x.business_date)}　${KN[x.kind]} ${esc(nm(x.staff_id))} ${yen(x.amount)} → ${x.action==='cancel'?'0（取消）':yen(x.new_amount)}　${esc(x.edited_by||'')}・${at(x.edited_at)}</div>`).join('')}</div>`); }
+

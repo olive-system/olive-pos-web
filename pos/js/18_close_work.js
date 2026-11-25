@@ -28,7 +28,7 @@ function clFetch(d,from,to,D){ const G=(k,fn)=>clGet(D,k,fn); return Promise.all
     G('ctk',()=>sb.rpc('pos_close_tasks',{p_day:d})), G('tdl',()=>sb.rpc('pos_todos',{p_day:d})) ]); }
 /* 読んだものから、入金・出金・日払・現金売上・前回の精算・未精算の日を出す。読めない時は箱に出して null */
 async function clPrep(d,today,box,R,D){ const [mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl]=R;
-  /* 閉店作業をマイページでする店は、②〜⑦・⑨をマイページへ（v12.22 から ② 出退勤確認・③ マイページの閉店作業・④ レジ金合わせ）。ここは完了・作業中の一覧（全部完了でないと精算できない。オーナー） */
+  /* 閉店作業をマイページでする店は、②〜⑦・⑨をマイページへ（v12.22 から ② 出退勤罰金確認・③ マイページの閉店作業・④ レジ金合わせ）。ここは完了・作業中の一覧（全部完了でないと精算できない。オーナー） */
   const mp=!ctk.error&&ctk.data?.on, mpL=mp?(ctk.data.items||[]):[]; mpL.forEach(x=>{ if(x.kind==='todo') x.todo_all=tdl.error?1:(tdl.data||[]).length; }); /* TODO が1件も無い日（休みの日など）は「完了」ではなく「なし」と出す（終わらせた人がいないのに完了に見えるため） */
   if(S.setCur!=='closing') return;
   if(mv.error||cls.error){ box.innerHTML=`<div class="muted">読み込めません：${esc((mv.error||cls.error).message)}</div>`; return; }
@@ -59,12 +59,12 @@ function clHtml1(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
   <div id="clRe"></div>
   ${H('① お客様登録')}<div id="clReg"><div class="muted">読み込み中…</div></div>
   ${H('② 入出金の登録（経費の現金払い・立替など）')}<div id="clMvTop"></div>
-  ${saved?'<div class="muted" style="margin-bottom:6px">精算済のため変更できません</div>':`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><input type="hidden" id="clKind" value="out"><div class="clseg"><button type="button" data-clk="out" class="on">出金</button><button type="button" data-clk="in">入金</button></div><select id="clMemoSel" style="width:200px"></select><input id="clMemo" placeholder="内容を入力" style="flex:1;min-width:160px;display:none"><input id="clAmt" type="number" inputmode="numeric" placeholder="金額" style="width:130px;text-align:right"><button class="ok sm" id="clAdd">追加</button><label class="cllb" id="clShot" style="display:none">撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label></div>`}
+  ${saved?'<div class="muted" style="margin-bottom:6px">精算済のため変更できません</div>':`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><input type="hidden" id="clKind" value="out"><div class="clseg"><button type="button" data-clk="out" class="on">出金</button><button type="button" data-clk="in">入金</button></div><select id="clMemoSel" style="width:260px"></select><input id="clMemo" placeholder="内容を入力" style="flex:1;min-width:160px;display:none"><input id="clAmt" type="number" inputmode="numeric" placeholder="金額" style="width:130px;text-align:right"><button class="ok sm" id="clAdd">追加</button><label class="cllb" id="clShot" style="display:none">撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label></div>`}
   <div class="clmv">${moves.map(m=>`<div class="r"><span class="badge ${m.kind==='out'?'gray':''}">${m.kind==='out'?'出金':'入金'}</span><span class="t">${esc(m.memo||'')}${clNoInv(m)?' <small class="muted">記載なし</small>':''}</span><span>${m.receipt_path?`<button class="xb" data-mvpdf="${m.id}" aria-label="領収書">${FX('filetext')}</button>`:''}</span><span class="p">${esc(m.payer||'')}</span><span class="a">${yen(m.amount)}</span><span>${saved?'':`<button class="xb" data-mvdel="${m.id}" aria-label="削除">×</button>`}</span></div>`).join('')}
   <div class="r"><span class="badge gray">出金</span><span class="t" style="grid-column:span 3">日払（立替）　<small class="muted">${advRows.length?esc(advRows.map(a=>nm(a.staff_id)+' '+a.amount.toLocaleString()).join('・')):'なし'}</small></span><span class="a">${yen(advSum)}</span><span></span></div></div><div id="clMvDone"></div>`; }
 function clHtml2(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K; return `
   ${H('③ 領収書メール')}<div id="clRcpt"></div>
-  ${mp?H('④ 出退勤確認')+'<div id="clPunch"></div>'+clMpHtml(mpL,H):clOldMid}
+  ${mp?H('④ 出退勤罰金確認（23:00 に自動で付きます）')+'<div id="clPunch"></div>'+clMpHtml(mpL,H):clOldMid}
   ${H(mp?'⑥ レジ金合わせ':'⑩ レジ金合わせ')}
   <div id="clCard" style="margin-bottom:12px"></div>`; }
 function clHtml3(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat,ctk,tdl,mp,mpL,moves,outSum,inSum,advRows,advSum,cashSales,saved,prevRow,hasPrev,gp,later,future,clIdle,custIds,bottles,nm,cn,H,cnt,clOldMid}=K; return `
@@ -95,9 +95,9 @@ function clBindA(K){ const {d,today,box,from,to,mv,adv,pay,cls,prev,bc,rq,od,lat
   if($('clDepIn')) $('clDepIn').oninput=e=>{ S.clDeposit=clNum(e.target.value); clRecalc(); };
   if($('clOpenIn')) $('clOpenIn').oninput=e=>{ S.clOpening=clNum(e.target.value); clRecalc(); };
   // 入金・出金の項目は管理サイトの POS設定 で決める（「その他」は自由に書ける）
-  if($('clKind')){ const items=k=>{ const v=S.settings?.['cash_'+k+'_items'], L=Array.isArray(v)?v:(k==='out'?['支払い']:[]); return k==='out'?[CL_RCPT,...L.filter(x=>!String(x).includes('領収書'))]:L; }; /* 領収書精算（撮影）は設定の項目名に頼らずいつも出す。管理サイトで項目名が変わると撮影が出ず、写真なしの出金になり領収書メールも0通になった */
+  if($('clKind')){ const items=k=>{ const v=S.settings?.['cash_'+k+'_items'], L=Array.isArray(v)?v:(k==='out'?['支払い']:[]); return k==='out'?[CL_RCPT,CL_RCPT_SC,...L.filter(x=>!String(x).includes('領収書'))]:L; }; /* 領収書精算（撮影）は設定の項目名に頼らずいつも出す。管理サイトで項目名が変わると撮影が出ず、写真なしの出金になり領収書メールも0通になった */
     const fill=()=>{ const k=$('clKind').value; $('clMemoSel').innerHTML=items(k).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__other">その他</option>'; };
-    const mv=()=>{ const out=$('clKind').value==='out', rc=out&&$('clMemoSel').value===CL_RCPT; /* 領収書精算の時は 金額・追加 のかわりに撮影だけ（オーナー「日払いの場合は撮影いらないよね」） */ $('clAmt').style.display=$('clAdd').style.display=rc?'none':''; $('clShot').style.display=rc?'':'none'; $('clMemo').style.display=$('clMemoSel').value==='__other'?'':'none'; $('clMemo').placeholder=out?'内容を入力':'内容（例：両替、釣銭補充）'; }; fill(); $('clKind').onchange=()=>{ fill(); mv(); };
+    const mv=()=>{ const out=$('clKind').value==='out', rc=out&&[CL_RCPT,CL_RCPT_SC].includes($('clMemoSel').value); /* 領収書精算の時は 金額・追加 のかわりに撮影だけ（オーナー「日払いの場合は撮影いらないよね」） */ $('clAmt').style.display=$('clAdd').style.display=rc?'none':''; $('clShot').style.display=rc?'':'none'; $('clMemo').style.display=$('clMemoSel').value==='__other'?'':'none'; $('clMemo').placeholder=out?'内容を入力':'内容（例：両替、釣銭補充）'; }; fill(); $('clKind').onchange=()=>{ fill(); mv(); };
     box.querySelectorAll('[data-clk]').forEach(b=>b.onclick=()=>{ $('clKind').value=b.dataset.clk; box.querySelectorAll('[data-clk]').forEach(x=>x.classList.toggle('on',x===b)); fill(); mv(); }); $('clMemoSel').onchange=()=>{ mv(); if($('clMemoSel').value==='__other') $('clMemo').focus(); }; mv(); }
   if($('clAdd')) $('clAdd').onclick=guard($('clAdd'),async()=>{ /* 二度押しで2つ入らないように */ const amount=clNum($('clAmt').value), kind=$('clKind').value, memo=$('clMemoSel').value!=='__other'?$('clMemoSel').value:$('clMemo').value.trim(); if(!amount){ toast('金額を入力してください'); return; } if(!memo){ toast('内容を入力してください'); return; } if(await askBy()===null) return; $('clAdd').disabled=true; const r=await insOnce('cash_movements',{store_id:S.store.id,business_date:d,kind,amount,memo}); if(r.error){ toast(r.error.message); $('clAdd').disabled=false; return; } await logOp(kind==='out'?'レジ出金の登録':'レジ入金の登録',{date:d,amount,memo},null,true); renderClosing(); });
 }
@@ -223,7 +223,7 @@ async function clUndone(d,mp){ const ok=r=>{ if(r.error) throw r.error; return r
   const sent=new Set((rg.data||[])[0]?.detail?.ids||[]); if((rm.data||[]).some(m=>!sent.has(m.id))) L.push({t:'③ 領収書メール',el:'clRcpt'});
   if(mp){ if(!S.staffAll.length) await loadStaffAll(); const IN=new Set(), OUT=new Set(); (ev.data||[]).forEach(e=>(e.event_type==='clock_out'||e.event_type==='after'?OUT:IN).add(e.staff_id));
     const nm=[...IN].filter(id=>!OUT.has(id)).map(id=>S.staffAll.find(x=>x.id===id)).filter(x=>x&&x.kind!=='hall'&&!x.is_trial).map(x=>x.display_name); /* 黒服・体験は POS で修正できないので止めない */
-    if(nm.length) L.push({t:`④ 出退勤確認（未退勤 ${nm.join('・')}）`,el:'clPunch'});
+    if(nm.length) L.push({t:`④ 出退勤罰金確認（未退勤 ${nm.join('・')}）`,el:'clPunch'});
     const T=(mt.data?.items||[]).filter(x=>x.status!=='done'); if(T.length) L.push({t:`⑤ マイページの閉店作業（${T.map(x=>x.name).join('・')}）`,el:'clMp'}); }
   else if(!has(ck)) L.push({t:`⑥ ${KL}・同伴・反応◎の確認`,el:'clChk'});
   const n=(tq.data||[]).filter(x=>x.status==='open').length; if(n) L.push({t:`⑨ TODO（${n}件）`,el:'clTodo'});

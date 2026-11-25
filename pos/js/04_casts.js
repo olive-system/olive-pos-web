@@ -108,7 +108,7 @@ async function caMarks(C,D){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fi
   // LINEマイページの遅刻連絡（出勤予定）と、連絡なしの遅刻
   const lateM={}; { const lr=entryPart(D,'late'); if(lr.error) rdErr=true; else (lr.data||[]).forEach(a=>{ lateM[a.staff_id]={...(lateM[a.staff_id]||{}),...a}; }); }
   // アプローチ。今日出勤して、連絡済リストをまだ共有していない人を一覧の上に（強く出さない。オーナー「あくまでもお願い」）
-  { const sr=entryPart(D,'sales'); S.salesM={}; if(!sr.error) (sr.data.rows||[]).forEach(r=>{ S.salesM[r.staff_id]=r; }); }
+  { const sr=entryPart(D,'sales'); S.salesM={}; if(!sr.error) (sr.data?.rows||[]).forEach(r=>{ S.salesM[r.staff_id]=r; }); }
   const slTxt=Object.values(S.salesM).filter(r=>r.worked&&r.count==null).map(r=>esc(S.staffAll.find(x=>x.id===r.staff_id)?.display_name||'')).join('・');
   const krM=await caRatio();
   return {absM,lateM,slTxt,rdErr,krM}; }
@@ -117,15 +117,17 @@ let caKr={at:0,m:{}};
 /* 提出（今月の出勤した日のうち連絡済リストを共有した日。SQL 590 の cast_sub_rate）も一緒に読む。オーナー「給率を出すときには必ず提出も」 */
 async function caRatio(){ if(Date.now()-caKr.at<600000) return caKr.m; const [r,u]=await Promise.all([sb.rpc('pos_cast_ratio'),sb.rpc('pos_cast_sub')]); if(!r.error){ const m=r.data||{}; if(!u.error) Object.entries(u.data||{}).forEach(([id,v])=>{ m[id]={...(m[id]||{}),...v}; }); caKr={at:Date.now(),m}; } return r.error?{}:caKr.m; }
 const subPct=z=>z&&Number(z.worked)>0?Math.round(Number(z.submitted)/Number(z.worked)*100)+'%':'—';
+/* 交換提出（SQL 709・オーナー 11/25）：今月の出勤日のうち、連絡先交換（今日は交換なし も）を出した日。1日の判定は日報の未提出と同じ（contact_submitted） */
+const cxPct=z=>z&&Number(z.cworked)>0?Math.round(Number(z.csubmitted)/Number(z.cworked)*100)+'%':'—';
 /* 平均（SQL 665・オーナー 11/20）：今月の出勤日1日あたりの連絡済リストの人数（出さなかった日は0人）。数字をタップすると小窓に提出率と1回平均（出した日で割る） */
 const avgN=z=>z&&Number(z.worked)>0?Math.round(Number(z.contacts||0)/Number(z.worked))+'人':'—';
 function avgOpen(id){ const z=(caKr.m||{})[id]; if(!z) return; const nm=S.staffAll.find(x=>x.id===id)?.display_name||'', d=Number(businessDate().slice(8,10)), mm=Number(businessDate().slice(5,7)), w=Number(z.worked), sb=Number(z.submitted), c=Number(z.contacts||0);
   const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-weight:700;font-size:20px">${esc(nm)}</div><div class="muted" style="font-size:14px">今月${d>1?` ${mm}/1〜${mm}/${d-1}`:''}</div>
-    <div style="display:flex;justify-content:space-between"><span>提出率</span><b>${subPct(z)}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">出勤 ${w}日・提出 ${sb}日</div>
+    <div style="display:flex;justify-content:space-between"><span>アプローチ</span><b>${subPct(z)}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">出勤 ${w}日・提出 ${sb}日</div>
     <div style="display:flex;justify-content:space-between"><span>1回平均</span><b>${sb>0?Math.round(c/sb)+'人':'—'}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">提出日の連絡 ${c}人 ÷ ${sb}日</div></div>`; document.body.appendChild(m); m.querySelector('[data-x]').onclick=()=>m.remove(); }
 /* 黒服・体験・係専用の行には出さない（オーナー「黒服はいらん」）。給率＝課税対象額÷係小計（管理サイトと同じ式） */
 function caKrHtml(C,s){ const z=(C.krM||{})[s.id]; if(!z||!s.is_active||s.kind==='hall'||s.is_trial||s.kakari_only||cSorting||cDeleteMode) return ''; const krPct=(t,v)=>Number(v)>0?(Math.round(Number(t)/Number(v)*1000)/10).toFixed(1)+'%':'—';
-  return `<small class="kr">給率 <b>${krPct(z.taxable,z.sales)}</b> / 3M <b>${krPct(z.taxable3,z.sales3)}</b> ${s.spot_since?'':` / 提出率 <b>${subPct(z)}</b> / <u class="avg" data-avg="${s.id}">平均 <b>${avgN(z)}</b></u>`}</small>`; }   /* スポットの子は提出率を出さない（オーナー「イ 外す」） */
+  return `<small class="kr">給率 <b>${krPct(z.taxable,z.sales)}</b> / 3M <b>${krPct(z.taxable3,z.sales3)}</b> ${s.spot_since?'':` / アプローチ <b>${subPct(z)}</b> / <u class="avg" data-avg="${s.id}">平均 <b>${avgN(z)}</b></u> / 交換提出 <b>${cxPct(z)}</b>`}</small>`; }   /* スポットの子は提出率を出さない（オーナー「イ 外す」） */
 /* 一覧の1行：名前としるし（caRowHtml）と、時刻・日払・手当・ボタン（caRowCtl）
    しるし（スポット・条件再設定・折半・係専用・体験・受取待ち・当日欠勤・遅刻）は全部名前の行に小さく。本名未入力・体験の［退勤］［報酬明細］はその下（オーナー「しるしで4行にならないように」。ボタンを名前の行に並べると右の欄に重なる） */
 function caRowHtml(C,s){ const {present,q,adv,advX,advN,advA,advM,tev,rcp,fixN,finT,finP,clDone,rdErr,tcalc,rows,ntRows,ptDay,alwHtml,fine,hmx,fineInp,tmCalc,orgH,tmHtml,advFineHtml,noReal,absM,lateM,slTxt,rowHtml,saveAlw,rwPick,alwYen,alwPoint}=C; return `<div class="rrow ${s.is_active?'':'inactive'}" data-id="${s.id}">${cSorting?'<span class="hd">≡</span>':''}<span class="nm"${cMode==='today'?' style="white-space:nowrap"':''}>${esc(s.display_name)}${needMgr(s)&&s.is_active?(mgrOf(s)?` <small style="color:var(--muted);font-size:13px">${esc(mgrOf(s).display_name)}</small>`:' <small style="color:var(--warn);font-size:13px">未選択</small>'):''}${s.is_active&&absM[s.id]?' <span class="badge warnb">当日欠勤</span>':''}${!s.is_active?'':lateM[s.id]?.eta?` <span class="badge gray">遅刻 ${esc(lateM[s.id].eta)}</span>`:(lateM[s.id]?.nocontact?' <span class="badge warnb">無断遅刻</span>':'')}${
@@ -216,7 +218,7 @@ function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
   $('cList').querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{ const { error } = await sb.rpc('pos_row_update',{p_table:'staff',p_id:b.dataset.restore,p:{is_active:true}}); if(!error) await logOp('キャストを戻す',{name:snm(b.dataset.restore)},null,true); toast(error?error.message:'戻しました'); renderCasts(); });
   /* 応募情報なしの間は手当も打てない（打てる欄が手当だけだと、日払を手当に打ってしまう。11/18 銀座）。押すと理由を出す */
   $('cList').querySelectorAll('[data-noap]').forEach(b=>b.onclick=()=>uiAlert('応募者ページでヒアリングシートと写真の登録後、報酬をお渡しください'));
-  $('cList').querySelectorAll('[data-extra]').forEach(inp=>inp.onchange=async()=>{ const s=S.staffAll.find(x=>x.id===inp.dataset.extra); const ex=Math.max(0,parseInt(inp.value||'0',10)||0); const c=trialCalc(s,tev[s.id]||{},ex); const ok=c.ready&&!S.trialPay?.[s.id]; /* 応募情報なしの子は金額を書かない（自動の計算と同じ。SQL 577） */ const r=await sb.rpc('pos_trial_adv_save',{p_staff:s.id,p_day:businessDate(),p_amount:ok?c.pay:null,p_extra:ex,p_note:c.note}); /* 体験の日払いは入口だけから（SQL 601。応募情報なしの子は金額を書かない） */ if(r.error){ toast('保存エラー：'+r.error.message); return; } await logOp('日払い（体験・手当の変更）',{name:s.display_name,extra:ex,amount:ok?c.pay:null,calc:c.note},null,true); toast('手当を保存しました'); renderCasts(); });
+  $('cList').querySelectorAll('[data-extra]').forEach(inp=>inp.onchange=async()=>{ const s=S.staffAll.find(x=>x.id===inp.dataset.extra); if(!s) return; /* 一覧を開いた後に在籍から外れた子 */ const ex=Math.max(0,parseInt(inp.value||'0',10)||0); const c=trialCalc(s,tev[s.id]||{},ex); const ok=c.ready&&!S.trialPay?.[s.id]; /* 応募情報なしの子は金額を書かない（自動の計算と同じ。SQL 577） */ const r=await sb.rpc('pos_trial_adv_save',{p_staff:s.id,p_day:businessDate(),p_amount:ok?c.pay:null,p_extra:ex,p_note:c.note}); /* 体験の日払いは入口だけから（SQL 601。応募情報なしの子は金額を書かない） */ if(r.error){ toast('保存エラー：'+r.error.message); return; } await logOp('日払い（体験・手当の変更）',{name:s.display_name,extra:ex,amount:ok?c.pay:null,calc:c.note},null,true); toast('手当を保存しました'); renderCasts(); });
   $('cList').querySelectorAll('[data-adv]').forEach(inp=>inp.onchange=caAdvSave(inp,'adv',adv));
   $('cList').querySelectorAll('[data-tat]').forEach(inp=>inp.onchange=caAdvSave(inp,'tat',adv));
   if (cSorting) dragSort($('cList'),'.rrow',async ids=>{ const rs=[await sb.rpc('pos_staff_sort',{p_ids:ids})]; const er=rs.find(r=>r.error); toast(er?('並び順を保存できませんでした：'+er.error.message):'並び順を保存しました'); renderCasts(); });

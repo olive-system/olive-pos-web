@@ -1,7 +1,7 @@
 // ---------- 新しい伝票（人数・お客様を選んで伝票を作る） ----------
 // 予約は「今の時刻の前後1時間」（伝票がもうあるお客様の予約は、関数 pos_resv_near_now が外す。SQL 681）。最大10件（10個目は［ほか ○件］）
-let newT=null, newN=0, newCust=null, newResvId=null, newResvList=[], newResvSeq=0, newDouhanIds=null;
-function openNew(t){ newT=t; newN=0; newCust=null; newResvId=null; newResvList=[]; newDouhanIds=null; $('nTable').textContent=t.name; renderNew(); show('v-new'); loadNewResv(); }
+let newT=null, newN=0, newCust=null, newResvId=null, newResvList=[], newResvSeq=0, newDouhanIds=null, newMoreCust=[];
+function openNew(t){ newT=t; newN=0; newCust=null; newResvId=null; newResvList=[]; newDouhanIds=null; newMoreCust=[]; $('nTable').textContent=t.name; renderNew(); show('v-new'); loadNewResv(); }
 function renderNew(){ $('nCount').textContent=newN; renderNewResv(); }
 $('nPlus').onclick=()=>{ if(newN<50) newN++; renderNew(); };
 $('nMinus').onclick=()=>{ if(newN>0) newN--; renderNew(); };
@@ -20,7 +20,7 @@ function renderNewResv(){ const box=$('nResv'); if(!box) return; const L=newResv
   const cells=shown.map(r=>`<div class="rb o-stack${newResvId===r.id?' sel':''}" data-rid="${esc(r.id)}"><div class="rb1"><span class="rbn"><b>${esc(r.time)}</b> ${esc(r.name)}　様</span><span class="rbg">${r.guests}名</span></div><div class="rb2"><div class="rbk">${esc(r.kakari_name||'')}</div><div class="rbd">${r.douhan?`<span class="dm">同</span>${esc(r.douhan_name||'')}`:''}</div></div></div>`).join('');
   const more=L.length>10?`<div class="rb o-stack more">ほか ${L.length-9}件</div>`:'';
   box.innerHTML=cells+more;
-  box.querySelectorAll('[data-rid]').forEach(el=>el.onclick=()=>{ const r=L.find(x=>x.id===el.dataset.rid); if(!r) return; newResvId=r.id; newN=r.guests||1; newCust=r.customer_id?{id:r.customer_id,name:r.name}:null; newDouhanIds=r.douhan_ids||null; renderNew(); }); }
+  box.querySelectorAll('[data-rid]').forEach(el=>el.onclick=()=>{ const r=L.find(x=>x.id===el.dataset.rid); if(!r) return; newResvId=r.id; newN=r.guests||1; newCust=r.customer_id?{id:r.customer_id,name:r.name}:null; newDouhanIds=r.douhan_ids||null; newMoreCust=(r.more||[]).map(x=>x.customer_id).filter(Boolean) /* 予約の2人目以降で顧客から選んだお客様も伝票に入れる（名前だけの人は入れない・1人目と同じ） */; renderNew(); }); }
 // 押した予約の同伴の子を、伝票作成の時に伝票へ付ける（同伴は伝票で決める。押したことが決め）
 async function addResvDouhan(b, ids){ if(!ids?.length) return; const role=douhanRole(b.opened_at); let n=0;
   for(const sid of ids){ if(n>=(b.guest_count||1)){ toast(`同伴は客数（${b.guest_count}名）までです`); break; }
@@ -32,6 +32,7 @@ async function createBill(t, n, c, dids){ const normal=S.modes.find(m=>m.code===
   const { data:b, error } = await sb.rpc('pos_rows_add',{p_table:'bills',p:{ store_id:S.store.id, business_date:businessDate(), table_id:t.id, guest_count:n||1, pricing_mode_id:normal?.id, set_start:ceil5(Date.now()).toISOString(), set_minutes:S.settings.set_minutes, set_unit_price:S.settings.set_unit_price }}).then(oneRow);
   if (error) { if(error.code==='23505'){ /* 1つの卓に営業中の伝票は1枚だけ */ toast('もう1台でこの卓の伝票が作成されました'); const e2=await sb.from('bills').select('id').eq('table_id',t.id).eq('status','open').limit(1); if(e2.data?.length) await openBill(e2.data[0].id); else { loadHall(); show('v-hall'); } return; } toast(error.message); return; }
   S.cur=b; let addedK=false; if (c){ { const rc=await sb.rpc('pos_rows_add',{p_table:'bill_customers',p:{bill_id:b.id,customer_id:c.id}}); if(rc.error) toast('お客様を伝票に登録できません：'+rc.error.message); } /* 通しチェック3：失敗しても何も出なかった */ if(c.kakari_staff_id&&S.settings.cust_auto_kakari!==false){ /* 設定で OFF にできる */ const r=await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:b.id,staff_id:c.kakari_staff_id,role:'none',is_kakari:true}}); addedK=!r.error; } }
+  for(const id of newMoreCust){ if(id===c?.id) continue; const rm=await sb.rpc('pos_rows_add',{p_table:'bill_customers',p:{bill_id:b.id,customer_id:id}}); if(rm.error) toast('お客様を伝票に登録できません：'+rm.error.message); }
   // HC・BC の金額は管理サイト「POS設定」で選ぶ（なし＝付けない）。伝票の名前は HC／BC。HC は係にバック100%、BC はバックなし
   const hc=S.settings.auto_hc_product_id&&S.products.find(p=>p.id===S.settings.auto_hc_product_id), hcA=('auto_hc_amount' in S.settings)?S.settings.auto_hc_amount:hc?.price;
   if (hc&&hcA>0){ const rh=await sb.rpc('pos_rows_add',{p_table:'bill_items',p:{bill_id:b.id,product_id:hc.id,name:'HC',category_id:hc.category_id,qty:n||1,unit_price:hcA,cast_subtotal_price:Number(hc.cast_subtotal_price)?hcA:0,back_amount:hcA,back_points:hc.back_points,is_service_target:hc.is_service_target}}); if(rh.error) toast('HC を登録できません：'+rh.error.message); }

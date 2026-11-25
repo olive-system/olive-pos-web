@@ -1,6 +1,6 @@
-// ---------- 打刻一覧 日ごとの打刻と写真（見るだけ。打刻の修正は POS） ----------
+// ---------- 打刻一覧 日ごとの打刻と写真（打刻の修正と追加もここでできる。修正した人と日時を残す） ----------
 let pcDate=null;
-const PC_TYPES=[['douhan','同伴'],['clock_in','出勤'],['clock_out','退勤']]; /* アフターは伝票で決めるので、打刻の一覧には出さない。前の日のアフターの打刻は退勤の列に出す（2026-11-15 オーナー） */
+const PC_TYPES=[['douhan','同伴'],['clock_in','出勤'],['clock_out','退勤']]; /* アフターは伝票で決めるので、打刻の一覧には出さない。アフターの打刻は退勤の列に出す（2026-11-15 オーナー） */
 PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); const d=pcDate;
   const head=`<h1>打刻一覧 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>
   <div class="row" style="margin-bottom:12px"><button class="ghost" id="pcPrev">◀</button><input type="date" id="pcDate" value="${d}" style="width:auto"><button class="ghost" id="pcNext">▶</button><button class="ghost" id="pcToday">今日</button></div>`;
@@ -23,7 +23,7 @@ PAGES.punches=async()=>{ const st=storeId; if(!pcDate) pcDate=businessDate(); co
   /* 大きい時刻は報酬に使う丸めた時刻（POS と同じ）。打刻の時刻（最初の打刻）は半分ほどの大きさで横に。手で修正した打刻は矢印にせず、下の行に「修正 時刻 操作者 修正日時」（オーナー「矢印だと手で修正したみたいになる」）（オーナー「管理サイトとポスがリンクしてない」「誰がいつ変更したのかがわからない」「実際の打刻時間は半分ぐらいの大きさで」） */
   const ed=perm('punches')==='edit'; /* 打刻一覧で修正・追加（表示設定の「編集」の人） */
   /* 出勤を押し忘れて退勤だけの人は、出勤の所に赤で「出勤なし」（黒服が「追加」で時刻を入れる） */
-  /* 修正した打刻は「最初の打刻→今の時刻」（オーナー）。最初の打刻が無い修正（今までの POS の修正・追加）は「修正済」のまま */
+  /* 最初の打刻が無い修正（今までの POS の修正・追加）は「修正済」と出す */
   /* 詰めた形（オーナー「もう少し無駄なく」）。写真は小さく時刻の横・「追加」「修正」は小さい文字 */
   const cxl=(pid,k)=>k!=='clock_out'||!cxBy[pid]?'':cxBy[pid].map(c=>`<span style="color:var(--warn)">${c.photo&&urls[c.photo]?`<img class="pc-x" src="${esc(urls[c.photo])}" data-big="${esc(urls[c.photo])}" alt="">`:''}取消 ${esc(String(c.detail.out||'').replace(/^0(?=\d)/,''))} ${esc(c.detail.by||'')} ${md(c.created_at)}</span>`).join('<br>');
   const cell=(e,pid,k)=>!e?((k==='clock_in'&&by[pid]?.clock_out&&!by[pid]?.douhan? /* アフターも退勤の扱い（オーナー） */'<b style="color:var(--warn);font-size:13px;margin-right:6px">出勤なし</b>':'')+(ed?`<button class="pc-l" data-pcadd="${pid}" data-k="${k}">追加</button>`:'<span class="muted">—</span>')+(cxl(pid,k)?`<small class="pc-s" style="margin-left:6px">${cxl(pid,k)}</small>`:'')):`<div class="pc-c">${e.photo_path?(urls[e.photo_path]?`<img src="${esc(urls[e.photo_path])}" data-big="${esc(urls[e.photo_path])}" alt="">`:'<small class="muted">写真を出せません</small>'):'<small class="muted">写真なし</small>'}<span class="pc-t"${e.is_corrected?' style="color:var(--warn)"':''}>${hm(e.rounded_at||e.event_at)}</span>`+
