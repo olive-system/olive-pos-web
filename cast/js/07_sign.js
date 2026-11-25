@@ -10,7 +10,7 @@ async function payslip(){
   { const pd = await sb.rpc('cast_pay_pending', { p_token: TOKEN }); if(!pd.error && pd.data) await pushSign(pd.data.id, pd.data.signature, pd.data.uploaded); }
   const r = await sb.rpc('cast_pay_slip', { p_token: TOKEN });
   if(r.error){ fail(r.error.message); return; }
-  // 上に今月の途中の明細、下に前の月（毎月1日 10:30 に固めた PDF と受取確認）
+  // 上に今月の途中の明細、下に前の月（毎月1日 9:00 に固めた PDF と受取確認）
   const P = r.data, Q = P.prev || {}, [, mo] = String(P.month).split('-').map(Number), [py, pmo] = String(Q.month).split('-').map(Number);
   const mdHm = t => new Date(t).toLocaleString('ja-JP', { timeZone:'Asia/Tokyo', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
   const now = P.leaving ? '' : `<div class="mon"><span></span><b>${String(P.month).slice(0,4)}年${mo}月分（${mdDay(P.today)} まで）</b><span></span></div>${P.slip ? slipOne(P) : `<div class="card c muted">${mo}月分の明細はありません</div>`}`;
