@@ -33,7 +33,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
 };
 // 予約の1行（時刻・同伴・VIP・お客様・誘客と係・メモ・直す／取消）
 const rvDayRow=(x,i,ed,dhN)=>`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;font-size:14px"><b style="min-width:3em">${esc(x.time||'未定')}</b>${x.douhan?'<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>':''}${x.vip?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">${esc(x.vip)}</b>`:''}
-    <span style="flex:1 1 200px">${esc(x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${resvWho({douhan:x.douhan,dh:dhN(x),by:x.by_name,kakari:x.kakari_name,black:x.black},{noKK:rvNoKK(),mark:FX('dress',15)})}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
+    <span style="flex:1 1 200px">${esc(x.names||x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${resvWho({douhan:x.douhan,dh:dhN(x),by:x.by_name,kakari:x.kakari_name,black:x.black},{noKK:rvNoKK(),mark:FX('dress',15)})}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
     ${ed?`<button class="ghost sm" data-rve="${i}">修正</button><button class="ghost sm" data-rvx="${i}">取消</button>`:''}</div>`;
 // 1行の［修正］［取消］
 const rvWireRows=(box,L,day,close,ed,st,S)=>{ if(!ed) return;
