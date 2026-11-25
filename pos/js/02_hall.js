@@ -88,10 +88,10 @@ function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="cas
 // 卓の札の延長確認（SQL 702）：LINE で「会計」の返事・返事が無いまま終わりが来た卓は、札の中のキャストの欄の上に大きく重ねる（オーナー「札そのものに大きく。高さは変えない」）
 // 付け回し担当（SQL 701）：自動延長しない店（広島）は必須。選ぶまでホールの上の知らせに出し続ける。読むのはホールを全部読み直す時と朝礼で選んだ時だけ
 async function dutyLoad(){ const r=await sb.rpc('pos_tsuke_staff'); S.tkDuty=r.error?null:r.data; }
-// 札・伝票に出す延長の状態（オーナー 11/25）：会計の返事＝会計／LINE で確認中のまま残り10分未満＝延長未確認／返事が無いまま終わりを過ぎた＝時間超過
+// 札・伝票に出す延長の状態（オーナー 11/25）：会計の返事＝会計／LINE で確認中のまま残り10分未満＝延長未確認／返事が無いまま終わりを過ぎた＝！時間超過！
 //   返事（30分・1時間）が来るとその時に延長が付き、残りが10分以上に戻るので、確認中で残り10分未満＝まだ返事が無い
-function extTag(b){ const m=b.ext_mode; if(m==='pay') return '会計'; if(m==='none') return '時間超過'; return m==='ask'&&billEnd(b)-Date.now()<10*60000?'延長未確認':''; }
-function hallPeopleExt(b){ const x=extTag(b); return x?`<div style="position:relative">${hallPeople(b)}<div class="extbig">${x}</div></div>`:hallPeople(b); }
+function extTag(b){ const m=b.ext_mode; if(m==='pay') return '会計'; if(m==='none') return '！時間超過！'; return m==='ask'&&billEnd(b)-Date.now()<10*60000?'延長未確認':''; }
+function hallPeopleExt(b){ const x=extTag(b); return x?`<div style="position:relative">${hallPeople(b)}<div class="extbig${x.length>5?' long':''}">${x}</div></div>`:hallPeople(b); }
 /* 押している最中は描き直しを待つ（ほかの iPad の変更の知らせで卓を全部作り直すと、押した卓が消えて反応しなかった） */
 function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } renderHallNow(totals); }
 function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
