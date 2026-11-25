@@ -70,7 +70,7 @@ async function castLoadMe(w0){
     ME.salesDue = !sl.error && !!sl.data && !sl.data.off && !sl.data.store_off && !sl.data.report; /* 出勤日で連絡済リストをまだ出していない時だけ（オーナー 11/25「札を出す」） */
     ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* ドレス新調日（店が「する」の時だけボタンを出す）。点検 B5：読めなかった分があれば、トップに1行 */
   const th = thxParam(), nt = urlParam('notice'), go = goParam();
-  if(['contact','shift','sales','resv','perf','dress','meeting'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
+  if(['contact','shift','sales','resv','perf','dress','meeting','yukyaku'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
   fill(await pB);
   home();
   { if(th) resvThanksById(th); if(nt) noticeOpen(nt); else castGo(go); } /* 係に届いた LINE の「ありがとう」から開いた時。キャストが開けない go（黒服の画面など）はトップのまま */
@@ -79,7 +79,7 @@ async function castLoadMe(w0){
 // キャストのリッチメニューのボタンから、その画面を直接開く（?go=。オーナー 見本 キャストのリッチメニュー_案）。連絡先交換は LINE のリンクと同じく入力から
 function castGo(k){
   if(!k) return; goClear();
-  if(k === 'contact') contactList(true); else if(k === 'shift') (SHIFT_ALL ? shiftAll() : shiftHome()); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf();
+  if(k === 'contact') contactList(true); else if(k === 'shift') (SHIFT_ALL ? shiftAll() : shiftHome()); else if(k === 'sales') salesHome(); else if(k === 'resv') resvList(); else if(k === 'perf') perf(); else if(k === 'yukyaku') ykList(); /* 725：誘客の確認（LINE の［提出］から） */
   else if(k === 'dress') dressReport(); else if(k === 'meeting') mtCast(); else if(k === 'memo' && SHIFT_ALL) memoList(); /* 締め切りのリマインドの LINE から、新調日・ミーティングの画面を直接開く */
 }
 
