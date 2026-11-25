@@ -93,7 +93,7 @@ function hallPeopleExt(b){ const x=b.ext_mode==='pay'?'会計':b.ext_mode==='non
 function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } renderHallNow(totals); }
 function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
   const al=S.openBills.filter(b=>!b.pay_open_at&&(billEnd(b)-now)<10*60000);
-  $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(billTable(b)||'?')).join('、')}</div>` : ''; if(S.tkDuty?.required&&!S.tkDuty.staff_id) $('alerts').insertAdjacentHTML('beforeend','<div class="alert">付け回し担当　未選択（朝礼で選択してください）</div>'); $('alerts').insertAdjacentHTML('beforeend',tsukeAgariHtml()); tsukeBind();
+  $('alerts').innerHTML = al.length ? `<div class="alert">⏰ 残り10分未満：${al.map(b=>esc(billTable(b)||'?')).join('、')}</div>` : ''; if(S.tkDuty?.required&&!S.tkDuty.staff_id) $('alerts').insertAdjacentHTML('beforeend','<div class="alert">付け回し担当：未選択（朝礼）</div>'); $('alerts').insertAdjacentHTML('beforeend',tsukeAgariHtml()); tsukeBind();
   $('bdHall').textContent=S.openBills.length;
   $('tables').innerHTML='';
   for (const t of S.tables.filter(t=>t.is_visible)) { const b=S.openBills.find(x=>x.table_id===t.id); const el=document.createElement('div'); const hd=handTags[t.id]||[];
