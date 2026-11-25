@@ -386,7 +386,7 @@ async function tcNyuten(staff){
   const r = await sb.rpc('tc_nyuten_wait', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
   if (r.error || r.data !== true) return true;
   await new Promise(res => { const el = document.createElement('div'); el.className = 'ask show';
-    el.innerHTML = `<div class="box"><div class="nm">${esc(staff.display_name)}</div><div>入店説明2 がまだです</div><div class="w">黒服に声をかけてください</div><div class="bt"><button class="yes" style="width:100%">OK</button></div></div>`;
+    el.innerHTML = `<div class="box"><div class="nm">${esc(staff.display_name)}</div><div>入店説明2 がまだです</div><div class="w">黒服に声をかけてください</div><div class="bt"><button class="yes" style="width:100%;background:var(--in)">OK</button></div></div>`;
     document.body.appendChild(el); el.querySelector('button').onclick = () => { el.remove(); res(); }; });
   return false;
 }
