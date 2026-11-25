@@ -13,7 +13,7 @@ async function ykList(){
   const slot = y => { const f = ykPick[y.id], us = f ? f.map(x => URL.createObjectURL(x)) : (y.urls || []);
     return us.length ? ykThumbs(us, 150, `data-ykv="${y.id}"`)
       : `<div style="height:150px;border:1.5px dashed var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">スクショ</div>`; };
-  const pick = (y, t) => `<label class="btn${t === '再提出' ? '' : ' g'}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;margin:${t === '再提出' ? 'auto 0 0' : '0'};height:70px">${t}<small style="font-size:11px;font-weight:400;opacity:.8">3枚まで</small><input type="file" accept="image/*" multiple data-ykf="${y.id}" style="display:none"></label>`;
+  const pick = (y, t) => `<label class="btn${t === '再提出' ? '' : ' g'}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;margin:${t === '再提出' ? 'auto 0 0' : '0'};height:70px">${t}<small style="font-size:11px;font-weight:400;opacity:.8">${t === '再提出' ? '差し替え・3枚まで' : '3枚まで'}</small><input type="file" accept="image/*" multiple data-ykf="${y.id}" style="display:none"></label>`;
   const side = y => {
     if(!y.shot_no) return `${pick(y, 'スクショを選ぶ')}<button class="btn" data-yks="${y.id}" style="margin:10px 0 0;height:70px">提出</button>`;
     const st = `<div class="sm" style="color:var(--ok);font-weight:700">提出 ${esc(y.submitted_at || '')}</div><div class="muted sm" style="margin-top:2px">${y.shot_no >= 2 ? '再提出済' : '再提出は1回'}</div>`;
@@ -23,7 +23,7 @@ async function ykList(){
       <div><div class="muted sm">ご来店</div><div style="font-weight:700;font-size:15px">${ykDay(y.visit_day)}</div></div>
       <div><div class="muted sm">締め</div><div style="font-weight:700;font-size:15px">${ykDay(y.close_day)} 閉店作業</div></div></div>
     <div style="margin-top:10px"><div class="muted sm">お客様</div><div style="font-weight:700;font-size:19px">${esc(y.customer || '')}様</div>
-      <div class="muted sm" style="margin-top:2px">今回のご来店につながったやり取り（着信履歴・LINE・メッセージ）</div></div>
+      <div class="muted sm" style="margin-top:2px">今回のご来店につながったやり取り<span style="white-space:nowrap">（着信履歴・LINE・メッセージ）</span></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">${slot(y)}<div style="display:flex;flex-direction:column">${side(y)}</div></div></div>`;
   show(`<div class="ttl">誘客の確認</div>${L.map(one).join('') || '<div class="card muted">今日の誘客の確認はありません</div>'}`);
   const M = $('main');
@@ -50,7 +50,7 @@ function hcBodyYukyaku(H){ const {D, sv, td} = H; const L = (D && D.rows) || [],
   const badge = t => `<span style="flex:none;font-size:11px;padding:1px 6px;border-radius:999px;white-space:nowrap;background:var(--gold-soft);color:var(--ink)">${t}</span>`;
   const left = L.filter(r => r.state === 'submitted').length;
   const row = (r, j) => `<div style="display:flex;align-items:center;gap:8px;padding:10px 0;${j ? 'border-top:1px solid var(--line)' : ''}">
-    <div style="flex:none;width:${[44, 44, 66, 90][(r.urls || []).length]}px">${(r.urls || []).length ? ykThumbs(r.urls, 62, `data-ykv="${j}"`) : ''}</div>
+    <div style="flex:none;width:80px">${(r.urls || []).length ? ykThumbs(r.urls, 62, `data-ykv="${j}"`) : ''}</div>
     <div style="flex:1;min-width:0;line-height:1.5"><div style="display:flex;align-items:center;gap:4px"><b>${esc(r.name)}</b>${r.shot_no ? '' : badge('未提出')}</div>
       <div class="muted sm"><span style="white-space:nowrap">${esc(r.customer || '')}様 ${r.guests || 0}名</span>${r.shot_no ? `　<span style="white-space:nowrap">${r.shot_no >= 2 ? '再提出' : '提出'} ${esc(r.submitted_at || '')}</span>` : ''}</div></div>
     ${r.state === 'ok' || r.state === 'vague' ? `<span class="muted sm" style="flex:none;white-space:nowrap">${esc(r.by || '')} ${esc(r.at || '')} ${r.state === 'ok' ? '根拠あり' : '曖昧'}</span>`
