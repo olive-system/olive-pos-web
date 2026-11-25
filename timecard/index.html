@@ -328,7 +328,7 @@ async function punch(staff){
   document.getElementById('grid').classList.add('busy');
   try {
     if (type === 'clock_out' && !await tcJudge(staff)) return; /* 2026-11-04・SQL 355：体験のジャッジを押してから退勤（オーナー「押すまで退勤できない」） */
-    if ((type === 'clock_in' || type === 'douhan') && !await tcNyuten(staff)) return; /* SQL 728：出勤4日目で入店説明2 が未なら押せない（最初に押そうとした時刻はデータベースが残す） */
+    if (type === 'clock_in' && !await tcNyuten(staff)) return; /* SQL 728：出勤4日目で入店説明2 が未なら［出勤］を押せない（同伴は押せる。最初に押そうとした時刻はデータベースが残す） */
     if (type === 'clock_out') { /* 2026-10-18・SQL 161：出勤から30分より短い時は聞く（まちがえて押すのを防ぐ） */
       const q = await sb.rpc('tc_in_at', { p_staff_id: staff.id, p_terminal: tcGet() || '' });
       const min = q.data ? Math.floor((Date.now() - new Date(q.data).getTime()) / 60000) : null;
