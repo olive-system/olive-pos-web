@@ -10,6 +10,7 @@ const SET = [
   { key:'print', name:'印刷設定', local:true, cols:[['print_method','印刷方法','select',[['tmpa','プリンター（TM Print Assistant）'],['browser','ブラウザ印刷（PDF）']]]] },
   { key:'audit', name:'操作ログ', audit:true },
 ];
+SET.find(s=>s.key==='pos').cols.splice(4,0,['auto_extend','自動延長','bool']); /* 延長1名単価の下に「自動延長　する／しない」（SQL 701。変えるのは管理サイトの POS設定） */
 S.RW={point_slide:false,types:[],points:[],auto:{}}; S.alwMode={}; S.afMode={}; /* ／afMode */
 S.setCur='chorei'; S.setSel=null; S.setEditMode=false; S.setCatFilter=null; S.auDate=null;
 $('navSettings').onclick=()=>{ renderSettings(S.setCur); show('v-settings'); };

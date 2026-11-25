@@ -19,7 +19,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     ${num('psSetM','最初のセット時間（分）',d.set_minutes)}${num('psSetP','セット1名単価（円）',d.set_unit_price)}
     ${num('psExtM','延長単位（分）',d.ext_minutes)}${num('psExtP','延長1名単価（円）',d.ext_unit_price)}
     ${num('psSvc','サービス料率（%）',d.service_rate)}${num('psTax','消費税率（%）',d.tax_rate)}
-    ${num('psRnd','合計の切り上げ単位（円）',d.total_round_unit)}
+    ${num('psRnd','合計の切り上げ単位（円）',d.total_round_unit)}${'auto_extend' in d?`<label>自動延長<select id="psAuto" ${dis}><option value="1" ${d.auto_extend!==false?'selected':''}>する</option><option value="0" ${d.auto_extend===false?'selected':''}>しない</option></select></label>`:''}
     ${amt('psHc','HC（人数分・'+KL+'にバック100%）',d.auto_hc_amount)}${amt('psBc','BC（人数分・バックなし）',d.auto_bc_amount)}
   </div>${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
   ${me?.is_owner?`<div class="card"><h2>売上目標</h2><div class="grid2"><label>売上目標（月・円）<input id="psTgt" inputmode="numeric" value="${esc(tgt==null?'':Number(tgt).toLocaleString('ja-JP'))}"${tgtErr?' disabled':''}></label></div><div class="fend"><span class="sp"></span><button class="primary sm" id="tgtSave"${tgtErr?' disabled':''}>保存</button></div></div>`:''}
@@ -69,7 +69,9 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
       const a=slNum(tr.querySelector('[data-v=set]').value)??0, b=slNum(tr.querySelector('[data-v=ext]').value)??0;
       if(!Number.isInteger(a)||!Number.isInteger(b)||a<0||b<0){ await uiAlert(`${tr.cells[0].textContent} のVIP料金は0以上の整数で入力してください`); return; } vip.push({id:t.id,set:a,ext:b}); }
     if(!await uiConfirm('POS設定を保存しますか？\nPOS の次の伝票から変わります')) return;
-    const r=await rpc('admin_save_pos_settings',{p_store:st,p_vals:v,p_vip:vip}); if(!r.ok) return; toast('保存しました'); PAGES.set_pos(); })); };
+    const r=await rpc('admin_save_pos_settings',{p_store:st,p_vals:v,p_vip:vip}); if(!r.ok) return;
+    if($('psAuto')){ const r2=await rpc('admin_save_auto_extend',{p_store:st,p_on:$('psAuto').value==='1'}); if(!r2.ok) return; } /* 自動延長しない店は延長の確認を LINE で（SQL 701・702） */
+    toast('保存しました'); PAGES.set_pos(); })); };
 
 // 報酬で使う数（日払の上限・体験の源泉・ポイント・同伴の準備時間）。前は POS の料金設定にあった
 // ドレス新調日の設定（店ごとに する／しない・毎月○日が提出の期限・罰金の種類）

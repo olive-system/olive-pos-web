@@ -14,7 +14,7 @@ async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false)
   const { data, error } = await sb.from('bills').select(HALL_SEL).eq('status','open');
   if(seq!==hallSeq){ if(full) hallFullAt=0; return; } /* 1分ごと・知らせ・画面に戻った時の読み直しが重なった時は、後から頼んだ方だけ使う（古い返事が後に着くと、新しい卓が出なかった） */
   if (error) { toast(error.message); return; }
-  if(full){ hallFullAt=Date.now(); hallDropAll(); checkPwAlert(); attDrop(); } else if(S.cur) hallDrop(S.cur.id); /* この端末で触った伝票は計算し直す */
+  if(full){ hallFullAt=Date.now(); hallDropAll(); checkPwAlert(); attDrop(); dutyLoad(); } else if(S.cur) hallDrop(S.cur.id); /* この端末で触った伝票は計算し直す */
   S.openBills = data||[]; if(full||tsukeCpChanged()||tsukeNewBill()) tsukeLoad(); else await tsukeOut(); await autoExtend(); await Promise.all([side?loadOki():null, side?loadHand():null, hallTotals()]); /* 置き・お預かり品・金額は互いに使わないので同時に読む（前は1つずつ待ち、開くのが遅かった） */
   renderHall(hallTot);
 }
@@ -51,7 +51,7 @@ function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map
 // 自動延長はデータベースで伝票を押さえてから足す（POS 2台が同時に足しても二重にならない）
 let extWarned=false;
 async function autoExtend(){ const now=new Date(); let added=false, called=false;
-  for (const b of S.openBills) { const mode=S.modes.find(m=>m.id===b.pricing_mode_id); if (mode && !mode.include_set) continue; if (b.pay_open_at||billEnd(b)>=now) continue;
+  for (const b of S.openBills) { const mode=S.modes.find(m=>m.id===b.pricing_mode_id); if (mode && !mode.include_set) continue; if (b.pay_open_at||billEnd(b)>=now||b.ext_mode==='pay') continue; /* 会計の返事の卓は延長しない。時間超過の卓は、終わりから10分を過ぎたら付くかをデータベースが決める（SQL 702） */
     const r=await sb.rpc('pos_auto_extend',{p_bill:b.id});
     if (r.error) { if(!extWarned){ extWarned=true; toast(r.error.message); } continue; }
     called=true; if (r.data>0){ added=true; hallDrop(b.id); } /* 延長した伝票は計算し直す */ }
@@ -85,6 +85,13 @@ function hallPeople(b){ const cs=b.bill_casts||[], nm=c=>esc(S.staff.find(s=>s.i
 function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="casts">アフター\u00a0${esc(b.after_bills.map(x=>S.staff.find(s=>s.id===x.staff_id)?.display_name||'').join('・'))}</div>`;
   if(b.after_none) return '<div class="casts">アフター\u00a0なし</div>';
   return afterDue(now)?'<div class="rtag">アフター未確認</div>':''; }
+// 卓の札の延長確認（SQL 702）：LINE で「会計」の返事・返事が無いまま終わりが来た卓は、札の中のキャストの欄の上に大きく重ねる（オーナー「札そのものに大きく。高さは変えない」）
+// 付け回し担当（SQL 701）：自動延長しない店（広島）は必須。選ぶまで札の一覧の上に赤い大きな文字で出し続ける（札は押せるまま。オーナー 11/25「卓上に載せるような感じで」）。読むのはホールを全部読み直す時と朝礼で選んだ時だけ
+async function dutyLoad(){ const r=await sb.rpc('pos_tsuke_staff'); S.tkDuty=r.error?null:r.data; }
+// 札・伝票に出す延長の状態（オーナー 11/25）：会計の返事＝会計／LINE で確認中のまま残り10分未満＝延長未確認／返事が無いまま終わりを過ぎた＝！時間超過！（終わりから10分まで。過ぎたら延長が付いて消える）
+//   返事（30分・1時間）が来るとその時に延長が付き、残りが10分以上に戻るので、確認中で残り10分未満＝まだ返事が無い
+function extTag(b){ const m=b.ext_mode; if(m==='pay') return '会計'; if(m==='none') return '！時間超過！'; return m==='ask'&&billEnd(b)-Date.now()<10*60000?'延長未確認':''; }
+function hallPeopleExt(b){ const x=extTag(b); return x?`<div style="position:relative">${hallPeople(b)}<div class="extbig${x.length>5?' long':''}">${x}</div></div>`:hallPeople(b); }
 /* 押している最中は描き直しを待つ（ほかの iPad の変更の知らせで卓を全部作り直すと、押した卓が消えて反応しなかった） */
 function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } renderHallNow(totals); }
 function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
@@ -96,13 +103,14 @@ function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_cu
     if (hd.length) { el.className='tbl hand'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="hmsg">お預かり品をお返しください</div>${hd.map(x=>`<div class="hitem">${FX('label')} ${tagLabel(x)}</div>`).join('')}`; el.onclick=()=>openHand(t); }
     else if (!b) { el.className='tbl'; el.innerHTML=`<div class="name">${esc(t.name)}</div><div class="empty">空 席</div>`; el.onclick=()=>openNew(t); }
     else { const end=billEnd(b), remain=Math.round((end-now)/60000); const pay=!!b.pay_open_at; el.className='tbl busy'+(remain<10&&!pay?' over':'');
-      el.innerHTML=`<div class="hd">${tsukeNameHtml(b.id,t.name,now)}<span class="rm">${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="nr"><span class="cust">${cnames(b)?`${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様`:''}</span><span class="gc">${b.guest_count}名</span></div>${hallPeople(b)}<div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div>${kpbTag(b.id,now)}${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
+      el.innerHTML=`<div class="hd">${tsukeNameHtml(b.id,t.name,now)}<span class="rm">${pay?'お会計中':`残り ${remain<0?'-':''}${Math.abs(remain).toLocaleString()}分`}</span></div><div class="nr"><span class="cust">${cnames(b)?`${bdayLines(b).length?FX('birthdaycake')+' ':''}${esc(cnames(b))} 様`:''}</span><span class="gc">${b.guest_count}名</span></div>${hallPeopleExt(b)}<div class="pill">${pay?`延長停止 ${hmJst(b.pay_open_at)}`:`${hm5(b.set_start)}〜${hm5(end)}`}</div><div class="total">${yen(totals[b.id]?.amount_due)}</div>${kpbTag(b.id,now)}${afterTag(b,now)}${(()=>{const n=(b.bill_tags||[]).filter(t=>!t.returned_at).length;return n?`<div class="tags">${FX('label')} お預かり ${n}</div>`:''})()}`;
       el.onclick=()=>billFromHall(b,pay); } /* ホールから伝票を開いたら、お会計を閉じたのと同じ */
     $('tables').appendChild(el); }
   for (const b of okiBills) { const el=document.createElement('div'); const unpaid=(b.payments||[]).filter(p=>p.method==='oki'&&!p.received_at).reduce((a,p)=>a+p.amount,0);
     const k=(b.bill_casts||[]).find(c=>c.is_kakari); const kn=k?S.staff.find(s=>s.id===k.staff_id)?.display_name:'';
     const ml='置き'; el.className='tbl busy oki'; el.innerHTML=`<div class="name">未入金（${ml}）</div><div class="row"><span>${b.guest_count}名 ${esc(cnames(b)||b.memo||'')}</span></div><div class="row"><span>${b.business_date}</span></div><div class="total">${yen(unpaid)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>`;
     el.onclick=()=>billFromHall(b,false); $('tables').appendChild(el); }
+  if(S.tkDuty?.required&&!S.tkDuty.staff_id) $('tables').insertAdjacentHTML('beforeend','<div class="tkbig"><div>付け回し担当　未選択</div><div class="s">朝礼で選択してください</div></div>');
   updateCastBadge(); }
 async function updateCastBadge(){ const s=await attendedOn(businessDate()); /* 20秒の間は読んだ出勤を使う */ const act=new Set(S.staff.map(x=>x.id)); $('bdCasts').textContent=[...s].filter(i=>act.has(i)).length; return s; }
 $('navHall').onclick=()=>{ S.billFrom='hall'; loadHall(); show('v-hall'); };
