@@ -116,26 +116,30 @@ function salesPick(){
 function salesShot(){
   setBack(home);
   const R = SALES.report;
+  /* 719：選ばれたお客様が2名以上の店（広島の提出物手当：10名に1名）は、1名ずつスクショを送る。1名の時の見え方は前と同じ */
+  const PK = (R.picks && R.picks.length) ? R.picks : [{ idx:0, name:R.pick, shot:R.shot, sent:R.sent, to:R.to }];
+  const one = (p, i) => { i = i || ''; return `<div class="card"><div class="gh">やりとりのスクショ</div><div style="font-weight:700;font-size:17px">${esc(p.name)}</div>${p.sent?'':'<div class="sm" style="color:var(--warn);margin-top:4px">19:50 までに送ってください</div>'}
+    ${p.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済${p.to?`（${esc(p.to)}）`:''}</div>`:`<label class="btn g" style="display:block;text-align:center;margin-top:10px"><span id="slPt${i}">スクショを選ぶ</span><input type="file" id="slP${i}" accept="image/*" style="display:none"></label><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?esc(KL):'担当黒服'}${p.to?`（${esc(p.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
+    ${p.sent?'':`<button class="btn" id="slShot${i}"${PK.length>1?' style="margin-bottom:14px"':''}>送信</button>`}`; };
   show(`<div class="ttl">アプローチ</div><div class="card"><div class="c" style="padding:6px;color:var(--ok);font-weight:700">連絡済リスト共有済 ${R.count}名</div></div>
-    <div class="card"><div class="gh">やりとりのスクショ</div><div style="font-weight:700;font-size:17px">${esc(R.pick)}</div>${R.sent?'':'<div class="sm" style="color:var(--warn);margin-top:4px">19:50 までに送ってください</div>'}
-    ${R.sent?`<div class="sm" style="color:var(--ok);margin-top:8px">送信済${R.to?`（${esc(R.to)}）`:''}</div>`:`<label class="btn g" style="display:block;text-align:center;margin-top:10px"><span id="slPt">スクショを選ぶ</span><input type="file" id="slP" accept="image/*" style="display:none"></label><div class="muted sm" style="margin-top:6px">${R.kind==='kakari'?esc(KL):'担当黒服'}${R.to?`（${esc(R.to)}）`:''}に LINE で届きます。写真はシステムに残りません</div>`}</div>
-    ${R.sent?'':'<button class="btn" id="slShot">送信</button>'}`);
-  if(R.sent) return;
-  $('slP').onchange = () => { $('slPt').textContent = $('slP').files[0] ? 'スクショを選びました（選び直す）' : 'スクショを選ぶ'; };
-  $('slShot').onclick = async () => {
-    const file = $('slP').files[0]; if(!file){ await uiAlert('スクショの写真を選んでください'); return; }
-    $('slShot').disabled = true;
-    try{
-      const blob = await shrinkJpeg(file);
-      const up = await sb.storage.from('sales-shots').upload(`${R.shot}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error;
-      const q = await sb.rpc('cast_sales_shot', { p_token: TOKEN }); if(q.error) throw q.error;
-      /*点検 A1・届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
-      const ng = q.data.reason === 'no_to' ? '担当黒服 未選択のため、スクショは届いていません。黒服にご連絡ください'
-        : q.data.reason === 'fail' ? 'スクショの送信に失敗しました。再度お試しください'
-        : `送り先${q.data.to ? `（${q.data.to}）` : ''}が LINE 未連携のため、スクショは届いていません。黒服にご連絡ください`;
-      await uiAlert(q.data.sent ? `スクショを送信しました（${q.data.to}）` : ng);
-      await salesLoad(); salesShot();
-    }catch(e){ if($('slShot')) $('slShot').disabled = false; await uiAlert(e.message || String(e)); }
-  };
+    ${PK.map(one).join('')}`);
+  PK.forEach((p, n) => { if(p.sent) return; const i = n || ''; /* 1人目の id は前と同じ（slP・slShot） */
+    $('slP' + i).onchange = () => { $('slPt' + i).textContent = $('slP' + i).files[0] ? 'スクショを選びました（選び直す）' : 'スクショを選ぶ'; };
+    $('slShot' + i).onclick = async () => {
+      const file = $('slP' + i).files[0]; if(!file){ await uiAlert('スクショの写真を選んでください'); return; }
+      $('slShot' + i).disabled = true;
+      try{
+        const blob = await shrinkJpeg(file);
+        const up = await sb.storage.from('sales-shots').upload(`${p.shot}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error;
+        const q = await sb.rpc('cast_sales_shot', p.idx ? { p_token: TOKEN, p_idx: p.idx } : { p_token: TOKEN }); if(q.error) throw q.error;
+        /*点検 A1・届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
+        const ng = q.data.reason === 'no_to' ? '担当黒服 未選択のため、スクショは届いていません。黒服にご連絡ください'
+          : q.data.reason === 'fail' ? 'スクショの送信に失敗しました。再度お試しください'
+          : `送り先${q.data.to ? `（${q.data.to}）` : ''}が LINE 未連携のため、スクショは届いていません。黒服にご連絡ください`;
+        await uiAlert(q.data.sent ? `スクショを送信しました（${q.data.to}）` : ng);
+        await salesLoad(); salesShot();
+      }catch(e){ if($('slShot' + i)) $('slShot' + i).disabled = false; await uiAlert(e.message || String(e)); }
+    };
+  });
 }
 
