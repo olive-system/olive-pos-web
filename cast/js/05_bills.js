@@ -87,7 +87,7 @@ function hallHomeWire(H, night){
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
   $('main').querySelector('[data-go=docs]').onclick = docsList; /* 黒服も自分の書類（契約書は黒服の条文。オーナー「その人の契約書をその人のマイページで」） */
-  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* 未提出の時だけ */ if(!ok) loadNg(); /*点検 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未提出 ${ME.docs.left}件</small>`); });
+  H.docs.then(r => { const ok = !r.error; if(ok) ME.docs = r.data; const b = $('main').querySelector('[data-go=docs]'); if(!b) return; if(!ok || !ME.docs || !ME.docs.target || !ME.docs.left){ b.remove(); /* 未提出の時だけ */ if(!ok) loadNg(); /*点検 B5 */ return; } if(ME.docs.left) b.insertAdjacentHTML('beforeend', `<small>未完了 ${ME.docs.left}件</small>`); });
   $('main').querySelector('[data-go=cs]').onclick = hallCs;
   $('main').querySelector('[data-go=late]').onclick = hallAbsent; /* 欠勤・遅刻連絡（キャストと同じく欠勤から。上で遅刻に切り替え。承認者に公式 LINE） */
   mtHallTile(H.mtg); /* ミーティング（担当の子の割当）。ボタンはシフトの中。未申請はシフトのボタンに */

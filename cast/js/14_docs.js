@@ -6,13 +6,13 @@ async function docsList(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   if(!await docsLoad()){ fail('書類を表示できません'); return; }
   if(DOCS.hold){ show('<div class="card">表示できる書類はありません</div>'); return; } /* 入店して担当の黒服と対面で［開始］するまで、契約書を見せない（オーナー） */
-  const D = DOCS, st = ok => `<span class="sm" style="color:${ok?'var(--ok)':'var(--warn)'}">${ok?'提出済':'未提出'}</span>`, left = ME.docs.left;
+  const D = DOCS, st = (ok, y = '提出済', n = '未提出') => `<span class="sm" style="color:${ok?'var(--ok)':'var(--warn)'}">${ok?y:n}</span>` /* 従業者名簿は記入済／未記入 */, left = ME.docs.left;
   const ag = D.agreed ? new Date(D.agreed.at) : null;
   show(`<div class="ttl">書類</div><div class="card">${left?`<div class="sm" style="color:var(--warn);font-weight:700;padding-bottom:8px">提出期限 ${D.due?mdDay(D.due)+'（最初の報酬の受取）':'最初の報酬の受取'}</div>`:''}
     <div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><b>契約書</b>${st(D.contract)}</div>
       ${D.contract?(ag?`<div class="muted sm">${ag.getMonth()+1}/${ag.getDate()} 同意</div><button class="btn g" id="dcPdf" style="width:auto;padding:6px 16px;margin-top:8px">PDF ダウンロード</button>`:''):'<button class="btn g" id="dcGo" style="width:auto;padding:6px 18px;margin-top:8px">同意</button>'}</div>
     <div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><b>本人確認書類</b>${st(D.id_doc)}</div>${D.id_doc?'':'<div class="muted sm">本籍地入りの住民票、またはパスポートのコピー。店に提出してください</div>'}</div>
-    <div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><b>従業者名簿</b>${st(D.roster)}</div>${D.roster?'':'<div class="muted sm">出勤の時に店で記入します</div>'}</div></div>
+    <div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><b>従業者名簿</b>${st(D.roster, '記入済', '未記入')}</div>${D.roster?'':'<div class="muted sm">出勤の時に店で記入します</div>'}</div></div>
     ${left?'<div class="muted sm" style="margin:0 2px">提出がないと、報酬を受け取れません</div>':''}<div id="dcNy"></div>`);
   if($('dcGo')) $('dcGo').onclick = contractForm;
   if($('dcPdf')) $('dcPdf').onclick = contractPdf;

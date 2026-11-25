@@ -40,7 +40,7 @@ function chPrep(cr,ar,sr){
   const abs=(ar.error?[]:ar.data||[]);
   const sl=(sr.error?[]:sr.data.rows||[]).filter(x=>x.worked&&x.count==null).map(x=>esc(S.staffAll.find(z=>z.id===x.staff_id)?.display_name||'')).filter(Boolean);
   const todo=[sl.length?row(`<span style="min-width:110px">${APR_HK}</span>`,`<span>${sl.join('・')} <small class="muted">（未連絡）</small></span>`):'',
-    ...(C.docs||[]).length?[row('<span style="min-width:110px">書類未提出</span>',`<span>${C.docs.map(x=>`<div><b style="font-weight:400;white-space:nowrap">${esc(x.name)}</b> <small class="muted">${esc(x.miss)}</small></div>`).join('')}</span>` /* 1人1行。名前を途中で割らない */)]:[],
+    ...(C.docs||[]).length?[row('<span style="min-width:110px">書類未完了</span>',`<span>${C.docs.map(x=>`<div><b style="font-weight:400;white-space:nowrap">${esc(x.name)}</b> <small class="muted">${esc(x.miss)}</small></div>`).join('')}</span>` /* 1人1行。名前を途中で割らない */)]:[],
     (C.dress||[]).length?row('<span style="min-width:110px">ドレス新調日</span>',`<span>${C.dress.map(x=>esc(x.name)).join('・')} <small class="muted">${md(C.dress[0].due).replace(/（.）/,'')} まで・未提出</small></span>`):''].join('');
   const y=new Date(d); y.setDate(y.getDate()-1);
   return {C,G,d,md,card,row,tag,left,TB,SH,abs,sl,todo,y,ar}; }
