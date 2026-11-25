@@ -44,17 +44,7 @@ function slipLeft(S){ const m=S.D.month_row, n=slipN, Y=slipY, own=S.own, FT=sli
 function slipRight(S){ const D=S.D, m=D.month_row, n=slipN, FT=slipFT(S), BY=Object.fromEntries((D.days||[]).map(x=>[x.date,x]));
   const end=new Date(+S.m.slice(0,4),+S.m.slice(5,7),0).getDate(), dates=Array.from({length:end},(_,i)=>S.m.slice(0,8)+String(i+1).padStart(2,'0'));
   const fineOf=(x,t)=>((x&&x.fines)||[]).filter(f=>slipFB(f.reason)===t).reduce((a,f)=>a+n(f.amount),0);
-  let head,rowOf,TXT;
-  if(!S.hall){ TXT=[2,3,4];
-    rowOf=x=>{ const r=(x&&x.row)||{}, b=r.backs||{}, at=(x&&x.att)||{};
-      return [n(r.sales),n(r.honkei),at.in||'',at.out||'',r.hours?slipHM(Math.round(r.hours*60)):'',n(r.kakari_back),n(b.hc?.qty),n(b.hc?.amount),n(b.bottle?.qty),n(b.bottle?.amount),n(b.other?.amount),n(r.kakari_back)+n(r.item_back),n(r.allowance)+n(r.special_pay),n(r.advance)-n(r.tatekae),n(r.tatekae),...FT.map(t=>fineOf(x,t)),FT.reduce((a,t)=>a+fineOf(x,t),0)]; };
-    head=`<tr><th rowspan="2">日付</th><th rowspan="2">${KL}小計</th><th rowspan="2">${KL}本計</th><th colspan="3">タイムカード</th><th rowspan="2">小計<br>バック</th><th colspan="2">HC</th><th colspan="2">ボトルバック</th><th rowspan="2">商品<br>バック</th><th rowspan="2">バック計</th><th rowspan="2">手当など、<br>その他</th><th rowspan="2">日払</th><th rowspan="2">立替</th>${FT.length?`<th colspan="${FT.length+1}">マイナス</th>`:''}${S.can?'<th rowspan="2">修正</th>':''}</tr>
-      <tr><th>出勤</th><th>退勤</th><th>時間</th><th>本数</th><th>金額</th><th>本数</th><th>金額</th>${FT.length?FT.map(t=>`<th class="vt">${esc(t)}</th>`).join('')+'<th class="vt">計</th>':''}</tr>`;
-  } else { TXT=[0,1,2];
-    rowOf=x=>{ const at=(x&&x.att)||{}, a=(x&&x.adv)||{}, L=x&&x.late;
-      return [at.in||'',at.out||'',slipHM(slipMins(at.in,at.out)),L?n(L.min):0,L&&!L.nocontact?n(L.amount):0,L&&L.nocontact?n(L.amount):0,x&&x.early?n(x.early.min):0,x&&x.absent?n(x.absent.amount):0,...FT.map(t=>fineOf(x,t)),FT.reduce((s,t)=>s+fineOf(x,t),0),n(a.allowance),n(a.advance)]; };
-    head=`<tr><th rowspan="2">日付</th><th colspan="3">タイムカード</th><th colspan="5">遅刻・早退・欠勤</th>${FT.length?`<th colspan="${FT.length+1}">罰金</th>`:''}<th rowspan="2">手当など、<br>その他</th><th rowspan="2">日払<br>（立替）</th>${S.can?'<th rowspan="2">修正</th>':''}</tr>
-      <tr><th>出勤</th><th>退勤</th><th>時間</th><th>遅刻<br>（分）</th><th>遅刻</th><th>無断<br>遅刻</th><th>早退<br>（分）</th><th>欠勤</th>${FT.length?FT.map(t=>`<th class="vt">${esc(t)}</th>`).join('')+'<th class="vt">計</th>':''}</tr>`; }
+  const {head,rowOf,TXT}=(S.hall?slipColsHall:slipColsCast)(S,FT,fineOf);
   const rows=dates.map(ds=>({ds,x:BY[ds]||null,v:rowOf(BY[ds]||null)}));
   if(!FT.length){ const i=S.hall?8:15; rows.forEach(r=>r.v.splice(i,1)); }
   const tot=rows[0].v.map((_,i)=>TXT.includes(i)?'':rows.reduce((a,r)=>a+(typeof r.v[i]==='number'?r.v[i]:0),0));
@@ -63,6 +53,20 @@ function slipRight(S){ const D=S.D, m=D.month_row, n=slipN, FT=slipFT(S), BY=Obj
   const vh=Math.max(4,...FT.map(t=>t.length))*14+16;
   return `<table class="slR" style="--vh:${vh}px"><thead>${head}</thead><tbody><tr class="tot"><td class="d">合計</td>${tot.map(cell).join('')}${S.can?'<td></td>':''}</tr>
     ${rows.map(r=>`<tr data-row="${r.ds}"><td class="d">${slipDl(r.ds)}</td>${r.v.map(cell).join('')}${S.can?`<td class="op"><button class="ghost sm" data-sld="${r.ds}">修正</button></td>`:''}</tr>`).join('')}</tbody></table>`; }
+/* 右の表の列（キャスト）：見出し・1日の値・文字の列（足さない列） */
+function slipColsCast(S,FT,fineOf){ const n=slipN, TXT=[2,3,4];
+  const rowOf=x=>{ const r=(x&&x.row)||{}, b=r.backs||{}, at=(x&&x.att)||{};
+      return [n(r.sales),n(r.honkei),at.in||'',at.out||'',r.hours?slipHM(Math.round(r.hours*60)):'',n(r.kakari_back),n(b.hc?.qty),n(b.hc?.amount),n(b.bottle?.qty),n(b.bottle?.amount),n(b.other?.amount),n(r.kakari_back)+n(r.item_back),n(r.allowance)+n(r.special_pay),n(r.advance)-n(r.tatekae),n(r.tatekae),...FT.map(t=>fineOf(x,t)),FT.reduce((a,t)=>a+fineOf(x,t),0)]; };
+  const head=`<tr><th rowspan="2">日付</th><th rowspan="2">${KL}小計</th><th rowspan="2">${KL}本計</th><th colspan="3">タイムカード</th><th rowspan="2">小計<br>バック</th><th colspan="2">HC</th><th colspan="2">ボトルバック</th><th rowspan="2">商品<br>バック</th><th rowspan="2">バック計</th><th rowspan="2">手当など、<br>その他</th><th rowspan="2">日払</th><th rowspan="2">立替</th>${FT.length?`<th colspan="${FT.length+1}">マイナス</th>`:''}${S.can?'<th rowspan="2">修正</th>':''}</tr>
+      <tr><th>出勤</th><th>退勤</th><th>時間</th><th>本数</th><th>金額</th><th>本数</th><th>金額</th>${FT.length?FT.map(t=>`<th class="vt">${esc(t)}</th>`).join('')+'<th class="vt">計</th>':''}</tr>`;
+  return {head,rowOf,TXT}; }
+/* 右の表の列（黒服） */
+function slipColsHall(S,FT,fineOf){ const n=slipN, TXT=[0,1,2];
+  const rowOf=x=>{ const at=(x&&x.att)||{}, a=(x&&x.adv)||{}, L=x&&x.late;
+      return [at.in||'',at.out||'',slipHM(slipMins(at.in,at.out)),L?n(L.min):0,L&&!L.nocontact?n(L.amount):0,L&&L.nocontact?n(L.amount):0,x&&x.early?n(x.early.min):0,x&&x.absent?n(x.absent.amount):0,...FT.map(t=>fineOf(x,t)),FT.reduce((s,t)=>s+fineOf(x,t),0),n(a.allowance),n(a.advance)]; };
+  const head=`<tr><th rowspan="2">日付</th><th colspan="3">タイムカード</th><th colspan="5">遅刻・早退・欠勤</th>${FT.length?`<th colspan="${FT.length+1}">罰金</th>`:''}<th rowspan="2">手当など、<br>その他</th><th rowspan="2">日払<br>（立替）</th>${S.can?'<th rowspan="2">修正</th>':''}</tr>
+      <tr><th>出勤</th><th>退勤</th><th>時間</th><th>遅刻<br>（分）</th><th>遅刻</th><th>無断<br>遅刻</th><th>早退<br>（分）</th><th>欠勤</th>${FT.length?FT.map(t=>`<th class="vt">${esc(t)}</th>`).join('')+'<th class="vt">計</th>':''}</tr>`;
+  return {head,rowOf,TXT}; }
 /* 日の小窓：その日の記録を1件ずつ。［修正］［取消］は今の入口を呼ぶ */
 function slipDayItems(S,ds){ const x=(S.D.days||[]).find(z=>z.date===ds)||{}, r=x.row||{}, at=x.att||{}, a=x.adv||{}, n=slipN, it=[];
   it.push({k:'clock_in',label:'出勤',val:at.in||'',id:at.in_id||null,time:true});
