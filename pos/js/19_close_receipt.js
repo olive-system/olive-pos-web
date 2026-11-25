@@ -75,12 +75,11 @@ async function clRcptShot(file,d){ let sc; try{ sc=file instanceof Blob?await cl
   /* 紙を見つけられなかった時は、写真のまま進めず、角を合わせる画面を先に出す（オーナー「イ」2026-11-25） */
   const fixFirst=s=>{ if(!s.P&&document.body.contains(m)) clCamFix(s,P=>redo(()=>clScanCv(s.src,P,sc.rot),true)); };
   const show=s=>{ img(s); fixFirst(s);
-    A.value=''; A.placeholder='読み取り中…'; X=null; draw(); const me=s; clRead(s.url).then(q=>{ if(sc!==me&&sc.src!==me.src||!document.body.contains(m)) return; A.placeholder='金額'; X=clCheck(q?.read); if(q?.amount!=null&&!A.value) A.value=q.amount; draw(); if(!q?.read) toast('領収書を読み取れませんでした。項目を入力してください');
-      const rr=Number(q?.read?.rotate); if([90,180,270].includes(rr)&&!sc.rotHand) redo(()=>clScanCv(sc.src,sc.P,((sc.rot||0)+rr)%360),true); }); }; /* 読み取りが返す向き（receipt-read の rotate）で、自動で縦にそろえる。手で回した後は触らない */
+    A.value=''; A.placeholder='読み取り中…'; X=null; draw(); const me=s; clRead(s.url).then(q=>{ if(sc!==me&&sc.src!==me.src||!document.body.contains(m)) return; /* 回転・角の修正の後も、同じ写真なら読み取りを使う */ A.placeholder='金額'; X=clCheck(q?.read); if(q?.amount!=null&&!A.value) A.value=q.amount; draw(); if(!q?.read) toast('領収書を読み取れませんでした。項目を入力してください'); }); };
   A.oninput=can; show(sc); m.querySelector('[data-c]').onclick=()=>{ const u=m.querySelector('[data-im]').dataset.u; if(u) URL.revokeObjectURL(u); m.remove(); };
-  const redo=(f,keep)=>{ try{ const n=f(); if(keep){ n.rotHand=sc.rotHand; img(n); } else show(n); }catch(e){ uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
+  const redo=(f,keep)=>{ try{ const n=f(); if(keep) img(n); else show(n); }catch(e){ uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
   clCamWire(RE,(c,q)=>redo(()=>clScanCv(c,q))); m.querySelector('[data-fx]').onclick=()=>clCamFix(sc,P=>redo(()=>clScanCv(sc.src,P,sc.rot),true));
-  m.querySelector('[data-rt]').onclick=()=>{ redo(()=>clScanCv(sc.src,sc.P,(sc.rot||0)+90),true); sc.rotHand=true; }; /* 押すごとに右へ 90° */
+  m.querySelector('[data-rt]').onclick=()=>redo(()=>clScanCv(sc.src,sc.P,(sc.rot||0)+90),true); /* 押すごとに右へ 90° */
   const ri=RE.querySelector('input'); ri.onchange=async()=>{ const f=ri.files&&ri.files[0]; ri.value=''; if(!f) return; try{ show(await clScan(f)); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
   OK.onclick=guard(OK,async()=>{ const amount=clNum(A.value); if(!amount){ toast('金額を入力してください'); A.focus(); return; } if(!X||CL_RK.some(([k])=>X[k].ng)) return; if(await askBy()===null) return;
     await clRcptSave(m,d,sc,X,amount); }); }
