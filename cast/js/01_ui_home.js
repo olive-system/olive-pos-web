@@ -111,13 +111,26 @@ function home(){
   } else if(sl) top += `<div class="muted sm">${esc(nextTxt(sl))}</div>`;
   const tile = homeTile;
   const bdCard = homeBdCard();
+  top += `<div id="hmRate"></div>`; /* 本人のアプローチ・平均・交換提出（homeRate が入れる） */
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths&&!castNoSales()?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
     <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${tile('sales','アプローチ',ME.salesDue?'本日 未提出':'',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
   /* トップの整理（オーナー「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
      連絡先交換は LINE のリンクとリッチメニューから。アプローチは名刺発注の次に戻した（押すと Safari で表示。銀座のキャストの声「LINE の中ではお客様とのトークと行き来できない」）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
-  homeWire();
+  homeWire(); homeRate();
 }
+/* 今月の本人のアプローチ・平均・交換提出を、小計（広島はポイント）の箱に小さく1列で（オーナー 11/25「本人が自覚できるように」「1列で収まるくらいの文字サイズ」）。
+   数え方は POS・管理サイトと同じ（cast_my_rate・SQL 721）。スポット・体験・係専用の子には出さない（POS の在籍と同じ）。ホームに戻るたびに呼ばないよう、1回読んだら ME.rate に置く */
+async function homeRate(){
+  if(!ME.rate){ const q = await sb.rpc('cast_my_rate', { p_token: TOKEN }); if(q.error || !q.data) return; ME.rate = q.data; }
+  const z = ME.rate, el = $('main').querySelector('#hmRate'); if(!el || z.off) return;
+  const c = (k, v) => `<span style="white-space:nowrap"><span class="muted">${k}</span> <b style="font-variant-numeric:tabular-nums">${v}</b></span>`;
+  el.outerHTML = `<div style="display:flex;flex-wrap:wrap;gap:2px 14px;font-size:13px;margin-top:10px">${c('アプローチ', rateAp(z))}${c('平均', rateAvg(z))}${c('交換提出', rateCx(z))}</div>`; /* 狭いスマホでは折り返す（はみ出さないため） */
+}
+/* 割合と平均の書き方（POS の subPct・avgN・cxPct と同じ。出勤 0日は —） */
+const rateAp = z => Number(z.worked) > 0 ? Math.round(Number(z.submitted) / Number(z.worked) * 100) + '%' : '—';
+const rateAvg = z => Number(z.worked) > 0 ? Math.round(Number(z.contacts || 0) / Number(z.worked)) + '人/日' : '—';
+const rateCx = z => Number(z.cworked) > 0 ? Math.round(Number(z.csubmitted) / Number(z.cworked) * 100) + '%' : '—';
 /* ホームのお誕生日（3日間）の箱 */
 function homeBdCard(){
   const bdRow = b => { const cu = (b.kind_label||'お客様') === 'お客様'; return `<div class="row"><span><b class="${b.in===0?'err':''}" style="display:inline-block;min-width:5.6em">${b.in===0?'本日':'あと'+b.in+'日'}</b>${esc(b.name)}${cu?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; };
@@ -158,16 +171,15 @@ function perf(){
   const fl = fines.map(f=>`<div class="muted sm">${Number(String(f.date).slice(5,7))}/${Number(String(f.date).slice(8,10))} ${esc(f.reason||'')}　${f.wage_pct?`時給の${f.wage_pct}%`:yen(f.amount)}</div>`).join('');
   show(`<div class="subh">${m}月（${m}/${d} まで）</div>
     <div class="card">${castNoSales()?'':r(esc(KL)+'小計', yen(st.sales))}${r(`決定${u}（今）`, wageNow()?yen(wageNow()):'—')}${slides}</div>
-    <div class="card">${r('給率', '—')}${r('アプローチ', '—')}${r('平均', '—')}</div>
+    <div class="card">${r('給率', '—')}${r('アプローチ', '—')}${r('平均', '—')}${r('交換提出', '—')}</div>
     <div class="card">${dhCard}</div>
     <div class="card">${r('出勤日数', `${Number(st.days||0)}日`)}${r('稼働時間', HM(st.hours))}${r('ポイント', `${Number(st.points||0)}`)}${r('反応◎', `${Number(st.reactions||0)}回`)}</div>
     <div class="card">${r('罰金（今月）', fines.length?yen(fsum):'なし')}${fl}</div>`);
   perfRate();
 }
 /* 今月の給率と提出率（2026-11-17 オーナー「マイページには、給率とその提出の割合、提出率を出そうか」）。数え方は POS・管理サイトと同じ（SQL 590 の cast_my_rate） */
-async function perfRate(){ const q = await sb.rpc('cast_my_rate', { p_token: TOKEN }); if(q.error) return; const z = q.data || {}, b = $('main').querySelectorAll('.card')[1]?.querySelectorAll('.row b'); if(!b || b.length < 3) return;
-  b[0].textContent = z.ratio != null ? Number(z.ratio).toFixed(1) + '%' : '—'; b[1].textContent = Number(z.worked) > 0 ? Math.round(Number(z.submitted) / Number(z.worked) * 100) + '%' : '—';
-  b[2].textContent = Number(z.worked) > 0 ? Math.round(Number(z.contacts || 0) / Number(z.worked)) + '人' : '—';
+async function perfRate(){ const q = await sb.rpc('cast_my_rate', { p_token: TOKEN }); if(q.error) return; const z = q.data || {}, b = $('main').querySelectorAll('.card')[1]?.querySelectorAll('.row b'); if(!b || b.length < 4) return;
+  ME.rate = z; b[0].textContent = z.ratio != null ? Number(z.ratio).toFixed(1) + '%' : '—'; b[1].textContent = rateAp(z); b[2].textContent = rateAvg(z); b[3].textContent = rateCx(z);
 }
 
 
