@@ -13,10 +13,15 @@ async function docsList(){
       ${D.contract?(ag?`<div class="muted sm">${ag.getMonth()+1}/${ag.getDate()} 同意</div><button class="btn g" id="dcPdf" style="width:auto;padding:6px 16px;margin-top:8px">PDF ダウンロード</button>`:''):'<button class="btn g" id="dcGo" style="width:auto;padding:6px 18px;margin-top:8px">同意</button>'}</div>
     <div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><b>本人確認書類</b>${st(D.id_doc)}</div>${D.id_doc?'':'<div class="muted sm">本籍地入りの住民票、またはパスポートのコピー。店に提出してください</div>'}</div>
     <div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="padding:0"><b>従業者名簿</b>${st(D.roster)}</div>${D.roster?'':'<div class="muted sm">店に提出してください</div>'}</div></div>
-    ${left?'<div class="muted sm" style="margin:0 2px">提出がないと、報酬を受け取れません</div>':''}`);
+    ${left?'<div class="muted sm" style="margin:0 2px">提出がないと、報酬を受け取れません</div>':''}<div id="dcNy"></div>`);
   if($('dcGo')) $('dcGo').onclick = contractForm;
   if($('dcPdf')) $('dcPdf').onclick = contractPdf;
+  docsNyuten();
 }
+/* 入店説明（SQL 723・オーナー 11/25）：済んだかだけ。資料のリンクは出さない（スクショでノウハウを持ち出されないよう、資料はお店の iPad だけで開く） */
+async function docsNyuten(){ const r = await sb.rpc('cast_nyuten_info', { p_token: TOKEN }), el = $('dcNy'); if(r.error || !el || !Array.isArray(r.data) || !r.data.length) return;
+  el.outerHTML = `<div class="card" style="margin-top:12px"><div class="muted sm" style="padding-bottom:6px">入店説明</div>${r.data.map(x =>
+    `<div class="row" style="padding:10px 0;border-top:1px solid var(--line)"><b>入店説明${x.no}</b>${x.done ? `<span class="sm" style="color:var(--ok)">済${x.by ? `（${esc(x.by)} ${esc(x.at || '')}）` : ''}</span>` : '<span class="sm" style="color:var(--warn)">未</span>'}</div>`).join('')}</div>`; }
 function contractForm(){
   setBack(docsList);
   const V = DOCS.version, fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';

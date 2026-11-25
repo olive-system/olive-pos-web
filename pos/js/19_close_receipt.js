@@ -35,7 +35,7 @@ function clRcptBox(){
   return `<div class="box clrc" style="width:min(860px,96vw)"><div style="font-size:18px;font-weight:700;margin-bottom:8px">${esc(clRcptMemo())}</div>
     <div style="display:flex;gap:16px;align-items:flex-start"><div data-im style="flex:none;width:min(360px,42vw);height:min(540px,60vh);border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden"></div>
     <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--line)"><span>金額</span><input data-a type="number" inputmode="numeric" placeholder="読み取り中…" style="width:150px;text-align:right"></div><div data-ck></div></div></div>
-    <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g" data-re>再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-fx>修正</button><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok disabled>OK</button></div></div>`;
+    <div class="bar" style="justify-content:flex-end;margin-top:12px"><label class="cllb g" data-re>再撮影<input type="file" accept="image/*" capture="environment" style="display:none"></label><button class="ghost" data-rt>回転</button><button class="ghost" data-fx>修正</button><button class="ghost" data-c>キャンセル</button><button class="primary" data-ok disabled>OK</button></div></div>`;
 }
 // 読み取った中身の行（宛名・日付・登録番号など。不備は入れ直せる）
 function clRcptRows(X,PY,blur){
@@ -57,6 +57,8 @@ async function clRcptSave(m,d,sc,X,amount){
     const r=await sb.rpc('pos_rows_add',{p_table:'cash_movements',p:{id,store_id:S.store.id,business_date:d,kind:'out',amount,memo:clRcptMemo(),receipt_path:path,payer:X.payer.v||null,receipt_check:chk}}); if(r.error){ await sb.storage.from('receipts').remove([path]); await uiAlert('登録できません：'+r.error.message); return; }
     await logOp('レジ出金の登録',{date:d,amount,memo:clRcptMemo(),receipt:true,payer:X.payer.v||null},null,true); m.remove(); renderClosing();
 }
+/* 小窓の写真と PDF（cur() が今の写真でなくなったら描かない） */
+function clRcptPreview(m,s,cur){ /* （オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(cur()!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(cur()===s) uiAlert('PDF を作成できません：'+(e.message||'')); }); }
 async function clRcptShot(file,d){ let sc; try{ sc=file instanceof Blob?await clScan(file):file; }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); return; } /* file は写真、または POS の中のカメラで撮って切り取った物（clScanCv の結果） */
   const m=mkModal(55); /* 入力した黒服の小窓（uiDlg・60）が上に出るように */
   m.innerHTML=clRcptBox();
@@ -68,11 +70,16 @@ async function clRcptShot(file,d){ let sc; try{ sc=file instanceof Blob?await cl
     CK.innerHTML=clRcptRows(X,PY,blur);
     clRcptRowWire(CK,X,can,draw);
     can(); };
-  const show=s=>{ sc=s; /* （オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(sc!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(sc===s) uiAlert('PDF を作成できません：'+(e.message||'')); });
-    A.value=''; A.placeholder='読み取り中…'; X=null; draw(); const me=s; clRead(s.url).then(q=>{ if(sc!==me||!document.body.contains(m)) return; A.placeholder='金額'; X=clCheck(q?.read); if(q?.amount!=null&&!A.value) A.value=q.amount; draw(); if(!q?.read) toast('領収書を読み取れませんでした。項目を入力してください'); }); };
+  /* 写真と PDF だけを描き直す（回転・角の修正は、読み取った中身と金額をそのまま使う） */
+  const img=s=>{ sc=s; clRcptPreview(m,s,()=>sc); };
+  /* 紙を見つけられなかった時は、写真のまま進めず、角を合わせる画面を先に出す（オーナー「イ」2026-11-25） */
+  const fixFirst=s=>{ if(!s.P&&document.body.contains(m)) clCamFix(s,P=>redo(()=>clScanCv(s.src,P,sc.rot),true)); };
+  const show=s=>{ img(s); fixFirst(s);
+    A.value=''; A.placeholder='読み取り中…'; X=null; draw(); const me=s; clRead(s.url).then(q=>{ if(sc!==me&&sc.src!==me.src||!document.body.contains(m)) return; /* 回転・角の修正の後も、同じ写真なら読み取りを使う */ A.placeholder='金額'; X=clCheck(q?.read); if(q?.amount!=null&&!A.value) A.value=q.amount; draw(); if(!q?.read) toast('領収書を読み取れませんでした。項目を入力してください'); }); };
   A.oninput=can; show(sc); m.querySelector('[data-c]').onclick=()=>{ const u=m.querySelector('[data-im]').dataset.u; if(u) URL.revokeObjectURL(u); m.remove(); };
-  const redo=f=>{ try{ show(f()); }catch(e){ uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
-  clCamWire(RE,(c,q)=>redo(()=>clScanCv(c,q))); m.querySelector('[data-fx]').onclick=()=>clCamFix(sc,P=>redo(()=>clScanCv(sc.src,P)));
+  const redo=(f,keep)=>{ try{ const n=f(); if(keep) img(n); else show(n); }catch(e){ uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
+  clCamWire(RE,(c,q)=>redo(()=>clScanCv(c,q))); m.querySelector('[data-fx]').onclick=()=>clCamFix(sc,P=>redo(()=>clScanCv(sc.src,P,sc.rot),true));
+  m.querySelector('[data-rt]').onclick=()=>redo(()=>clScanCv(sc.src,sc.P,(sc.rot||0)+90),true); /* 押すごとに右へ 90° */
   const ri=RE.querySelector('input'); ri.onchange=async()=>{ const f=ri.files&&ri.files[0]; ri.value=''; if(!f) return; try{ show(await clScan(f)); }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); } };
   OK.onclick=guard(OK,async()=>{ const amount=clNum(A.value); if(!amount){ toast('金額を入力してください'); A.focus(); return; } if(!X||CL_RK.some(([k])=>X[k].ng)) return; if(await askBy()===null) return;
     await clRcptSave(m,d,sc,X,amount); }); }
