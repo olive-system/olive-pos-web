@@ -111,7 +111,12 @@ function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_cu
     const ml='置き'; el.className='tbl busy oki'; el.innerHTML=`<div class="name">未入金（${ml}）</div><div class="row"><span>${b.guest_count}名 ${esc(cnames(b)||b.memo||'')}</span></div><div class="row"><span>${b.business_date}</span></div><div class="total">${yen(unpaid)}</div><div class="casts">${kn?'☑ '+esc(kn):''}</div>`;
     el.onclick=()=>billFromHall(b,false); $('tables').appendChild(el); }
   if(S.tkDuty?.required&&!S.tkDuty.staff_id) $('tables').insertAdjacentHTML('beforeend','<div class="tkbig"><div>付け回し担当　未選択</div><div class="s">朝礼で選択してください</div></div>');
-  updateCastBadge(); }
+  hallPrFit(); updateCastBadge(); }
+/* 卓の札の係と同伴の箱：1人なら1行の高さ。名前が折り返す札があれば、同じ段（横の並び）の札だけその高さにそろえ、時間帯・金額の位置をずらさない（オーナー 11/25「同伴1人なのに縦に長い」） */
+function hallPrFit(){ const bx=[...$('tables').querySelectorAll('.tbl.busy .pr .casts')], g={}; bx.forEach(x=>x.style.minHeight='');
+  bx.forEach(x=>{ const k=x.closest('.tbl').offsetTop+(x.classList.contains('d')?'d':'k'); (g[k]=g[k]||[]).push(x); });
+  Object.values(g).forEach(a=>{ const h=Math.max(...a.map(x=>x.offsetHeight)); if(h) a.forEach(x=>x.style.minHeight=h+'px'); }); }
+addEventListener('resize',()=>{ clearTimeout(hallPrFit.t); hallPrFit.t=setTimeout(hallPrFit,200); }); document.fonts?.ready.then(hallPrFit);
 async function updateCastBadge(){ const s=await attendedOn(businessDate()); /* 20秒の間は読んだ出勤を使う */ const act=new Set(S.staff.map(x=>x.id)); $('bdCasts').textContent=[...s].filter(i=>act.has(i)).length; return s; }
 $('navHall').onclick=()=>{ S.billFrom='hall'; loadHall(); show('v-hall'); };
 $('navOrder').onclick=()=>{ if(S.cur&&S.cur.status==='open'){ openOrder(); } else { toast('卓を選んでください'); loadHall(); show('v-hall'); } };
