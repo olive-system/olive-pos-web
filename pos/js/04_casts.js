@@ -120,7 +120,7 @@ const subPct=z=>z&&Number(z.worked)>0?Math.round(Number(z.submitted)/Number(z.wo
 /* 交換提出（SQL 709・オーナー 11/25）：今月の出勤日のうち、連絡先交換（今日は交換なし も）を出した日。1日の判定は日報の未提出と同じ（contact_submitted） */
 const cxPct=z=>z&&Number(z.cworked)>0?Math.round(Number(z.csubmitted)/Number(z.cworked)*100)+'%':'—';
 /* 平均（SQL 665・オーナー 11/20）：今月の出勤日1日あたりの連絡済リストの人数（出さなかった日は0人）。数字をタップすると小窓に提出率と1回平均（出した日で割る） */
-const avgN=z=>z&&Number(z.worked)>0?Math.round(Number(z.contacts||0)/Number(z.worked))+'人':'—';
+const avgN=z=>z&&Number(z.worked)>0?Math.round(Number(z.contacts||0)/Number(z.worked))+'人/日':'—';
 function avgOpen(id){ const z=(caKr.m||{})[id]; if(!z) return; const nm=S.staffAll.find(x=>x.id===id)?.display_name||'', d=Number(businessDate().slice(8,10)), mm=Number(businessDate().slice(5,7)), w=Number(z.worked), sb=Number(z.submitted), c=Number(z.contacts||0);
   const m=mkModal(60); m.innerHTML=`<div class="box" style="width:min(520px,94vw)"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-weight:700;font-size:20px">${esc(nm)}</div><div class="muted" style="font-size:14px">今月${d>1?` ${mm}/1〜${mm}/${d-1}`:''}</div>
     <div style="display:flex;justify-content:space-between"><span>アプローチ</span><b>${subPct(z)}</b></div><div class="muted" style="font-size:13px;margin-top:-6px">出勤 ${w}日・提出 ${sb}日</div>
