@@ -57,6 +57,8 @@ async function clRcptSave(m,d,sc,X,amount){
     const r=await sb.rpc('pos_rows_add',{p_table:'cash_movements',p:{id,store_id:S.store.id,business_date:d,kind:'out',amount,memo:clRcptMemo(),receipt_path:path,payer:X.payer.v||null,receipt_check:chk}}); if(r.error){ await sb.storage.from('receipts').remove([path]); await uiAlert('登録できません：'+r.error.message); return; }
     await logOp('レジ出金の登録',{date:d,amount,memo:clRcptMemo(),receipt:true,payer:X.payer.v||null},null,true); m.remove(); renderClosing();
 }
+/* 小窓の写真と PDF（cur() が今の写真でなくなったら描かない） */
+function clRcptPreview(m,s,cur){ /* （オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(cur()!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(cur()===s) uiAlert('PDF を作成できません：'+(e.message||'')); }); }
 async function clRcptShot(file,d){ let sc; try{ sc=file instanceof Blob?await clScan(file):file; }catch(e){ await uiAlert('撮影した写真を読み込めません：'+(e.message||'')); return; } /* file は写真、または POS の中のカメラで撮って切り取った物（clScanCv の結果） */
   const m=mkModal(55); /* 入力した黒服の小窓（uiDlg・60）が上に出るように */
   m.innerHTML=clRcptBox();
@@ -69,7 +71,7 @@ async function clRcptShot(file,d){ let sc; try{ sc=file instanceof Blob?await cl
     clRcptRowWire(CK,X,can,draw);
     can(); };
   /* 写真と PDF だけを描き直す（回転・角の修正は、読み取った中身と金額をそのまま使う） */
-  const img=s=>{ sc=s; /* （オーナー「PDF 化になってるかもわからない」）：できあがった PDF をそのまま表示（OK で保存するのもこの PDF）。PDF を表示できない端末では同じ中身の写真 */ const fr=m.querySelector('[data-im]'), im=`<img src="${s.url}" style="display:block;width:100%;height:100%;object-fit:contain">`; fr.innerHTML=im; s.pdf=clScanPdf(s); s.pdf.then(bl=>{ if(sc!==s||!document.body.contains(m)) return; if(fr.dataset.u) URL.revokeObjectURL(fr.dataset.u); fr.dataset.u=URL.createObjectURL(bl); fr.innerHTML=`<object data="${fr.dataset.u}" type="application/pdf" style="width:100%;height:100%">${im}</object>`; }).catch(e=>{ if(sc===s) uiAlert('PDF を作成できません：'+(e.message||'')); }); };
+  const img=s=>{ sc=s; clRcptPreview(m,s,()=>sc); };
   /* 紙を見つけられなかった時は、写真のまま進めず、角を合わせる画面を先に出す（オーナー「イ」2026-11-25） */
   const fixFirst=s=>{ if(!s.P&&document.body.contains(m)) clCamFix(s,P=>redo(()=>clScanCv(s.src,P,sc.rot),true)); };
   const show=s=>{ img(s); fixFirst(s);
