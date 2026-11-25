@@ -4,7 +4,7 @@ let SALES = null;
 const g2 = 'display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px';
 async function salesLoad(){ const r = await sb.rpc('cast_sales_today', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return false; } SALES = r.data; return true; }
 async function salesHome(){
-  setBack(home); show('<div class="card c muted">読み込み中…</div>');
+  setBack(SAFARI ? null : home); show('<div class="card c muted">読み込み中…</div>');
   if(!await salesLoad()) return;
   const S = SALES, R = S.report;
   if(R){ salesShot(); return; }
@@ -114,7 +114,7 @@ function salesPick(){
   paint();
 }
 function salesShot(){
-  setBack(home);
+  setBack(SAFARI ? null : home);
   const R = SALES.report;
   /* 719：選ばれたお客様が2名以上の店（広島の提出物手当：10名に1名）は、1名ずつスクショを送る。1名の時の見え方は前と同じ */
   const PK = (R.picks && R.picks.length) ? R.picks : [{ idx:0, name:R.pick, shot:R.shot, sent:R.sent, to:R.to }];
@@ -143,3 +143,26 @@ function salesShot(){
   });
 }
 
+/* ホームの［アプローチ］は Safari（LINE の外）で開く（720・銀座のキャストの声「LINE の中ではお客様とのトークと行き来できず、名前を選びにくい」）。
+   LINE の中で10分・1回だけの入場券を作り、Safari では入場券で12時間の入場券に替える。30日の入場券は URL に付けない（Safari の履歴に残るため）。開き方は［鍵］と同じ */
+let SAFARI = false;
+const safariKey = () => 'olive_cast_tk_' + STORE;
+function safariSaved(){ if(/ Line\//i.test(navigator.userAgent)) return null; try{ return sessionStorage.getItem(safariKey()); }catch(e){ return null; } } /* Safari で再読み込みした時。LINE の中では使わない */
+async function salesOpen(){
+  const r = await sb.rpc('cast_open_ticket', { p_token: TOKEN, p_go: 'sales' });
+  if(r.error){ salesHome(); return; } /* 入場券を作れない時は、今までどおり LINE の中で表示 */
+  const u = new URL('index.html?s=' + encodeURIComponent(STORE) + '&go=sales&t=' + encodeURIComponent(r.data), location.href).href;
+  try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; }
+}
+async function ticketStart(){
+  SAFARI = true;
+  const q = new URLSearchParams(location.search), t = q.get('t');
+  if(t){
+    q.delete('t'); try{ history.replaceState(null, '', location.pathname + '?' + q.toString()); }catch(e){} /* 入場券は1回だけ。履歴に残さない */
+    const r = await sb.rpc('cast_ticket_login', { p_store: STORE, p_ticket: t });
+    if(r.error){ fail(r.error.message); return; }
+    TOKEN = r.data.token; try{ sessionStorage.setItem(safariKey(), TOKEN); }catch(e){}
+    await castLoadMe(r.data); return;
+  }
+  TOKEN = safariSaved(); await castLoadMe(null);
+}

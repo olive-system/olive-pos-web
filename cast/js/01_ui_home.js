@@ -1,6 +1,7 @@
 async function start(){
   if(!LIFF[STORE]){ fail('店舗を特定できません（公式 LINE のメニューから開いてください）'); return; }
   try{ localStorage.setItem('olive_cast_store', STORE); }catch(e){}
+  if(new URLSearchParams(location.search).get('t') || safariSaved()){ await ticketStart(); return; } /* Safari で開いたアプローチ（15_sales.js）。LINE の初期化をしない */
   try{ await liff.init({ liffId: LIFF[STORE] }); }catch(e){ fail('LINE の初期化に失敗しました：' + (e.message||e)); return; }
   if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
   if(goParam() === 'apply'){ await applyStart(); return; } /* みんな用のメニューの「予約状況の確認」（LINE連携していない人も開く） */
@@ -54,7 +55,7 @@ async function castLoadMe(w0){
     if(kd !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w0.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
   const pW = kd ? null : sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = kd ? null : sb.rpc('hall_me', T);
   const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* 書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* 伝票一覧の件数 */,
-    sb.rpc('cast_birthdays', T) /* トップに「お誕生日」。前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* お知らせの未確認の数 */]);
+    sb.rpc('cast_birthdays', T) /* トップに「お誕生日」。前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* お知らせの未確認の数 */, sb.rpc('cast_sales_today', T) /* アプローチの「本日 未提出」の札 */]);
   if(pW){ const w = await pW; /* 黒服が開いた時は黒服マイページ */
     SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* ママは全員のシフト */
     if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(pH); return; }
@@ -63,9 +64,10 @@ async function castLoadMe(w0){
   if(r.error){ fail(r.error.message); return; }
   ME = r.data; KL = ME.kakari_label || '係'; ME.bdays = []; ME.billMonths = null;
   $('tStore').textContent = ME.store_name || 'OLIVE';
-  const fill = ([d, dc, bm, bd, n]) => { ME.dress = d.error ? null : d.data; ME.billMonths = bm.error ? null : (bm.data || []); ME.bdays = bd.error ? [] : (bd.data || []);
+  const fill = ([d, dc, bm, bd, n, sl]) => { ME.dress = d.error ? null : d.data; ME.billMonths = bm.error ? null : (bm.data || []); ME.bdays = bd.error ? [] : (bd.data || []);
     DOCS = dc.error ? null : dc.data; ME.docs = DOCS ? { target: DOCS.target, left: [DOCS.contract, DOCS.id_doc, DOCS.roster].filter(x => !x).length } : null;
     NOTICES = n.error ? [] : (n.data || []); ME.unread = NOTICES.filter(x => !x.read).length;
+    ME.salesDue = !sl.error && !!sl.data && !sl.data.off && !sl.data.store_off && !sl.data.report; /* 出勤日で連絡済リストをまだ出していない時だけ（オーナー 11/25「札を出す」） */
     ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* ドレス新調日（店が「する」の時だけボタンを出す）。点検 B5：読めなかった分があれば、トップに1行 */
   const th = thxParam(), nt = urlParam('notice'), go = goParam();
   if(['contact','shift','sales','resv','perf','dress','meeting'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
@@ -98,6 +100,7 @@ function wageNow(){ const st = ME.stats||{}; if(st.wage) return Number(st.wage);
 function home(){
   SHQ = ''; /* シフト（全員）の名前の検索は、ホームに戻ったら解除 */
   if(LEAVING){ leaveHome(); return; }
+  if(SAFARI){ salesHome(); return; } /* Safari ではアプローチの画面だけ */
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
   const st = ME.stats||{}, sl = (ME.slides||[]).find(s=>s.basis==='sales') || (ME.slides||[])[0];
@@ -110,9 +113,9 @@ function home(){
   const bdCard = homeBdCard();
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths&&!castNoSales()?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
-    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
+    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${tile('sales','アプローチ',ME.salesDue?'本日 未提出':'',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
   /* トップの整理（オーナー「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
-     連絡先交換・アプローチは LINE のリンクとリッチメニューから（画面は今のまま）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
+     連絡先交換は LINE のリンクとリッチメニューから。アプローチは名刺発注の次に戻した（押すと Safari で表示。銀座のキャストの声「LINE の中ではお客様とのトークと行き来できない」）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
   homeWire();
 }
 /* ホームのお誕生日（3日間）の箱 */
@@ -131,6 +134,7 @@ function homeWire(){
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
+  { const a = $('main').querySelector('[data-go=sales]'); a.onclick = salesOpen; const m = a.querySelector('small'); if(m) m.style.color = 'var(--warn)'; } /* 札の色は「ミーティング未申請」と同じ */
   { const b = $('main').querySelector('[data-go=docs]'); if(b) b.onclick = docsList; }
   $('main').querySelector('[data-go=resv]').onclick = resvList;
   $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* ママは全員のシフト */
