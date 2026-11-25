@@ -88,7 +88,7 @@ function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="cas
 // 卓の札の延長確認（SQL 702）：LINE で「会計」の返事・返事が無いまま終わりが来た卓は、札の中のキャストの欄の上に大きく重ねる（オーナー「札そのものに大きく。高さは変えない」）
 // 付け回し担当（SQL 701）：自動延長しない店（広島）は必須。選ぶまでホールの上の知らせに出し続ける。読むのはホールを全部読み直す時と朝礼で選んだ時だけ
 async function dutyLoad(){ const r=await sb.rpc('pos_tsuke_staff'); S.tkDuty=r.error?null:r.data; }
-function hallPeopleExt(b){ const x=b.ext_mode==='pay'?'会計':b.ext_mode==='none'?'確認なし':''; return x?`<div style="position:relative">${hallPeople(b)}<div class="extbig">${x}</div></div>`:hallPeople(b); }
+function hallPeopleExt(b){ const x=b.ext_mode==='pay'?'会計':b.ext_mode==='none'?'確認なし':''; return x?`<div style="position:relative"><div style="visibility:hidden">${hallPeople(b)}</div><div class="extbig">${x}</div></div>`:hallPeople(b); }
 /* 押している最中は描き直しを待つ（ほかの iPad の変更の知らせで卓を全部作り直すと、押した卓が消えて反応しなかった） */
 function renderHall(totals){ if(rtPressing()){ clearTimeout(renderHall.t); renderHall.t=setTimeout(()=>renderHall(totals),250); return; } renderHallNow(totals); }
 function renderHallNow(totals){ const now=new Date(); const cnames=b=>(b.bill_customers||[]).map(c=>S.customers.find(x=>x.id===c.customer_id)?.name).filter(Boolean).join('・');
