@@ -1,6 +1,7 @@
 async function start(){
   if(!LIFF[STORE]){ fail('店舗を特定できません（公式 LINE のメニューから開いてください）'); return; }
   try{ localStorage.setItem('olive_cast_store', STORE); }catch(e){}
+  if(new URLSearchParams(location.search).get('t') || safariSaved()){ await ticketStart(); return; } /* Safari で開いたアプローチ（15_sales.js）。LINE の初期化をしない */
   try{ await liff.init({ liffId: LIFF[STORE] }); }catch(e){ fail('LINE の初期化に失敗しました：' + (e.message||e)); return; }
   if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
   if(goParam() === 'apply'){ await applyStart(); return; } /* みんな用のメニューの「予約状況の確認」（LINE連携していない人も開く） */
@@ -98,6 +99,7 @@ function wageNow(){ const st = ME.stats||{}; if(st.wage) return Number(st.wage);
 function home(){
   SHQ = ''; /* シフト（全員）の名前の検索は、ホームに戻ったら解除 */
   if(LEAVING){ leaveHome(); return; }
+  if(SAFARI){ salesHome(); return; } /* Safari ではアプローチの画面だけ */
   if(ME && ME.hall){ hallHome(); return; }
   setBack(null);
   const st = ME.stats||{}, sl = (ME.slides||[]).find(s=>s.basis==='sales') || (ME.slides||[])[0];
@@ -110,9 +112,9 @@ function home(){
   const bdCard = homeBdCard();
   top += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="lkb" data-go="perf">詳細</button>${ME.billMonths&&!castNoSales()?'<button class="lkb" data-go="bills">伝票一覧</button>':''}<button class="lkb" data-go="pay">報酬明細</button></div>`; /* 成績・伝票一覧・報酬明細は小計の箱のボタンに（オーナー「ボタンを減らせる」） */
   show(`<div class="hello">${esc(ME.name)} さん</div><div class="card">${top}</div>${bdCard}
-    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
+    <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${tile('sales','アプローチ','',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未提出 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
   /* トップの整理（オーナー「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
-     連絡先交換・アプローチは LINE のリンクとリッチメニューから（画面は今のまま）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
+     連絡先交換は LINE のリンクとリッチメニューから。アプローチは名刺発注の次に戻した（押すと Safari で表示。銀座のキャストの声「LINE の中ではお客様とのトークと行き来できない」）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
   homeWire();
 }
 /* ホームのお誕生日（3日間）の箱 */
@@ -131,6 +133,7 @@ function homeWire(){
   { const b = $('main').querySelector('[data-go=bills]'); if(b) b.onclick = () => castBills(null); }
   $('main').querySelector('[data-go=pay]').onclick = payslip;
   $('main').querySelector('[data-go=card]').onclick = cardOrder;
+  $('main').querySelector('[data-go=sales]').onclick = salesOpen;
   { const b = $('main').querySelector('[data-go=docs]'); if(b) b.onclick = docsList; }
   $('main').querySelector('[data-go=resv]').onclick = resvList;
   $('main').querySelector('[data-go=shift]').onclick = () => SHIFT_ALL ? shiftAll() : shiftHome(); /* ママは全員のシフト */
