@@ -51,7 +51,7 @@ function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map
 // 自動延長はデータベースで伝票を押さえてから足す（POS 2台が同時に足しても二重にならない）
 let extWarned=false;
 async function autoExtend(){ const now=new Date(); let added=false, called=false;
-  for (const b of S.openBills) { const mode=S.modes.find(m=>m.id===b.pricing_mode_id); if (mode && !mode.include_set) continue; if (b.pay_open_at||billEnd(b)>=now||b.ext_mode==='pay'||b.ext_mode==='none') continue; /* 会計の返事・確認なしの卓は延長しない（SQL 702） */
+  for (const b of S.openBills) { const mode=S.modes.find(m=>m.id===b.pricing_mode_id); if (mode && !mode.include_set) continue; if (b.pay_open_at||billEnd(b)>=now||b.ext_mode==='pay') continue; /* 会計の返事の卓は延長しない。時間超過の卓は、終わりから10分を過ぎたら付くかをデータベースが決める（SQL 702） */
     const r=await sb.rpc('pos_auto_extend',{p_bill:b.id});
     if (r.error) { if(!extWarned){ extWarned=true; toast(r.error.message); } continue; }
     called=true; if (r.data>0){ added=true; hallDrop(b.id); } /* 延長した伝票は計算し直す */ }
@@ -88,7 +88,7 @@ function afterTag(b,now){ if((b.after_bills||[]).length) return `<div class="cas
 // 卓の札の延長確認（SQL 702）：LINE で「会計」の返事・返事が無いまま終わりが来た卓は、札の中のキャストの欄の上に大きく重ねる（オーナー「札そのものに大きく。高さは変えない」）
 // 付け回し担当（SQL 701）：自動延長しない店（広島）は必須。選ぶまでホールの上の知らせに出し続ける。読むのはホールを全部読み直す時と朝礼で選んだ時だけ
 async function dutyLoad(){ const r=await sb.rpc('pos_tsuke_staff'); S.tkDuty=r.error?null:r.data; }
-// 札・伝票に出す延長の状態（オーナー 11/25）：会計の返事＝会計／LINE で確認中のまま残り10分未満＝延長未確認／返事が無いまま終わりを過ぎた＝！時間超過！
+// 札・伝票に出す延長の状態（オーナー 11/25）：会計の返事＝会計／LINE で確認中のまま残り10分未満＝延長未確認／返事が無いまま終わりを過ぎた＝！時間超過！（終わりから10分まで。過ぎたら延長が付いて消える）
 //   返事（30分・1時間）が来るとその時に延長が付き、残りが10分以上に戻るので、確認中で残り10分未満＝まだ返事が無い
 function extTag(b){ const m=b.ext_mode; if(m==='pay') return '会計'; if(m==='none') return '！時間超過！'; return m==='ask'&&billEnd(b)-Date.now()<10*60000?'延長未確認':''; }
 function hallPeopleExt(b){ const x=extTag(b); return x?`<div style="position:relative">${hallPeople(b)}<div class="extbig${x.length>5?' long':''}">${x}</div></div>`:hallPeople(b); }
