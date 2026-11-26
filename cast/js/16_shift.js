@@ -146,20 +146,22 @@ function saBind(S){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hal
 const SH_EDIT_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
 async function shiftDayEdit(iso, store){
   setBack(() => shiftAll(store)); show('<div class="card c muted">読み込み中…</div>');
-  const r = await sb.rpc('cast_shift_day', { p_token: TOKEN, p_store: store || null, p_day: iso }); if(r.error){ fail(r.error.message); return; }
-  const D = r.data, d = new Date(iso+'T00:00:00+09:00'), again = () => shiftDayEdit(iso, store), L = D.shifts || []; D.ev = !!(SHALL && SHALL.ev && SHALL.ev.has(iso));
+  const [r, ab] = await Promise.all([sb.rpc('cast_shift_day', { p_token: TOKEN, p_store: store || null, p_day: iso }), sb.rpc('cast_shift_day_absent', { p_token: TOKEN, p_store: store || null, p_day: iso })]); if(r.error){ fail(r.error.message); return; }
+  const AB = ab.error ? [] : ab.data || [], abId = new Set(AB.map(a => a.staff_id)); /* 当日欠勤の子は出勤の数と一覧から外し、上の箱に出す（16_shift_absent.js） */
+  const D = r.data, d = new Date(iso+'T00:00:00+09:00'), again = () => shiftDayEdit(iso, store), L = (D.shifts || []).filter(x => !abId.has(x.staff_id)); D.ev = !!(SHALL && SHALL.ev && SHALL.ev.has(iso));
   const all = k => ((SHALL && SHALL.months) || []).flatMap(M => M[k] || []), off = all('hall_off').filter(x => x.day === iso).map(x => x.name), R = all('resv').filter(x => x.day === iso);
   const tin = (v, a, st) => `<select ${a} style="${st || 'width:auto;font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)'}">${(SH_EDIT_T.includes(v) ? SH_EDIT_T : [v, ...SH_EDIT_T]).map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   const IVd = D.iv || [], HTd = D.hall_trial || [];
   show(sdDayHtml(D, d, L, off, R, IVd, HTd, tin));
+  if(AB.length) $('main').querySelector('.card').insertAdjacentHTML('beforebegin', sdAbsBox(AB));
   $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => apOpen(b.dataset.ap, store, again)); /* しるしは右の列・同伴の子。シフトを直せる人（黒服・ママ）は同伴を取消 */
   $('main').querySelectorAll('[data-dcx]').forEach(b => b.onclick = async () => { const x = R[+b.dataset.dcx]; if(!await uiConfirm(`${x.name} 様の同伴を取り消しますか？`, '取消')) return; b.disabled = true;
     const q = await sb.rpc('cast_douhan_cancel', { p_token: TOKEN, p_store: store || null, p_id: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
     const n = Number(q.data?.notified || 0), all = q.data?.targets, ng = all == null ? !n : n < all; /*点検 A2・届いた数と送り先の数をくらべる */
     await uiAlert(!ng ? '取り消しました。申請した子と同伴の子に LINE で知らせました' : n ? '取り消しました。\n一部の LINE は届いていません。本人にご連絡ください' : '取り消しました。\nLINE は届いていません。本人にご連絡ください'); shiftAll(store); }); /* 予約の一覧は全員のシフトと一緒に読み直す */
   $('main').querySelectorAll('[data-sdt]').forEach(el => el.onchange = async () => { const x = L[+el.dataset.sdt]; if(!el.value){ el.value = x.time; return; } if(await set(x.staff_id, el.value)) again(); });
-  $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return; b.disabled = true; /* 2回押し（LINE が2通）にならないように */ if(await set(x.staff_id, null)) again(); });
+  $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; b.disabled = true; /* 2回押し（LINE が2通）にならないように */ if(await sdAbsCancel(x, iso, store, set)) again(); else b.disabled = false; }); /* 当日は本人都合／店都合（16_shift_absent.js） */
   if($('sdAdd')) $('sdAdd').onclick = () => shiftDayAdd(D, d, iso, store, tin, set, again);
 }
 /* 1日のシフトの画面（出勤・黒服の休み・予約・体験・面接） */

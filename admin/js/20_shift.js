@@ -80,7 +80,10 @@ function shiftDayEdit(st,M,day,ed){ const C=M.casts||[], x=new Date(day+'T00:00:
   const box=mkModal(null,shiftDayHtml(C,L,ng,R,canAdd,day,tgv,ev,ed));;
   let changed=false; const close=()=>{ box.remove(); if(changed) PAGES.shift(); }; box.querySelector('[data-x]').onclick=close;
   if(!ed) return;
-  box.querySelectorAll('[data-sdt]').forEach(sel=>sel.onchange=async()=>{ const q=await rpc('admin_shift_set',{p_store:st,p_staff:sel.dataset.sdt,p_day:day,p_time:sel.value||null}); if(!q.ok) return; changed=true;
+  box.querySelectorAll('[data-sdt]').forEach(sel=>sel.onchange=async()=>{ const was=(L.find(s=>s.staff_id===sel.dataset.sdt)||{}).time;
+    if(!sel.value){ const a=await shAbsPick(st,sel.dataset.sdt,(C.find(z=>z.id===sel.dataset.sdt)||{}).name||'',was,day); /* 当日は本人都合／店都合（20_shift_absent.js） */
+      if(a===false){ sel.value=was; return; } if(a==='self'){ changed=true; M.shifts=(M.shifts||[]).filter(s=>!(s.staff_id===sel.dataset.sdt&&s.day===day)); toast('当日欠勤にしました'); return; } }
+    const q=await rpc('admin_shift_set',{p_store:st,p_staff:sel.dataset.sdt,p_day:day,p_time:sel.value||null}); if(!q.ok) return; changed=true;
     /* 手元の M.shifts も直す（出勤なしにした後に「追加」で開き直すと、前の出勤が残って見えた。点検） */
     M.shifts=(M.shifts||[]).filter(s=>!(s.staff_id===sel.dataset.sdt&&s.day===day)).concat(sel.value?[{staff_id:sel.dataset.sdt,day,time:sel.value}]:[]);
     toast(sel.value?`${sel.value} にしました`:'出勤なしにしました'); });
