@@ -19,8 +19,9 @@ async function hallTodo(){
     ${T.map(([x,i]) => card(x,i)).join('') || '<div class="card muted">本日分の TODO はありません</div>'}`);
   $('main').querySelectorAll('[data-td]').forEach(b => b.onclick = () => hallTodoOne(L[+b.dataset.td]));
 }
-// 写真は40枚まで（広島の黒服の報告「充電の写真は24枚上げる必要があるが10枚までしか送れない」）
-// 写真は10枚まで（並べて見て × で外せる）・完了の後も精算までは「やり直す」（黒服の報告 → オーナー「この形でよい」「精算までは直せる」）
+// 写真は40枚まで（広島の黒服の報告「充電の写真は24枚上げる必要があるが10枚までしか送れない」）。並べて見て × で外せる・完了の後も精算までは「やり直す」（黒服の報告 → オーナー「この形でよい」「精算までは直せる」）
+// TODO の1件の画面の状態（tdShots 撮った写真・tdAbVals 数えた本数・tdDiff 数え直しの段・tdWhy 理由）は、別の TODO を開いた時（hallTodoOne の keep なし）と完了した時に空にする。
+// 描き直す時（写真を足す・品を足す・数え直し）は keep を渡して残す
 let tdShots = [];
 /* 高級酒の在庫確認（オーナー「先入観なくできる棚卸しで」）。数える人には理論在庫も前回の数も出さない。空欄から入力 */
 /* 理論在庫と違う品は、本数を見せずに「違う」と出して再度数えてもらい、再度数えても違えば品の下に理由（オーナー「違うという表示に。なので数え直せ」「相違があれば理由を下に」）
@@ -197,9 +198,9 @@ function hcPaint(){
   const y = new Date(C.date+'T00:00:00+09:00'); y.setDate(y.getDate()-1);
   V.SH = SH; V.y = y; show(hcHtml(V)); hcBind(V); }
 /* 来店予定のお客様の1組（開くと誕生日・ボトル・前回・タバコ・メモ） */
-function hcGuest(V, g){ const { C, G, left, tag, guest, SH, y } = V; const cu = g.customer, op = hcOpen.has(g.id) && cu;
+function hcGuest(V, g){ const { C, tag } = V; const cu = g.customer, op = hcOpen.has(String(g.id)) && cu;
     const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済 ${hmJst(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
-    let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${g.time}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.names||g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${resvWho(g,{noKK:(ME&&ME.customer_mode)==='yukyaku',mark:DRESS})}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div></div>`; /* 広島は担当を出さない（オーナー）。卓（POS の朝礼と同じ。選ぶとすぐ保存） */
+    let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${esc(g.time)}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.names||g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${resvWho(g,{noKK:(ME&&ME.customer_mode)==='yukyaku',mark:DRESS})}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div></div>`; /* 広島は担当を出さない（オーナー）。卓（POS の朝礼と同じ。選ぶとすぐ保存） */
     if(!op) return h;
     const bd = cu.birthday ? `${esc(cu.birthday)}${cu.bday_in===0?'（本日）':cu.bday_in!=null&&cu.bday_in<=7?`（あと${cu.bday_in}日）`:''}` : '—';
     return h + `<div style="padding:0 0 10px"><div class="row"><span class="muted">誕生日</span><span>${bd}</span></div><div class="row"><span class="muted">反応◎</span><span>${esc(cu.good||'—')}</span></div>
@@ -220,7 +221,7 @@ function hcHtml(V){ const { C, G, left, tag, guest, SH, y } = V; return `<div id
     <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdWD(y)}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
     <div class="card"><div class="gh">お誕生日（前後1週間）</div>${(C.bdays||[]).map(b => { const cu = (b.kind_label||'お客様') === 'お客様', past = b.in < 0; /* 前後1週間（キャストのトップと同じ） */ return `<div class="row"${past?' style="color:var(--muted)"':''}><span><b class="${b.in===0?'err':''}">${b.in===0?'本日':past?(-b.in)+'日前':'あと'+b.in+'日'}</b>　${esc(b.name)}${cu?' 様':''}</span><small class="muted">${cu?(b.kakari?esc(KL)+' '+esc(b.kakari):''):esc(b.kind_label)}</small></div>`; }).join('')||'<div class="muted sm">なし</div>'}</div></div>`; }
 /* 押した時の動き：お客様を開く・卓・確認 */
-function hcBind(V){ const { C, G, left, tag, guest, SH, y } = V; hcTrialBind(); hcTsukeBind();
+function hcBind(V){ const { G } = V; hcTrialBind(); hcTsukeBind();
   $('main').querySelectorAll('[data-hc]').forEach(e => e.onclick = () => { const k = e.dataset.hc; hcOpen.has(k) ? hcOpen.delete(k) : hcOpen.add(k); const y0 = window.scrollY; hcPaint(); window.scrollTo(0, y0); }); /* 読み直さない */
   $('main').querySelectorAll('[data-hs]').forEach(x => { x.onclick = e => e.stopPropagation(); x.onchange = async () => { const id = x.dataset.hs, g = G.find(g => String(g.id) === id), was = g?.seat || ''; x.disabled = true;
     const q = await sb.rpc('hall_resv_seat', { p_token: TOKEN, p_id: id, p_table: x.value || null }); x.disabled = false; if(q.error){ x.value = was; await uiAlert(q.error.message); return; } if(g) g.seat = x.value || null; }; });
@@ -229,11 +230,12 @@ function hcBind(V){ const { C, G, left, tag, guest, SH, y } = V; hcTrialBind(); 
 }
 // 天気（20時〜翌1時・降水確率50%以上で傘の準備）。できた中身は hcWx に覚えておく
 async function hcWeather(C){
-  if(C.lat != null) try{ const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${C.lat}&longitude=${C.lon}&hourly=weather_code,precipitation_probability,temperature_2m&timezone=Asia%2FTokyo&forecast_days=3`)).json(), H = j.hourly;
+  if(C.lat == null || C.lon == null){ hcWx = { c: 'muted sm', h: '店の場所が未設定です' }; } /* 前は「読み込み中…」のままだった（POS の朝礼と同じ文） */
+  else try{ const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${C.lat}&longitude=${C.lon}&hourly=weather_code,precipitation_probability,temperature_2m&timezone=Asia%2FTokyo&forecast_days=3`)).json(), H = j.hourly;
     const nx = dayAdd(C.date, 1);
     const W = [[C.date,20],[C.date,21],[C.date,22],[C.date,23],[nx,0],[nx,1]].map(([d,h]) => { const i = H.time.indexOf(`${d}T${String(h).padStart(2,'0')}:00`); return { h: h===0?24:h, c: H.weather_code[i], p: H.precipitation_probability[i], t: H.temperature_2m[i] }; });
     const rain = W.find(x => (x.p??0) >= 50);
-    hcWx = { c: '', h: `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;text-align:center;font-size:12px">${W.map(x => `<div style="border:1px solid var(--line);border-radius:6px;padding:4px 0;line-height:1.4;${(x.p??0)>=50?'background:var(--warn-soft)':''}"><div class="muted">${x.h}時</div>${WXI(x.c,34)}<div style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${WXN(x.c)}</div><div class="${(x.p??0)>=50?'err':''}">${x.p??'—'}%</div><div class="muted">${x.t==null?'—':Math.round(x.t)+'℃'}</div></div>`).join('')}</div>${rain?`<div class="err" style="font-weight:700;background:var(--warn-soft);border-radius:6px;padding:6px 8px;margin-top:6px">傘の準備（${rain.h}時から雨）</div>`:''}` };
+    hcWx = { c: '', h: `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;text-align:center;font-size:12px">${W.map(x => `<div style="border:1px solid var(--line);border-radius:6px;padding:4px 0;line-height:1.4;${(x.p??0)>=50?'background:var(--warn-soft)':''}"><div class="muted">${x.h}時</div>${WXI(x.c,34)}<div style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${WXN(x.c)}</div><div class="${(x.p??0)>=50?'err':''}">${x.p??'—'}%</div><div class="muted">${x.t==null?'—':Math.round(x.t)+'℃'}</div></div>`).join('')}</div>${rain?`<div class="err" style="font-weight:700;background:var(--warn-soft);border-radius:6px;padding:6px 8px;margin-top:6px">傘の準備（${rain.h}時から${/雪/.test(WXN(rain.c)) ? '雪' : '雨'}）</div>`:''}` };
   }catch(e){ hcWx = { c: 'muted sm', h: '天気を読み込めません' }; }
   const el = $('hcWx'); if(el && hcWx){ el.className = hcWx.c; el.innerHTML = hcWx.h; }
 }
