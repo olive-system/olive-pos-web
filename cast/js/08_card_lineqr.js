@@ -16,12 +16,16 @@ async function lqMount(){
   if(q.error){ $('lqBox').innerHTML = `<div class="err sm">${esc(q.error.message)}</div>`; return; }
   ME.lqr = q.data?.url || null; lqPaint();
 }
+/* 画像と URL はどちらか1つで登録できる（オーナー「どちらか　でいいのよね？　それがわかるようにしめ」）。URL の手順は言葉の途中で折り返さない */
+const LQ_STEPS = ['ホーム', '友だち追加', 'QRコード', 'マイQRコード', 'リンクをコピー'].map(x => `<span style="white-space:nowrap">${x}</span>`).join(' → ');
 async function lqPaint(){ const b = $('lqBox'); if(!b) return; const u = ME.lqr;
   let qr = ''; if(u){ try{ await needLib('qrcode'); const q = qrcode(0, 'M'); q.addData(u); q.make(); qr = `<div style="display:flex;gap:14px;align-items:center;margin:8px 0 4px"><div style="background:#fff;padding:6px;border-radius:8px;line-height:0">${q.createSvgTag({ cellSize: 3, margin: 2 })}</div><b style="color:var(--ink)">登録済み</b></div>`; }catch(_){ qr = '<div style="margin:8px 0 4px"><b style="color:var(--ink)">登録済み</b></div>'; } }
   const fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink)';
   b.innerHTML = `<div class="row" style="min-height:44px;align-items:center"><span class="gh" style="margin:0">LINE QR</span>${u ? '<button class="btn g" id="lqDel" style="width:auto;padding:6px 12px;font-size:14px">削除</button>' : `<small style="${LQ_TAG}">未登録</small>`}</div>${qr}
     <label class="btn g" style="margin-top:10px">画像選択<input type="file" accept="image/*" id="lqF" style="display:none"></label>
-    ${u ? '' : `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px"><input id="lqU" inputmode="url" autocomplete="off" style="${fld}" placeholder="https://line.me/ti/p/…"><button class="btn" id="lqS" style="width:auto;padding:0 16px">保存</button></div>`}`;
+    ${u ? '' : `<div style="display:flex;align-items:center;gap:10px;margin:14px 0 4px"><span class="muted" style="font-size:13px">または</span><span style="flex:1;border-top:1px solid var(--line)"></span></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px"><input id="lqU" inputmode="url" autocomplete="off" style="${fld}" placeholder="https://line.me/ti/p/…"><button class="btn" id="lqS" style="width:auto;padding:0 16px">保存</button></div>
+    <div class="muted" style="font-size:13px;line-height:1.7;margin-top:8px">LINE：${LQ_STEPS}</div>`}`;
   /* URL の欄は未登録の時だけ（画像が無い子の登録用）。登録済みで空の［保存］を押すと、確かめなしで消えていた（11/26 ミオ 3回）。空の［保存］は何もしない。削除は［削除］だけ */
   $('lqF').onchange = lqPick; if($('lqS')) $('lqS').onclick = () => { const v = $('lqU').value.trim(); if(v) lqSave(v); };
   if($('lqDel')) $('lqDel').onclick = async () => { if(!await uiConfirm('LINE QR を削除しますか？', '削除')) return; lqSave(''); };
