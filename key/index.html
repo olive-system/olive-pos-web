@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OLIVE 鍵"><meta name="theme-color" content="#4b5320">
 <link rel="apple-touch-icon" href="icon.png"><link rel="icon" href="icon.png">
-<title>OLIVE 鍵</title><!-- key v1.05 -->
+<title>OLIVE 鍵</title><!-- key v1.06 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet"><style>button,input,select,textarea{font-family:inherit}</style>
 <link rel="stylesheet" href="../lib/olive/olive.css"><link rel="stylesheet" href="../cast/cast.css">
 <style>
@@ -35,7 +35,8 @@ const ls = (k, v) => { try{ if(v === undefined) return localStorage.getItem(k); 
 const T = new URLSearchParams(location.search).get('t') || ls('olive_key_t') || '';
 const ALONE = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
 const hm = d => `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
-let K = null, busy = false, res = '';
+let K = null, busy = false, res = '', until = 0, timer = null;
+const COOL = 10000;   // 押した後の待機（ミリ秒）：押し直しがセサミの月 1000 回の上限を使い切った（2026-11-26 秘書の決め）
 
 async function load(){
   if(!T){ $('main').innerHTML = '<div class="kres ng"><b>この鍵は無効です</b></div>'; return; }
@@ -46,9 +47,9 @@ async function load(){
   if(ALONE && K.now && (K.locks||[]).length === 1 && Date.now() - Number(ls('olive_key_auto') || 0) > 30000){ ls('olive_key_auto', String(Date.now())); send(K.locks[0].code, 'unlock'); }
 }
 function paint(){
-  const L = K.locks || [], one = L.length === 1, off = !K.now || busy;
+  const L = K.locks || [], one = L.length === 1, wait = Math.ceil((until - Date.now()) / 1000), off = !K.now || busy || wait > 0;
   const lockBox = l => `${one ? '' : `<div class="klock">${esc(l.name)}</div>`}<button class="kbig" data-c="${esc(l.code)}" data-m="unlock" ${off?'disabled':''}>解錠</button><button class="ksec" data-c="${esc(l.code)}" data-m="lock" ${off?'disabled':''}>施錠</button>`;
-  $('main').innerHTML = `${res}<div class="card"><span class="muted sm">${esc(K.name)}　解錠可能時間</span><br><b>${esc(K.window || '本日なし')}</b>${K.now ? '' : `<div class="err sm" style="margin-top:4px">${K.expired ? '期限切れ' : '時間外'}</div>`}</div>
+  $('main').innerHTML = `${res}${wait > 0 ? `<div class="muted sm" style="margin:0 2px 8px">待機 ${wait}秒</div>` : ''}<div class="card"><span class="muted sm">${esc(K.name)}　解錠可能時間</span><br><b>${esc(K.window || '本日なし')}</b>${K.now ? '' : `<div class="err sm" style="margin-top:4px">${K.expired ? '期限切れ' : '時間外'}</div>`}</div>
     ${L.map(l => `<div class="card">${lockBox(l)}</div>`).join('') || '<div class="card muted">鍵なし</div>'}
     ${ALONE ? '' : `<div class="card"><b>ホーム画面追加</b><ol class="kh"><li>iPhone：Safari で表示 → 共有 → ホーム画面に追加</li><li>Android：Chrome で表示 → メニュー → ホーム画面に追加</li></ol>${one ? '<div class="muted sm" style="margin-top:6px">ホーム画面のアイコンから表示すると、そのまま解錠します</div>' : ''}</div>`}`;
   $('main').querySelectorAll('[data-c]').forEach(b => b.onclick = () => send(b.dataset.c, b.dataset.m));
@@ -58,8 +59,9 @@ async function send(code, cmd){
   res = `<div class="kres"><b>送信中…</b><br><span class="muted sm">${esc(nm)}</span></div>`; paint();
   let r; try{ r = await sb.functions.invoke('sesame-key', { body: { t: T, lock: code, cmd } }); }catch(e){ r = { error: e }; }
   const d = r.data || {}, lb = cmd === 'lock' ? '施錠' : '解錠';
-  res = !r.error && d.ok ? `<div class="kres"><b>${lb}完了</b><br><span class="muted sm">${hm(new Date())}　${esc(nm)}</span></div>`
-    : `<div class="kres ng"><b>${lb}エラー</b><br><span class="muted sm">${esc(d.reason || (r.error && r.error.message) || '通信エラー')}</span></div>`;
+  res = !r.error && d.ok ? `<div class="kres"><b>${lb}完了</b><br><span class="muted sm">${hm(new Date())}　${esc(nm)}</span>${cmd === 'lock' ? '<br><span class="sm">閉まったことを確認してください。</span>' : ''}</div>`
+    : `<div class="kres ng"><b>${lb}エラー</b><br><span class="muted sm">${esc(d.reason || (r.error && r.error.message) || '通信エラー')}</span>${d.paused ? `<br><span class="muted sm">再開 ${Math.max(1, Math.ceil((d.retry_after || 600) / 60))}分後</span>` : ''}<br><span class="sm">セサミのアプリで${lb}してください。</span></div>`;
+  until = Date.now() + COOL; clearInterval(timer); timer = setInterval(() => { if(Date.now() >= until){ clearInterval(timer); } paint(); }, 1000);
   busy = false; paint();
 }
 load();
