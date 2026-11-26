@@ -25,3 +25,19 @@ $('splitOk').onclick=guard($('splitOk'),async()=>{ /* 通しチェック3：二�
   /* まとめた行は、元の注文それぞれの数に合わせて分けて保存する */ let sv={}; for(const pr of splitParts(splitItem,rows)){ sv=await sb.rpc('pos_split_save',{p_item:pr.id,p_rows:pr.rows.filter(r=>r.back_amount>0||r.back_points>0)}); if(sv.error) break; } if(sv.error){ if(isStale(sv.error)){ $('splitModal').classList.remove('on'); await staleReload(sv.error.message); return; } toast('振り分けを保存できません：'+sv.error.message); return; }
   await logOp('バック振り分け変更',{item:splitItem.name,before:(splitItem.bill_item_splits||[]).map(x=>`${nm(x.staff_id)}:${x.back_amount}`),after:rows.map(x=>`${nm(x.staff_id)}:${x.back_amount}`)}); $('splitModal').classList.remove('on'); await openBill(S.cur.id); });
 
+
+/* 品の行に出す名前：バックのある品はバックの子、バックの無い品は小計を付けた子（オーナー 2026-11-27「ア この形で」） */
+const subPickable=i=>noBack(i)&&Number(i.cast_subtotal_price)>0;
+function itemWho(i){ const nm=id=>S.staffAll.find(x=>x.id===id)?.display_name||S.staff.find(x=>x.id===id)?.display_name||''; const ids=noBack(i)?(i.subtotal_staff_id?[i.subtotal_staff_id]:[]):(i.bill_item_splits||[]).filter(s=>(s.back_amount||0)>0||Number(s.back_points||0)>0).map(s=>s.staff_id); return [...new Set(ids)].map(nm).filter(Boolean).join('・'); }
+/* 伝票の［振分］：名前を1つ押すと、その子に品の小計が付く。同じ名前をもう一度押すと外れる（係で等分）。会計の後も今の営業日の伝票は変えられる（データベースの守り bill_item_sub_lock・SQL 776） */
+function openSubPick(it){ if(!it) return; let m=$('subModal'); if(!m){ m=document.createElement('div'); m.className='modal'; m.id='subModal'; m.innerHTML='<div class="box" style="width:640px"></div>'; document.body.appendChild(m); }
+  const onBill=new Set(((S.cur&&S.cur.bill_casts)||[]).map(c=>c.staff_id)); const rk=s=>onBill.has(s.id)?0:(S.present&&S.present.has(s.id))?1:2;
+  const list=S.staff.filter(s=>s.kind==='cast').map((s,k)=>({s,k})).sort((a,b)=>rk(a.s)-rk(b.s)||a.k-b.k).map(x=>x.s);
+  const cur=it.subtotal_staff_id||null; const bx=m.querySelector('.box');
+  bx.innerHTML=`<button class="xb dx" aria-label="閉じる">×</button><h2 style="margin:0 0 12px;color:var(--ink)">${esc(it.name)} ×${it.qty}</h2><div class="subgrid">`+list.map(s=>`<button class="ocast ${s.id===cur?'on':''}" data-sid="${s.id}">${esc(s.display_name)}</button>`).join('')+`</div>`;
+  bx.querySelector('.dx').onclick=()=>m.classList.remove('on');
+  bx.querySelectorAll('[data-sid]').forEach(b=>b.onclick=guard(b,async()=>{ const sid=b.dataset.sid===cur?null:b.dataset.sid; const nm=id=>S.staff.find(x=>x.id===id)?.display_name||S.staffAll.find(x=>x.id===id)?.display_name||'';
+    const r=await sb.rpc('pos_rows_set',{p_table:'bill_items',p_where:{id:(it.ids)??it.id},p:{subtotal_staff_id:sid}});
+    if(r.error){ if(isStale(r.error)){ m.classList.remove('on'); await staleReload(r.error.message); return; } toast('変更できません：'+r.error.message); return; }
+    await logOp('小計振り分け変更',{item:it.name,before:cur?nm(cur):'',after:sid?nm(sid):''}); m.classList.remove('on'); await openBill(S.cur.id); }));
+  m.classList.add('on'); }
