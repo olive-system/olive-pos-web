@@ -56,6 +56,11 @@ async function apPhotoBig(store, id, src, done){ /* 閉じるは右上の × */
   const w = xBox(`<img src="${src}" style="width:100%;border-radius:8px;display:block;margin-top:16px"><div class="bt" style="margin-top:12px"><button class="btn g" data-k="del" style="color:var(--warn)">削除</button></div>`);
   w.querySelector('[data-k=del]').onclick = async () => { if(!await uiConfirm('この写真を削除しますか？', '削除', 'danger')) return; const r = await sb.rpc('ap_photo_del', { p_token: TOKEN, p_store: store || null, p_photo: id }); w.remove(); if(r.error){ await uiAlert(r.error.message); return; } done(); }; }
 
+// 応募者ページの流れ：ap_get で1人分を読む → apParts で部品と今の選択（P）を作る → apTop・apIv・apTr・apRest で文 → apBind* で押した時。保存したら again() で読み直す
+// ivOpen＝まだ面接結果を変えられる（入店していない・体験の名前が無い採用まで）。A.today はお店の今日（体験日の最小）
+// A.status の流れ：applied 応募 → interview 面接予約 → trial 体験（面接で「体験」）→ considering 検討中・hired 採用 → 入店（joined は別の印）／declined 辞退・rejected 不採用
+//   面接の箱は ivOpen の間だけ選べる。体験の箱は体験の名前（trial_name）がある人だけ。面接でいきなり「採用」の人は trial_name が無く、体験の箱は出ない
+//   体験日が空（未定）でも送れる（シフトの面接・体験の名前は「未定」で出る）
 async function apPage(id, store, back){
   setBack(back); show('<div class="card c muted">読み込み中…</div>');
   const r = await sb.rpc('ap_get', { p_token: TOKEN, p_store: store || null, p_id: id }); if(r.error){ fail(r.error.message); return; }
@@ -71,7 +76,6 @@ function apParts(P){ const { A } = P;
   const kindTxt = A.kind === 'hall' ? '黒服' : 'キャスト';
   const ivRes = ({ trial: 'trial', considering: 'trial', hired: A.trial_name ? 'trial' : 'hired', declined: 'declined', rejected: 'rejected' })[A.status] || '';
   /* バストアップの撮影は左上の四角だけ（同じ撮影が2か所で迷う。オーナー「直感的に操作したい」） */
-  /* バストアップの撮影は左上の四角だけ（同じ撮影が2か所で迷う。オーナー「直感的に操作したい」） */
   const photos = `<div style="margin-top:12px"><div class="f">ヒアリングシート</div><div style="display:flex;gap:6px;flex-wrap:wrap">${sheet.map(p => thumb(p, 64, 86)).join('')}<button type="button" class="btn g" data-shoot="sheet" style="width:64px;height:86px;padding:0">撮影</button></div></div>`;
   const hl = sheetLines(A.hearing, STORE); /* 本人が LINE で入力したヒアリングシート */
   const hs = `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">ヒアリングシートの入力内容</b><button class="btn g" id="apSh" style="width:auto;padding:8px 16px">編集</button></div>` + (hl.length ? `<div class="sm" style="line-height:1.8;padding-top:6px">${hl.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="muted" style="flex:none;width:45%">${esc(k)}</span><span style="min-width:0">${esc(v)}</span></div>`).join('')}</div>` : '');
@@ -82,14 +86,14 @@ function apParts(P){ const { A } = P;
   const need = [...(bust.length ? [] : ['バストアップ']), ...(sheet.length || A.sheet_by_line ? [] : ['ヒアリングシート'])];
   const ivGate = `${need.length ? `<div class="sm" id="apNeed" style="margin-top:12px;color:var(--warn)">未撮影　${need.join('・')}</div>` : ''}${A.line ? '' : `<div class="sm" style="margin-top:12px;color:var(--warn)">LINE がまだつながっていません</div><label class="f" style="margin-top:4px">理由<span style="color:var(--warn)">（必須）</span><textarea id="apNl" maxlength="200" style="min-height:60px">${esc(A.no_line_reason || '')}</textarea></label>`}`;
   return { ...P, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes, need, ivGate }; }
-function apTop(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; return `<div class="card"><div style="display:flex;gap:12px;align-items:flex-start">
+function apTop(P){ const { A, thumb, bust, kv, kindTxt } = P; return `<div class="card"><div style="display:flex;gap:12px;align-items:flex-start">
       ${bust.length ? thumb(bust[0], 84, 112) : `<button type="button" data-shoot="bust" style="flex:none;width:84px;height:112px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font:inherit;font-size:12px;padding:0;white-space:nowrap;cursor:pointer">バストアップ</button>`}
       <div style="flex:1;min-width:0"><label class="f">担当黒服${apSel([['', '未定'], ...(A.halls || []).map(h => [h.id, h.name])], A.hall_staff_id || '', 'id="apHall"')}</label>
       ${A.trial_name || A.joined ? kv('区分', kindTxt) : `<div style="margin-top:6px">${apSel([['cast', 'キャスト'], ['hall', '黒服']], A.kind, 'id="apKind"')}</div>`}
       ${A.phone ? kv('電話', `<span style="white-space:nowrap">${esc(A.phone)}</span>`) : ''}</div></div>
       ${A.line ? '' : `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><b style="flex:1">LINE</b><span class="muted" style="flex:none">未追加</span><button class="btn" id="apQr" style="width:auto;padding:8px 16px">QR表示</button></div>`}</div>`; }
 // 面接
-function apIv(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; return `<div class="card"><div class="gh">面接　${esc(apDt(A.interview_at))}</div>
+function apIv(P){ const { A, ivOpen, ivRes, photos, hs } = P; return `<div class="card"><div class="gh">面接　${esc(apDt(A.interview_at))}</div>
     ${ivOpen ? `<div class="f">面接結果</div>${apSeg('iv', [['trial', '体験'], ['hired', '採用'], ['declined', '辞退'], ['rejected', '不採用']], ivRes)}
       <div id="apTrialIn" style="${ivRes === 'trial' ? '' : 'display:none'}">
         <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px"><label class="f">体験日<input id="apTd" type="date" value="${apIsoDay(A.trial_at)}" min="${A.today}" style="${AP_FS}"></label><label class="f">時刻${apSel(AP_T.map(t => [t, t]), apIsoTime(A.trial_at), 'id="apTt"')}</label></div>
@@ -98,9 +102,9 @@ function apIv(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet,
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px"><label class="f">本名<input id="apRn" maxlength="60" value="${esc(A.real_name || '')}" style="${AP_FS}"></label><label class="f">希望源氏名<input id="apGn" maxlength="30" placeholder="例）サヤ・ハル" value="${esc(A.trial_name && A.trial_name !== A.name ? A.trial_name : '')}" style="${AP_FS}"></label></div></div>
       ${photos}${P.ivGate}<button class="btn" id="apIvOk" style="margin-top:14px" ${P.need.length || (!A.line && !A.no_line_reason) ? 'disabled' : ''}>面接完了</button>` : `<div style="padding:4px 0">面接結果　${esc(({ trial: '体験', considering: '体験', hired: A.trial_name ? '体験' : '採用', joined: '入店', declined: '辞退', rejected: '不採用' })[A.status] || '')}</div>${photos}`}${hs}</div>`; }
 // 体験
-function apTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P;
+function apTr(P){ const { A, trRes } = P;
   /* ［再体入］は体験の日が来てから。同じ体験の子に新しい体験の日を足す（前の日の出勤・日払いは残す） */
-  const reOk = !A.joined && apIsoDay(A.trial_at) <= A.today;
+  const reOk = !A.joined && !!A.trial_at && apIsoDay(A.trial_at) <= A.today; /* 体験日が未定の人には出さない（前は '' が今日より前と読まれて出ていた） */
   return A.trial_name ? `<div class="card"><div class="gh">体験　${esc(apDt(A.trial_at))}</div>
     ${A.joined ? '<div style="padding:4px 0">体験結果　入店</div>' : `<div class="f">体験結果</div>${apSeg('tr', [['hired', '採用'], ...(reOk ? [['retrial', '再体入']] : []), ['consider_self', '本人検討'], ['consider_store', '店検討'], ['declined', '辞退'], ['rejected', '不採用']], trRes)}`}
     ${reOk ? `<div id="apReIn" style="display:none">
@@ -110,14 +114,14 @@ function apTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet,
     <div id="apRsIn" style="${['declined', 'rejected'].includes(trRes) ? '' : 'display:none'}"><label class="f" style="margin-top:8px">理由<span style="color:var(--warn)">（必須）</span></label><textarea id="apRs" maxlength="500" style="min-height:70px">${esc(A.trial_reason || '')}</textarea></div>
     <button class="btn" id="apTrOk" style="margin-top:12px">保存</button></div>` : ''; }
 /* 体験のあと：ご感想・入店（契約書は対面）・辞退（次回連絡日）・メモ */
-function apRest(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P;
+function apRest(P){ const { A } = P;
   const jn = A.joined ? `<div class="card"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">契約書</b>${A.docs_hold ? '<span class="muted" style="flex:none">未開始</span><button class="btn" id="apDoc" style="width:auto;padding:8px 16px">開始</button>' : '<span class="muted">開始済</span>'}</div></div>` : '';
   const dc = A.status === 'declined' ? `<div class="card"><label class="f">次回連絡日<input id="apNx" type="date" value="${A.next_contact || ''}" style="${AP_FS}"></label></div>` : '';
   const vc = A.voice ? `<div class="card"><div class="gh">ご感想（${esc(apDt(A.voice_at))}）</div><div class="sm" style="line-height:1.7">よかった点：${esc((A.voice.good || []).join('・') || 'なし')}<br>気になった点：${esc((A.voice.concern || []).join('・') || 'なし')}${A.voice.text ? `<br>ひとこと：${esc(A.voice.text)}` : ''}</div></div>` : '';
   const memo = `<div class="card"><label class="f">メモ<textarea id="apMemo" maxlength="500">${esc(A.memo || '')}</textarea></label></div>`;
   return `${vc}${jn}${dc}${memo}`; }
 /* 押した時の動き：区切りのボタン・担当黒服・区分・メモ・次回連絡日・写真 */
-function apBindBase(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; const M = $('main'); const save = p => apSave(P, p);
+function apBindBase(P){ const { id, store, again } = P; const M = $('main'); const save = p => apSave(P, p);
   M.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if(s.dataset.seg === 'iv' && $('apTrialIn')) $('apTrialIn').style.display = b.dataset.v === 'trial' ? '' : 'none'; if(s.dataset.seg === 'tr' && $('apRsIn')) $('apRsIn').style.display = ['declined', 'rejected'].includes(b.dataset.v) ? '' : 'none'; if(s.dataset.seg === 'tr' && $('apReIn')) $('apReIn').style.display = b.dataset.v === 'retrial' ? '' : 'none'; }));
   $('apHall').onchange = () => save({ hall_staff_id: $('apHall').value });
   if($('apKind')) $('apKind').onchange = () => save({ kind: $('apKind').value });
@@ -129,8 +133,8 @@ function apBindBase(P){ const { id, store, back, A, again, ivOpen, thumb, bust, 
 /* 1つの項目を保存（読めない時は知らせて開き直す） */
 async function apSave(P, p){ const { id, store, again } = P; const q = await sb.rpc('ap_save', { p_token: TOKEN, p_store: store || null, p_id: id, p }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; }
 function apSegV(k){ const b = $('main').querySelector(`[data-seg="${k}"] button.on`); return b ? b.dataset.v : ''; }
-/* 面接の結果の保存 */
-function apBindIv(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; const M = $('main'); const segV = apSegV, save = p => apSave(P, p);
+/* 面接の結果の保存。体験日・時刻・報酬・本名・源氏名は「体験」の時だけ送り、ほかは null（体験日と報酬は空でも送れる。決まりは ap_interview_result が見る） */
+function apBindIv(P){ const { id, store, again } = P; const M = $('main'); const segV = apSegV, save = p => apSave(P, p);
   /* 本名がそのままシフトに出ないように。カタカナにそろえる（ひらがなで入れてもカタカナに） */
   if($('apGn')) $('apGn').onblur = () => { $('apGn').value = kanaKey($('apGn').value); };
   if($('apNl')) $('apNl').oninput = () => { if($('apIvOk')) $('apIvOk').disabled = P.need.length > 0 || !$('apNl').value.trim(); };
@@ -143,7 +147,7 @@ function apBindIv(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sh
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
 }
 /* 体験の結果の保存 */
-function apBindTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; const M = $('main'); const segV = apSegV;
+function apBindTr(P){ const { id, store, A, again } = P; const M = $('main'); const segV = apSegV;
   if($('apTrOk')) $('apTrOk').onclick = async e => { const v = A.joined ? 'joined' : segV('tr'); if(!v){ await uiAlert('体験結果を選んでください'); return; }
     if(v === 'retrial'){ e.target.disabled = true;
       const q = await sb.rpc('ap_retrial', { p_token: TOKEN, p_store: store || null, p_id: id, p_day: $('apRd').value || null, p_time: $('apRt').value, p_pay_type: $('apRp').value, p_amount: parseInt($('apRa').value || '0', 10) || 0 });
@@ -155,10 +159,10 @@ function apBindTr(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sh
     if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
 }
 /* ヒアリングシートの編集・LINE の QR・契約書 */
-function apBindDocs(P){ const { id, store, back, A, again, ivOpen, thumb, bust, sheet, kv, kindTxt, ivRes, photos, hl, hs, trRes } = P; const M = $('main');
+function apBindDocs(P){ const { id, store, A, again } = P; const M = $('main');
   $('apSh').onclick = () => sheetStaff(id, store, again); /* お店が書き込む */
-  if($('apQr')) $('apQr').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('ap_qr', { p_token: TOKEN, p_store: store || null, p_id: id }); e.target.disabled = false; if(q.error){ await uiAlert(q.error.message); return; } /* 15分の間の友だち追加をこの人につなぐ */
-    await needLib('qrcode'); const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); /* QR の部品は使う時だけ読む（07 の S1） */ xBox(`<p style="font-weight:700;margin:0 0 10px">${esc(A.store_jp || '')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div>`, again); }; /* 閉じるは右上の × */
+  if($('apQr')) $('apQr').onclick = async e => { if(e.target.disabled) return; e.target.disabled = true; const q = await sb.rpc('ap_qr', { p_token: TOKEN, p_store: store || null, p_id: id }); if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } /* この QR から15分の間に友だち追加した LINE を、この応募者につなぐ */
+    try{ await needLib('qrcode'); }catch(x){ e.target.disabled = false; await uiAlert('QR を表示できません。再度お試しください'); return; } e.target.disabled = false; /* 部品を読む間に2回押すと QR が2つ出ていた */ const qr = qrcode(0, 'M'); qr.addData(q.data); qr.make(); /* QR の部品は使う時だけ読む（07 の S1） */ xBox(`<p style="font-weight:700;margin:0 0 10px">${esc(A.store_jp || '')}　公式 LINE</p><div style="display:flex;justify-content:center">${qr.createSvgTag(6, 8)}</div>`, again); }; /* 閉じるは右上の × */
   if($('apDoc')) $('apDoc').onclick = async e => { if(!await uiConfirm('契約書を開始しますか？\n本人のマイページに「書類」が表示されます', '開始')) return; e.target.disabled = true;
     const q = await sb.rpc('ap_docs_open', { p_token: TOKEN, p_store: store || null, p_id: id }); if(q.error){ e.target.disabled = false; await uiAlert(q.error.message); return; } again(); };
 }
