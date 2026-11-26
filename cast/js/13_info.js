@@ -28,9 +28,21 @@ function noticeAttach(a){
   return (im.length ? `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px">${im.map(f => `<a href="${esc(noticeFile(f.p))}" target="_blank" rel="noopener"><img src="${esc(noticeFile(f.p))}" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"></a>`).join('')}</div>` : '')
     + pd.map(f => `<div class="row" style="border-top:1px solid var(--line);margin-top:10px;padding-top:8px"><span class="sm" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">PDF　${esc(f.n)}</span><a class="btn g" href="${esc(noticeFile(f.p))}" target="_blank" rel="noopener" style="width:auto;padding:8px 18px;white-space:nowrap;text-decoration:none">表示</a></div>`).join('');
 }
+// 1枚のカードのお知らせ（SQL 759）：LINE のカードと同じ並び（見出しの帯 → あいさつ → 項目の一覧 → 項目ごとの番号・見出し・写真・説明 → 締め）。写真は押すと大きく
+function noticeCard(x){
+  const c = x.card, its = c.items || [], tx = t => t ? `<div style="margin-top:8px;line-height:1.7;white-space:pre-wrap;font-size:14px">${esc(t)}</div>` : '';
+  return `<div class="card" style="padding:0;overflow:hidden"><div style="background:var(--head);padding:14px 16px">
+      <span style="display:inline-block;border:1px solid var(--brand);color:var(--brand);border-radius:999px;padding:0 10px;font-size:11px">${esc(c.label || 'お知らせ')}</span>
+      <div style="color:#fff;font-weight:700;font-size:19px;margin-top:6px">${esc(x.title)}</div><div style="color:var(--brand);font-size:12px">${mdW(jstS(x.at))} 掲載</div></div>
+    <div style="padding:4px 16px 16px">${tx(c.greet)}
+      ${its.length ? `<div style="background:var(--gold-soft);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:10px;font-size:14px;line-height:1.7">${its.map(i => `<div>✓ ${esc(i.h)}</div>`).join('')}</div>` : ''}
+      ${its.map((i, k) => `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div style="display:flex;gap:8px;align-items:baseline"><span style="color:var(--brand-d);font-style:italic;font-size:14px">${String(k + 1).padStart(2, '0')}</span><b style="font-size:16px">${esc(i.h)}</b></div>
+        ${i.img ? `<a href="${esc(noticeFile(i.img.p))}" target="_blank" rel="noopener"><img src="${esc(noticeFile(i.img.p))}" alt="" style="width:100%;height:auto;display:block;margin-top:8px;border-radius:6px"></a>` : ''}${tx(i.t)}</div>`).join('')}
+      ${c.close ? `<div style="border-top:1px solid var(--line);margin-top:14px">${tx(c.close)}</div>` : ''}</div></div>`;
+}
 function noticeShow(x){
   setBack(noticeList);
-  show(`<div class="card"><div class="gh">${mdW(jstS(x.at))} 掲載</div><div style="font-weight:700;font-size:17px">${esc(x.title)}</div>${x.body?`<div style="margin-top:10px;line-height:1.7;white-space:pre-wrap">${esc(x.body)}</div>`:''}${noticeAttach(x.attach)}</div>
+  show(`${x.card ? noticeCard(x) : `<div class="card"><div class="gh">${mdW(jstS(x.at))} 掲載</div><div style="font-weight:700;font-size:17px">${esc(x.title)}</div>${x.body?`<div style="margin-top:10px;line-height:1.7;white-space:pre-wrap">${esc(x.body)}</div>`:''}${noticeAttach(x.attach)}</div>`}
     ${x.read?'<div class="c sm" style="color:var(--ok);padding:8px">確認済</div>':'<button class="btn" id="ntOk">確認</button>'}`);
   const b = $('ntOk'); if(b) b.onclick = async () => {
     b.disabled = true;
