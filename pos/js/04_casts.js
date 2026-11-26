@@ -228,16 +228,16 @@ function caBindB(C){ const {adv,advX,tev,rcp,tcalc}=C;
 /* 入店説明（SQL 723・オーナー 11/25「ア この形で作る」）：担当黒服の横に［入店説明］の札。赤＝出勤3日目以降で入店説明2 が未／うすい赤＝未がある／灰色＝全部済。
    押すと 1〜5 の小窓。未を押すとお店の Google アカウントの資料が開き、戻って説明者を選んで［説明を受けました］。マイページにはリンクを出さない（ノウハウを守るため） */
 let caNy={at:0,d:null};
-async function caNyLoad(force){ if(!force&&caNy.d&&Date.now()-caNy.at<60000) return caNy.d; const r=await sb.rpc('pos_nyuten_list'); if(!r.error) caNy={at:Date.now(),d:r.data}; return caNy.d; }
+async function caNyLoad(force){ if(!force&&caNy.d&&Date.now()-caNy.at<60000) return caNy.d; const [r,q]=await Promise.all([sb.rpc('pos_nyuten_list'),sb.rpc('pos_nyuten_qr')]); if(!r.error) caNy={at:Date.now(),d:r.data,q:q.error?null:q.data}; return caNy.d; }
 function caNyHtml(s){ const z=caNy.d?.staff?.[s.id]; if(!z||!s.is_active||s.kind==='hall'||cSorting||cDeleteMode) return ''; const R=z.rows||[], n2=R.find(x=>x.no===2);
   const cl=R.every(x=>x.done)?'class="badge gray"':(!n2?.done&&Number(z.days)>=3?'class="badge warnb"':'class="badge" style="background:var(--warn-soft);color:var(--warn)"');
   return ` <span ${cl} data-ny="${s.id}" style="cursor:pointer">入店説明</span>`; }
 function caNyOpen(id){ const s=S.staffAll.find(x=>x.id===id), z=caNy.d?.staff?.[id]; if(!s||!z) return; let open=null; const m=mkModal(60); document.body.appendChild(m);
-  const draw=()=>{ m.innerHTML=`<div class="box" style="width:min(600px,94vw);text-align:left"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-weight:700;font-size:16px;margin-bottom:6px">${esc(s.display_name)}　入店説明</div>${(z.rows||[]).map(r=>`<div style="display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid var(--line);flex-wrap:wrap"><b style="flex:none;width:100px">入店説明${r.no}</b>${
+  const draw=()=>{ m.innerHTML=`<div class="box" style="width:min(600px,94vw);text-align:left"><button class="xb dx" data-x aria-label="閉じる">×</button><div style="font-weight:700;font-size:16px;margin-bottom:6px">${esc(s.display_name)}　入店説明</div>${(z.rows||[]).map(r=>`<div style="display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid var(--line);flex-wrap:wrap"><b style="flex:none;width:120px">入店説明${r.no}</b>${
       r.done?`<span style="color:var(--gold);font-weight:700">済</span>${r.by?`<span>（${esc(r.by)} ${esc(r.at||'')}）</span>`:''}`:
       open===r.no?`<span style="color:var(--warn);font-weight:700">未</span><span class="muted" style="font-size:13px">説明者</span><select data-nyb style="min-width:140px">${hallList().map(h=>`<option value="${h.id}" ${mgrOf(s)?.id===h.id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select><button class="sm" data-nyok style="background:var(--gold);color:#fff">説明を受けました</button>`:
-      `<u data-nyo="${r.no}" style="color:var(--warn);font-weight:700;cursor:pointer">未</u>`}</div>`).join('')}</div>`;
-    m.querySelector('[data-x]').onclick=()=>{ m.remove(); renderCasts(); };
+      `<u data-nyo="${r.no}" style="color:var(--warn);font-weight:700;cursor:pointer">未</u>`}</div>`).join('')}${caNyQrRow(s)}</div>`;
+    m.querySelector('[data-x]').onclick=()=>{ m.remove(); caNyQrOpen=null; renderCasts(); }; caNyQrBind(m,s,draw);
     m.querySelectorAll('[data-nyo]').forEach(u=>u.onclick=()=>{ open=Number(u.dataset.nyo); const url=caNy.d?.docs?.[open]; if(url) window.open(url,'_blank'); else toast(`入店説明${open}のリンクが未登録です`); draw(); });
     const ok=m.querySelector('[data-nyok]'); if(ok) ok.onclick=async()=>{ const by=m.querySelector('[data-nyb]')?.value; if(!by){ toast('説明者を選択してください'); return; } ok.disabled=true;
       const r=await sb.rpc('pos_nyuten_done',{p_staff:id,p_no:open,p_by:by}); if(r.error){ ok.disabled=false; toast(r.error.message); return; } z.rows=r.data; open=null; caNy.at=0; draw(); }; };
