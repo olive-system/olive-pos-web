@@ -21,9 +21,9 @@ async function lqPaint(){ const b = $('lqBox'); if(!b) return; const u = ME.lqr;
   const fld = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink)';
   b.innerHTML = `<div class="row" style="min-height:44px;align-items:center"><span class="gh" style="margin:0">LINE QR</span>${u ? '<button class="btn g" id="lqDel" style="width:auto;padding:6px 12px;font-size:14px">削除</button>' : `<small style="${LQ_TAG}">未登録</small>`}</div>${qr}
     <label class="btn g" style="margin-top:10px">画像選択<input type="file" accept="image/*" id="lqF" style="display:none"></label>
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px"><input id="lqU" inputmode="url" autocomplete="off" style="${fld}" placeholder="https://line.me/ti/p/…"><button class="btn" id="lqS" style="width:auto;padding:0 16px">保存</button></div>`;
-  /* 空の［保存］は削除にしない：画像で登録した後、空の URL の欄の［保存］を押すと、確かめなしで消えていた（11/26 ミオ 3回）。削除は［削除］だけ */
-  $('lqF').onchange = lqPick; $('lqS').onclick = async () => { const v = $('lqU').value.trim(); if(!v){ await uiAlert('LINE の友だち追加の URL（https://line.me/ti/p/…）を入力してください'); return; } lqSave(v); };
+    ${u ? '' : `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px"><input id="lqU" inputmode="url" autocomplete="off" style="${fld}" placeholder="https://line.me/ti/p/…"><button class="btn" id="lqS" style="width:auto;padding:0 16px">保存</button></div>`}`;
+  /* URL の欄は未登録の時だけ（画像が無い子の登録用）。登録済みで空の［保存］を押すと、確かめなしで消えていた（11/26 ミオ 3回）。空の［保存］は何もしない。削除は［削除］だけ */
+  $('lqF').onchange = lqPick; if($('lqS')) $('lqS').onclick = () => { const v = $('lqU').value.trim(); if(v) lqSave(v); };
   if($('lqDel')) $('lqDel').onclick = async () => { if(!await uiConfirm('LINE QR を削除しますか？', '削除')) return; lqSave(''); };
 }
 /* 選んだ画像の中の QR を読む。スクショに別の QR が写っていても、LINE の友だち追加の QR を探す（読めた別の QR は白で消して探し直す） */
