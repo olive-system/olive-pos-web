@@ -187,7 +187,7 @@ function hcTsukeBind(){ $('main').querySelectorAll('[data-tk]').forEach(x => x.o
 async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
   const [r, t, k, h] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN }), sb.rpc('hall_tsuke_staff', { p_token: TOKEN }), sb.rpc('cast_shift_health', { p_token: TOKEN, p_store: null, p_month: null })]); if(r.error){ fail(r.error.message); return; }
-  hcT = t.error ? null : t.data; hcK = k.error ? null : k.data; hcH = h.error ? null : h.data; /* 調整率・不足率（POS の朝礼と同じ。見本 ⑩） */
+  hcT = t.error ? null : t.data; hcK = k.error ? null : k.data; hcH = h.error ? null : h.data; /* 人員（調整率・不足率・離職率・在籍期間。POS の朝礼と同じ。見本 ⑯-9） */
   const ids = (r.data.guests || []).map(g => g.id), nr = ids.length ? await sb.rpc('hall_resv_ng', { p_token: TOKEN, p_resv: ids }) : null; hcNg = nr && !nr.error ? nr.data || {} : {}; /* NG キャスト（SQL 745）。黒服だけ */
   hcD = r.data; if(keepWx !== true) hcWx = null; hcPaint(); /* トップのボタンからは event が来るので true の時だけ */
   if(!hcWx) await hcWeather(hcD);
@@ -219,7 +219,7 @@ function hcHallLate(C){ return (C.notes || (C.hall_late||[]).map(x => ({ ...x, w
 function hcHtml(V){ const { C, G, left, tag, guest, SH, y } = V; return `<div id="hcBox"><div class="ttl">朝礼　${mdW(C.date)}${C.event?' <small class="muted">イベント日</small>':''}</div>
     <div class="card"><div class="gh">本日来店予定のお客様 ${G.length}組${left?`　<span class="err">未確認 ${left}組</span>`:''}</div>${G.map(guest).join('')||'<div class="muted sm">なし</div>'}${G.length?'<div class="muted sm" style="margin-top:6px">未確認をタップで顧客メモを確認してください。</div>':''}</div>
     <div class="card"><div class="gh">天気</div><div id="hcWx" class="${hcWx ? hcWx.c : 'muted sm'}">${hcWx ? hcWx.h : '読み込み中…'}</div></div>
-    ${hcH ? `<div class="card"><div class="gh">調整率・不足率</div>${healthChoreiHtml(hcH, C.date)}</div>` : ''}
+    ${hcH ? (n => `<details class="card"><summary class="gh" style="cursor:pointer">人員<small style="margin-left:8px;font-weight:400;color:${n ? 'var(--warn)' : 'var(--muted)'}">${n ? `目安外 ${n}つ` : '目安どおり'}</small></summary><div style="font-size:14px;line-height:1.5;margin-top:4px">${healthChoreiHtml(hcH, C.date)}</div></details>`)(healthChoreiMiss(hcH, C.date)) : ''}
     <div class="card"><div class="gh">本日の出勤 ${(C.shifts||[]).length}人</div>${Object.keys(SH).sort().map(t => `<div class="row" style="justify-content:flex-start"><b>${t}</b><span>${SH[t].join('・')}</span></div>`).join('')||'<div class="muted sm">シフトなし</div>'}${hcHallLate(C)}</div>
     ${hcTsukeHtml()}${hcTrialHtml()}
     <div class="card"><div class="gh">売上</div><div class="row"><span>昨日 ${mdWD(y)}</span><b>${yen(C.sales_y)}</b></div>${C.fc?hcFc(C.fc):C.sales_m==null?'':`<div class="row"><span>今月（〜${y.getMonth()+1}/${y.getDate()}）</span><b>${yen(C.sales_m)}</b></div>`}</div>
