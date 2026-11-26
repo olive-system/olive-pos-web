@@ -37,6 +37,6 @@
   button.xb{background:none!important;border:none!important;box-shadow:none;border-radius:6px;padding:4px 6px!important;margin:0;width:auto!important;min-width:0;height:auto!important;min-height:0;font:inherit;font-size:18px!important;line-height:1;color:var(--muted)!important;flex:none;cursor:pointer}button.xb.img{position:absolute;top:2px;right:4px;color:var(--card)!important;text-shadow:0 0 4px var(--ink)}button.xb.img.lt{color:var(--muted)!important;text-shadow:none} /* 2026-11-05：行・写真の × は枠なし・うすく小さく（オーナー「×に枠はダサい、スペース食う」） */
 /* 報酬明細は1つの枠に、区切りは細い線だけ（SQL 468・2026-11-12 オーナー） */
 .card.one .sec{border-top:1px solid var(--line);padding:8px 0}.card.one .sec:first-child{border-top:none;padding-top:0}.card.one .sec:last-child{padding-bottom:0}
-  /* 伝票一覧のカードの右：合計と小計を縦にそろえる（言葉の幅と数の幅を決めて、行ごとに数の右端と始まりがずれないように） */
-  .blam{display:inline-flex;align-items:baseline;gap:6px}.blam small{display:inline-block;width:2.2em;font-size:12px}.blam b{display:inline-block;min-width:4.2em;text-align:right;font-variant-numeric:tabular-nums}
-  .blks{padding:0 0 2px}.blam.ks small,.blam.ks b{color:var(--brand-d)}.blam.ks.neg b{color:var(--warn)}
+  /* 伝票一覧のカードの右上の係小計（言葉の幅と数の幅を決めて、カードごとに数の右端と始まりがずれないように） */
+  .blam{display:inline-flex;align-items:baseline;gap:6px}.blam small{display:inline-block;width:3.3em;font-size:12px}.blam b{display:inline-block;min-width:4.2em;text-align:right;font-variant-numeric:tabular-nums}
+  .blam.ks small,.blam.ks b{color:var(--brand-d)}.blam.ks.neg b{color:var(--warn)}
