@@ -23,7 +23,7 @@ function renderNewResv(){ const box=$('nResv'); if(!box) return; const L=newResv
   box.querySelectorAll('[data-rid]').forEach(el=>el.onclick=()=>{ const r=L.find(x=>x.id===el.dataset.rid); if(!r) return; newResvId=r.id; newN=r.guests||1; newCust=r.customer_id?{id:r.customer_id,name:r.name}:null; newDouhanIds=r.douhan_ids||null; newMoreCust=(r.more||[]).map(x=>x.customer_id).filter(Boolean) /* 予約の2人目以降で顧客から選んだお客様も伝票に入れる（名前だけの人は入れない・1人目と同じ） */; renderNew(); }); }
 // 押した予約の同伴の子を、伝票作成の時に伝票へ付ける（同伴は伝票で決める。押したことが決め）
 async function addResvDouhan(b, ids){ if(!ids?.length) return; const role=douhanRole(b.opened_at); let n=0;
-  for(const sid of ids){ if(n>=(b.guest_count||1)){ toast(`同伴は客数（${b.guest_count}名）までです`); break; }
+  for(const sid of ids){ if(n>=douhanCap(b)){ toast(`同伴は来店人数（${douhanCap(b)}名）までです`); break; }
     const q=await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:b.id,staff_id:sid,role,is_kakari:!!S.settings.douhan_is_kakari}});
     if(q.error){ toast(q.error.message); break; } n++; await logOp('同伴を追加',{kind:ROLE[role],resv:true}); }
   if(n&&S.settings.douhan_is_kakari) await syncHcBack(); }
