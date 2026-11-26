@@ -1,5 +1,5 @@
 // ---------- bill ----------
-const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), after_bills(staff_id), bill_extensions(id,minutes,unit_price,qty,is_auto), bill_items(id,product_id,category_id,name,qty,unit_price,cast_subtotal_price,back_amount,back_points,is_service_target,is_keep,added_at,is_void,bill_item_splits(id,staff_id,sales_amount,back_amount,back_points)), bill_customers(customer_id), bill_adjustments(id,kind,amount,reason), payments(*), bill_tags(id,kind,tag_no,memo,returned_at)';
+const BILL_SEL='*, bill_casts(id,staff_id,role,is_kakari), after_bills(staff_id), bill_extensions(id,minutes,unit_price,qty,is_auto,added_at), bill_items(id,product_id,category_id,name,qty,unit_price,cast_subtotal_price,back_amount,back_points,is_service_target,is_keep,added_at,is_void,bill_item_splits(id,staff_id,sales_amount,back_amount,back_points)), bill_customers(customer_id), bill_adjustments(id,kind,amount,reason), payments(*), bill_tags(id,kind,tag_no,memo,returned_at)';
 /* 伝票を続けて開いた時（2回押す・すぐ別の卓）、先に始めた方が後の伝票（金額がまだ無い）を描いて止まった。最後に開いた方だけが描く。
    最後まで開けた時だけ true を返す：会計の画面を出す側はこれを見る（読み込みが重なると S.cur は金額の無い伝票になっていて、会計の画面で止まった） */
 let openBillSeq=0;
@@ -147,12 +147,17 @@ function rbCasts(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit
 /* 右上の × と金額を持つ行に印を付ける（:has() は古い iOS で効かないので JS で付ける） */
 function markXr(ids){ ids.forEach(id=>{ const el=$(id); if(!el) return; Array.prototype.forEach.call(el.children,r=>{ let a=false,x=false; Array.prototype.forEach.call(r.children,c=>{ if(c.classList.contains('amt')) a=true; if(c.tagName==='BUTTON'&&c.classList.contains('xb')) x=true; }); if(a&&x) r.classList.add('xr'); }); }); }
 /* セット・VIP・延長 */
+/* 延長は足した順に、セットの終わりから続けて 何時〜何時（黒服の声 11/26：前のシステムは「4セット目 00:35〜01:05」と出ていた）。
+   削除した延長（料金なし）と会計中猶予は時刻に入れない（下の別の行に出している） */
+function extInOrder(b){ let t=new Date(b.set_start).getTime()+b.set_minutes*60000;
+  return [...(b.bill_extensions||[])].sort((x,y)=>String(x.added_at||'').localeCompare(String(y.added_at||''))).map(e=>{ const from=t; t+=e.minutes*60000; return {...e,from,to:t}; }); }
+const extRange=(f,t)=>`<span style="margin-left:10px;font-variant-numeric:tabular-nums">${hmN(f)}〜${hmN(t)}</span>`;
 function rbSetHtml(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
   $('bSet').innerHTML=`<div class="item"><span class="n">セット ${b.set_minutes}分<br><small>${yen(b.set_unit_price)}×${b.set_guest_count??b.guest_count}</small></span><span class="amt">${yen(b.set_unit_price*(b.set_guest_count??b.guest_count))}</span></div>`+
     (t?.vip_set_fee>0&&!b.vip_set_off?`<div class="item" style="gap:6px"><span class="n" style="white-space:nowrap"><span class="badge warnb">VIP</span> VIP代</span><span class="amt">${yen(b.totals?.vip_set??t.vip_set_fee)}</span><button class="xb" data-vipoff aria-label="削除">×</button></div>`:'')+ /* VIP代は × で外せる（サービス） */ /* 金額は calc_bill の値（会計済みの伝票は会計した時の VIP代） */
-    (()=>{ const ex=b.bill_extensions||[]; if(!ex.length) return ''; const tot=ex.reduce((a,e)=>a+e.unit_price*e.qty,0), mins=ex.reduce((a,e)=>a+e.minutes,0);
-      return `<div class="item" id="extSum" style="cursor:pointer"><span class="n">${S.settings.ext_minutes}分延長<br><small>×${ex.length}　計${mins}分 ${S.extOpen?'▲ 閉じる':'▼ 内訳'}</small></span><span class="amt">${yen(tot)}</span></div>`+
-        (S.extOpen?ex.map(e=>`<div class="item" style="margin-left:16px"><span class="n">延長 ${e.minutes}分<br><small>${e.is_auto?'自動':'手動'} ${yen(e.unit_price)}×${e.qty}</small></span><span class="amt">${yen(e.unit_price*e.qty)}</span><button class="xb" data-ext="${e.id}">×</button></div>`).join(''):'')+
+    (()=>{ const ex=extInOrder(b); if(!ex.length) return ''; const tot=ex.reduce((a,e)=>a+e.unit_price*e.qty,0), mins=ex.reduce((a,e)=>a+e.minutes,0);
+      return `<div class="item" id="extSum" style="cursor:pointer"><span class="n"><span style="white-space:nowrap">${S.settings.ext_minutes}分延長${extRange(ex[0].from,ex[ex.length-1].to)}</span><br><small>×${ex.length}　計${mins}分 <span style="white-space:nowrap">${S.extOpen?'▲ 閉じる':'▼ 内訳'}</span></small></span><span class="amt">${yen(tot)}</span></div>`+
+        (S.extOpen?ex.map(e=>`<div class="item" style="margin-left:16px"><span class="n"><span style="white-space:nowrap">延長 ${e.minutes}分${extRange(e.from,e.to)}</span><br><small>${e.is_auto?'自動':'手動'} ${yen(e.unit_price)}×${e.qty}</small></span><span class="amt">${yen(e.unit_price*e.qty)}</span><button class="xb" data-ext="${e.id}">×</button></div>`).join(''):'')+
         (t?.vip_ext_fee>0?`<div class="item"><span class="n">VIP${S.settings.ext_minutes}分延長<br><small>${yen(t.vip_ext_fee)}×${ex.length}</small></span><span class="amt">${yen(b.totals?.vip_ext??t.vip_ext_fee*ex.length)}</span></div>`:''); })()+
     (b.ext_waived_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">削除した延長 ${b.ext_waived_minutes}分（料金なし）</div>`:'')+
     (b.ext_pay_shift_minutes>0?`<div class="muted" style="font-size:12px;padding:2px 4px">会計中猶予 ${b.ext_pay_shift_minutes}分（料金なし）</div>`:'')+
