@@ -2,6 +2,13 @@
    欠勤の行がある子は、出勤の数と一覧から外して、一覧の上の箱に「名前　連絡 13:10・理由」で出す（同じ欠勤を2か所に出さない）
    当日（今の営業日）の出勤を × で取り消す時だけ「本人都合／店都合」を選ぶ。本人都合＝当日欠勤（罰金はマイページの欠勤連絡と同じ判定）。店都合＝今までどおり消すだけ（オーナー 11/26「当日に削除する時のみにしてね」） */
 
+/* 日の画面の読み込み：その日のシフトと当日欠勤の一覧（当日欠勤が読めない時は空で続ける） */
+async function sdDayLoad(iso, store){ const a = { p_token: TOKEN, p_store: store || null, p_day: iso };
+  const [r, ab, rc] = await Promise.all([sb.rpc('cast_shift_day', a), sb.rpc('cast_shift_day_absent', a), sb.rpc('cast_shift_day_recruit', a)]); return [r, ab.error ? [] : ab.data || [], rc.error ? null : rc.data]; }
+/* 一覧の上に当日欠勤の箱を入れる */
+function sdAbsWire(AB, RC, L){ if(AB.length || RC) $('main').querySelector('.card').insertAdjacentHTML('beforebegin', sdAbsBox(AB, RC));
+  const RF = new Set(AB.map(a => a.refill).filter(Boolean)); /* 補充の子は一覧の名前の横に「補充」（見本③） */
+  if(RF.size) $('main').querySelectorAll('[data-sdx]').forEach(b => { const x = L[+b.dataset.sdx], sp = b.parentElement.querySelector('span'); if(x && RF.has(x.name) && sp) sp.insertAdjacentHTML('beforeend', '<b class="sm" style="margin-left:6px;color:var(--pri)">補充</b>'); }); }
 /* 一覧の上の箱。理由は長い文のことがあるので1行で切る */
 function sdAbsBox(AB, RC){ if(!AB.length && !RC) return ''; /* RC＝出勤募集（16_shift_recruit.js）。補充の行と「出勤可」の並びも同じ箱に */
   return `<div class="card" style="background:var(--gold-soft)"><div class="gh">当日欠勤 ${AB.length}人</div>${AB.map(a => `<div style="display:flex;gap:8px;min-width:0"><span style="flex:none">${esc(a.name)}</span><span class="sm muted" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(a.at).replace(/^0/, '')}・${esc(String(a.reason || '').replace(/\s+/g, ' '))}</span></div>${sdRefillRow(a)}`).join('')}${sdRecruitHtml(RC)}</div>`; }
