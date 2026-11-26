@@ -6,7 +6,7 @@
 const KEY_URL=new URL('../key/',location.href).href, KEY_WD_ORDER=[1,2,3,4,5,6,0];
 PAGES.o_key=async()=>{ const st=storeId, head=`<h1>セサミ連携 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const r=await sb.rpc('admin_key_get',{p_store:st}); if(page!=='o_key'||storeId!==st) return;
+  const [r,mo]=await Promise.all([sb.rpc('admin_key_get',{p_store:st}), Promise.resolve(sb.rpc('admin_key_month')).catch(()=>null)]); if(page!=='o_key'||storeId!==st) return;
   if(r.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(r.error.message)}</div>`; return; }
   const D=r.data, L=D.locks||[];
   if(!L.length){ $('main').innerHTML=head+'<div class="card muted">鍵なし</div>'; return; }
@@ -24,6 +24,7 @@ PAGES.o_key=async()=>{ const st=storeId, head=`<h1>セサミ連携 <small class=
       ${(D.vendors||[]).length?`<table class="t" style="margin-top:8px"><tr><th>名称</th><th>曜日・時間</th><th>期限</th><th></th><th>状態</th></tr>
       ${D.vendors.map((v,i)=>`<tr><td><a data-kv="${i}" style="color:var(--blue);cursor:pointer;text-decoration:underline">${esc(v.name)}</a></td><td>${esc(v.text)}</td><td>${v.until?esc(v.until.slice(5).replace(/^0/,'').replace('-0','/').replace('-','/')):'無期限'}</td>
         <td><button class="ghost sm" data-kq="${i}">QR</button></td><td>${v.expired?'<span class="badge gray">期限切れ</span>':'<span class="badge">有効</span>'}</td></tr>`).join('')}</table>`:'<div class="muted" style="margin-top:6px">業者なし</div>'}</div>`:''}
+    ${keyMonthCard(mo&&!mo.error?mo.data:null)}
     <div class="card"><b>解錠履歴</b>${(D.logs||[]).length?`<table class="t" style="margin-top:8px"><tr><th>日時</th><th>名前</th><th>鍵</th><th>操作</th><th>結果</th></tr>
       ${D.logs.map(g=>`<tr><td>${dt(g.at)}</td><td>${esc(g.who)}</td><td>${esc(g.lock||'')}</td><td>${g.cmd==='lock'?'施錠':'解錠'}</td><td>${g.ok?'完了':`<span class="err">エラー</span> <small class="muted">${esc(g.reason||'')}</small>`}</td></tr>`).join('')}</table>`:'<div class="muted" style="margin-top:6px">履歴なし</div>'}</div>`;
   $('main').querySelector('[data-api]').onclick=()=>keyApiEdit(st);
@@ -96,3 +97,9 @@ async function keyVendorQr(v){ await needLib('qrcode'); const u=KEY_URL+'?t='+en
   md.querySelector('[data-k=no]').onclick=()=>md.remove();
   md.querySelector('[data-k=cp]').onclick=async()=>{ try{ await navigator.clipboard.writeText(u); toast('コピーしました'); }catch(e){ await uiAlert(u); } };
 }
+
+// 今月の利用：セサミの API は月 1000 回の上限（全店共通・2026-11-25 夜から 429）。押した数（解錠・施錠）を店・鍵ごとに出す
+function keyMonthCard(m){ if(!m||!m.locks) return ''; const L=m.locks||[], over=m.total>=(m.limit||1000)*0.8;
+  return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><b>今月の利用</b><span class="${over?'err':'muted'}" style="font-weight:700">合計 ${m.total}回　上限 ${m.limit}回（全店共通）</span></div>
+    <table class="t" style="margin-top:8px"><tr><th>店</th><th>鍵</th><th style="text-align:right">回数</th><th style="text-align:right">エラー</th></tr>
+    ${L.map(x=>`<tr><td>${esc(x.store)}</td><td>${esc(x.lock)}</td><td style="text-align:right">${x.total}回</td><td style="text-align:right">${x.fail?`<span class="err">${x.fail}回</span>`:'0回'}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">利用なし</td></tr>'}</table></div>`; }
