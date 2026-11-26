@@ -4,7 +4,7 @@
 const LQ_ROW=`<div id="cLqRow" style="display:none"><span>LINE QR</span><span><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="color:var(--ink)" id="cLq">…</b><button class="ghost sm" id="cLqBtn" style="display:none;padding:2px 10px">印刷</button></span><small class="muted" id="cLqNote" style="display:none">加熱ラミネート不可（感熱紙）</small></span></div>`;
 function cfLineQr(s){ sb.rpc('pos_line_qr').then(r=>{ const row=$('cLqRow'); if(!row||S.cSel!==s||r.error) return; row.style.display='contents'; const u=(r.data||{})[s.id], b=$('cLqBtn');
     $('cLq').textContent=u?'登録済み':'未登録'; b.style.display=u?'':'none'; $('cLqNote').style.display=u?'block':'none';
-    b.onclick=async()=>{ b.disabled=true; try{ await lineQrPrint(s.display_name,u); await logOp('LINE QR を印刷',{name:s.display_name}); } finally{ b.disabled=false; } }; }); }
+    b.onclick=async()=>{ b.disabled=true; try{ await lineQrPrint(s.display_name,u); await logOp('LINE QR を印刷',{name:s.display_name}); caNyQrPrinted(s.id); } finally{ b.disabled=false; } }; }); }
 // カード：80×46mm（ボトルの名札と同じ向き。紙の幅 80mm をよこにし、プリンターが 46mm で切る。はさみは要らない）。オーナー（11/26 見本の OK）「名刺（49×85mm）より一回り小さく」「ロゴは？名前は小さくしていい」
 // 左に印刷のロゴ（概算・会計と同じ）と源氏名、右に QR（約 25mm 角）。印刷できない頭の NT.off mm を除いた所で、中身はカードのたての真ん中から 1mm 下（印刷の位置が少しずれても欠けないように）
 const LQC={ h:46, logoW:30, logoH:10, nameH:4.2, gap:7, lgap:4 }; /* mm */
