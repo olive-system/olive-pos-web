@@ -147,15 +147,15 @@ function saBind(S){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hal
 const SH_EDIT_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
 async function shiftDayEdit(iso, store){
   setBack(() => shiftAll(store)); show('<div class="card c muted">読み込み中…</div>');
-  const [r, AB] = await sdDayLoad(iso, store); if(r.error){ fail(r.error.message); return; }
-  const abId = new Set(AB.map(a => a.staff_id)); /* 当日欠勤の子は出勤の数と一覧から外し、上の箱に出す（16_shift_absent.js） */
+  const [r, AB, RC] = await sdDayLoad(iso, store); if(r.error){ fail(r.error.message); return; }
+  const abId = new Set(AB.map(a => a.staff_id)); /* 当日欠勤の子は出勤の数と一覧から外し、上の箱に出す・出勤募集（16_shift_absent.js・16_shift_recruit.js） */
   const D = r.data, d = new Date(iso+'T00:00:00+09:00'), again = () => shiftDayEdit(iso, store), L = (D.shifts || []).filter(x => !abId.has(x.staff_id)); D.ev = !!(SHALL && SHALL.ev && SHALL.ev.has(iso));
   const all = k => ((SHALL && SHALL.months) || []).flatMap(M => M[k] || []), off = all('hall_off').filter(x => x.day === iso).map(x => x.name), R = all('resv').filter(x => x.day === iso);
   const tin = (v, a, st) => `<select ${a} style="${st || 'width:auto;font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)'}">${(SH_EDIT_T.includes(v) ? SH_EDIT_T : [v, ...SH_EDIT_T]).map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   const IVd = D.iv || [], HTd = D.hall_trial || [];
   show(sdDayHtml(D, d, L, off, R, IVd, HTd, tin));
-  sdAbsWire(AB);
+  sdAbsWire(AB, RC, L);
   $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => apOpen(b.dataset.ap, store, again)); /* しるしは右の列・同伴の子。シフトを直せる人（黒服・ママ）は同伴を取消 */
   $('main').querySelectorAll('[data-dcx]').forEach(b => b.onclick = async () => { const x = R[+b.dataset.dcx]; if(!await uiConfirm(`${x.name} 様の同伴を取り消しますか？`, '取消')) return; b.disabled = true;
     const q = await sb.rpc('cast_douhan_cancel', { p_token: TOKEN, p_store: store || null, p_id: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
@@ -164,6 +164,7 @@ async function shiftDayEdit(iso, store){
   $('main').querySelectorAll('[data-sdt]').forEach(el => el.onchange = async () => { const x = L[+el.dataset.sdt]; if(!el.value){ el.value = x.time; return; } if(await set(x.staff_id, el.value)) again(); });
   $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; b.disabled = true; /* 2回押し（LINE が2通）にならないように */ if(await sdAbsCancel(x, iso, store, set)) again(); else b.disabled = false; }); /* 当日は本人都合／店都合（16_shift_absent.js） */
   if($('sdAdd')) $('sdAdd').onclick = () => shiftDayAdd(D, d, iso, store, tin, set, again);
+  sdRecruitBind(RC, iso, store, tin, again);
 }
 /* 1日のシフトの画面（出勤・黒服の休み・予約・体験・面接） */
 function sdDayHtml(D, d, L, off, R, IVd, HTd, tin){ return `<div class="ttl">${mdWD(d)}${D.ev ? '　イベント' : ''}　出勤 ${L.length}人</div>${L.some(x => x.trial) || HTd.length ? `<div class="muted sm" style="margin:-4px 0 8px 6px">${apLegend()}</div>` : ''}<div class="card">
@@ -244,12 +245,14 @@ function shiftTrialForm(w, c, d, iso, store, tin, pick, close, again){ const fs 
 
 /* 日の画面の読み込み：その日のシフトと当日欠勤の一覧（当日欠勤が読めない時は空で続ける） */
 async function sdDayLoad(iso, store){ const a = { p_token: TOKEN, p_store: store || null, p_day: iso };
-  const [r, ab] = await Promise.all([sb.rpc('cast_shift_day', a), sb.rpc('cast_shift_day_absent', a)]); return [r, ab.error ? [] : ab.data || []]; }
+  const [r, ab, rc] = await Promise.all([sb.rpc('cast_shift_day', a), sb.rpc('cast_shift_day_absent', a), sb.rpc('cast_shift_day_recruit', a)]); return [r, ab.error ? [] : ab.data || [], rc.error ? null : rc.data]; }
 /* 一覧の上に当日欠勤の箱を入れる */
-function sdAbsWire(AB){ if(AB.length) $('main').querySelector('.card').insertAdjacentHTML('beforebegin', sdAbsBox(AB)); }
+function sdAbsWire(AB, RC, L){ if(AB.length || RC) $('main').querySelector('.card').insertAdjacentHTML('beforebegin', sdAbsBox(AB, RC));
+  const RF = new Set(AB.map(a => a.refill).filter(Boolean)); /* 補充の子は一覧の名前の横に「補充」（見本③） */
+  if(RF.size) $('main').querySelectorAll('[data-sdx]').forEach(b => { const x = L[+b.dataset.sdx], sp = b.parentElement.querySelector('span'); if(x && RF.has(x.name) && sp) sp.insertAdjacentHTML('beforeend', '<b class="sm" style="margin-left:6px;color:var(--pri)">補充</b>'); }); }
 /* 一覧の上の箱。理由は長い文のことがあるので1行で切る */
-function sdAbsBox(AB){ if(!AB.length) return '';
-  return `<div class="card" style="background:var(--gold-soft)"><div class="gh">当日欠勤 ${AB.length}人</div>${AB.map(a => `<div style="display:flex;gap:8px;min-width:0"><span style="flex:none">${esc(a.name)}</span><span class="sm muted" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(a.at).replace(/^0/, '')}・${esc(String(a.reason || '').replace(/\s+/g, ' '))}</span></div>`).join('')}</div>`; }
+function sdAbsBox(AB, RC){ if(!AB.length && !RC) return ''; /* RC＝出勤募集（16_shift_recruit.js）。補充の行と「出勤可」の並びも同じ箱に */
+  return `<div class="card" style="background:var(--gold-soft)"><div class="gh">当日欠勤 ${AB.length}人</div>${AB.map(a => `<div style="display:flex;gap:8px;min-width:0"><span style="flex:none">${esc(a.name)}</span><span class="sm muted" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(a.at).replace(/^0/, '')}・${esc(String(a.reason || '').replace(/\s+/g, ' '))}</span></div>${sdRefillRow(a)}`).join('')}${sdRecruitHtml(RC)}</div>`; }
 
 /* 当日の取消の小窓。答え：null（キャンセル）・{ self:false }（店都合）・{ self:true, time, reason }（本人都合） */
 function sdAbsDlg(x){ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg'; let self = true; const T = absContactTimes();
@@ -275,3 +278,34 @@ async function sdAbsCancel(x, iso, store, set){
   const q = await sb.rpc('cast_shift_absent', { p_token: TOKEN, p_store: store || null, p_staff: x.staff_id, p_day: iso, p_time: a.time, p_reason: a.reason });
   if(q.error){ await uiAlert(q.error.message); return false; }
   return true; }
+
+/* 出勤募集（見本 当日欠勤ですぐ呼ぶ（11-26）⑦⑧⑨・当日欠勤の記録（11-26）③）
+   当日欠勤で目安人数を下回った日に、シフトの無い子へ公式 LINE（SQL 739）。キャストはホームの一番上の「出勤募集」で［出勤可］。
+   黒服は日のシフトの「出勤可」の並びから［追加］→ 補充（急な出勤の手当。SQL 740）。ふつうの［追加］は補充にしない */
+
+/* キャストのホーム：一番上の「出勤募集」の箱 */
+async function homeRecruit(){ const r = await sb.rpc('cast_recruit_info', { p_token: TOKEN }); if(r.error || !r.data) return;
+  const R = r.data, h = $('main').querySelector('.hello'); if(!h || $('rcBox')) return;
+  const paint = () => `<div class="row" style="padding:0"><b>出勤募集</b><span class="sm muted">${esc(mdW(R.day))}</span></div><div style="height:10px"></div>
+    ${R.ok_at ? `<div class="row" style="padding:0"><span>出勤可</span><b>${hmJst(R.ok_at).replace(/^0/, '')} 送信済</b></div><div class="muted sm" style="margin-top:4px">出勤時刻は黒服からご連絡します</div>` : '<button class="btn" id="rcOk">出勤可</button>'}`;
+  h.insertAdjacentHTML('afterend', `<div class="card" id="rcBox" style="background:var(--gold-soft)">${paint()}</div>`);
+  const wire = () => { const b = $('rcOk'); if(!b) return; b.onclick = async () => { b.disabled = true; const q = await sb.rpc('cast_recruit_ok', { p_token: TOKEN, p_recruit: R.id });
+    if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; } R.ok_at = q.data.ok_at; $('rcBox').innerHTML = paint(); }; };
+  wire(); }
+
+/* 黒服の日のシフト：当日欠勤の箱の中の「補充」の行（③）と「出勤可」の並び（⑨）。RC＝cast_shift_day_recruit の答え */
+function sdRefillRow(a){ return a.refill ? `<div class="sm" style="margin-top:2px"><b style="color:var(--pri)">補充</b> ${esc(a.refill)}　<span class="muted">出勤可 ${hmJst(a.refill_at).replace(/^0/, '')}</span></div>` : ''; }
+function sdRecruitHtml(RC){ if(!RC) return ''; const g = 'display:grid;grid-template-columns:4.5em 3em minmax(0,1fr) auto;gap:8px', OK = RC.ok || [];
+  return `<div class="gh" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">出勤可 ${OK.length}人</div>
+    <div class="sm muted">出勤募集 ${RC.sent_at ? hmJst(RC.sent_at).replace(/^0/, '') + ' 送信済 ' + RC.sent + '人' : RC.approved_at ? '送信中' : '判断待ち'}</div>
+    ${OK.length ? `<div class="sm muted" style="${g};padding:6px 2px 0"><span></span><span>連絡</span><span>今週 出勤／希望</span><span style="width:4.6em"></span></div>` : ''}
+    ${OK.map((x, i) => `<div style="${g};align-items:center;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><span class="sm muted">${hmJst(x.ok_at).replace(/^0/, '')}</span><span class="sm muted">${Number(x.week) || 0}日／${x.want == null ? '—' : Number(x.want) + '日'}</span><button class="btn g" data-rca="${i}" style="width:auto;padding:6px 16px;margin:0">追加</button></div>`).join('')}`; }
+
+/* ［追加］：時刻を選んで補充にする（追加するとキャストに【シフトの追加】の LINE。急な出勤の手当が付く） */
+function sdRecruitBind(RC, iso, store, tin, again){ if(!RC) return;
+  $('main').querySelectorAll('[data-rca]').forEach(b => b.onclick = () => { const x = (RC.ok || [])[+b.dataset.rca], w = document.createElement('div'); w.className = 'dlg';
+    w.innerHTML = `<div class="box"><p style="margin-bottom:10px">${esc(x.name)}</p>${tin('21:00', 'id="rcTm"', 'width:100%;font:inherit;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--card)')}<div class="bt"><button class="btn g" data-k="no">キャンセル</button><button class="btn" data-k="ok">追加</button></div></div>`;
+    document.body.appendChild(w); w.querySelector('[data-k=no]').onclick = () => w.remove();
+    w.querySelector('[data-k=ok]').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('cast_recruit_add', { p_token: TOKEN, p_store: store || null, p_recruit: RC.id, p_staff: x.staff_id, p_time: w.querySelector('#rcTm').value });
+      w.remove(); if(q.error){ await uiAlert(q.error.message); return; } again(); }; }); }
+
