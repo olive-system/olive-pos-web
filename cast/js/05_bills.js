@@ -55,7 +55,7 @@ function hallGo(k){
    読むだけの関数（HC_READ）のほかを呼んだら（保存・完了・取消など）すぐ忘れる */
 let HC = null;
 const HC_READ = new Set(['cast_memo_list', 'cast_memo_get', 'hall_me', 'hall_tasks', 'hall_todos', 'hall_chorei_trials', 'hall_tsuke_staff', 'hall_todo_ahead', 'hall_meeting_get', 'hall_chorei', 'hall_casts', 'hall_close_data', 'hall_kpb_review_list', 'hall_cs_session', 'cast_docs_info', 'cast_who', 'cast_me',
-  'cast_shift_all', 'cast_shift_health', 'cast_shift_day', 'cast_shift_day_absent', 'cast_shift_day_recruit', 'cast_recruit_info', 'cast_recruit_pending', 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll',
+  'cast_shift_all', 'cast_shift_health', 'cast_shift_day', 'cast_shift_day_absent', 'cast_shift_day_recruit', 'cast_recruit_info' 'cast_shift_info', 'cast_meeting_get', 'cast_pay_slip', 'cast_pay_pending', 'cast_card_info', 'cast_absence_info', 'cast_attendance', 'cast_off_days', 'cast_link_poll',
   'cast_key_my' /* 鍵のタイル（20_key.js）が読むだけ。前は入っておらず、トップを開いた直後に60秒のためおきが消えていた */]);
 { const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)) HC = null; return rpc0(fn, ...a); }; } /* マイページのどの画面の呼び出しもここを通る（このファイルは1回だけ読む）。読むだけの関数を新しく作った時は HC_READ にも足す（足さないと60秒の覚えがすぐ消えるだけで、まちがった数は出ない） */
 function hcGet(){
@@ -79,7 +79,7 @@ function hallHome(){
     ${sh('キャスト')}<div class="tiles">${tile('hcasts','担当キャスト',ME.casts?`${ME.casts}人`:'',true)}${tile('shift','シフト','全員',true)}</div>
     ${sh('店舗情報')}<div class="tiles" data-info="1">${tile('cs','顧客サイト','',true)}</div>
     ${sh('個人')}<div class="tiles" data-me="1">${tile('late','欠勤・遅刻連絡','',true)}${tile('pay','報酬明細','明細・受取確認',true)}${tile('docs','書類','',true)}${tile('card','名刺発注','',true)}</div>`);
-  hallHomeWire(H, night); hallRecruitAsk(); /* 出勤募集の送信（承認者だけ・16_shift_recruit.js） */
+  hallHomeWire(H, night);
 }
 /* 黒服のホームのボタンをつなぐ */
 function hallHomeWire(H, night){
