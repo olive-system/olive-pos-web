@@ -9,10 +9,12 @@ $('castAddBtn').onclick=async()=>{
   $('castList').innerHTML=list.map(s=>`<button class="chip" data-id="${s.id}" data-role="none">${esc(s.display_name)}</button>`).join('')||'<span class="muted">出勤中の人はいません</span>';
   $('castListAll').innerHTML=others.map(s=>`<button class="chip" data-id="${s.id}" data-role="none">${esc(s.display_name)}</button>`).join('')||'<span class="muted">なし</span>';
   $('castListAll').classList.add('hidden'); $('castMoreBtn').textContent='出勤していないキャストから選ぶ ▾';
+  let ngM={}; ngOfBill(S.cur).then(m=>{ ngM=m; ngMarkChips(m); }); /* NG キャスト（SQL 745）：名前の横に印・押したら確かめ */
   let castRoleSel='kakari'; const roleUi=()=>{ $('castRole').querySelectorAll('[data-cr]').forEach(x=>x.classList.toggle('on',x.dataset.cr===castRoleSel)); $('castNone').classList.toggle('hidden',castRoleSel!=='after'); }; $('castRole').querySelectorAll('[data-cr]').forEach(x=>x.onclick=()=>{ castRoleSel=x.dataset.cr; roleUi(); }); roleUi();
   // 係は何人でも追加できる（売上は係全員で等分）。同伴にしても他の係は外さない。設定ONなら同伴の人も係になる
   const att=new Set([...Object.keys(present),...gone]); // 今日出勤した人（退勤済も入る）
-  const pick=async b=>{ if(castRoleSel==='after'){ /* アフターは伝票で決める（SQL 526）。その日その子のアフターは1つの伝票だけ（あとから付けた伝票に入れかえ）。帰った後に付けることもあるので、出勤中かは聞かない */
+  const pick=async b=>{ if(!(S.cur.bill_casts||[]).some(c=>c.staff_id===b.dataset.id)&&!await ngConfirm(ngM,b.dataset.id,castRoleSel==='after'?'アフター':castRoleSel==='douhan'?'同伴':KL)) return;
+    if(castRoleSel==='after'){ /* アフターは伝票で決める（SQL 526）。その日その子のアフターは1つの伝票だけ（あとから付けた伝票に入れかえ）。帰った後に付けることもあるので、出勤中かは聞かない */
       const r=await sb.rpc('pos_after_set_bill',{p_bill:S.cur.id,p_staff:b.dataset.id,p_on:true}); if(r.error){ toast(r.error.message); return; } $('castModal').classList.remove('on'); openBill(S.cur.id); return; }
     const isFirst=!(S.cur.bill_casts||[]).some(c=>c.is_kakari); const dh=castRoleSel==='douhan'; /* 同伴の子はお客様と先に座り、伝票の後に出勤を押すので、出勤前でも同伴にできる（オーナー） */
     // 既に伝票に付いている人を選んだ時は、追加ではなくその人の係／同伴を更新する

@@ -30,6 +30,7 @@ function rdHtmlInfo(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; retu
       <dt>タバコ</dt><dd style="white-space:pre-line">${esc(c.tobacco||'—')}</dd>
       <dt>配車</dt><dd style="white-space:pre-line">${esc(c.haisha||'—')}</dd>
       <dt>反応◎</dt><dd>${good}</dd>
+      <dt>NG</dt><dd id="dNg"><span class="muted">…</span></dd>
       <dt>連絡先交換</dt><dd id="dCx"><span class="muted">…</span></dd>
     </dl></div>`; }
 /* キープボトル（ほかの店舗・新しく登録・期限切れ・飲み切り） */
@@ -53,7 +54,7 @@ function rdHtmlRest(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V; retu
   <div style="text-align:right;margin:4px 0 20px"><button class="danger sm" id="cuDel">削除</button></div>`; }
 /* 押した時の動き：請求先・削除・編集・申請 */
 function rdBindTop(V){ const {c,bts,open,fin,exp,kakari,good,reqs,keep}=V;
-  const D=$('detail'); fitLine(D); cxLoad(c); btcLoad(c); $('btcAdd').onclick=async()=>{ if(await needEdit()) btcForm(c,null); };
+  const D=$('detail'); fitLine(D); cxLoad(c); csNgLoad(c); btcLoad(c); $('btcAdd').onclick=async()=>{ if(await needEdit()) btcForm(c,null); };
   $('cuDel').onclick=async()=>{ if(!await needEdit()) return; if(!await uiConfirm(`${c.name} 様を削除しますか？`,'削除','danger')) return;
     try{ await rpc('cs_customer_delete',{p_token:token,p_edit_token:editTok,p_id:c.id}); toast('削除しました'); curId=null; cur=null; show('vList'); renderList(); await loadList(); }catch(e){ await csFail(e); } };
   $('editInfo').onclick=async()=>{ if(await needEdit()) editForm(false); };

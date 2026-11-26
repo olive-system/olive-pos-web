@@ -187,10 +187,11 @@ async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
   const [r, t, k, h] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN }), sb.rpc('hall_tsuke_staff', { p_token: TOKEN }), sb.rpc('cast_shift_health', { p_token: TOKEN, p_store: null, p_month: null })]); if(r.error){ fail(r.error.message); return; }
   hcT = t.error ? null : t.data; hcK = k.error ? null : k.data; hcH = h.error ? null : h.data; /* 調整率・不足率（POS の朝礼と同じ。見本 ⑩） */
+  const ids = (r.data.guests || []).map(g => g.id), nr = ids.length ? await sb.rpc('hall_resv_ng', { p_token: TOKEN, p_resv: ids }) : null; hcNg = nr && !nr.error ? nr.data || {} : {}; /* NG キャスト（SQL 745）。黒服だけ */
   hcD = r.data; if(keepWx !== true) hcWx = null; hcPaint(); /* トップのボタンからは event が来るので true の時だけ */
   if(!hcWx) await hcWeather(hcD);
 }
-let hcH = null;
+let hcH = null, hcNg = {};
 function hcPaint(){
   const C = hcD, G = C.guests || [], left = G.filter(g => g.customer && !g.ok_at).length;
   const tag = '<span style="display:inline-block;background:var(--pri);color:#fff;border-radius:4px;padding:0 5px;font-size:12px;font-weight:700">同伴</span> ';
@@ -201,7 +202,7 @@ function hcPaint(){
 /* 来店予定のお客様の1組（開くと誕生日・ボトル・前回・タバコ・メモ） */
 function hcGuest(V, g){ const { C, tag } = V; const cu = g.customer, op = hcOpen.has(String(g.id)) && cu;
     const st = !cu ? '<small class="muted">はじめて</small>' : g.ok_at ? `<small class="muted">確認済 ${hmJst(g.ok_at)}${g.ok_by?'・'+esc(g.ok_by):''}</small>` : '<small class="err" style="font-weight:700">未確認</small>';
-    let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${esc(g.time)}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.names||g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${resvWho(g,{noKK:(ME&&ME.customer_mode)==='yukyaku',mark:DRESS})}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div></div>`; /* 広島は担当を出さない（オーナー）。卓（POS の朝礼と同じ。選ぶとすぐ保存） */
+    let h = `<div ${cu?`data-hc="${g.id}"`:''} style="padding:10px 0;border-top:1px solid var(--line);${cu?'cursor:pointer':''}"><div class="row" style="padding:0"><b>${esc(g.time)}　${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.names||g.name)} 様 ${g.guests}名</b>${st}</div><div class="row" style="padding:0;align-items:center"><span class="muted sm">${resvWho(g,{noKK:(ME&&ME.customer_mode)==='yukyaku',mark:DRESS})}</span><select data-hs="${g.id}" style="height:36px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)"><option value="">卓</option>${(C.tables||[]).map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select></div>${hcNg[g.id]?`<div class="sm" style="padding:2px 0 0">${ngLine(hcNg[g.id])}</div>`:''}</div>`; /* 広島は担当を出さない（オーナー）。卓（POS の朝礼と同じ。選ぶとすぐ保存） */
     if(!op) return h;
     const bd = cu.birthday ? `${esc(cu.birthday)}${cu.bday_in===0?'（本日）':cu.bday_in!=null&&cu.bday_in<=7?`（あと${cu.bday_in}日）`:''}` : '—';
     return h + `<div style="padding:0 0 10px"><div class="row"><span class="muted">誕生日</span><span>${bd}</span></div><div class="row"><span class="muted">反応◎</span><span>${esc(cu.good||'—')}</span></div>
