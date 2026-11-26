@@ -15,8 +15,8 @@ const opUrls = new Map(), opUrl = f => { if(!opUrls.has(f)) opUrls.set(f, URL.cr
 const opGrid = (x, key) => (opShots[x.id] || []).length ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${opShots[x.id].map((f, k) => `<div style="position:relative"><img src="${opUrl(f)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button class="xb img" data-opx="${key}:${k}" aria-label="外す">×</button></div>`).join('')}</div>` : '';
 const opDrop = (x, k) => { const f = (opShots[x.id] || [])[k]; if(!f) return; if(opUrls.has(f)){ URL.revokeObjectURL(opUrls.get(f)); opUrls.delete(f); } opShots[x.id].splice(k, 1); if(!opShots[x.id].length) delete opShots[x.id]; };
 async function hallTasks(ph){
-  setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
-  const [r, tq] = await Promise.all([sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }), ph === 'close' ? sb.rpc('hall_todos', { p_token: TOKEN }) : null]); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
+  setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>'); const tk = hallTasks.tk = (hallTasks.tk || 0) + 1; /* 開店⇄閉店を続けて押した時、前の答えが後から描き直さないように */
+  const [r, tq] = await Promise.all([sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }), ph === 'close' ? sb.rpc('hall_todos', { p_token: TOKEN }) : null]); if(tk !== hallTasks.tk) return; if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
   const D = r.data, L = D.items || [], d = new Date(D.day + 'T00:00:00+09:00');
   const nil = x => x.kind === 'todo' && !x.todo_open && tq && !tq.error && !(tq.data.items || []).length; /* TODO が1件も無い日（休みの日など）は「完了」ではなく「なし」と出す（終わらせた人がいないのに完了に見えるため） */
   const nd = L.filter(x => x.status === 'done' && !nil(x)).length, nAll = L.filter(x => !nil(x)).length;
