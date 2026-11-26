@@ -92,7 +92,7 @@ function beDiffRows(E,ops,note){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bc
     rows('bill_casts',O.casts,S.casts,['staff_id','role','is_kakari'],cl);
     rows('good_reactions',O.goods,S.goods,['staff_id'],(x,y)=>x?`反応◎ ${sn(x.staff_id)}`:`反応◎を取消 ${sn(y.staff_id)}`);
     rows('bill_items',O.items,S.items,['product_id','category_id','name','qty','unit_price','cast_subtotal_price','back_amount','back_points','is_service_target','is_void','subtotal_staff_id'],
-      (x,y)=>!y?`注文を追加 ${x.name}×${x.qty}`:x.is_void&&!y.is_void?`注文を取消 ${x.name}×${y.qty}`:String(x.qty)!==String(y.qty)?`数量 ${x.name} ${y.qty}→${x.qty}`:`振分 ${x.name} ${y.subtotal_staff_id?sn(y.subtotal_staff_id):'—'}→${x.subtotal_staff_id?sn(x.subtotal_staff_id):'—'}`,x=>({id:x.id}));
+      (x,y)=>beItemNote(sn,x,y),x=>({id:x.id}));
     ops.push(...spOps.filter(o=>o.op!=='delete'));
     const bk=items=>Object.fromEntries(items.map(i=>[i.id,(i.splits||[]).map(z=>sn(z.staff_id)).join('・')]));
     { const a=bk(O.items), b=bk(S.items); S.items.forEach(i=>{ if(a[i.id]!==undefined&&a[i.id]!==b[i.id]&&!i.is_void) note.push(`バック ${i.name} ${a[i.id]||'なし'}→${b[i.id]||'なし'}`); }); }
@@ -158,9 +158,7 @@ function beBindA(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks
     qa('[data-bvd]').forEach(x=>x.onclick=()=>{ const i=S.items.find(z=>z.id===x.dataset.bvd); if(O.items.some(z=>z.id===i.id)) i.is_void=true; else S.items=S.items.filter(z=>z!==i); redo(); }); }
 /* 押した時の動き：注文 */
 function beBindB(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const q=s=>box.querySelector(s), qa=s=>box.querySelectorAll(s), redo=()=>{ S._reason=q('#beR').value; draw(); };
-    qa('[data-bsub]').forEach(x=>x.onclick=()=>{ const i=S.items.find(z=>z.id===x.dataset.bsub), cur=i.subtotal_staff_id||null, list=ST.filter(s=>s.kind==='cast'&&(s.is_active||s.id===cur));
-      const m=mkModal(null,`<button class="xb dx" data-k="x" aria-label="閉じる">×</button><h2 style="margin:0">${esc(i.name)} ×${i.qty}</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">${list.map(s=>`<button class="${s.id===cur?'primary':'ghost'}" data-sid="${s.id}" style="text-align:left">${esc(s.name)}</button>`).join('')}</div>`);
-      m.querySelector('[data-k=x]').onclick=()=>m.remove(); m.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{ i.subtotal_staff_id=b.dataset.sid===cur?null:b.dataset.sid; m.remove(); redo(); }); });
+    qa('[data-bsub]').forEach(x=>x.onclick=()=>beSubPick(S.items.find(z=>z.id===x.dataset.bsub),ST,redo));
     qa('[data-bbk]').forEach(x=>x.onclick=async()=>{ const i=S.items.find(z=>z.id===x.dataset.bbk), cur=new Set((i.splits||[]).map(z=>z.staff_id)), list=ST.filter(s=>s.kind==='cast'&&!s.kakari_only&&(s.is_active||cur.has(s.id))&&(att.has(s.id)||cur.has(s.id)));
       const m=mkModal(null,`<h2 style="margin:0">${esc(i.name)} のバック</h2><div class="muted" style="font-size:13px">選んだ人で等分します（端数は最初の人）</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">${list.map(s=>`<label style="display:flex;align-items:center;gap:6px;font-size:15px"><input type="checkbox" value="${s.id}" ${cur.has(s.id)?'checked':''} style="width:auto;min-height:0">${esc(s.name)}</label>`).join('')||'<div class="muted">この日に出勤したキャストがいません</div>'}</div><div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">決める</button></div>`);
       m.querySelector('[data-k=no]').onclick=()=>m.remove(); m.querySelector('[data-k=ok]').onclick=()=>{ const ids=[...m.querySelectorAll('input:checked')].map(c=>c.value); m.remove(); i.splits=split(i,ids); redo(); }; });
@@ -204,4 +202,9 @@ function beCustPick(E,done){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,s
         const same=CL.find(c=>c.name===name)||S.custs.find(c=>c._new&&c.name===name); if(same&&!await uiConfirm(`「${name}」様はすでに登録されています${same.company?`（${same.company}）`:''}。\n別の方として新規登録しますか？`,'新規登録')) return;
         S.custs.push({customer_id:beUid(),name,kana:kana||null,_new:true,_kk:tsureKk()}); m.remove(); done(); }; };
     list(); setTimeout(()=>qs.focus(),0); }
-
+/* 小計を付ける子：d-system の［選択］と同じ名前の並び。押すと決まる。同じ名前をもう一度押すと外れる（係で等分）。管理サイトは期限なし（SQL 776） */
+function beSubPick(i,ST,redo){ const cur=i.subtotal_staff_id||null, list=ST.filter(s=>s.kind==='cast'&&(s.is_active||s.id===cur));
+  const m=mkModal(null,`<button class="xb dx" data-k="x" aria-label="閉じる">×</button><h2 style="margin:0">${esc(i.name)} ×${i.qty}</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">${list.map(s=>`<button class="${s.id===cur?'primary':'ghost'}" data-sid="${s.id}" style="text-align:left">${esc(s.name)}</button>`).join('')}</div>`);
+  m.querySelector('[data-k=x]').onclick=()=>m.remove(); m.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{ i.subtotal_staff_id=b.dataset.sid===cur?null:b.dataset.sid; m.remove(); redo(); }); }
+/* 注文の行の変更の記録（追加・取消・数量・振分） */
+function beItemNote(sn,x,y){ return !y?`注文を追加 ${x.name}×${x.qty}`:x.is_void&&!y.is_void?`注文を取消 ${x.name}×${y.qty}`:String(x.qty)!==String(y.qty)?`数量 ${x.name} ${y.qty}→${x.qty}`:`振分 ${x.name} ${y.subtotal_staff_id?sn(y.subtotal_staff_id):'—'}→${x.subtotal_staff_id?sn(x.subtotal_staff_id):'—'}`; }
