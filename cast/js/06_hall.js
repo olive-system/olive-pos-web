@@ -153,7 +153,7 @@ async function hallCasts(){
     const todo = [c.sales_left ? APR_HK : '', c.docs ? esc(c.docs) : '', c.dress ? `ドレス ${mdDay(c.dress)}まで` : ''].filter(Boolean);
     return `<div style="padding:8px 0;${i?'border-top:1px solid var(--line)':''}"><div class="row" style="padding:0"><b>${esc(c.name)}</b><span class="sm">${att}</span></div>
       <div class="sm muted" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>${esc(KL)}小計 ${Math.round(N(st.sales)/10000).toLocaleString('ja-JP')}万・同伴${N(st.douhan)}・反応◎${N(st.reactions)}</span>${todo.length?`<span class="err">未完了：${todo.join('・')}</span>`:''}</div>
-      ${c.absent?`<div class="sm err">${hmJst(c.absent.at)}・${esc(c.absent.reason||'')}</div>`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
+      ${c.absent?`<div class="sm muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(c.absent.at).replace(/^0/, '')}・${esc(String(c.absent.reason||'').replace(/\s+/g,' '))}</div>`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
 }
 let hcOpen = new Set();
 /* 天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */

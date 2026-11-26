@@ -146,20 +146,22 @@ function saBind(S){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hal
 const SH_EDIT_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
 async function shiftDayEdit(iso, store){
   setBack(() => shiftAll(store)); show('<div class="card c muted">読み込み中…</div>');
-  const r = await sb.rpc('cast_shift_day', { p_token: TOKEN, p_store: store || null, p_day: iso }); if(r.error){ fail(r.error.message); return; }
-  const D = r.data, d = new Date(iso+'T00:00:00+09:00'), again = () => shiftDayEdit(iso, store), L = D.shifts || []; D.ev = !!(SHALL && SHALL.ev && SHALL.ev.has(iso));
+  const [r, AB] = await sdDayLoad(iso, store); if(r.error){ fail(r.error.message); return; }
+  const abId = new Set(AB.map(a => a.staff_id)); /* 当日欠勤の子は出勤の数と一覧から外し、上の箱に出す（16_shift_absent.js） */
+  const D = r.data, d = new Date(iso+'T00:00:00+09:00'), again = () => shiftDayEdit(iso, store), L = (D.shifts || []).filter(x => !abId.has(x.staff_id)); D.ev = !!(SHALL && SHALL.ev && SHALL.ev.has(iso));
   const all = k => ((SHALL && SHALL.months) || []).flatMap(M => M[k] || []), off = all('hall_off').filter(x => x.day === iso).map(x => x.name), R = all('resv').filter(x => x.day === iso);
   const tin = (v, a, st) => `<select ${a} style="${st || 'width:auto;font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card)'}">${(SH_EDIT_T.includes(v) ? SH_EDIT_T : [v, ...SH_EDIT_T]).map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const set = async (id, t) => { const q = await sb.rpc('cast_shift_set', { p_token: TOKEN, p_store: store || null, p_staff: id, p_day: iso, p_time: t }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   const IVd = D.iv || [], HTd = D.hall_trial || [];
   show(sdDayHtml(D, d, L, off, R, IVd, HTd, tin));
+  sdAbsWire(AB);
   $('main').querySelectorAll('[data-ap]').forEach(b => b.onclick = () => apOpen(b.dataset.ap, store, again)); /* しるしは右の列・同伴の子。シフトを直せる人（黒服・ママ）は同伴を取消 */
   $('main').querySelectorAll('[data-dcx]').forEach(b => b.onclick = async () => { const x = R[+b.dataset.dcx]; if(!await uiConfirm(`${x.name} 様の同伴を取り消しますか？`, '取消')) return; b.disabled = true;
     const q = await sb.rpc('cast_douhan_cancel', { p_token: TOKEN, p_store: store || null, p_id: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
     const n = Number(q.data?.notified || 0), all = q.data?.targets, ng = all == null ? !n : n < all; /*点検 A2・届いた数と送り先の数をくらべる */
     await uiAlert(!ng ? '取り消しました。申請した子と同伴の子に LINE で知らせました' : n ? '取り消しました。\n一部の LINE は届いていません。本人にご連絡ください' : '取り消しました。\nLINE は届いていません。本人にご連絡ください'); shiftAll(store); }); /* 予約の一覧は全員のシフトと一緒に読み直す */
   $('main').querySelectorAll('[data-sdt]').forEach(el => el.onchange = async () => { const x = L[+el.dataset.sdt]; if(!el.value){ el.value = x.time; return; } if(await set(x.staff_id, el.value)) again(); });
-  $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return; b.disabled = true; /* 2回押し（LINE が2通）にならないように */ if(await set(x.staff_id, null)) again(); });
+  $('main').querySelectorAll('[data-sdx]').forEach(b => b.onclick = async () => { const x = L[+b.dataset.sdx]; b.disabled = true; /* 2回押し（LINE が2通）にならないように */ if(await sdAbsCancel(x, iso, store, set)) again(); else b.disabled = false; }); /* 当日は本人都合／店都合（16_shift_absent.js） */
   if($('sdAdd')) $('sdAdd').onclick = () => shiftDayAdd(D, d, iso, store, tin, set, again);
 }
 /* 1日のシフトの画面（出勤・黒服の休み・予約・体験・面接） */
@@ -234,3 +236,41 @@ function shiftTrialForm(w, c, d, iso, store, tin, pick, close, again){ const fs 
       e.target.disabled = true; const r = await sb.rpc('cast_shift_trial_pick', { p_token: TOKEN, p_store: store || null, p_ap: c.id, p_day: iso, p_time: w.querySelector('#trT').value, p_pay_type: pt, p_amount: a, p_name: n });
       if(r.error){ e.target.disabled = false; await uiAlert(r.error.message); return; } close(); again(); };
 }
+
+/* 日のシフトの当日欠勤（見本 当日欠勤の記録（11-26）①②）
+   欠勤の行がある子は、出勤の数と一覧から外して、一覧の上の箱に「名前　連絡 13:10・理由」で出す（同じ欠勤を2か所に出さない）
+   当日（今の営業日）の出勤を × で取り消す時だけ「本人都合／店都合」を選ぶ。本人都合＝当日欠勤（罰金はマイページの欠勤連絡と同じ判定）。店都合＝今までどおり消すだけ（オーナー 11/26「当日に削除する時のみにしてね」） */
+
+/* 日の画面の読み込み：その日のシフトと当日欠勤の一覧（当日欠勤が読めない時は空で続ける） */
+async function sdDayLoad(iso, store){ const a = { p_token: TOKEN, p_store: store || null, p_day: iso };
+  const [r, ab] = await Promise.all([sb.rpc('cast_shift_day', a), sb.rpc('cast_shift_day_absent', a)]); return [r, ab.error ? [] : ab.data || []]; }
+/* 一覧の上に当日欠勤の箱を入れる */
+function sdAbsWire(AB){ if(AB.length) $('main').querySelector('.card').insertAdjacentHTML('beforebegin', sdAbsBox(AB)); }
+/* 一覧の上の箱。理由は長い文のことがあるので1行で切る */
+function sdAbsBox(AB){ if(!AB.length) return '';
+  return `<div class="card" style="background:var(--gold-soft)"><div class="gh">当日欠勤 ${AB.length}人</div>${AB.map(a => `<div style="display:flex;gap:8px;min-width:0"><span style="flex:none">${esc(a.name)}</span><span class="sm muted" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(a.at).replace(/^0/, '')}・${esc(String(a.reason || '').replace(/\s+/g, ' '))}</span></div>`).join('')}</div>`; }
+
+/* 当日の取消の小窓。答え：null（キャンセル）・{ self:false }（店都合）・{ self:true, time, reason }（本人都合） */
+function sdAbsDlg(x){ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg'; let self = true; const T = absContactTimes();
+  const f = 'font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);height:40px;box-sizing:border-box;width:100%';
+  d.innerHTML = `<div class="box"><p>${esc(`${x.name}さんの ${x.time} の出勤を\n取消しますか？`)}</p>
+    <div style="text-align:left;margin:10px 0 14px"><div class="seg" style="margin-bottom:10px"><button type="button" data-ab="1" class="on">本人都合</button><button type="button" data-ab="0">店都合</button></div>
+    <div id="abIn" style="display:flex;gap:8px"><div style="flex:none;width:6.5em"><label class="f">連絡時刻</label><select id="abT" style="${f}">${T.map((t, i) => `<option ${i === T.length - 1 ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    <div style="flex:1;min-width:0"><label class="f">理由</label><input id="abR" maxlength="300" style="${f}"></div></div></div>
+    <div class="bt"><button class="btn g" data-k="no">キャンセル</button><button class="btn" data-k="ok">取消</button></div></div>`;
+  document.body.appendChild(d);
+  const seg = () => { d.querySelectorAll('[data-ab]').forEach(b => b.classList.toggle('on', (b.dataset.ab === '1') === self)); d.querySelector('#abIn').style.display = self ? 'flex' : 'none'; };
+  d.querySelectorAll('[data-ab]').forEach(b => b.onclick = () => { self = b.dataset.ab === '1'; seg(); });
+  d.querySelector('[data-k=no]').onclick = () => { d.remove(); res(null); };
+  d.querySelector('[data-k=ok]').onclick = async () => { if(!self){ d.remove(); res({ self: false }); return; }
+    const r = d.querySelector('#abR').value.trim(); if(!r){ await uiAlert('理由を入力してください'); return; }
+    d.remove(); res({ self: true, time: d.querySelector('#abT').value, reason: r }); }; }); }
+
+/* × を押した時：当日なら小窓で本人都合／店都合、前の日までは今までどおりの確かめ。終わったら true */
+async function sdAbsCancel(x, iso, store, set){
+  if(iso !== businessDate()){ if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return false; return set(x.staff_id, null); }
+  const a = await sdAbsDlg(x); if(!a) return false;
+  if(!a.self) return set(x.staff_id, null);
+  const q = await sb.rpc('cast_shift_absent', { p_token: TOKEN, p_store: store || null, p_staff: x.staff_id, p_day: iso, p_time: a.time, p_reason: a.reason });
+  if(q.error){ await uiAlert(q.error.message); return false; }
+  return true; }
