@@ -103,7 +103,7 @@ function hallHomeWire(H, night){
 /* 開店作業・閉店作業のボタン（夜は閉店作業。済んだ数を出す） */
 function hallWorkTile(H, night){
   { const b = $('main').querySelector('[data-go=work]'); let ph = night ? 'close' : 'open', closeOn = true; /* 開店作業。閉店作業（管理サイトで「マイページで する」の店だけ） */
-    b.onclick = () => { opSwitch = closeOn; hallTasks(ph); };
+    b.onclick = async () => { await H.close.catch(() => {}); /* 閉店作業をする店かの答えが来るまで待つ（前は答えの前に押すと、閉店作業をしない店でも切り替えが出た） */ opSwitch = closeOn; hallTasks(ph); };
     const cnt = r => { b.querySelector('small')?.remove(); const L = r.data.items || []; if(L.length) b.insertAdjacentHTML('beforeend', `<small>完了 ${L.filter(x => x.status === 'done').length}／${L.length}</small>`); };
     H.close.then(rc => { if(rc.error){ loadNg(); return; } /*点検 B5：読めなかった時は1行 */ closeOn = !!rc.data.on;
       if(night && closeOn){ cnt(rc); return; } ph = 'open'; b.querySelector('b').textContent = '開店作業';

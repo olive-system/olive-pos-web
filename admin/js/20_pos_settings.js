@@ -11,7 +11,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   const er=ps.error||tb.error; if(er){ $('main').innerHTML=`<h1>POS設定</h1><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
   const d=ps.data||{};
   const num=(id,label,v)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${dis}></label>`;
-  const amt=(id,label,v)=>`<label>${label}<select id="${id}" ${dis}>${HCBC_OPTS.map(([a,n])=>`<option value="${a??''}" ${(v??null)===a?'selected':''}>${n}</option>`).join('')}</select></label>`;
+  const amt=(id,label,v)=>`<label>${label}<select id="${id}" ${dis}>${HCBC_OPTS.map(([a,n])=>`<option value="${a??''}" ${(v==null?null:Number(v))===a?'selected':''}>${n}</option>`).join('')}</select></label>`;
   const tables=tb.data||[];
   $('main').innerHTML=`<h1>POS設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>${ed?'':'<div class="muted" style="margin-bottom:10px">閲覧のみ</div>'}
   <div id="siBox" data-st="${esc(st)}"><div class="card muted">読み込み中…</div></div>
@@ -39,14 +39,14 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     ${ed&&tables.length?`<div class="row" style="margin-top:8px"><select id="vipAdd" style="width:auto"><option value="">＋VIP の卓を追加</option>${tables.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>`:''}${ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pssave>保存</button></div>':''}</div>
   <div class="muted hint" style="font-size:13px;margin-top:10px;line-height:1.6">保存すると、POS の次の伝票から変わります（今開いている伝票はそのまま）<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">日払（立替）の上限・体験の源泉・ポイント・同伴の準備時間は「報酬・罰金項目」で設定します</div></div>`;
   if(keep) $('siBox').replaceWith(keep); else siRender();
-  if($('tgtSave')) $('tgtSave').onclick=async()=>{ const raw=toHan($('psTgt').value).replace(/[,，\s円]/g,''); if(raw!==''&&!/^\d+$/.test(raw)){ toast('売上目標を入力してください'); return; }
-    const q=await rpc('admin_sales_target_save',{p_store:st,p_amount:raw===''?null:Number(raw)}); if(!q.ok) return; toast('保存しました'); $('psTgt').value=raw===''?'':Number(raw).toLocaleString('ja-JP'); };
+  if($('tgtSave')) $('tgtSave').onclick=guard($('tgtSave'),async()=>{ /* オーナーだけに出る箱（編集の権限の判定より前に付ける）。空欄で保存すると目標は無し（null）になる */ const raw=toHan($('psTgt').value).replace(/[,，\s円]/g,''); if(raw!==''&&!/^\d+$/.test(raw)){ toast('売上目標を入力してください'); return; }
+    const q=await rpc('admin_sales_target_save',{p_store:st,p_amount:raw===''?null:Number(raw)}); if(!q.ok) return; toast('保存しました'); $('psTgt').value=raw===''?'':Number(raw).toLocaleString('ja-JP'); });
   if(!ed) return;
   // VIP料金は VIP の卓だけ出す。「＋VIP の卓を足す」で行を足す、× で外す（保存すると0円＝通常卓）
   const vipSync=()=>{ const on=new Set([...$('main').querySelectorAll('tr[data-tb]')].map(x=>x.dataset.tb)); $('vipNone').style.display=on.size?'none':''; [...$('vipAdd').options].forEach(o=>{ if(o.value) o.hidden=on.has(o.value); }); };
   const vipWire=tr=>{ tr.querySelector('[data-vrm]').onclick=()=>{ tr.remove(); vipSync(); }; };
   $('main').querySelectorAll('tr[data-tb]').forEach(vipWire);
-  if($('vipAdd')){ vipSync(); $('vipAdd').onchange=()=>{ const t=tables.find(x=>x.id===$('vipAdd').value); $('vipAdd').value=''; if(!t) return; const tb=document.createElement('tbody'); tb.innerHTML=vipRow({...t,vip_set_fee:0,vip_ext_fee:0},true,''); const tr=tb.firstElementChild; $('vipT').appendChild(tr); vipWire(tr); vipSync(); tr.querySelector('[data-v=set]').focus(); }; }
+  if($('vipAdd')){ vipSync(); $('vipAdd').onchange=()=>{ const t=tables.find(x=>x.id===$('vipAdd').value); $('vipAdd').value=''; if(!t) return; const tbd=document.createElement('tbody'); tbd.innerHTML=vipRow({...t,vip_set_fee:0,vip_ext_fee:0},true,''); const tr=tbd.firstElementChild; $('vipT').appendChild(tr); vipWire(tr); vipSync(); tr.querySelector('[data-v=set]').focus(); }; }
   // 入金・出金の項目（足す・×で消す → 項目を保存）
   const ciChip=x=>{ const c=document.createElement('span'); c.className='badge gray ci'; c.style.cssText='background:#fff;color:var(--ink);border:1px solid var(--line);font-size:14px;margin:0 6px 6px 0;display:inline-flex;gap:6px;align-items:center'; c.innerHTML=`<span>${esc(x)}</span><a data-cirm style="cursor:pointer;color:var(--muted)">×</a>`; c.querySelector('[data-cirm]').onclick=()=>c.remove(); return c; };
   $('main').querySelectorAll('[data-cirm]').forEach(a=>a.onclick=()=>a.closest('.ci').remove());
@@ -55,7 +55,8 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     b.onclick=add; inp.onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); add(); } }; });
   if($('ciSave')){ const cs=$('ciSave'); cs.onclick=guard(cs,async()=>{ const g=k=>[...$('main').querySelectorAll(`[data-ci="${k}"] .ci span`)].map(x=>x.textContent);
     const r=await rpc('admin_save_cash_items',{p_store:st,p_in:g('in'),p_out:g('out')}); if(!r.ok) return; unsavedBtns.delete(cs); toast('保存しました（POS の次の入金・出金から変わります）'); }); }
-  /* 料金・伝票・VIP料金の箱ごとに保存（オーナー「料金のところには保存ボタンないよね」）。どの箱の保存でも、この3つの箱の今の入力をまとめて保存する（入れた物が消えない） */
+  /* 料金・伝票・VIP料金の箱ごとに保存（オーナー「料金のところには保存ボタンないよね」）。どの箱の保存でも、この3つの箱の今の入力をまとめて保存する（入れた物が消えない）。入金・出金の項目と売上目標は、それぞれの保存で別に送る
+     VIP料金は全部の卓を送る（表から外した卓は0円＝通常卓に戻すため）。自動延長は別の rpc なので、料金が保存できて自動延長で止まると、そこまでは保存済み */
   $('main').querySelectorAll('[data-pssave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
     const g=id=>slNum($(id).value), v={set_minutes:g('psSetM'),set_unit_price:g('psSetP'),ext_minutes:g('psExtM'),ext_unit_price:g('psExtP'),service_rate:g('psSvc'),tax_rate:g('psTax'),total_round_unit:g('psRnd')};
     const lab={set_minutes:'最初のセット時間',set_unit_price:'セット1名単価',ext_minutes:'延長単位',ext_unit_price:'延長1名単価',service_rate:'サービス料率',tax_rate:'消費税率',total_round_unit:'合計の切り上げ単位'};
@@ -64,7 +65,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     if(!(v.set_minutes>0)||!(v.ext_minutes>0)){ await uiAlert('セット時間と延長単位は1分以上にしてください'); return; }
     if(v.service_rate>100||v.tax_rate>100){ await uiAlert('サービス料率・消費税率は100%までです'); return; }
     v.auto_hc_amount=$('psHc').value?Number($('psHc').value):null; v.auto_bc_amount=$('psBc').value?Number($('psBc').value):null;
-    v.douhan_is_kakari=$('psDk').checked; v.cust_auto_kakari=$('psCk').checked; if($('psSm')) v.sales_shot_manager=$('psSm').checked; /* 担当制の店（広島） */
+    v.douhan_is_kakari=$('psDk').checked; v.cust_auto_kakari=$('psCk').checked; v.sales_shot_manager=$('psSm').checked; /* どの店にも出る（使うのは担当制の店） */
     const vip=[]; for(const t of tables){ const tr=$('main').querySelector(`tr[data-tb="${t.id}"]`); if(!tr){ vip.push({id:t.id,set:0,ext:0}); continue; } // 表に無い卓は通常卓（0円）
       const a=slNum(tr.querySelector('[data-v=set]').value)??0, b=slNum(tr.querySelector('[data-v=ext]').value)??0;
       if(!Number.isInteger(a)||!Number.isInteger(b)||a<0||b<0){ await uiAlert(`${tr.cells[0].textContent} のVIP料金は0以上の整数で入力してください`); return; } vip.push({id:t.id,set:a,ext:b}); }
@@ -73,6 +74,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     if($('psAuto')){ const r2=await rpc('admin_save_auto_extend',{p_store:st,p_on:$('psAuto').value==='1'}); if(!r2.ok) return; } /* 自動延長しない店は延長の確認を LINE で（SQL 701・702） */
     toast('保存しました'); PAGES.set_pos(); })); };
 
+// ---------- ここから下は「報酬・罰金項目」（PAGES.set_pay・11_rewards.js）の箱の部品。ページの本体は 11_rewards.js にあり、ここの部品を呼ぶ ----------
 // 報酬で使う数（日払の上限・体験の源泉・ポイント・同伴の準備時間）。前は POS の料金設定にあった
 // ドレス新調日の設定（店ごとに する／しない・毎月○日が提出の期限・罰金の種類）
 async function dressFold(st,ed){ const box=$('dressBox'); if(!box) return; const r=await sb.rpc('admin_get_dress_settings',{p_store:st}); if(r.error||page!=='set_pay'||storeId!==st) return; const c=r.data||{};
@@ -96,7 +98,7 @@ async function cardFold(st,ed){ const box=$('cardBox'); if(!box) return; const r
   foldWire(box); const sv=$('cdSave'); if(!sv) return;
   sv.onclick=guard(sv,async()=>{ const q=slNum($('cdQty').value), pr=slNum($('cdPrice').value); if(!(q>0)||!(pr>=0)){ await uiAlert('枚数と金額を確認してください'); return; }
     if(!await uiConfirm('名刺発注の設定を保存しますか？')) return; const x=await rpc('admin_save_card_settings',{p_store:st,p_to:$('cdTo').value,p_subject:$('cdSub').value,p_reply:$('cdRe').value,p_qty:q,p_price:pr}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
-// 報酬・罰金項目の並びに合わせて2つの箱に分けた（保存は同じ admin_save_pay_settings。どちらの保存も6つ全部を送る）
+// 報酬・罰金項目の並びに合わせて2つの箱に分けた（保存は同じ admin_save_pay_settings。どちらの保存も7つ全部を送る。片方の箱だけ送ると、もう片方の値が消えるため）
 const pnNum=(id,label,v,ed)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${ed?'':'disabled'}></label>`;
 const pnSaveBtn=ed=>ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pnsave>保存</button></div>':'';
 const pnYen=v=>v==null?'—':Number(v).toLocaleString('ja-JP')+'円';
@@ -127,6 +129,8 @@ function sptWire(k='spt'){ const box=$(k+'Box'); if(!box) return; sptRest(k);
   box.addEventListener('click',e=>{ const x=e.target.closest(`[data-${k}del]`); if(x){ x.closest('tr').remove(); sptRest(k); } });
   const ad=$(k+'Add'); if(ad) ad.onclick=()=>{ $(k+'Body').insertAdjacentHTML('beforeend',sptRow({},true,k)); sptRest(k); }; }
 function sptVals(k='spt'){ return [...document.querySelectorAll(`#${k}Body [data-${k}]`)].map(tr=>({upto:slNum(tr.querySelector('[data-tu]').value),p:slNum(tr.querySelector('[data-tp]').value)})); }
+/* 報酬・罰金項目の2つの箱の保存：どちらの箱からでも7つの数を送る（admin_save_pay_settings）。ポイントの箱の時だけ、続けて段の表（spt・ept）を送る。
+   数が保存できて段で止まると、数は保存済み（画面は読み直さない）。2つの箱は必ず同じ画面に描く（もう片方の箱の欄も読むため） */
 function payNumWire(st){ $('main').querySelectorAll('[data-pnsave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
   const g=id=>slNum($(id).value), v={advance_cap_cast:g('pnCapC'),tatekae_cap_cast:g('pnCapT'),advance_cap_hall:g('pnCapH'),trial_withholding_rate:g('pnTw'),set_point:g('pnSp'),ext_point:g('pnEp'),douhan_punch_limit_min:g('pnDh')};
   if(Object.values(v).some(x=>x==null||!Number.isFinite(x)||x<0)){ await uiAlert('全部の欄に0以上の数を入力してください'); return; }

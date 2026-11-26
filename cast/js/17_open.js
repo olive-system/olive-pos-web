@@ -15,8 +15,8 @@ const opUrls = new Map(), opUrl = f => { if(!opUrls.has(f)) opUrls.set(f, URL.cr
 const opGrid = (x, key) => (opShots[x.id] || []).length ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${opShots[x.id].map((f, k) => `<div style="position:relative"><img src="${opUrl(f)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button class="xb img" data-opx="${key}:${k}" aria-label="外す">×</button></div>`).join('')}</div>` : '';
 const opDrop = (x, k) => { const f = (opShots[x.id] || [])[k]; if(!f) return; if(opUrls.has(f)){ URL.revokeObjectURL(opUrls.get(f)); opUrls.delete(f); } opShots[x.id].splice(k, 1); if(!opShots[x.id].length) delete opShots[x.id]; };
 async function hallTasks(ph){
-  setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>');
-  const [r, tq] = await Promise.all([sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }), ph === 'close' ? sb.rpc('hall_todos', { p_token: TOKEN }) : null]); if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
+  setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>'); const tk = hallTasks.tk = (hallTasks.tk || 0) + 1; /* 開店⇄閉店を続けて押した時、前の答えが後から描き直さないように */
+  const [r, tq] = await Promise.all([sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }), ph === 'close' ? sb.rpc('hall_todos', { p_token: TOKEN }) : null]); if(tk !== hallTasks.tk) return; if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
   const D = r.data, L = D.items || [], d = new Date(D.day + 'T00:00:00+09:00');
   const nil = x => x.kind === 'todo' && !x.todo_open && tq && !tq.error && !(tq.data.items || []).length; /* TODO が1件も無い日（休みの日など）は「完了」ではなく「なし」と出す（終わらせた人がいないのに完了に見えるため） */
   const nd = L.filter(x => x.status === 'done' && !nil(x)).length, nAll = L.filter(x => !nil(x)).length;
@@ -28,7 +28,7 @@ async function hallTasks(ph){
     <div class="card"><div class="muted sm" style="margin-bottom:4px">完了 ${nd}／${nAll}。開始・完了は、ほかの黒服の画面にも出ます</div>${L.map(row).join('') || `<div class="muted">${TASK_TTL[ph]}の項目がありません（管理サイトの「${TASK_TTL[ph]}」で追加します）</div>`}</div>`);
   swWire();
   if(ph === 'close') sb.rpc('hall_todo_ahead', { p_token: TOKEN }).then(q => { const el = $('opAhead'); if(el && !q.error) el.innerHTML = aheadHtml(q.data); }); /* 連休前の日の閉店作業に、連休明けの休日分を知らせる（オーナー） */
-  const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]];
+  const again = () => hallTasks(ph), at = b => L[+b.dataset[Object.keys(b.dataset)[0]]]; /* 行のボタンは data-○○="行の番号" を1つだけ持つ（2つ付けると最初の物を番号として読むので壊れる） */
   const K = { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, again, at }; htBindA(K); htBindB(K); }
 /* 作業の1行（右の欄：なし・完了・未完了・対象外・交代・開始・写真と完了・表示） */
 function htRow(K, x, i){ const { D, nil } = K; const mine = x.wip_id === D.me, other = x.wip_id && !mine, simple = x.kind === 'simple', na = x.limited && !D.limited_ok;
@@ -53,7 +53,7 @@ function htBindA(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, agai
   $('main').querySelectorAll('[data-opk]').forEach(t => t.oninput = () => { opNotes[L[+t.dataset.opk].id] = t.value; });
   const start = async (x, take) => { const q = await sb.rpc('hall_task_start', { p_token: TOKEN, p_task: x.id, p_take: !!take }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; };
   $('main').querySelectorAll('[data-ops]').forEach(b => b.onclick = async () => { const x = at(b); b.disabled = true; if(!await start(x)) return; if(x.kind === 'simple') again(); else hallCloseTask(x, ph); });
-  $('main').querySelectorAll('[data-opt]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`${x.wip_by}さんが作業中です。\n交代しますか？`, '交代')) return; if(!await start(x, true)) return; if(x.kind === 'simple') again(); else hallCloseTask(x, ph); });
+  $('main').querySelectorAll('[data-opt]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`${x.wip_by}さんが作業中です。\n交代しますか？`, '交代')) return; b.disabled = true; /* 2回押すと交代を2回送っていた */ if(!await start(x, true)) return; if(x.kind === 'simple') again(); else hallCloseTask(x, ph); });
   $('main').querySelectorAll('[data-opv]').forEach(b => b.onclick = () => hallCloseTask(at(b), ph));
   $('main').querySelectorAll('[data-optd]').forEach(b => b.onclick = hallTodo);
 }
@@ -70,10 +70,11 @@ function htBindB(K){ const { ph, r, tq, D, L, d, nil, nd, nAll, sw, swWire, agai
         const p = await sb.rpc('hall_open_photos', { p_token: TOKEN, p_task: x.id, p_count: f.length }); if(p.error) throw p.error;
         await todoPhotosUp(p.data, f); } /* 3枚ずつ同時に送る */
       const q = await sb.rpc('hall_open_done', { p_token: TOKEN, p_task: x.id, ...(x.need_comment ? { p_comment: opNotes[x.id] || '' } : {}) }); if(q.error) throw q.error;
+      (opShots[x.id] || []).forEach(f => { if(opUrls.has(f)){ URL.revokeObjectURL(opUrls.get(f)); opUrls.delete(f); } }); /* 送った写真の仮の URL を放す（前は完了のたびに残っていた） */
       delete opShots[x.id]; delete opChecks[x.id]; delete opNotes[x.id]; again();
     }catch(e){ b.disabled = false; await uiAlert(e.message || String(e)); again(); } });
-  $('main').querySelectorAll('[data-opu]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`「${x.name}」の完了を取り消しますか？`, '取消')) return;
-    const q = await sb.rpc('hall_open_undo', { p_token: TOKEN, p_task: x.id }); if(q.error){ await uiAlert(q.error.message); return; } again(); });
+  $('main').querySelectorAll('[data-opu]').forEach(b => b.onclick = async () => { const x = at(b); if(!await uiConfirm(`「${x.name}」の完了を取り消しますか？`, '取消')) return; b.disabled = true;
+    const q = await sb.rpc('hall_open_undo', { p_token: TOKEN, p_task: x.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; } again(); });
 }
 
 const shRows = {};   // 仕入れの入力中の行（追加・× で描き直しても残す）
@@ -314,6 +315,8 @@ function hcWireKimono(H, again){ const {x, ph, r, k, D, td, sv} = H;
    全部選ぶまで［保存］は出さない（押しても完了にならないため）。帰りの残りは、上で選んでいる残りをそのまま出す */
 async function hcWireBottle(H){ const {x, ph, D} = H; const s = $('clSv'); if(!s) return; s.style.display = 'none';
   const r = await sb.rpc('hall_kpb_review_list', { p_token: TOKEN, p_task: x.id }); const L = r.error ? [] : (r.data || []);
+  if(!s.isConnected) return; /* 読む間にほかの画面へ移った時は、その画面に差し込まない */
+  if(r.error) loadNg(); /* 読めない時は黙らずに1行（閉店作業は止めない） */
   if(!L.length){ s.style.display = ''; return; }
   const M = $('main'), why = ['お断り', '次回ご注文', '未提案', '残量あり'], cur = id => { const i = D.findIndex(b => b.id === id), e = i < 0 ? null : M.querySelector(`[data-bt="${i}"]`); return e ? `${e.value}/10` : '—'; };
   const card = M.querySelector('.card'); if(!card) return;
