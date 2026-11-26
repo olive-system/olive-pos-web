@@ -5,14 +5,14 @@ async function cardOrder(){
   if(r.error){ fail(r.error.message); return; }
   const C = r.data, ds = t => new Date(t).toLocaleDateString('ja-JP', { timeZone:'Asia/Tokyo', month:'numeric', day:'numeric' });
   const hist = (C.history||[]).map(h => `<div class="row"><span>${ds(h.at)}　${esc(h.print_name)}</span><b>${h.qty}枚</b></div>`).join('');
-  if(!C.ready){ show(`<div class="card c muted">名刺発注は準備中です</div>${hist?`<div class="card"><div class="gh">発注履歴</div>${hist}</div>`:''}`); return; }
+  if(!C.ready){ show(`<div class="card c muted">名刺発注は準備中です</div>${hist?`<div class="card"><div class="gh">発注履歴</div>${hist}</div>`:''}`); lqMount(); return; }
   const lf = C.last_family || '', lg = C.last_given || '', fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink)';
   show(`<div class="card"><div class="row"><span>依頼者</span><b>${esc(C.name)}</b></div>
       <div class="row" style="margin-top:10px"><span>印刷する名前（フルネーム）</span>${lf?'<button class="btn g" id="cnLast" style="width:auto;padding:6px 12px;font-size:14px">前回と同じ</button>':''}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px"><label class="f">苗字<input id="cnF" maxlength="20" placeholder="例：一ノ瀬" style="${fld}"></label><label class="f">名前<input id="cnG" maxlength="20" placeholder="例：美緒" style="${fld}"></label></div>
       <div class="row" style="margin-top:10px"><span>枚数</span><b>${C.qty}枚 ${yen(C.price)}</b></div></div>
     <div class="err sm" style="margin:0 2px 12px">名刺代 ${yenU(C.price)}は、報酬から控除されます。</div>
-    <button class="btn" id="cnGo">名刺発注</button>${hist?`<div class="card" style="margin-top:12px"><div class="gh">発注履歴</div>${hist}</div>`:''}`);
+    <button class="btn" id="cnGo">名刺発注</button>${hist?`<div class="card" style="margin-top:12px"><div class="gh">発注履歴</div>${hist}</div>`:''}`); lqMount(); /* LINE QR の箱（08_card_lineqr.js） */
   if(lf) $('cnLast').onclick = () => { $('cnF').value = lf; $('cnG').value = lg; }; /* 初回は出さない（オーナー） */
   $('cnGo').onclick = async () => {
     const f = $('cnF').value.trim(), g = $('cnG').value.trim(), nm = `${f}　${g}`;
