@@ -20,7 +20,9 @@ function blPaint(){
   const { M, m, B } = blD, mo = x => `${Number(String(x).slice(5,7))}月`, tm = t => t ? new Date(t).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
   const L = (k, v, c='') => `<div class="row ${c}" style="font-size:14px"><span>${k}</span><span>${v}</span></div>`;
   const bill = b => { const c = b.calc || {}, op = billOpen.has(b.id), d = new Date(b.date+'T00:00:00+09:00');
-    let h = `<div class="card" data-bl="${b.id}" style="cursor:pointer"><div class="row"><b>${esc(b.customers||'お客様')} 様</b><b>${yen(c.amount_due)}</b></div>
+    /* ks＝この伝票の自分の係小計（cast_bills が係1人分の関数 bill_kakari_share を呼んだ数。式はここに書かない）。カードの右上は係小計だけ（合計は明細の一番下）。kn＝係の人数（2人以上の時だけ名前の横に出す） */
+    const ks = N(b.kakari_share), kn = N(b.kakari_n), kw = kn > 1 ? (KL === '係' ? `${kn}人係` : `${esc(KL)} ${kn}人`) : '';
+    let h = `<div class="card" data-bl="${b.id}" style="cursor:pointer"><div class="row"><span><b>${esc(b.customers||'お客様')} 様</b>${kw?` <small class="muted">${kw}</small>`:''}</span><span class="blam ks${ks<0?' neg':''}"><small>${KL === '係' ? '係小計' : '小計'}</small><b>${yen(ks)}</b></span></div>
       <div class="muted sm">${mdWD(d)}　${esc(b.table||'')}${b.table?'・':''}${N(b.guests)}名　${tm(b.open)}〜${tm(b.close)}</div>`;
     if(op){ const items = (b.items||[]).map(i => L(`${esc(i.name)}${N(i.qty)>1?` ×${N(i.qty)}`:''}`, (N(i.qty)*N(i.price)).toLocaleString('ja-JP'))).join('');
       h += `<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:6px">${N(c.set)+N(c.vip_set)?L(`セット${c.set_guests?` ${N(c.set_guests)}名`:''}`, (N(c.set)+N(c.vip_set)).toLocaleString('ja-JP')):''}${N(c.extension)+N(c.vip_ext)?L('延長', (N(c.extension)+N(c.vip_ext)).toLocaleString('ja-JP')):''}${items}
