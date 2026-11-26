@@ -1,5 +1,6 @@
 // ---------- NG キャスト（SQL 745・オーナー 11/26「お客様が嫌いと言った女性が二度とつかないように、それを思い出せるように」） ----------
 // 顧客画面：反応◎の下に NG（× と ＋NG。押すとすぐ保存。顧客サイトと同じ形）
+const CU_NG_BOX='<div style="grid-column:1/-1;margin:0 0 8px"><div class="muted" style="font-size:13px">NG</div><div id="cuNg" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:16px;padding:4px 0">…</div></div>';
 async function cuNgLoad(c){ const box=$('cuNg'); if(!box) return; const r=await sb.rpc('pos_cust_ng',{p_customers:[c.id]}); if(!$('cuNg')||S.cuSel!==c.id) return; if(r.error){ box.textContent='—'; return; }
   if(!S.staffAll.length) await loadStaffAll(); const casts=S.staffAll.filter(s=>s.kind==='cast'&&s.is_active).map(s=>({id:s.id,name:s.display_name}));
   ngEditBox(box,(r.data||{})[c.id]||[],casts,async(id,on)=>{ const q=await sb.rpc('pos_cust_ng_set',{p_customer:c.id,p_staff:id,p_on:on}); if(q.error){ toast(q.error.message); return null; } const n=await sb.rpc('pos_cust_ng',{p_customers:[c.id]}); return n.error?null:((n.data||{})[c.id]||[]); }); }
