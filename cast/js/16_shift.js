@@ -295,17 +295,20 @@ async function homeRecruit(){ const r = await sb.rpc('cast_recruit_info', { p_to
 
 /* 黒服の日のシフト：当日欠勤の箱の中の「補充」の行（③）と「出勤可」の並び（⑨）。RC＝cast_shift_day_recruit の答え */
 function sdRefillRow(a){ return a.refill ? `<div class="sm" style="margin-top:2px"><b style="color:var(--pri)">補充</b> ${esc(a.refill)}　<span class="muted">出勤可 ${hmJst(a.refill_at).replace(/^0/, '')}</span></div>` : ''; }
-function sdRecruitHtml(RC){ if(!RC) return ''; const g = 'display:grid;grid-template-columns:4.5em 3em minmax(0,1fr) auto;gap:8px', OK = RC.ok || [];
+function sdRecruitHtml(RC){ if(!RC) return ''; const g = 'display:grid;grid-template-columns:4.5em 3em minmax(0,1fr) auto auto;gap:8px', OK = RC.ok || [];
   return `<div class="gh" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">出勤可 ${OK.length}人</div>
     <div class="sm muted">出勤募集 ${RC.sent_at ? hmJst(RC.sent_at).replace(/^0/, '') + ' 送信済 ' + RC.sent + '人' : RC.approved_at ? '送信中' : '判断待ち'}</div>
-    ${OK.length ? `<div class="sm muted" style="${g};padding:6px 2px 0"><span></span><span>連絡</span><span>今週 出勤／希望</span><span style="width:4.6em"></span></div>` : ''}
-    ${OK.map((x, i) => `<div style="${g};align-items:center;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><span class="sm muted">${hmJst(x.ok_at).replace(/^0/, '')}</span><span class="sm muted">${Number(x.week) || 0}日／${x.want == null ? '—' : Number(x.want) + '日'}</span><button class="btn g" data-rca="${i}" style="width:auto;padding:6px 16px;margin:0">追加</button></div>`).join('')}`; }
+    ${OK.length ? `<div class="sm muted" style="${g};padding:6px 2px 0"><span></span><span>連絡</span><span>今週 出勤／希望</span><span></span><span style="width:4.6em"></span></div>` : ''}
+    ${OK.map((x, i) => `<div style="${g};align-items:center;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><span class="sm muted">${hmJst(x.ok_at).replace(/^0/, '')}</span><span class="sm muted">${Number(x.week) || 0}日／${x.want == null ? '—' : Number(x.want) + '日'}</span><button class="btn g" data-rcd="${i}" style="width:auto;padding:6px 12px;margin:0">見送り</button><button class="btn g" data-rca="${i}" style="width:auto;padding:6px 16px;margin:0">追加</button></div>`).join('')}`; }
 
-/* ［追加］：時刻を選んで補充にする（追加するとキャストに【シフトの追加】の LINE。急な出勤の手当が付く） */
+/* ［追加］：時刻を選んで補充にする（追加するとキャストに「出勤をお願いします」の LINE。急な出勤の手当が付く）。［見送り］：キャストに「今回は大丈夫になりました」の LINE（SQL 753） */
 function sdRecruitBind(RC, iso, store, tin, again){ if(!RC) return;
   $('main').querySelectorAll('[data-rca]').forEach(b => b.onclick = () => { const x = (RC.ok || [])[+b.dataset.rca], w = document.createElement('div'); w.className = 'dlg';
     w.innerHTML = `<div class="box"><p style="margin-bottom:10px">${esc(x.name)}</p>${tin('21:00', 'id="rcTm"', 'width:100%;font:inherit;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--card)')}<div class="bt"><button class="btn g" data-k="no">キャンセル</button><button class="btn" data-k="ok">追加</button></div></div>`;
     document.body.appendChild(w); w.querySelector('[data-k=no]').onclick = () => w.remove();
     w.querySelector('[data-k=ok]').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('cast_recruit_add', { p_token: TOKEN, p_store: store || null, p_recruit: RC.id, p_staff: x.staff_id, p_time: w.querySelector('#rcTm').value });
-      w.remove(); if(q.error){ await uiAlert(q.error.message); return; } again(); }; }); }
+      w.remove(); if(q.error){ await uiAlert(q.error.message); return; } again(); }; });
+  $('main').querySelectorAll('[data-rcd]').forEach(b => b.onclick = async () => { const x = (RC.ok || [])[+b.dataset.rcd];
+    if(!await uiConfirm(`${x.name}さんの出勤可を見送りますか？\nキャストに LINE が届きます`)) return;
+    const q = await sb.rpc('cast_recruit_decline', { p_token: TOKEN, p_store: store || null, p_recruit: RC.id, p_staff: x.staff_id }); if(q.error){ await uiAlert(q.error.message); return; } again(); }); }
 
