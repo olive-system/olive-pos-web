@@ -66,7 +66,7 @@ function billPeopleChips(b,gr,editable){ const cs=b.bill_casts||[]; const ch=(tx
 async function billPeopleEdit(id){ let box=$('uiDlgList'); if(!box){ box=document.createElement('div'); box.id='uiDlgList'; box.style.cssText='max-height:60vh;overflow:auto;margin:10px 0;font-size:15px'; $('uiDlgMsg').after(box); } if(!S.staffAll.length) await loadStaffAll();
   let b=null, md=null, by=null; const hc=()=>syncHcBack(id); /* 今開いている伝票（cur）を差し替えずに、この伝票を振り分ける */
   const L=(action,d)=>logOp(action,d,undefined,false,b); /* 今開いている伝票（cur）を差し替えずに、この伝票の操作として残す */
-  const draw=async()=>{ const r=await sb.from('bills').select('id,status,table_id,table_name,guest_count,set_guest_count,opened_at,business_date,bill_casts(id,staff_id,role,is_kakari),after_bills(staff_id),after_none,payments(method,amount,received_at,revenue_date)').eq('id',id).single(); if(r.error){ box.innerHTML=`<div class="muted">${esc(r.error.message)}</div>`; return; } b=r.data;
+  const draw=async()=>{ const r=await sb.from('bills').select('id,status,table_id,table_name,guest_count,set_guest_count,opened_at,business_date,bill_casts(id,staff_id,role,is_kakari),bill_customers(customer_id),after_bills(staff_id),after_none,payments(method,amount,received_at,revenue_date)').eq('id',id).single(); if(r.error){ box.innerHTML=`<div class="muted">${esc(r.error.message)}</div>`; return; } b=r.data;
     md=billEditMode(b); const g=await sb.from('good_reactions').select('id,staff_id').eq('bill_id',id); const gl=g.data||[]; const cs=b.bill_casts||[]; const att=await attendedOn(b.business_date);
     box.innerHTML=billPeopleHtml(md,cs,gl,att,b); const P=md==='prev'?billPrevLog(b,by,cs,gl,L):null;
     box.querySelectorAll('[data-bprm]').forEach(x=>x.onclick=()=>billPeopleRm(cs.find(z=>z.id===x.dataset.bprm),P,L,hc,draw));
@@ -90,6 +90,7 @@ function billPrevLog(b,by,cs,gl,L){ const nm=a=>a.map(snm2).join('・')||'なし
 /* 会計後の伝票に係・同伴・反応◎を足す（選んだ時） */
 async function billPeopleAdd(s,id,b,cs,L,hc,draw,P){
   const sid=s.value; if(!sid) return; s.disabled=true; const k=s.dataset.bp; const ex=cs.find(c=>c.staff_id===sid); let e=null, kak=false;
+  if(k!=='g'&&!ex&&!await ngConfirm(await ngOfBill(b),sid,k==='a'?'アフター':k==='k'?KL:'同伴')){ draw(); return; } /* NG キャスト（SQL 745） */
   if(k==='a'){ e=(await sb.rpc('pos_after_set_bill',{p_bill:id,p_staff:sid,p_on:true})).error; }
   else if(k==='g'){ e=(await sb.rpc('pos_good_add',{p_store:S.store.id,p_bill:id,p_staff:sid})).error; if(!e) await (P?P.good(sid,true):L('反応◎',{name:snm2(sid)})); }
   else if(k==='k'){ kak=true; e=ex?(await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(ex.id)??null},p:{is_kakari:true}})).error:(await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:id,staff_id:sid,role:'none',is_kakari:true}})).error; if(!e) await (P?P.kakari(sid,true):L('係を追加（会計後）',{name:snm2(sid)})); }
