@@ -16,7 +16,7 @@ async function homeRecruit(){ const r = await sb.rpc('cast_recruit_info', { p_to
 function sdRefillRow(a){ return a.refill ? `<div class="sm" style="margin-top:2px"><b style="color:var(--pri)">補充</b> ${esc(a.refill)}　<span class="muted">出勤可 ${hmJst(a.refill_at).replace(/^0/, '')}</span></div>` : ''; }
 function sdRecruitHtml(RC){ if(!RC) return ''; const g = 'display:grid;grid-template-columns:4.5em 3em minmax(0,1fr) auto;gap:8px', OK = RC.ok || [];
   return `<div class="gh" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">出勤可 ${OK.length}人</div>
-    <div class="sm muted">出勤募集 ${RC.sent_at ? hmJst(RC.sent_at).replace(/^0/, '') + ' 送信済' : '送信中'} ${RC.sent}人</div>
+    <div class="sm muted">出勤募集 ${RC.sent_at ? hmJst(RC.sent_at).replace(/^0/, '') + ' 送信済 ' + RC.sent + '人' : RC.approved_at ? '送信中' : '送信前'}</div>
     ${OK.length ? `<div class="sm muted" style="${g};padding:6px 2px 0"><span></span><span>連絡</span><span>今週 出勤／希望</span><span style="width:4.6em"></span></div>` : ''}
     ${OK.map((x, i) => `<div style="${g};align-items:center;padding:8px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</span><span class="sm muted">${hmJst(x.ok_at).replace(/^0/, '')}</span><span class="sm muted">${Number(x.week) || 0}日／${x.want == null ? '—' : Number(x.want) + '日'}</span><button class="btn g" data-rca="${i}" style="width:auto;padding:6px 16px;margin:0">追加</button></div>`).join('')}`; }
 
@@ -27,3 +27,18 @@ function sdRecruitBind(RC, iso, store, tin, again){ if(!RC) return;
     document.body.appendChild(w); w.querySelector('[data-k=no]').onclick = () => w.remove();
     w.querySelector('[data-k=ok]').onclick = async e => { e.target.disabled = true; const q = await sb.rpc('cast_recruit_add', { p_token: TOKEN, p_store: store || null, p_recruit: RC.id, p_staff: x.staff_id, p_time: w.querySelector('#rcTm').value });
       w.remove(); if(q.error){ await uiAlert(q.error.message); return; } again(); }; }); }
+
+/* 承認者（シフトの承認者）のホーム：一番上の「出勤募集」の箱（見本 当日欠勤ですぐ呼ぶ（11-26）⑪⑫⑬）。
+   当日欠勤で目安を下回った日に、［送信］を押した時だけシフトの無い子へ一斉に送る（オーナー 11/26「このジャッジは1回通して欲しい、権限者に」） */
+async function hallRecruitAsk(){ const r = await sb.rpc('cast_recruit_pending', { p_token: TOKEN }); if(r.error || !r.data) return;
+  const R = r.data, h = $('main').querySelector('.hello'); if(!h || $('raBox')) return;
+  const g = 'display:grid;grid-template-columns:4.5em 4.5em minmax(0,1fr);gap:2px 8px;align-items:baseline;font-variant-numeric:tabular-nums';
+  const hm = t => hmJst(t).replace(/^0/, '');
+  const paint = () => `<div class="row" style="padding:0"><b>出勤募集</b><span class="sm muted">${esc(mdW(R.day))}</span></div>
+    <div style="${g};margin-top:8px">${(R.absent || []).map((a, i) => `<span class="sm muted">${i ? '' : '当日欠勤'}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span><span class="sm muted">連絡 ${hm(a.at)}</span>`).join('')}
+      <span class="sm muted">出勤</span><b style="${R.count < R.target ? 'color:var(--warn)' : ''}">${Number(R.count)}人</b><span class="sm muted">目安 ${Number(R.target)}人</span></div><div style="height:10px"></div>
+    ${R.sent_at ? `<div class="row" style="padding:0"><span>送信先 ${Number(R.to)}人</span><b>${hm(R.sent_at)} 送信済</b></div>` : R.approved_at ? `<div class="row" style="padding:0"><span>送信先 ${Number(R.to)}人</span><b>${hm(R.approved_at)} 送信中</b></div>` : '<button class="btn" id="raGo">送信</button>'}`;
+  h.insertAdjacentHTML('afterend', `<div class="card" id="raBox" style="background:var(--gold-soft)">${paint()}</div>`);
+  const b = $('raGo'); if(b) b.onclick = async () => { if(!await uiConfirm(`${Number(R.to)}人に出勤募集を送信しますか？`, '送信')) return; b.disabled = true;
+    const q = await sb.rpc('cast_recruit_approve', { p_token: TOKEN, p_recruit: R.id }); if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; }
+    R.approved_at = q.data.approved_at; $('raBox').innerHTML = paint(); }; }
