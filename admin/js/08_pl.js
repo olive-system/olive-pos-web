@@ -48,7 +48,7 @@ function pmHtml(K){ const {st,m,mOpts,data,T,cols,box,Nn,per,cm,lab,ex,kb,kl,pho
       ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[['ユニーク','<span data-pl="uq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]])}
       ${kb('経費',plYen(ex),[['キャスト',cm(T.cast_pay)],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.scout))],...(Nn(T.scout)?[['スカウト',cm(T.scout)]]:[]),['諸経費',cm(Nn(T.cash_out)-Nn(T.scout_cash))]])}
       ${kb('入金',plYen(T.cash_in),[])}</div>
-    <div class="card" style="margin-bottom:14px"><div class="muted" style="font-size:13px;margin-bottom:2px">人員</div><div data-pl="ret" style="font-size:14px;line-height:1.7">…</div></div>
+    <div class="card" style="margin-bottom:14px"><div class="muted" style="font-size:13px;margin-bottom:2px">人員</div><div data-pl="ret" style="font-size:14px;line-height:1.5">…</div></div>
     <div id="invBox" style="margin-bottom:14px"><div class="card muted">請求書の未入金を読み込み中…</div></div>${(plFill(st,m),'')}
     <div class="muted" style="font-size:13px;margin-bottom:6px">日付を押すと、その日の収支（日次）を開きます</div>
     <div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
