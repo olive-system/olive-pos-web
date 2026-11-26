@@ -31,8 +31,8 @@ function resvThanks(x){
     const q = await sb.rpc('cast_resv_thanks', { p_token: TOKEN, p_id: x.id, p_note: note || null });
     if(q.error){ if($('thGo')) $('thGo').disabled = false; await uiAlert(q.error.message); return; }
     /*点検 A3・未連携と送信失敗で文を分ける。送信失敗の時は記録せず、送り直せる */
-    if(!q.data.sent && q.data.linked === true){ if($('thGo')) $('thGo').disabled = false; await uiAlert('ありがとうの送信に失敗しました。再度お試しください'); return; }
-    await uiAlert(q.data.sent ? `${x.by}さんにありがとうを送信しました` : `ありがとうを記録しました。\n${x.by}さんは LINE 未連携のため、LINE は届いていません`);
+    if(!q.data?.sent && q.data?.linked === true){ if($('thGo')) $('thGo').disabled = false; await uiAlert('ありがとうの送信に失敗しました。再度お試しください'); return; }
+    await uiAlert(q.data?.sent ? `${x.by}さんにありがとうを送信しました` : `ありがとうを記録しました。\n${x.by}さんは LINE 未連携のため、LINE は届いていません`);
     resvList();
   };
 }
@@ -48,14 +48,18 @@ async function resvCancel(x, b){
   resvListNg(lineOk, '予約取消');
 }
 // 来店時刻は 20:00〜0:30 の15分ごとから選ぶ（type=time は iPhone で午前・午後が出て、午後10時のつもりが 10:00 で入った。オーナー「24時表記がいい」「20:00〜0:30」）
-const RV_TIMES = Array.from({ length: 19 }, (_, i) => { const m = (20 * 60 + i * 15) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); });
+const RV_TIMES = Array.from({ length: 19 } /* 20:00〜0:30 の15分ごと＝19個 */, (_, i) => { const m = (20 * 60 + i * 15) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); });
 // 予約の画面は、入力中の状態 R（同伴・顧客・VIP・出勤希望など）を1つの入れ物にして、働きごとの関数に分けた。R はこの画面を開くたびに作るので、前に開いた画面の読み込みが後から返っても混ざらない
+// R の中身：ed＝変更する予約（新しい申請は null）・me＝自分（cast_resv_staff の中の自分の行）・NK＝係の欄を出さない店（広島。RV_NOKK）
+//   dh＝同伴あり・dhIds＝同伴の子の id・blk＝黒ドレスの子・cid＝顧客から選んだ1人目・more＝2人目以降・sr＝出勤希望あり
+//   DAY＝来店日の VIP ルームと予約・自分のシフト（cast_resv_day。date は読み込んだ日）・offs＝お店の休みの日・kkPrev＝顧客の係で上書きする前の係の欄・dft＝途中の入力の控え（draftBind）
+// KL は店の係の言い方（lib/olive/core.js の kSet）。画面の欄は rvD 来店日・rvT 時刻・rvC お客様・rvN 人数・rvK 係・rvV VIP・rvB 黒ドレス・rvST 出勤時刻
 async function castResvForm(ed){
   setBack(resvList); show('<div class="card c muted">読み込み中…</div>');
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
   if(st.error){ fail(st.error.message); return; }
   const today = jstDay();
-  const me = (st.data||[]).find(s => s.name === ME.name), kk = ed ? ed.kakari : me?.id, NK = RV_NOKK();
+  const me = (st.data||[]).find(s => s.name === ME.name) /* ME に id が無いので名前で探す（店の中で表示名は重ならない） */, kk = ed ? ed.kakari : me?.id, NK = RV_NOKK();
   const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('');
   const R = { ed, me, NK, dh: ed ? !!ed.douhan : false, cid: ed ? ed.customer_id || null : null, cTimer: null, sr: false,
     more: ed && ed.more ? ed.more.map(x => ({ name: x.name, cid: x.customer_id || null })) : [] /* 2人目以降のお客様（SQL 717） */,
@@ -118,6 +122,8 @@ const rvSetDhT = (R, v) => { const t = $('rvT'); if(t.value === (v ? '21:00' : '
 // 出勤時刻は 19:50 か 20:00〜来店時刻の15分ごと（はじめは来店時刻。オーナー「来店時間にもよるよね」）。申請の後に cast_shift_request で承認者に LINE
 const rvSrOn = R => !$('rvSW').classList.contains('hide') && R.sr;
 const rvSrTimes = () => { const v0 = $('rvT').value || '23:00', v = v0 < '12:00' ? '23:00' : v0 /* 0時台の来店は 23:00 まで全部 */, L = ['19:50']; for(let m = 20*60; m <= 23*60; m += 15) /* 23:00 まで */{ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
+// 出勤希望を出す条件 no：同伴なし・その日に自分のシフトが無い・お店の休みでない・その日の DAY を読み終えている（DAY.date === d。読み込み前に出して消えるちらつきを防ぐ）
+// rvDayLoad（来店日の change で読み直し）が終わった時と、休みの日を読み終えた時（rvOffPaint）の両方から呼ぶので、どちらが先に終わってもよい
 const rvSrPaint = R => { const d = $('rvD')?.value; if(!d) return; const DAY = R.DAY, sr = R.sr, no = !R.dh && !(DAY.shifts || {})[R.me?.id] && !R.offs.has(d) && DAY.date === d;
   $('rvSW').classList.toggle('hide', !no); $('rvNoS').classList.toggle('hide', !no); $('rvNoS').textContent = no ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はシフトがありません。出勤する時は「出勤希望 あり」` : '';
   [['rvSr1', sr], ['rvSr0', !sr]].forEach(([id, on]) => { $(id).style.background = on ? 'var(--ink)' : ''; $(id).style.color = on ? '#fff' : ''; });
@@ -141,7 +147,7 @@ const rvDhPick = (R, shrink) => { if(document.querySelector('.dlg[data-dh]')) re
     w.querySelector('[data-k=no]').onclick = () => { if(shrink) $('rvN').value = R.dhIds.length; w.remove(); rvChipPaint(R); };
     w.querySelector('[data-k=ok]').onclick = async () => { if(!sel.length){ await uiAlert('同伴のキャストを選んでください'); return; } R.dhIds = sel; w.remove(); rvChipPaint(R); }; };
   paint(); document.body.appendChild(w); };
-const rvVipPaint = R => { const v = $('rvV').value, b = $('rvVB'), r = R.DAY.rooms.find(x => x.id === v), T = R.DAY.busy.filter(x => x.vip === v).map(x => x.time);
+const rvVipPaint = R => { const v = $('rvV').value, b = $('rvVB'), r = (R.DAY.rooms || []).find(x => x.id === v), T = (R.DAY.busy || []).filter(x => x.vip === v).map(x => x.time);
   b.classList.toggle('hide', !(r && T.length)); b.textContent = r && T.length ? `${r.name}：${T.join('・')} 予約あり` : ''; };
 const rvDayLoad = async R => { const ed = R.ed, d = $('rvD').value; if(!d) return; const q = await sb.rpc('cast_resv_day', { p_token: TOKEN, p_date: d, p_id: ed ? ed.id : null }); if(q.error || $('rvD')?.value !== d) return;
   const DAY = R.DAY = q.data; DAY.date = d; const v = $('rvV').value || (ed && !DAY.loaded ? ed.vip_id || '' : ''); $('rvV').innerHTML = `<option value="">なし</option>${(DAY.rooms || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}`; $('rvV').value = v; DAY.loaded = true;
@@ -152,7 +158,7 @@ const rvCandPaint = (R, L) => { const b = $('rvCands'); if(!b) return;
   b.innerHTML = L && L.length ? `<div class="muted sm" style="margin-top:8px">顧客の候補</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${L.map(x => `<button class="btn g" data-cu="${x.id}" data-nm="${esc(x.name)}" data-kk="${esc(x.kakari_id||'')}" style="width:auto;padding:8px 12px">${esc(x.name)}${x.kakari&&!R.NK?`<small class="muted">（${KL} ${esc(x.kakari)}）</small>`:''}</button>`).join('')}</div>` : '';
   b.querySelectorAll('[data-cu]').forEach(x => x.onclick = () => { R.cid = x.dataset.cu; $('rvC').value = x.dataset.nm; rvKkSet(R, x.dataset.kk); rvCandPaint(R); }); };
 // 2人目以降のお客様（人数まで・任意。オーナー「3人にもかかわらずお客様の名前が1人しか登録できない」）。欄の幅は1人目と同じ（右の人数の列の下は空ける）
-const rvMorePaint = R => { const b = $('rvMore'); if(!b) return; const n = Math.min(rvGuests(), 50) - 1;
+const rvMorePaint = R => { const b = $('rvMore'); if(!b) return; const n = Math.min(rvGuests(), 50 /* 人数をまちがえて大きく打っても、欄を作りすぎない */) - 1;
   while(R.more.length < n) R.more.push({ name: '', cid: null });
   const fld = 'width:100%;height:48px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink)';
   b.innerHTML = Array.from({ length: Math.max(n, 0) }, (_, i) => `<div style="padding-right:72px"><label class="f" style="margin-top:8px">${i + 2}人目のお客様（任意）<input id="rvC${i + 2}" maxlength="30" placeholder="例：三木谷 浩史" value="${esc(R.more[i].name)}" style="${fld}"></label></div><div id="rvCands${i + 2}"></div>`).join('');
@@ -191,9 +197,9 @@ async function rvCheck(R){
 }
 async function rvSubmit(R){
   const go = $('rvGo'); if(go.disabled) return; go.disabled = true; /* 最初の確かめから押せない（確認の箱の間の2回押し） */
-  const v = await rvCheck(R); if(!v){ if($('rvGo')) $('rvGo').disabled = false; return; }
+  const v = await rvCheck(R).catch(async e => { await uiAlert(e.message || String(e)); return null; }) /* 通信が切れて止まっても、ボタンを押せないままにしない */; if(!v){ if($('rvGo')) $('rvGo').disabled = false; return; }
   const { ed, NK, me, dh, dhIds, blk, DAY } = R, { d, t, c, k, n, memo } = v, nmOf = id => rvNmOf(R, id);
-  const vip = $('rvV').value || null, vn = vip ? (DAY.rooms.find(r => r.id === vip) || {}).name : null;
+  const vip = $('rvV').value || null, vn = vip ? ((DAY.rooms || []).find(r => r.id === vip) || {}).name : null;
   const kn = NK ? '自分' : $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, names:rvNames(R, c), guests:n, douhan:dh, meet:null, memo:memo || null, vip:vn, dh_names: dh ? dhIds.map(id => id === me?.id ? ME.name : nmOf(id)) : [] };
   if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${rvSrOn(R)?`\n出勤希望 ${$('rvST').value}`:''}${lineOutNote()}\nこの内容で${ed?'変更':'申請'}しますか？`)){ if($('rvGo')) $('rvGo').disabled = false; return; }
   const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: R.cid, p_vip: vip, p_dh: R.dh ? R.dhIds : null, p_black: R.dh && R.blk && !R.DAY.black_taken ? R.blk : null, p_more: rvMoreOut(R) });
