@@ -59,7 +59,7 @@ async function send(code, cmd){
   res = `<div class="kres"><b>送信中…</b><br><span class="muted sm">${esc(nm)}</span></div>`; paint();
   let r; try{ r = await sb.functions.invoke('sesame-key', { body: { t: T, lock: code, cmd } }); }catch(e){ r = { error: e }; }
   const d = r.data || {}, lb = cmd === 'lock' ? '施錠' : '解錠';
-  res = !r.error && d.ok ? `<div class="kres"><b>${lb}完了</b><br><span class="muted sm">${hm(new Date())}　${esc(nm)}</span></div>`
+  res = !r.error && d.ok ? `<div class="kres"><b>${lb}完了</b><br><span class="muted sm">${hm(new Date())}　${esc(nm)}</span>${cmd === 'lock' ? '<br><span class="sm">閉まったことを確認してください。</span>' : ''}</div>`
     : `<div class="kres ng"><b>${lb}エラー</b><br><span class="muted sm">${esc(d.reason || (r.error && r.error.message) || '通信エラー')}</span>${d.paused ? `<br><span class="muted sm">再開 ${Math.max(1, Math.ceil((d.retry_after || 600) / 60))}分後</span>` : ''}<br><span class="sm">セサミのアプリで${lb}してください。</span></div>`;
   until = Date.now() + COOL; clearInterval(timer); timer = setInterval(() => { if(Date.now() >= until){ clearInterval(timer); } paint(); }, 1000);
   busy = false; paint();
