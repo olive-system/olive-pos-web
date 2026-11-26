@@ -75,6 +75,7 @@ function setListPage(key, keepSel, def){
 /* 足したばかりのメニュー：販売価格・カテゴリーを入れると、バック・ポイントのはじめの値が入る（変えられる。lib/olive/core.js の menuBackInit） */
 function menuBackWire(f){ const g=k=>f.querySelector(`[data-k="${k}"]`), fill=()=>{ const c=g('category_id'), v=menuBackInit(S.store?.code,c?.selectedOptions[0]?.text||'',g('price')?.value); if(g('back_amount')) g('back_amount').value=v.back; if(g('back_points')) g('back_points').value=v.points; };
   ['price','category_id'].forEach(k=>{ const e=g(k); if(e) e.addEventListener(k==='price'?'input':'change',fill); }); }
+/* 右のフォーム。保存は guard で終わるまで押せない（2回押すと操作ログの「設定変更」が2つ残っていた）。VIP 料金は卓ごとに保存するので、途中で止まると前の卓までは保存済み */
 function renderForm(def){ const r=S.setSel; const f=$('setForm');
   if(!r){ f.innerHTML='<div class="muted">左の一覧から選ぶか「追加」</div>'; return; }
   if(def.ro){ renderFormRo(def,r); return; }
@@ -84,11 +85,11 @@ function renderForm(def){ const r=S.setSel; const f=$('setForm');
     if(type==='cat') return `<label>${label}<select data-k="${k}">${S.categories.map(c=>`<option value="${c.id}" ${r[k]===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>`;
     return `<label>${label}<input type="${type}" data-k="${k}" value="${esc(r[k]??'')}"></label>`; }).join('')+(def.key==='pos'?`<h3 style="margin:16px 0 4px">VIP料金（卓ごと。0＝通常卓）</h3><div class="muted" style="font-size:12px">VIP代＝部屋につき1回／VIP延長＝延長${S.settings.ext_minutes}分ごとに加算。人数は掛けません</div><table style="width:100%;margin-top:6px"><tr><th style="text-align:left">卓</th><th>VIP代</th><th>VIP${S.settings.ext_minutes}分延長</th></tr>${S.tables.map(t=>`<tr><td>${esc(t.name)}</td><td><input type="number" data-vipset="${t.id}" value="${t.vip_set_fee||0}"></td><td><input type="number" data-vipext="${t.id}" value="${t.vip_ext_fee||0}"></td></tr>`).join('')}</table>`:'')+`<div class="bar"><button class="primary" id="setSave">保存</button></div>`;
   if(def.key==='products'&&r.id===S.setNewId) menuBackWire(f); /* 足したばかりの品だけ（S.setNewId は次に「追加」するまで残る。前からある品は値を上書きしない） */
-  $('setSave').onclick=guard($('setSave'),async()=>{ /* 2回押すと操作ログの「設定変更」が2つ残るので、終わるまで押せない */ const o={}; def.cols.forEach(([k,,type])=>{ const el=f.querySelector(`[data-k="${k}"]`); o[k]=type==='bool'?el.checked:type==='number'?Number(el.value||0):(type==='prod'?(el.value||null):el.value); });
+  $('setSave').onclick=guard($('setSave'),async()=>{ const o={}; def.cols.forEach(([k,,type])=>{ const el=f.querySelector(`[data-k="${k}"]`); o[k]=type==='bool'?el.checked:type==='number'?Number(el.value||0):(type==='prod'?(el.value||null):el.value); });
     const q = def.single ? sb.rpc('pos_settings_save',{p_store:S.settings.store_id,p:o}) : sb.rpc('pos_row_update',{p_table:def.table,p_id:r.id,p:o});
     let { error } = await q;
     if(!error){ const ch=def.cols.filter(([k])=>String(r[k]??'')!==String(o[k]??'')).map(([k,label])=>`${label.split('（')[0].split('：')[0]}:${r[k]??''}→${o[k]??''}`); if(ch.length) await logOp('設定変更',{kind:def.name,name:def.single?null:def.label(r),fields:ch},null,true); }
-    if(!error&&def.key==='pos'){ for(const t of S.tables){ const a=Number(f.querySelector(`[data-vipset="${t.id}"]`)?.value||0), b=Number(f.querySelector(`[data-vipext="${t.id}"]`)?.value||0); if(a!==(t.vip_set_fee||0)||b!==(t.vip_ext_fee||0)){ const u=await sb.rpc('pos_row_update',{p_table:'tables',p_id:t.id,p:{vip_set_fee:a,vip_ext_fee:b}}); if(u.error){ error=u.error; break; } /* 卓ごとに保存するので、途中で止まると前の卓までは保存済み */ await logOp('設定変更',{kind:'VIP料金',name:t.name,fields:[`VIP代:${t.vip_set_fee||0}→${a}`,`VIP延長:${t.vip_ext_fee||0}→${b}`]},null,true); } } }
+    if(!error&&def.key==='pos'){ for(const t of S.tables){ const a=Number(f.querySelector(`[data-vipset="${t.id}"]`)?.value||0), b=Number(f.querySelector(`[data-vipext="${t.id}"]`)?.value||0); if(a!==(t.vip_set_fee||0)||b!==(t.vip_ext_fee||0)){ const u=await sb.rpc('pos_row_update',{p_table:'tables',p_id:t.id,p:{vip_set_fee:a,vip_ext_fee:b}}); if(u.error){ error=u.error; break; } await logOp('設定変更',{kind:'VIP料金',name:t.name,fields:[`VIP代:${t.vip_set_fee||0}→${a}`,`VIP延長:${t.vip_ext_fee||0}→${b}`]},null,true); } } }
     toast(error?error.message:'保存しました'); if(!error) renderSettings(def.key,true); });
 }
 // 料金設定は見るだけ（変えるのは管理サイト：料金は「POS設定」、日払の上限・源泉・ポイント・同伴の準備時間は「報酬・罰金項目」）
