@@ -7,6 +7,7 @@ const plRate=(a,b)=>Number(b||0)?(Math.round(Number(a||0)/Number(b)*10000)/100).
 // 収支の上の「置き」と「ユニーク数」（まとめと同じ数え方）。あとから入れる
 async function plFill(st,m){ setTimeout(async()=>{
   const same=()=>page==='pl'&&storeId===st&&plMonth===m&&!plDate; /* 読み終わる前に月・店・画面を変えた時は書かない（点検） */
+  const rt=await sb.rpc('admin_shift_retention',{p_store:st}); if(!same()) return; document.querySelectorAll('[data-pl=ret]').forEach(e=>e.innerHTML=rt.error?'<span class="muted">—</span>':retentionHtml(rt.data)); /* 人員（離職率・在籍期間。今日の時点。オーナー「ア 分けて置く」） */
   const ok=await sb.rpc('admin_oki_month',{p_store:st,p_month:m}); if(!same()) return; document.querySelectorAll('[data-pl=oki]').forEach(e=>e.textContent=ok.error?'—':Object.values(ok.data||{}).reduce((a,v)=>a+Number(v||0),0).toLocaleString('ja-JP')); /* 箱が2つの形（パソコン・スマホ）にあるので両方に */
   try{ const set=new Set(); for(let i=0;i<20;i++){ const q=await sb.from('bills').select('bill_customers(customer_id)').eq('store_id',st).eq('status','closed').gte('business_date',m).lt('business_date',csAddMonth(m,1)).order('business_date').order('id') /* 同じ日の伝票の並びを決める（分けて読む時に抜け・重なりが出ないように） */.range(i*1000,i*1000+999); if(!same()) return; if(q.error) throw 0; (q.data||[]).forEach(b=>(b.bill_customers||[]).forEach(c=>c.customer_id&&set.add(c.customer_id))); if((q.data||[]).length<1000) break; }
     if(!same()) return; document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent=set.size+'名'); }catch(e){ if(!same()) return; document.querySelectorAll('[data-pl=uq]').forEach(x=>x.textContent='—'); } },0); }
@@ -47,6 +48,7 @@ function pmHtml(K){ const {st,m,mOpts,data,T,cols,box,Nn,per,cm,lab,ex,kb,kl,pho
       ${kb('来店',`${Nn(T.groups)}組 ${Nn(T.guests)}名`,[['ユニーク','<span data-pl="uq">…</span>'],['客単価',per(T.sales,T.guests)],['組単価',per(T.sales,T.groups)]])}
       ${kb('経費',plYen(ex),[['キャスト',cm(T.cast_pay)],['黒服',cm(lab-Nn(T.cast_pay)-Nn(T.scout))],...(Nn(T.scout)?[['スカウト',cm(T.scout)]]:[]),['諸経費',cm(Nn(T.cash_out)-Nn(T.scout_cash))]])}
       ${kb('入金',plYen(T.cash_in),[])}</div>
+    <div class="card" style="margin-bottom:14px"><div class="muted" style="font-size:13px;margin-bottom:2px">人員</div><div data-pl="ret" style="font-size:14px;line-height:1.5">…</div></div>
     <div id="invBox" style="margin-bottom:14px"><div class="card muted">請求書の未入金を読み込み中…</div></div>${(plFill(st,m),'')}
     <div class="muted" style="font-size:13px;margin-bottom:6px">日付を押すと、その日の収支（日次）を開きます</div>
     <div class="cs-w o-hscroll"><table class="t cs ks"><thead><tr><th class="nm" rowspan="2">${csMLabel(m)}</th>${PL_COLS.map(([g,cs])=>`<th colspan="${cs.length}" class="ksg">${g}</th>`).join('')}</tr><tr>${cols.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>
