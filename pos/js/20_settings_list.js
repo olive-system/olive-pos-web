@@ -8,6 +8,8 @@ async function renderSettings(key, keepSel){ if(key!==S.setCur){ S.setSel=null; 
   $('setList').parentElement.style.gridColumn=(def.audit||def.bills||def.closing||def.chorei)?'2 / 4':''; $('setForm').parentElement.style.display=(def.audit||def.bills||def.closing||def.chorei)?'none':'';
   $('setAdd').style.display=def.single?'none':''; $('setEdit').style.display=(def.single||def.nosort)?'none':''; $('setEdit').textContent=S.setEditMode?'完了':'編集'; $('setEdit').classList.toggle('on',S.setEditMode);
   $('setFilter').style.display=def.single?'none':'';
+  /* ここから画面の種類で分かれる（印は 13_settings.js の SET）：local 印刷方法・chorei 朝礼・closing 閉店作業・bills 本日の伝票・audit 操作ログ・single 1行の設定・それ以外は卓やメニューの一覧。
+     上の3行（追加・編集・絞り込みを出す）は全部の種類で先に走り、一覧でない種類はそれぞれの所で隠す。右のフォームを隠す種類は、上の gridColumn の行にも足す */
   if (def.local) return setLocal(def);
   if (def.chorei) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; await renderChorei(); return; }
   if (def.closing) { $('setAdd').style.display='none'; $('setEdit').style.display='none'; $('setFilter').style.display='none'; $('setForm').innerHTML=''; await renderClosing(); return; }
@@ -47,8 +49,8 @@ async function setAudit(def){ $('setAdd').style.display='none'; $('setEdit').sty
     const ad=S.auDate||(S.auDate=businessDate()), ad2=dayAdd(ad,1); // 営業日（朝8時で区切る）を選んで、その日の分を全部
     const { data, error } = await sbAll(()=>sb.from('pos_audit_log').select('*').eq('store_id',S.store.id).gte('created_at',bdStart(ad)).lt('created_at',bdStart(ad2)).order('created_at',{ascending:false}).order('id'));
     if(error){ $('setList').innerHTML=`<div class="muted">操作ログを読み込めません：${esc(error.message)}</div>`; return; }
-    const f=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; };
-    const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:''+KL+'',tag_no:'タグ番号',by:'操作者',date:'営業日',memo:'摘要'}; // 管理サイトの現金管理から入れた操作は「操作者：管理サイト：名前」
+    const f=d=>{ const x=new Date(d); /* 端末の時刻で出す（POS の iPad は日本時間） */ return `${x.getMonth()+1}/${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; };
+    const KJ={amount:'金額',minutes:'分',is_auto:'自動延長',before:'変更前',after:'変更後',item:'商品',qty:'数量',total:'請求額',guest_count:'客数',items:'注文',name:'名前',fields:'内容',customer:'お客様',bottle:'ボトル',kind:'種別',reason:'理由',total_before:'切替前の請求額',method:'支払方法',payments:'支払',kakari:KL,tag_no:'タグ番号',by:'操作者',date:'営業日',memo:'摘要'}; // 管理サイトの現金管理から入れた操作は「操作者：管理サイト：名前」
     const vj=v=>v===true?'はい':v===false?'いいえ':Array.isArray(v)?v.join('、'):(typeof v==='number'?v.toLocaleString():v);
     const dt=o=>logShort(o,KJ,vj);
     $('setList').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="date" id="auD" value="${ad}" style="width:auto"><small class="muted">${(data||[]).length}件</small></div>`+((data||[]).map(l=>`<div class="item" style="display:block"><b>${esc(actL(l.action))}</b> <small>${f(l.created_at)}　${esc(l.detail?.table||'')}</small><br><small>${esc(dt(l.detail))}</small>${l.reason?`<br><small>理由：${esc(l.reason)}</small>`:''}</div>`).join('')||'<div class="muted">この日の記録はありません</div>');
@@ -61,11 +63,11 @@ function setListPage(key, keepSel, def){
   let head='';
   if (key==='products') head=`<select id="setCat" style="margin-bottom:6px"><option value="">--- すべて ---</option>${S.categories.map(c=>`<option value="${c.id}" ${S.setCatFilter===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`;
   const _st=$('setList').dataset.key===key?$('setList').scrollTop:0; $('setList').dataset.key=key;
-  $('setList').innerHTML=head+rows.map(r=>`<div class="row ${S.setSel?.id===r.id?'on':''}" data-id="${r.id}">${S.setEditMode?`<button class="xb" data-del="${r.id}" aria-label="削除">×</button>`:''}<span class="nm">${esc(def.label(r))}${def.sub?` <small class="muted">${def.sub(r)}</small>`:''}${r.is_visible===false?' <small class="muted">（非表示）</small>':''}</span>${S.setEditMode&&!def.nosort?'<span class="hd">≡</span>':''}</div>`).join('');
+  $('setList').innerHTML=head+rows.map(r=>`<div class="row ${S.setSel?.id===r.id?'on':''}" data-id="${r.id}">${S.setEditMode?`<button class="xb" data-del="${r.id}" aria-label="削除">×</button>`:''}<span class="nm">${esc(def.label(r))}${def.sub?` <small class="muted">${esc(def.sub(r))}</small>`:''}${r.is_visible===false?' <small class="muted">（非表示）</small>':''}</span>${S.setEditMode&&!def.nosort?'<span class="hd">≡</span>':''}</div>`).join('');
   if (key==='products') $('setCat').onchange=e=>{ S.setCatFilter=e.target.value||null; renderSettings(key,true); };
   $('setList').querySelectorAll('.row').forEach(row=>{ row.onclick=e=>{ if(e.target.dataset.del||e.target.classList.contains('hd'))return; S.setSel=rows.find(r=>r.id===row.dataset.id); renderSettings(key,true); }; });
-  $('setList').querySelectorAll('[data-del]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const r=rows.find(x=>x.id===b.dataset.del); if(!await uiConfirm(`「${def.label(r)}」を削除しますか？`,'削除','danger'))return;
-    const { data:dd, error } = await sb.rpc('pos_rows_del',{p_table:def.table,p_where:{id:(b.dataset.del)??null}}); if(error){ toast(error.code==='23503'?'使用中のため削除できません。非表示にしてください':error.message); return; } if(!(dd||[]).length){ if(!await posTermLost()) toast('削除に失敗しました。再度お試しください'); return; } /* 点検 使用中（外部キー）の時だけ「使用中」。0行（端末の登録が外れた等）を削除したことにしない */ await logOp('設定の削除',{kind:def.name,name:def.label(r)},null,true); S.setSel=null; renderSettings(key,true); });
+  $('setList').querySelectorAll('[data-del]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const r=rows.find(x=>x.id===b.dataset.del); if(!await uiConfirm(`「${def.label(r)}」を削除しますか？`,'削除','danger'))return; b.disabled=true; /* 2回押すと2回目が0行になり「削除に失敗」と出ていた */
+    const { data:dd, error } = await sb.rpc('pos_rows_del',{p_table:def.table,p_where:{id:(b.dataset.del)??null}}); if(error){ b.disabled=false; toast(error.code==='23503'?'使用中のため削除できません。非表示にしてください':error.message); return; } if(!(dd||[]).length){ b.disabled=false; if(!await posTermLost()) toast('削除に失敗しました。再度お試しください'); return; } /* 点検 使用中（外部キー）の時だけ「使用中」。0行（端末の登録が外れた等）を削除したことにしない */ await logOp('設定の削除',{kind:def.name,name:def.label(r)},null,true); S.setSel=null; renderSettings(key,true); });
   $('setList').scrollTop=_st; { const q=$('setFilter').value.trim(); if(q) $('setList').querySelectorAll('.row').forEach(r=>{ r.style.display=r.textContent.includes(q)?'':'none'; }); const on=$('setList').querySelector('.row.on'); if(on){ const a=on.getBoundingClientRect(), l=$('setList').getBoundingClientRect(); if(a.top<l.top+40||a.bottom>l.bottom) on.scrollIntoView({block:'center'}); } }
   if (S.setEditMode && !def.nosort) enableDrag(def);
   renderForm(def);
@@ -73,6 +75,7 @@ function setListPage(key, keepSel, def){
 /* 足したばかりのメニュー：販売価格・カテゴリーを入れると、バック・ポイントのはじめの値が入る（変えられる。lib/olive/core.js の menuBackInit） */
 function menuBackWire(f){ const g=k=>f.querySelector(`[data-k="${k}"]`), fill=()=>{ const c=g('category_id'), v=menuBackInit(S.store?.code,c?.selectedOptions[0]?.text||'',g('price')?.value); if(g('back_amount')) g('back_amount').value=v.back; if(g('back_points')) g('back_points').value=v.points; };
   ['price','category_id'].forEach(k=>{ const e=g(k); if(e) e.addEventListener(k==='price'?'input':'change',fill); }); }
+/* 右のフォーム。保存は guard で終わるまで押せない（2回押すと操作ログの「設定変更」が2つ残っていた）。VIP 料金は卓ごとに保存するので、途中で止まると前の卓までは保存済み */
 function renderForm(def){ const r=S.setSel; const f=$('setForm');
   if(!r){ f.innerHTML='<div class="muted">左の一覧から選ぶか「追加」</div>'; return; }
   if(def.ro){ renderFormRo(def,r); return; }
@@ -81,13 +84,13 @@ function renderForm(def){ const r=S.setSel; const f=$('setForm');
     if(type==='prod') return `<label>${label}<select data-k="${k}"><option value="">なし</option>${S.products.filter(p=>p.agg_category==='HC').map(p=>`<option value="${p.id}" ${r[k]===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`;
     if(type==='cat') return `<label>${label}<select data-k="${k}">${S.categories.map(c=>`<option value="${c.id}" ${r[k]===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>`;
     return `<label>${label}<input type="${type}" data-k="${k}" value="${esc(r[k]??'')}"></label>`; }).join('')+(def.key==='pos'?`<h3 style="margin:16px 0 4px">VIP料金（卓ごと。0＝通常卓）</h3><div class="muted" style="font-size:12px">VIP代＝部屋につき1回／VIP延長＝延長${S.settings.ext_minutes}分ごとに加算。人数は掛けません</div><table style="width:100%;margin-top:6px"><tr><th style="text-align:left">卓</th><th>VIP代</th><th>VIP${S.settings.ext_minutes}分延長</th></tr>${S.tables.map(t=>`<tr><td>${esc(t.name)}</td><td><input type="number" data-vipset="${t.id}" value="${t.vip_set_fee||0}"></td><td><input type="number" data-vipext="${t.id}" value="${t.vip_ext_fee||0}"></td></tr>`).join('')}</table>`:'')+`<div class="bar"><button class="primary" id="setSave">保存</button></div>`;
-  if(def.key==='products'&&r.id===S.setNewId) menuBackWire(f);
-  $('setSave').onclick=async()=>{ const o={}; def.cols.forEach(([k,,type])=>{ const el=f.querySelector(`[data-k="${k}"]`); o[k]=type==='bool'?el.checked:type==='number'?Number(el.value||0):(type==='prod'?(el.value||null):el.value); });
+  if(def.key==='products'&&r.id===S.setNewId) menuBackWire(f); /* 足したばかりの品だけ（S.setNewId は次に「追加」するまで残る。前からある品は値を上書きしない） */
+  $('setSave').onclick=guard($('setSave'),async()=>{ const o={}; def.cols.forEach(([k,,type])=>{ const el=f.querySelector(`[data-k="${k}"]`); o[k]=type==='bool'?el.checked:type==='number'?Number(el.value||0):(type==='prod'?(el.value||null):el.value); });
     const q = def.single ? sb.rpc('pos_settings_save',{p_store:S.settings.store_id,p:o}) : sb.rpc('pos_row_update',{p_table:def.table,p_id:r.id,p:o});
     let { error } = await q;
     if(!error){ const ch=def.cols.filter(([k])=>String(r[k]??'')!==String(o[k]??'')).map(([k,label])=>`${label.split('（')[0].split('：')[0]}:${r[k]??''}→${o[k]??''}`); if(ch.length) await logOp('設定変更',{kind:def.name,name:def.single?null:def.label(r),fields:ch},null,true); }
-    if(!error&&def.key==='pos'){ for(const t of S.tables){ const a=Number(f.querySelector(`[data-vipset="${t.id}"]`)?.value||0), b=Number(f.querySelector(`[data-vipext="${t.id}"]`)?.value||0); if(a!==(t.vip_set_fee||0)||b!==(t.vip_ext_fee||0)){ const r=await sb.rpc('pos_row_update',{p_table:'tables',p_id:t.id,p:{vip_set_fee:a,vip_ext_fee:b}}); if(r.error){ error=r.error; break; } await logOp('設定変更',{kind:'VIP料金',name:t.name,fields:[`VIP代:${t.vip_set_fee||0}→${a}`,`VIP延長:${t.vip_ext_fee||0}→${b}`]},null,true); } } }
-    toast(error?error.message:'保存しました'); if(!error) renderSettings(def.key,true); };
+    if(!error&&def.key==='pos'){ for(const t of S.tables){ const a=Number(f.querySelector(`[data-vipset="${t.id}"]`)?.value||0), b=Number(f.querySelector(`[data-vipext="${t.id}"]`)?.value||0); if(a!==(t.vip_set_fee||0)||b!==(t.vip_ext_fee||0)){ const u=await sb.rpc('pos_row_update',{p_table:'tables',p_id:t.id,p:{vip_set_fee:a,vip_ext_fee:b}}); if(u.error){ error=u.error; break; } await logOp('設定変更',{kind:'VIP料金',name:t.name,fields:[`VIP代:${t.vip_set_fee||0}→${a}`,`VIP延長:${t.vip_ext_fee||0}→${b}`]},null,true); } } }
+    toast(error?error.message:'保存しました'); if(!error) renderSettings(def.key,true); });
 }
 // 料金設定は見るだけ（変えるのは管理サイト：料金は「POS設定」、日払の上限・源泉・ポイント・同伴の準備時間は「報酬・罰金項目」）
 function renderFormRo(def,r){ const f=$('setForm'); const val=(k,type)=>type==='bool'?(r[k]==null?'—':r[k]?'する':'しない'):type==='amt'?(r[k]>0?yen(r[k]):'付けない'):(r[k]??'');
