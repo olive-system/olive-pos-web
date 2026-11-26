@@ -9,7 +9,8 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const mOpts=[csAddMonth(now,-1),now,csAddMonth(now,1),csAddMonth(now,2)];
   const head=shSwitch('shift')+`<h1>シフト <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1>`;
   $('main').innerHTML=head+'<div class="card muted">読み込み中…</div>';
-  const [tr,mr,ir]=await Promise.all([sb.rpc('admin_shift_today',{p_store:st}), sb.rpc('admin_shift_month',{p_store:st,p_month:m}), sb.rpc('admin_shift_iv',{p_store:st,p_month:m})]);
+  const [tr,mr,ir,hr]=await Promise.all([sb.rpc('admin_shift_today',{p_store:st}), sb.rpc('admin_shift_month',{p_store:st,p_month:m}), sb.rpc('admin_shift_iv',{p_store:st,p_month:m}), sb.rpc('admin_shift_health',{p_store:st,p_month:m})]);
+  const H=hr.error?null:hr.data; /* 調整率・不足率・在籍（その月の数字だけ。見本 ⑤）。読めない時は行を出さない */
   if(page!=='shift'||storeId!==st||shMonth!==m) return;
   if(mr.error){ $('main').innerHTML=head+`<div class="card err">読み込めません：${esc(mr.error.message)}</div>`; return; }
   const T=tr.error?null:tr.data, M=mr.data, IV=ir.error?{}:ir.data||{} /* 日ごとの面接の数 */, C=M.casts||[], cName=id=>C.find(c=>c.id===id)?.name||'';
@@ -45,7 +46,7 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   const sub=C.filter(c=>c.submitted).length;
   $('main').innerHTML=head+today+`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="shM" style="width:auto">${mOpts.map(x=>`<option value="${x}" ${x===m?'selected':''}>${csMLabel?csMLabel(x):x}</option>`).join('')}</select>
       <small class="muted">提出 ${sub}／${C.length}人・${M.fixed?'確定済':'確定前'}</small><span style="flex:1"></span>
-      ${visible('set_shift')?'<button class="ghost sm" id="shSet">設定</button>':''}<button class="ghost sm" id="shNg">休希望</button>${ed?`${M.fixed?'':'<button class="ghost sm" id="shDr">自動作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>${M.fixed?'':'<span class="muted" style="font-size:12px;align-self:center">確定でキャストに公開されます</span>'}`:''}</div>
+      ${visible('set_shift')?'<button class="ghost sm" id="shSet">設定</button>':''}<button class="ghost sm" id="shNg">休希望</button>${ed?`${M.fixed?'':'<button class="ghost sm" id="shDr">自動作成</button>'}<button class="${M.fixed?'ghost':'primary'} sm" id="shFx">${M.fixed?'確定の取消':'確定'}</button>${M.fixed?'':'<span class="muted" style="font-size:12px;align-self:center">確定でキャストに公開されます</span>'}`:''}</div>${healthHtml(H)}
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:8px">
       <span style="background:var(--gold-soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--ink)">イベント日</span>
       <span style="background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 6px">休</span>
@@ -63,8 +64,8 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
     const L=C.filter(c=>c.submitted).concat(C.filter(c=>!c.submitted));
     const w=mkModal(null,`<button class="xb dx" data-k="ok" aria-label="閉じる">×</button><h2 style="margin:0">${mo}月の休み希望</h2><div class="muted" style="font-size:13px">提出 ${sub}／${C.length}人（締切 ${Number(pm.slice(5,7))}/10）</div><div style="max-height:60vh;overflow:auto">${L.map(row).join('')||'<div class="muted">キャストがいません</div>'}</div>`);
     w.querySelector('[data-k=ok]').onclick=()=>w.remove(); };
-  if($('shDr')) $('shDr').onclick=guard($('shDr'),async()=>{ if(!await uiConfirm(`${mo}月のシフトを自動作成しますか？\n希望出勤日数・出勤できない日・目安人数から作成します。今の${mo}月のシフトは作り直しになります`)) return; const q=await rpc('admin_shift_draft',{p_store:st,p_month:m}); if(!q.ok) return; toast(`自動作成しました（${q.data}件）`); PAGES.shift(); });
-  $('shFx').onclick=guard($('shFx'),async()=>{ const fx=!M.fixed; if(!await uiConfirm(fx?`${mo}月のシフトを確定しますか？\nマイページに表示します`:`${mo}月のシフトの確定を取り消しますか？\nマイページに表示しなくなります`)) return; const q=await rpc('admin_shift_fix',{p_store:st,p_month:m,p_fix:fx}); if(!q.ok) return; toast(fx?'確定しました':'確定を取り消しました'); PAGES.shift(); }); };
+  if($('shDr')) $('shDr').onclick=guard($('shDr'),async()=>{ if(!await shConfirmWarn(`${mo}月のシフトを自動作成しますか？\n希望出勤日数・出勤できない日・目安人数から作成します。今の${mo}月のシフトは作り直しになります`,healthWarnHtml(H))) return; const q=await rpc('admin_shift_draft',{p_store:st,p_month:m}); if(!q.ok) return; toast(`自動作成しました（${q.data}件）`); PAGES.shift(); });
+  $('shFx').onclick=guard($('shFx'),async()=>{ const fx=!M.fixed; if(!await shConfirmWarn(fx?`${mo}月のシフトを確定しますか？\nマイページに表示します`:`${mo}月のシフトの確定を取り消しますか？\nマイページに表示しなくなります`,fx?healthWarnHtml(H):'')) return; const q=await rpc('admin_shift_fix',{p_store:st,p_month:m,p_fix:fx}); if(!q.ok) return; toast(fx?'確定しました':'確定を取り消しました'); PAGES.shift(); }); };
 // 日の詳細（出勤の名前と時刻の変更・出勤できる人の追加・出勤できない人・予約と同伴・目安人数・イベント日）
 /* シフトの日の小窓の中身（出勤・出勤できる人・出勤できない日・予約） */
 function shiftDayHtml(C,L,ng,R,canAdd,day,tgv,ev,ed){ return `<button class="xb dx" data-x aria-label="閉じる">×</button><div style="display:flex;gap:8px;align-items:baseline"><h2 style="margin:0">${mdW(day)}</h2><small class="muted">出勤 ${L.length}人</small></div>
