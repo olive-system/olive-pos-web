@@ -10,6 +10,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:po
 const hm5=t=>hmJst(ceil5(t));
 const ROLE = { douhan1:'同伴①', douhan2:'同伴②', douhan:'同伴', none:'' };
 const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
+/* 同伴の上限は来店人数（途中で帰った人がいても、来店した時の人数までは付けられる。データベースの bill_douhan_cap_check と同じ） */
+const douhanCap=b=>Math.max(b?.guest_count||1, b?.set_guest_count??b?.guest_count??1);
 const METHOD = { cash:'現金', card:'カード', invoice:'請求書', oki:'置き' };
 /* ?slot= で同じブラウザに2店を開いても、端末に残す設定が混ざらないように */ const SLOT=((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'')?'-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,''):'');
 // 店の土台のデータ（読み込んだ時に入れ、どの画面も読む）は、この入れ物 S に1つにまとめる
