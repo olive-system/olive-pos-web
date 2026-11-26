@@ -3,8 +3,8 @@
    当日（今の営業日）の出勤を × で取り消す時だけ「本人都合／店都合」を選ぶ。本人都合＝当日欠勤（罰金はマイページの欠勤連絡と同じ判定）。店都合＝今までどおり消すだけ（オーナー 11/26「当日に削除する時のみにしてね」） */
 
 /* 一覧の上の箱。理由は長い文のことがあるので1行で切る */
-function sdAbsBox(AB){ if(!AB.length) return '';
-  return `<div class="card" style="background:var(--gold-soft)"><div class="gh">当日欠勤 ${AB.length}人</div>${AB.map(a => `<div style="display:flex;gap:8px;min-width:0"><span style="flex:none">${esc(a.name)}</span><span class="sm muted" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(a.at).replace(/^0/, '')}・${esc(String(a.reason || '').replace(/\s+/g, ' '))}</span></div>`).join('')}</div>`; }
+function sdAbsBox(AB, RC){ if(!AB.length && !RC) return ''; /* RC＝出勤募集（16_shift_recruit.js）。補充の行と「出勤可」の並びも同じ箱に */
+  return `<div class="card" style="background:var(--gold-soft)"><div class="gh">当日欠勤 ${AB.length}人</div>${AB.map(a => `<div style="display:flex;gap:8px;min-width:0"><span style="flex:none">${esc(a.name)}</span><span class="sm muted" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(a.at).replace(/^0/, '')}・${esc(String(a.reason || '').replace(/\s+/g, ' '))}</span></div>${sdRefillRow(a)}`).join('')}${sdRecruitHtml(RC)}</div>`; }
 
 /* 当日の取消の小窓。答え：null（キャンセル）・{ self:false }（店都合）・{ self:true, time, reason }（本人都合） */
 function sdAbsDlg(x){ return new Promise(res => { const d = document.createElement('div'); d.className = 'dlg'; let self = true; const T = absContactTimes();

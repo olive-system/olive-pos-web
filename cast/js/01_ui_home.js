@@ -117,7 +117,7 @@ function home(){
     <div class="tiles">${SHIFT_ALL?tile('shift','シフト','全員',true):tile('shift','シフト','提出・確定・打刻',true)}${tile('resv','予約／同伴','',true)}${tile('absent','欠勤・遅刻連絡','',true)}${tile('info','お知らせ',ME.unread?`未確認 ${ME.unread}件`:'',true)}${tile('card','名刺発注','',true)}${tile('sales','アプローチ',ME.salesDue?'本日 未提出':'',true)}${ME.docs&&ME.docs.target&&ME.docs.left?tile('docs','書類',`未完了 ${ME.docs.left}件`,true):''}${dressDue()?tile('dress','ドレス新調日','今月 未提出',true):''}</div>`);
   /* トップの整理（オーナー「連絡先交換のボタンって必要？LINE が届く形になってるよね」「必要のないボタンを整理整頓したい」見本 マイページ整理_案4「この整理で進める」）。
      連絡先交換は LINE のリンクとリッチメニューから。アプローチは名刺発注の次に戻した（押すと Safari で表示。銀座のキャストの声「LINE の中ではお客様とのトークと行き来できない」）。ミーティングはシフトの画面の一番上（16_shift.js）。書類・ドレス新調日は未提出の時だけ */
-  homeWire(); homeRate();
+  homeWire(); homeRate(); homeRecruit(); /* 出勤募集（16_shift_recruit.js） */
 }
 /* 今月の本人のアプローチ・平均・交換提出を、小計（広島はポイント）の箱に小さく1列で（オーナー 11/25「本人が自覚できるように」「1列で収まるくらいの文字サイズ」）。
    数え方は POS・管理サイトと同じ（cast_my_rate・SQL 721）。スポット・体験・係専用の子には出さない（POS の在籍と同じ）。ホームに戻るたびに呼ばないよう、1回読んだら ME.rate に置く */
