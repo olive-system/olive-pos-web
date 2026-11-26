@@ -121,7 +121,7 @@ function renderBill(){ const b=S.cur, t=S.tables.find(x=>x.id===b.table_id);
   Object.assign(R,rbItemKit(R)); rbItems(R); rbItemBind(R); rbTotals(R); }
 /* 伝票の上：お誕生日・卓・しるし */
 function rbHead(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
-  { let bb=$('bBday'); if(!bb){ bb=document.createElement('div'); bb.id='bBday'; $('v-bill').querySelector('.card').prepend(bb); } const ls=b.status==='void'?[]:bdayLines(b); bb.style.cssText=ls.length?'background:var(--gold-soft);border:2px solid var(--brand);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:20px;font-weight:700;color:var(--brand-d)':'display:none'; bb.innerHTML=ls.map(x=>FX('birthdaycake',22)+' '+esc(x)).join('<br>'); }
+  { let bb=$('bBday'); if(!bb){ bb=document.createElement('div'); bb.id='bBday'; $('v-bill').querySelector('.card:not(#bLoad)').prepend(bb); } const ls=b.status==='void'?[]:bdayLines(b); bb.style.cssText=ls.length?'background:var(--gold-soft);border:2px solid var(--brand);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:20px;font-weight:700;color:var(--brand-d)':'display:none'; bb.innerHTML=ls.map(x=>FX('birthdaycake',22)+' '+esc(x)).join('<br>'); }
   $('bTable').innerHTML=`<small class="muted" style="font-size:14px;font-weight:400">卓</small> ${esc(billTable(b))}`; $('bGuests').textContent=b.guest_count; $('bTime').textContent=`${hm5(b.set_start)}〜${hm5(billEnd(b))}`;
   $('bFlags').innerHTML=(t?.vip_set_fee>0?'<span class="badge warnb">VIP卓</span>':'')+(b.status!=='open'&&!isOki(b)?`<span class="badge gray">${b.status==='void'?'削除済':'会計済'}</span>`:'')+(mode&&mode.code!=='normal'?`<span class="badge warnb">${esc(mode.name)}</span>`:'')+(b.service_rate_override!=null?`<span class="badge warnb">サ料 ${b.service_rate_override}%</span>`:'')+((b.bill_tags||[]).filter(t=>!t.returned_at).length?`<span class="badge tag">${FX('label')} お預かり ${(b.bill_tags||[]).filter(t=>!t.returned_at).length}</span>`:'');
 }
@@ -192,8 +192,8 @@ function rbItemKit(R){ const {b,t,mode,T0}=R;
   const isBottle=i=>{ const p=S.products.find(x=>x.id===i.product_id); const cn=S.categories.find(c=>c.id===(i.category_id||p?.category_id))?.name||''; return !!p?.is_keepable||/シャンパン|ワイン|ボトル|焼酎|ウイスキー|ウィスキー|ブランデー/.test(cn); };
   const priceEdit=i=>(!!S.settings.auto_hc_product_id&&i.product_id===S.settings.auto_hc_product_id)||/^h\.?c/i.test(i.name||''); // 伝票上で金額を変えられるのは h.c だけ。ほかは枠なしの文字
   const qtyEdit=i=>noBack(i)&&!isBottle(i)&&!priceEdit(i)&&!i.is_keep&&!/^(HC|BC)$/i.test(i.name||''); // 数量を変えられるのはバックが無い品だけ（ボトル・HC・BC・h.c は対象外）
-  const itemRow=i=>{ const sp=(i.bill_item_splits||[]).map(s=>S.staff.find(x=>x.id===s.staff_id)?.display_name).filter(Boolean).join('/');
-    return `<div class="item" style="flex-wrap:nowrap;gap:6px;padding-left:8px;padding-right:8px"><span class="n" style="flex:1 1 0;min-width:0">${esc(i.name)}<br><small>${yen(i.unit_price)}${qtyEdit(i)?`<span class="qb" data-qty="${i.id}">×${i.qty}</span>`:`×${i.qty}`}${noBack(i)?'':`　${sp?'バック:'+esc(sp):'バックなし'}`}${i.subtotal_staff_id?`　小計 ${esc(S.staffAll.find(x=>x.id===i.subtotal_staff_id)?.display_name||'')}`:''}</small>${noBack(i)?'':` <button class="ghost sm" data-split="${i.id}">振分</button>`}</span>${priceEdit(i)?`<button class="ghost sm amt" data-price="${i.id}" style="min-width:0;flex:0 0 auto;white-space:nowrap">${yen(i.unit_price*i.qty)}</button>`:`<span class="amt" style="min-width:0;flex:0 0 auto;white-space:nowrap">${yen(i.unit_price*i.qty)}</span>`}<button class="xb" data-del="${i.id}">×</button></div>`; }; /* × はどの行も右端にそろえる（振分はバックの人の横） */
+  const itemRow=i=>{ const sp=itemWho(i), canSp=!noBack(i)||subPickable(i);
+    return `<div class="item" style="flex-wrap:nowrap;gap:6px;padding-left:8px;padding-right:8px"><span class="n" style="flex:1 1 0;min-width:0">${esc(i.name)}<br><small>${yen(i.unit_price)}${qtyEdit(i)?`<span class="qb" data-qty="${i.id}">×${i.qty}</span>`:`×${i.qty}`}${sp?'　'+esc(sp):''}</small>${canSp?` <button class="ghost sm" data-split="${i.id}">振分</button>`:''}</span>${priceEdit(i)?`<button class="ghost sm amt" data-price="${i.id}" style="min-width:0;flex:0 0 auto;white-space:nowrap">${yen(i.unit_price*i.qty)}</button>`:`<span class="amt" style="min-width:0;flex:0 0 auto;white-space:nowrap">${yen(i.unit_price*i.qty)}</span>`}<button class="xb" data-del="${i.id}">×</button></div>`; }; /* × はどの行も右端にそろえる（振分はバックの人の横） */
   return {items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}; }
 /* 注文（ボトルとそのほか） */
 function rbItems(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyEdit,itemRow}=R;
@@ -208,7 +208,7 @@ function rbItemBind(R){ const {b,t,mode,T0,items,grp,gOf,isBottle,priceEdit,qtyE
     { const up=await sb.rpc('pos_rows_set',{p_table:'bill_items',p_where:{id:(it.ids)??null},p:{unit_price:np,cast_subtotal_price:zero?0:np}}); if(up.error){ if(await stale(up.error)) return; toast('単価を変更できません：'+up.error.message); return; } } await logOp('金額変更',{item:it.name,qty:it.qty,before:it.unit_price,after:np},why); /* 変えられたのを確かめてから記録 */
     openBill(b.id); });
   $('bOrders').querySelectorAll('[data-del]').forEach(x=>x.onclick=async()=>{ const it=gOf(x.dataset.del); if(await askBy()===null||!await uiConfirm(`${it?.name??''} ×${it?.qty??''}（${yenU(it?it.unit_price*it.qty:0)}）を削除します。`,'削除','danger')) return; /* 注文の削除・数量を減らす時は理由を聞かない（オーナー「理由は入れなくてもいい」）。入れた人は今までどおり */ const r=await sb.rpc('pos_rows_set',{p_table:'bill_items',p_where:{id:(it.ids)??null},p:{is_void:true}}); if(r.error){ if(await stale(r.error)) return; toast('削除できません：'+r.error.message); return; } await logOp('注文削除',{item:it?.name,qty:it?.qty,amount:it?it.unit_price*it.qty:null}); await openBill(b.id); if((S.cur?.totals?.unpaid??0)<0) await uiAlert(`入金が請求額より ${yenU(-S.cur.totals.unpaid)} 多くなりました。会計の画面で入金を取り消してください`); }); /* 削除を確かめてから記録（前は失敗しても記録が残った） */
-  $('bOrders').querySelectorAll('[data-split]').forEach(x=>x.onclick=()=>openSplit(gOf(x.dataset.split)));
+  $('bOrders').querySelectorAll('[data-split]').forEach(x=>x.onclick=()=>{ const it=gOf(x.dataset.split); if(noBack(it)) openSubPick(it); else openSplit(it); });
   $('bOrders').querySelectorAll('[data-qty]').forEach(x=>x.onclick=()=>qtyChange(b,gOf(x.dataset.qty)));
 }
 /* 合計とボタン（会計済みは押せない） */
@@ -228,13 +228,13 @@ async function qtyChange(b,g){ if(!g) return; const v=await uiPrompt(`${g.name} 
   const now=n+left; if(now!==g.qty) await logOp('数量変更',{item:g.name,before:g.qty,after:now,amount:-g.unit_price*(g.qty-now)}); /* 途中で止まった時は、変わった所までを記録 */
   if(err){ await bad(err); if(isStale(err)) return; } await openBill(b.id); if((S.cur?.totals?.unpaid??0)<0) await uiAlert(`入金が請求額より ${yenU(-S.cur.totals.unpaid)} 多くなりました。会計の画面で入金を取り消してください`); }
 // 会計済・取消済の伝票は、見返し用の明細書の形で表示する（編集用の枠やボタンは出さない）
-function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card'); stCssOnce();
+function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card:not(#bLoad)'); stCssOnce();
   let st=$('bStatement'); if(!st){ st=document.createElement('div'); st.id='bStatement'; st.style.cssText='max-width:720px;margin:0 auto'; card.appendChild(st); } card.classList.toggle('st-mode',!!on); if(!on){ st.innerHTML=''; return; }
   const cn=id=>S.customers.find(c=>c.id===id)?.name||''; const sn=id=>S.staffAll.find(x=>x.id===id)?.display_name||S.staff.find(x=>x.id===id)?.display_name||''; const md=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()}`; };
   const custs=(b.bill_customers||[]).map(x=>cn(x.customer_id)).filter(Boolean); const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>sn(c.staff_id)).filter(Boolean); const ds=(b.bill_casts||[]).filter(c=>isDouhan(c.role)).map(c=>sn(c.staff_id)).filter(Boolean);
   const bd=String(billDay(b)||'').replace(/^\d{4}-0?(\d+)-0?(\d+)$/,'$1/$2')+(billDay(b)!==b.business_date?`（ご来店日 ${jmd(b.business_date)}）`:''); const extMin=(b.bill_extensions||[]).reduce((a,e)=>a+e.minutes,0);
   const L=(l,r,cls)=>`<div class="ln ${cls||''}"><span>${l}</span><span style="white-space:nowrap">${r}</span></div>`;
-  const items=stItems(b,L,sn);
+  const items=stItems(b,L,sn,billEditMode(b)==='today');
   const pays=stPays(b,md); const adjs=(b.bill_adjustments||[]);
   st.innerHTML=`${stHead(b,bd,custs,ks,ds)}
   ${(T.set||0)?L(`セット <small>× ${T.set_guests??b.guest_count}</small>`,yen(T.set)):''}${(T.extension||0)?L(`延長 <small>計${extMin}分</small>`,yen(T.extension)):''}${(T.vip_set||0)?L('VIPルーム料金',yen(T.vip_set)):''}${(T.vip_ext||0)?L('VIPルーム延長',yen(T.vip_ext)):''}${items}<hr>
@@ -243,15 +243,15 @@ function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card');
   <div class="sm" style="display:grid;grid-template-columns:1fr auto;gap:2px 12px;margin-top:2px">${kakariRows(b,T)}</div><hr>
   <div class="ln"><span>お支払い</span><span style="white-space:normal;text-align:right">${stPayText(pays,md)}</span></div>
   <div class="bar" style="margin-top:14px;display:flex;justify-content:space-between"><button class="ghost" id="stBack">${S.billFrom==='bills'?'伝票一覧へ':'ホールへ'}</button>${b.status==='closed'&&hasReceived(b)?'<button class="ghost" id="stReceipt">領収書印刷</button>':''}</div>`;
-  st.querySelectorAll('button').forEach(x=>{ x.disabled=false; x.style.display=''; }); $('stBack').onclick=()=>$('bBack').onclick(); if($('stReceipt')) $('stReceipt').onclick=()=>$('prReceipt').onclick(); }
+  st.querySelectorAll('button').forEach(x=>{ x.disabled=false; x.style.display=''; }); st.querySelectorAll('[data-stsub]').forEach(x=>x.onclick=()=>openSubPick(groupItems((b.bill_items||[]).filter(i=>!i.is_void)).find(g=>g.id===x.dataset.stsub))); $('stBack').onclick=()=>$('bBack').onclick(); if($('stReceipt')) $('stReceipt').onclick=()=>$('prReceipt').onclick(); }
 // 明細書の上の段（卓・日付と時刻・人数・会計済／削除済・お客様・係・同伴）
 function stHead(b,bd,custs,ks,ds){ return `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><b style="font-size:22px">${esc(billTable(b))}</b><span>${bd}　${b.closed_at?hm5(b.opened_at)+'〜'+hmJst(b.closed_at):esc($('bTime').textContent)}　${b.guest_count}名</span><span class="badge gray" style="margin-left:auto;font-size:15px">${b.status==='void'?'削除済':'会計済'}</span></div>
   <div class="sm" style="margin-top:6px">お客様：${custs.length?esc(custs.map(n=>n+' 様').join('・')):'未登録'}　　${KL}：${ks.length?esc(ks.join('・')):'なし'}${ds.length?'　　同伴：'+esc(ds.join('・')):''}</div><hr>`; }
 // 明細書の見た目（1回だけ入れる）
 function stCssOnce(){if(!$('stCss')){ const c=document.createElement('style'); c.id='stCss'; c.textContent='#bStatement{display:none}.card.st-mode>*{display:none !important}.card.st-mode>#bStatement{display:block !important}#bStatement .ln{display:flex;justify-content:space-between;gap:12px;padding:7px 2px;font-size:17px}#bStatement .ln small{color:var(--muted);font-size:13px}#bStatement hr{border:0;border-top:1px solid var(--line);margin:8px 0}#bStatement .sm{font-size:14px;color:var(--muted)}'; document.head.appendChild(c); } }
 // 明細書の注文の行（バックの付いた人も）
-function stItems(b,L,sn){
-  return itemsInOrder(groupItems((b.bill_items||[]).filter(i=>!i.is_void)),posItemKind).map(i=>{ const bk=(i.bill_item_splits||[]).filter(sp=>(sp.back_amount||0)>0||Number(sp.back_points||0)>0).map(sp=>sn(sp.staff_id)).filter(Boolean); return L(`${esc(i.name)} <small>× ${i.qty}</small>${bk.length?` <small>（バック：${esc(bk.join('・'))}）</small>`:''}`, yen(i.unit_price*i.qty)); }).join('');
+function stItems(b,L,sn,canSub){
+  return itemsInOrder(groupItems((b.bill_items||[]).filter(i=>!i.is_void)),posItemKind).map(i=>{ const who=itemWho(i); return L(`${esc(i.name)} <small>× ${i.qty}</small>${who?` <small>${esc(who)}</small>`:''}${canSub&&subPickable(i)?` <button class="ghost sm" data-stsub="${i.id}">振分</button>`:''}`, yen(i.unit_price*i.qty)); }).join('');
 }
 // お支払いを方法ごとにまとめる（置きは入金日・請求書は入金日でも分ける）
 function stPays(b,md){ const pays=[]; (b.payments||[]).filter(p=>p.amount>0).forEach(p=>{ const k=p.method+'|'+(p.method==='oki'&&p.received_at?md(p.received_at):'')+(p.method==='invoice'?'|'+(p.invoice_paid_on||''):''); const e=pays.find(z=>z.k===k); if(e) e.amount+=p.amount; else pays.push({k,method:p.method,amount:p.amount,received_at:p.received_at,invoice_paid_on:p.invoice_paid_on}); }); return pays; }
