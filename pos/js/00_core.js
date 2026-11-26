@@ -143,7 +143,7 @@ const PL_IN='<span class="pl">出</span>', PL_OUT='<span class="pl">退</span>',
 const posItemKind=i=>billItemKind(i,S.products,S.categories,S.settings);
 function groupItems(items){ const out=[], by=new Map();
   items.forEach(i=>{ const who=[...new Set((i.bill_item_splits||[]).filter(s=>(s.back_amount||0)>0||Number(s.back_points||0)>0).map(s=>s.staff_id))].sort().join(',');
-    const k=[i.product_id,i.name,i.category_id,i.unit_price,i.cast_subtotal_price,i.back_amount,Number(i.back_points||0),!!i.is_service_target,!!i.is_keep,who].join('|');
+    const k=[i.product_id,i.name,i.category_id,i.unit_price,i.cast_subtotal_price,i.back_amount,Number(i.back_points||0),!!i.is_service_target,!!i.is_keep,who,i.subtotal_staff_id||''].join('|'); /* 771：小計の係がちがう注文はまとめない */
     let g=by.get(k); if(!g){ g={...i,qty:0,rows:[],bill_item_splits:[]}; by.set(k,g); out.push(g); } g.rows.push(i); g.qty+=i.qty;
     (i.bill_item_splits||[]).forEach(s=>{ const e=g.bill_item_splits.find(z=>z.staff_id===s.staff_id); if(e){ e.back_amount=(e.back_amount||0)+(s.back_amount||0); e.back_points=Number(e.back_points||0)+Number(s.back_points||0); } else g.bill_item_splits.push({...s}); }); });
   out.forEach(g=>{ g.ids=g.rows.map(r=>r.id); g.rows.sort((a,b)=>String(a.added_at||'').localeCompare(String(b.added_at||''))); }); return out; }

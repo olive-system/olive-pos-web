@@ -46,7 +46,8 @@ async function syncHcBack0(id){ id=id||S.cur?.id; if(!S.settings.auto_hc_product
 function kakariRows(b,T){ const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>c.staff_id), K=T.kakari||[];
   const nm=id=>S.staffAll.find(x=>x.id===id)?.display_name||S.staff.find(x=>x.id===id)?.display_name||'';
   if(!ks.length) return `<span style="font-size:14px">${KL}小計 <small class="muted">${KL}が未設定</small></span><span class="right" style="font-size:14px">${yen(T.kakari_sub||0)}</span>`;
-  return ks.map(id=>`<span style="font-size:14px">${KL}小計 ${esc(nm(id))}</span><span class="right" style="font-size:14px">${yen(K.find(k=>k.staff_id===id)?.share||0)}</span>`).join(''); }
+  /* 771：品の小計の係に選ばれた係ではない子も、係の後に出す */
+  return [...ks,...K.map(k=>k.staff_id).filter(id=>!ks.includes(id))].map(id=>`<span style="font-size:14px">${KL}小計 ${esc(nm(id))}</span><span class="right" style="font-size:14px">${yen(K.find(k=>k.staff_id===id)?.share||0)}</span>`).join(''); }
 // ---------- ホールの卓の一覧（自動延長・お預かり品・置き・在籍のしるし） ----------
 // 自動延長はデータベースで伝票を押さえてから足す（POS 2台が同時に足しても二重にならない）
 let extWarned=false;
