@@ -80,6 +80,7 @@ async function slRead(P, files){
     P.rd.hits.forEach(h => { if(h.id) P.on.add(h.id); else if(!P.extra.includes(h.name)) P.extra.push(h.name); });
     P.repaint();
     if(!r.data.rows.length) await uiAlert('LINE のトーク一覧のスクショを選んでください');
+    else if(files.length > 6) await uiAlert(`スクショは6枚まで読み取ります。\n7枚目からは、再度選んでください`); /* 前は7枚目から黙って外していた */
   }catch(e){ await uiAlert(e.message || String(e)); P.repaint(); }
 }
 /* 候補の［追加］：選択にして、表示名を覚える（次の読取から一致） */
@@ -136,7 +137,7 @@ function salesShot(){
         const blob = await shrinkJpeg(file);
         const up = await sb.storage.from('sales-shots').upload(`${p.shot}.jpg`, blob, { contentType:'image/jpeg', upsert:false }); if(up.error && !/exists|Duplicate/i.test(up.error.message)) throw up.error; /* 写真がもう上がっている時（送り直し）は、上がっている写真のまま送る（置き場は上書きを許していない） */
         const q = await sb.rpc('cast_sales_shot', p.idx ? { p_token: TOKEN, p_idx: p.idx } : { p_token: TOKEN }); if(q.error) throw q.error;
-        /* 届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと */
+        /* 届かなかった時は「送信済み」にしない（送信のボタンが残り、送り直せる）。文は原因ごと（cast_sales_shot の reason は no_to・unlinked・fail の3つ） */
         const ng = q.data.reason === 'no_to' ? '担当黒服 未選択のため、スクショは届いていません。黒服にご連絡ください'
           : q.data.reason === 'fail' ? 'スクショの送信に失敗しました。再度お試しください'
           : `送り先${q.data.to ? `（${q.data.to}）` : ''}が LINE 未連携のため、スクショは届いていません。黒服にご連絡ください`;
