@@ -35,10 +35,10 @@ PAGES.shift=async()=>{ const st=storeId, ed=perm('shift')==='edit', now=csNowMon
   for(let d=1;d<=nd;d++){ const k=iso(d);
     if(OFF.has(k)){ cal+=`<div style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;background:var(--soft);color:var(--muted)"><b style="color:var(--ink)">${d}</b><div style="font-size:13px;margin-top:4px">休</div></div>`; continue; } // お店の休み
     const L=(S[k]||[]).slice().sort((a,b)=>a.time.localeCompare(b.time)||ord(a)-ord(b)), e=L.filter(x=>x.time<='20:15').length, need=M.early?.[k]??2, R=M.resv?.[k]||[], dn=R.filter(r=>r.douhan).length;
-    // 数は1行ずつ、言葉を先に（出勤・19:50 不足・同伴・予約・面接）。前は「予約○・同伴○」「○／○人」「19:50 不足○人」が横に並び、スマホで折れて読めなかった（オーナー「面接が何人なんかキャストが何人なんか注意が何人なんかが分かんない」→ 見本 作業場/シフトのマス_案1.png）
+    // 数は1行ずつ、言葉を先に（出勤・19:50 あと○人・同伴・予約・面接。「不足」はお客様×線に対する不足率の言葉なので使わない）。前は「予約○・同伴○」「○／○人」「19:50 不足○人」が横に並び、スマホで折れて読めなかった（オーナー「面接が何人なんかキャストが何人なんか注意が何人なんかが分かんない」→ 見本 作業場/シフトのマス_案1.png）
     cal+=`<div data-shd="${k}" style="border:1px solid var(--line);border-radius:8px;padding:4px 3px;min-height:96px;font-size:12px;line-height:1.5;cursor:pointer;overflow:hidden;${EV.has(k)?'background:var(--gold-soft)':''}">
       <b>${d}</b><div style="font-size:10px;letter-spacing:-.3px;white-space:nowrap;color:var(--muted)">
-        <div${L.length<tg(k)?' style="color:var(--warn);font-weight:700"':''}>出勤${L.length}${tg(k)?'/'+tg(k):''}</div>${e<need&&tg(k)>0?`<div style="color:var(--warn);font-weight:700">19:50<br>不足${need-e}人</div>`:''}
+        <div${L.length<tg(k)?' style="color:var(--warn);font-weight:700"':''}>出勤${L.length}${tg(k)?'/'+tg(k):''}</div>${e<need&&tg(k)>0?`<div style="color:var(--warn);font-weight:700">19:50<br>あと${need-e}人</div>`:''}
         <div style="color:var(--ok)">同伴${dn}</div><div>予約${R.length-dn}</div><div>面接${IV[k]||0}</div></div>
       <div style="font-size:11px;word-break:keep-all">${(()=>{ const DH=new Set(R.filter(r=>r.douhan).flatMap(r=>r.dh&&r.dh.length?r.dh:[r.by])) /* 同伴の子も */, isD=x=>DH.has(cName(x.staff_id)), BK=new Set(R.map(r=>r.black).filter(Boolean)) /* 月のマスにも黒ドレスのしるし（オーナー「付ける」） */, bk=x=>BK.has(cName(x.staff_id))?FX('dress',11):''; const P=L.slice().sort((a,b)=>(isD(b)-isD(a))||mainOrd(a,b));
         return (P.slice(0,4).map(x=>(isD(x)?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 3px">${esc(cName(x.staff_id))}</b>`:esc(cName(x.staff_id)))+bk(x))).join('・')+(P.length>4?`<span class="muted">　他${P.length-4}名</span>`:''); })()}</div></div>`; }
