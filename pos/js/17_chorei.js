@@ -23,10 +23,10 @@ function chFc(F){ const md=mdS, no='<span class="muted">—</span>', g=n=>n==nul
     <tr><td style="${tl}">組数</td><td style="${td}">${g(F.tgt_groups)}</td><td style="${td}">${F.groups}組</td><td style="${td}${big}">${g(F.fc_groups)}</td></tr></table>
     <div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 10px;margin-top:8px;font-size:14px;align-items:baseline">${kv('1日平均売上',y(F.avg))}${kv('1日必要組数',g(F.need))}${kv('平均客単価',y(F.unit))}</div>`; }
 async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class="muted">読み込み中…</div>';
-  if(!S.staffAll?.length) await loadStaffAll(); const [cr,ar,sr,tr,kr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today'), sb.rpc('pos_chorei_trials'), sb.rpc('pos_tsuke_staff')]);
+  if(!S.staffAll?.length) await loadStaffAll(); const [cr,ar,sr,tr,kr,hr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today'), sb.rpc('pos_chorei_trials'), sb.rpc('pos_tsuke_staff'), sb.rpc('pos_shift_health')]);
   if(S.setCur!=='chorei') return;
   if(cr.error||!cr.data){ box.innerHTML=`<div class="err">読み込めません：${esc(cr.error?.message||'')}</div>`; return; }
-  const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g); V.trials=tr.error?null:tr.data; V.tsuke=kr.error?null:kr.data; if(V.tsuke) S.tkDuty=V.tsuke;
+  const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g); V.trials=tr.error?null:tr.data; V.health=hr.error?null:hr.data; /* 調整率・不足率（見本 ⑩）。読めない時は箱を出さない */ V.tsuke=kr.error?null:kr.data; if(V.tsuke) S.tkDuty=V.tsuke;
   box.innerHTML=chHtmlTop(V)+chHtmlSide(V);
   chBind(V,box);
   const wx=await chWeather(V.C); if($('chWx')) $('chWx').outerHTML=`<div>${wx}</div>`;
@@ -67,6 +67,7 @@ function chHtmlTop(V){ const {C,G,md,card,left,guest}=V; return `<div style="dis
 function chHtmlSide(V){ const {C,d,card,row,SH,abs,todo,y,ar}=V; return `
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px;align-items:start">
       <div style="display:flex;flex-direction:column;gap:14px">${card(`天気（${esc(C.place||'')}）`,'<div id="chWx" class="muted">読み込み中…</div>')}
+        ${V.health?card('調整率・不足率',healthChoreiHtml(V.health,C.date)):''}
         ${card(`本日の出勤 ${(C.shifts||[]).length}人`,(Object.keys(SH).sort().map(t=>row(`<b style="min-width:52px">${t}</b>`,`<span>${SH[t].join('・')}</span>`)).join('')||'<div class="muted">シフトなし</div>')+(C.notes?[]:abs /* notes（SQL 661）がある時は欠勤も notes の中にあるので、二重に出さない */).map(a=>row('<b style="min-width:52px;color:var(--warn)">欠勤</b>',`<span style="color:var(--warn);font-weight:700">${esc(S.staffAll.find(z=>z.id===a.staff_id)?.display_name||'')}（${hmJst(a.at)}・${esc(a.reason)}）</span>`)).join('')+(ar.error?RDERR:'')+chHallLate(C,row))}${chTsukeCard(V)}${chTrialCard(V)}</div>
       <div style="display:flex;flex-direction:column;gap:14px">${card('売上',row(`<span style="flex:1">昨日 ${y.getMonth()+1}/${y.getDate()}（${WD[y.getDay()]}）</span>`,`<b>${yen(C.sales_y||0)}</b>`)+(C.fc?chFc(C.fc):C.sales_m==null?'':row(`<span style="flex:1">今月（${d.getMonth()+1}/1〜${y.getMonth()+1}/${y.getDate()}）</span>`,`<b>${yen(C.sales_m)}</b>`)))}
         ${/* 前後1週間（キャストのトップと同じ） */''}${card('お誕生日（前後1週間）',(C.bdays||[]).map(b=>row(`<b style="min-width:64px;${b.in===0?'color:var(--warn)':b.in<0?'color:var(--muted)':''}">${b.in===0?'本日':b.in<0?(-b.in)+'日前':'あと'+b.in+'日'}</b>`,`<span style="flex:1;${b.in<0?'color:var(--muted)':''}">${esc(b.name)}${(b.kind_label||'お客様')==='お客様'?' 様':''} <small class="muted">${esc(b.birthday)}</small></span><span class="muted">${(b.kind_label||'お客様')==='お客様'?(b.kakari?KL+' '+esc(b.kakari):''):esc(b.kind_label)}</span>`)).join('')||'<div class="muted">なし</div>')}
