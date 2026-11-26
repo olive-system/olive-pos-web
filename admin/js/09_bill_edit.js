@@ -3,6 +3,8 @@
 // 画面の中で直してから［保存］でまとめて送る。保存の前に直した後の請求額を確かめる（SQL で計算して元に戻す）。削除以外は操作ログに「何を直したか」を残す
 const BE_M={cash:'現金',card:'カード',invoice:'請求書',oki:'置き'}, BE_ROLE={douhan:'同伴',douhan1:'同伴①',douhan2:'同伴②'};
 const beDh=r=>r==='douhan'||r==='douhan1'||r==='douhan2';
+/* 同伴の上限は来店人数（途中退店で減る前の人数。POS の douhanCap・データベースの bill_douhan_cap_check と同じ） */
+const beDhCap=(g,sg)=>Math.max(g||1, sg??g??1), beDhOver=(n,g,sg)=>n>beDhCap(g,sg)&&(uiAlert(`同伴は来店人数（${beDhCap(g,sg)}名）までです`),true);
 const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
 // 来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
 const beHm5=t=>t?hmJst(ceil5(t)):'';
@@ -134,7 +136,7 @@ function beHtml5(E,v){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,k
 /* 押した時の動き：人数・時刻・お客様・係・同伴・反応◎ */
 function beBindA(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks,syncHc,resplit,reExt,toTs,box,close,sel,diff,check,draw,CL,tsureKk,custPickBE}=E; const q=s=>box.querySelector(s), qa=s=>box.querySelectorAll(s), redo=()=>{ S._reason=q('#beR').value; draw(); };
     q('#beR').oninput=e=>{ S._reason=e.target.value; };
-    q('#beG').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=1)){ e.target.value=B.guest_count; return; } const old=B.guest_count; if(n===old) return; const dn=S.casts.filter(x=>beDh(x.role)).length; if(n<dn){ e.target.value=old; uiAlert(`同伴は客数（${n}名）までです`); return; } /* 同伴は客数まで（オーナー） */
+    q('#beG').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=1)){ e.target.value=B.guest_count; return; } const old=B.guest_count; if(n===old) return; const dn=S.casts.filter(x=>beDh(x.role)).length; if(beDhOver(dn,n,B.set_guest_count)){ e.target.value=old; return; } /* 同伴は来店人数まで（オーナー） */
       if(B.set_guest_count!=null){ if(n>old) B.set_guest_count+=n-old; } else S.items.filter(i=>live(i)&&(i.product_id===hcId||i.product_id===bcId)&&i.product_id).forEach(i=>{ i.qty=n; resplit(i); }); // POS と同じ：途中で帰った人がいなければ、自動の HC・BC の数も客数に
       B.guest_count=n; redo(); };
     const tm=(k,v)=>{ if(!v) return; const ts=toTs(v); if(k==='opened_at'&&B.set_start){ B.set_start=new Date(new Date(B.set_start).getTime()+(ceil5(ts)-ceil5(B.opened_at))).toISOString(); } B[k]=ts; reExt(); redo(); };
@@ -148,7 +150,7 @@ function beBindA(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks
       if(k==='a'){ if(!S.after.includes(sid)) S.after.push(sid); }
       else if(k==='g') S.goods.push({id:beUid(),staff_id:sid});
       else if(k==='k'){ if(ex) ex.is_kakari=true; else S.casts.push({id:beUid(),staff_id:sid,role:'none',is_kakari:true}); syncHc(); }
-      else { if(S.casts.filter(c=>beDh(c.role)).length>=B.guest_count){ await uiAlert(`同伴は客数（${B.guest_count}名）までです`); redo(); return; } const role=beRole(B.opened_at), kak=!!st.douhan_is_kakari;
+      else { if(beDhOver(S.casts.filter(c=>beDh(c.role)).length+1,B.guest_count,B.set_guest_count)){ redo(); return; } const role=beRole(B.opened_at), kak=!!st.douhan_is_kakari;
         if(ex){ ex.role=role; if(kak) ex.is_kakari=true; } else S.casts.push({id:beUid(),staff_id:sid,role,is_kakari:kak}); if(kak) syncHc(); }
       redo(); });
     qa('[data-bq]').forEach(x=>x.onchange=()=>{ const i=S.items.find(z=>z.id===x.dataset.bq), n=parseInt(x.value,10); if(!(n>=1)){ x.value=i.qty; return; } i.qty=n; resplit(i); redo(); });
