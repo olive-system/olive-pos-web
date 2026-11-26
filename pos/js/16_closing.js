@@ -141,8 +141,9 @@ async function clRegRender(d,D){ const el=$('clReg'); if(!el) return; if(!S.staf
   clRegWire(el,d,B,total,cnm); }
 /* ① 来店のお客様の登録の画面のボタン（完了・お客様を足す・外す・メモ） */
 function clRegWire(el,d,B,total,cnm){
-  $('clRegWho').onchange=()=>{ $('clRegDone').disabled=!$('clRegWho').value; };
-  $('clRegDone').onclick=guard($('clRegDone'),async()=>{ if(total&&!await uiConfirm(`未登録が ${total}名います。完了しますか？`)) return; const r=await sb.rpc('pos_cust_reg_done',{p_day:d,p_by:$('clRegWho').value}); if(r.error){ toast(r.error.message); return; } toast(r.data?.sent?`完了しました（連絡先交換の LINE ${r.data.sent}名）`:'完了しました'); clRegRender(d); });
+  const who=el.querySelector('#clRegWho'), done=el.querySelector('#clRegDone');
+  who.onchange=()=>{ done.disabled=!who.value; };
+  done.onclick=guard(done,async()=>{ if(total&&!await uiConfirm(`未登録が ${total}名います。完了しますか？`)) return; const r=await sb.rpc('pos_cust_reg_done',{p_day:d,p_by:who.value}); if(r.error){ toast(r.error.message); return; } toast(r.data?.sent?`完了しました（連絡先交換の LINE ${r.data.sent}名）`:'完了しました'); clRegRender(d); });
   el.querySelectorAll('[data-clradd]').forEach(x=>x.onclick=()=>{ const b=B.find(z=>z.id===x.dataset.clradd); const on=new Set((b.bill_customers||[]).map(c=>c.customer_id));
     S.custBill=b; S.custPick=async c=>{ S.custBill=null; if(!c) return; if(on.has(c.id)){ toast('この伝票に登録済です'); return; } const r=await sb.rpc('pos_rows_add',{p_table:'bill_customers',p:{bill_id:b.id,customer_id:c.id}}); if(r.error&&!r.error.message.includes('duplicate')){ toast(r.error.message); return; } if(!r.error) await logOp('お客様を伝票に追加',{customer:c.name,table:billTable(b),date:d}); clRegRender(d); };
     $('custSearch').value=''; renderCust(''); $('custModal').classList.add('on'); $('custSearch').focus(); });
