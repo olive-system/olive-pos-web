@@ -227,10 +227,11 @@ async function qtyChange(b,g){ if(!g) return; const v=await uiPrompt(`${g.name} 
   let left=g.qty-n, err=null; for(const r of [...g.rows].reverse()){ if(left<=0) break; const q=Math.min(left,r.qty); const up=await sb.rpc('pos_rows_set',{p_table:'bill_items',p_where:{id:(r.id)??null},p:q===r.qty?{is_void:true}:{qty:r.qty-q}}); if(up.error){ err=up.error; break; } left-=q; }
   const now=n+left; if(now!==g.qty) await logOp('数量変更',{item:g.name,before:g.qty,after:now,amount:-g.unit_price*(g.qty-now)}); /* 途中で止まった時は、変わった所までを記録 */
   if(err){ await bad(err); if(isStale(err)) return; } await openBill(b.id); if((S.cur?.totals?.unpaid??0)<0) await uiAlert(`入金が請求額より ${yenU(-S.cur.totals.unpaid)} 多くなりました。会計の画面で入金を取り消してください`); }
+// 見るだけの明細は、右上の × で伝票一覧・ホールへ戻る（ほかの小窓と同じ部品。オーナー「右上に×があった方が分かりやすい」）
+function stCloseBtn(card){ if($('stX')) return; const x=document.createElement('button'); x.id='stX'; x.className='xb dx'; x.setAttribute('aria-label','閉じる'); x.textContent='×'; x.onclick=()=>$('bBack').onclick(); card.prepend(x); }
 // 会計済・取消済の伝票は、見返し用の明細書の形で表示する（編集用の枠やボタンは出さない）
 function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card:not(#bLoad)'); stCssOnce();
-  let st=$('bStatement'); if(!st){ st=document.createElement('div'); st.id='bStatement'; st.style.cssText='max-width:720px;margin:0 auto'; card.appendChild(st); }
-  if(!$('stX')){ const x=document.createElement('button'); x.id='stX'; x.className='xb dx'; x.setAttribute('aria-label','閉じる'); x.textContent='×'; x.onclick=()=>$('bBack').onclick(); card.prepend(x); } /* 見るだけの明細は、右上の × で伝票一覧・ホールへ戻る（ほかの小窓と同じ部品。オーナー「右上に×があった方が分かりやすい」） */ card.classList.toggle('st-mode',!!on); if(!on){ st.innerHTML=''; return; }
+  let st=$('bStatement'); if(!st){ st=document.createElement('div'); st.id='bStatement'; st.style.cssText='max-width:720px;margin:0 auto'; card.appendChild(st); } stCloseBtn(card); card.classList.toggle('st-mode',!!on); if(!on){ st.innerHTML=''; return; }
   const cn=id=>S.customers.find(c=>c.id===id)?.name||''; const sn=id=>S.staffAll.find(x=>x.id===id)?.display_name||S.staff.find(x=>x.id===id)?.display_name||''; const md=d=>{ const x=new Date(d); return `${x.getMonth()+1}/${x.getDate()}`; };
   const custs=(b.bill_customers||[]).map(x=>cn(x.customer_id)).filter(Boolean); const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>sn(c.staff_id)).filter(Boolean); const ds=(b.bill_casts||[]).filter(c=>isDouhan(c.role)).map(c=>sn(c.staff_id)).filter(Boolean);
   const bd=String(billDay(b)||'').replace(/^\d{4}-0?(\d+)-0?(\d+)$/,'$1/$2')+(billDay(b)!==b.business_date?`（ご来店日 ${jmd(b.business_date)}）`:''); const extMin=(b.bill_extensions||[]).reduce((a,e)=>a+e.minutes,0);
