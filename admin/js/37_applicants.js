@@ -11,7 +11,7 @@ const aplHit=(r,k)=>k==='all'||(k==='consider'?/^consider_/.test(r.st):r.st===k)
 const aplStLabel=r=>r.st==='trial'&&r.future?'体験予定':APL_ST[r.st]||'';
 /* 日付は今年なら月/日、ほかの年は年も（POS の［退店・体験］と同じ） */
 const aplDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).slice(0,10).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
-const aplJst=iso=>iso?new Date(new Date(iso).getTime()+9*3600e3).toISOString():'';
+const aplJst=iso=>iso?jstS(iso):'';
 const aplDt=iso=>iso?`${aplDay(aplJst(iso))} ${aplJst(iso).slice(11,16)}`:'';
 const aplDtW=iso=>{ if(!iso) return '未定'; const d=new Date(new Date(iso).getTime()+9*3600e3); return `${aplDay(aplJst(iso))}（${WD[d.getUTCDay()]}）${aplJst(iso).slice(11,16)}`; };
 
