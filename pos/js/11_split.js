@@ -37,7 +37,8 @@ function openSubPick(it){ if(!it) return; let m=$('subModal'); if(!m){ m=documen
   bx.innerHTML=`<button class="xb dx" aria-label="閉じる">×</button><h2 style="margin:0 0 12px;color:var(--ink)">${esc(it.name)} ×${it.qty}</h2><div class="subgrid">`+list.map(s=>`<button class="ocast ${s.id===cur?'on':''}" data-sid="${s.id}">${esc(s.display_name)}</button>`).join('')+`</div>`;
   bx.querySelector('.dx').onclick=()=>m.classList.remove('on');
   bx.querySelectorAll('[data-sid]').forEach(b=>b.onclick=guard(b,async()=>{ const sid=b.dataset.sid===cur?null:b.dataset.sid; const nm=id=>S.staff.find(x=>x.id===id)?.display_name||S.staffAll.find(x=>x.id===id)?.display_name||'';
+    const prev=billEditMode(S.cur)==='prev'; let by=null; if(prev){ m.classList.remove('on'); by=await askBy('操作者'); if(by===null) return; } /* 前の営業日の伝票は、係の変更と同じく先に操作者を選び、操作ログに残す */
     const r=await sb.rpc('pos_rows_set',{p_table:'bill_items',p_where:{id:(it.ids)??it.id},p:{subtotal_staff_id:sid}});
     if(r.error){ if(isStale(r.error)){ m.classList.remove('on'); await staleReload(r.error.message); return; } toast('変更できません：'+r.error.message); return; }
-    await logOp('小計振り分け変更',{item:it.name,before:cur?nm(cur):'',after:sid?nm(sid):''}); m.classList.remove('on'); await openBill(S.cur.id); }));
+    await logOp('小計振り分け変更',{item:it.name,before:cur?nm(cur):'',after:sid?nm(sid):'',...(by?{by}:{})}); m.classList.remove('on'); await openBill(S.cur.id); }));
   m.classList.add('on'); }

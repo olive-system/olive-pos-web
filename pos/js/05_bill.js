@@ -235,7 +235,7 @@ function renderStatement(b,T,on){ const card=$('v-bill').querySelector('.card:no
   const custs=(b.bill_customers||[]).map(x=>cn(x.customer_id)).filter(Boolean); const ks=(b.bill_casts||[]).filter(c=>c.is_kakari).map(c=>sn(c.staff_id)).filter(Boolean); const ds=(b.bill_casts||[]).filter(c=>isDouhan(c.role)).map(c=>sn(c.staff_id)).filter(Boolean);
   const bd=String(billDay(b)||'').replace(/^\d{4}-0?(\d+)-0?(\d+)$/,'$1/$2')+(billDay(b)!==b.business_date?`（ご来店日 ${jmd(b.business_date)}）`:''); const extMin=(b.bill_extensions||[]).reduce((a,e)=>a+e.minutes,0);
   const L=(l,r,cls)=>`<div class="ln ${cls||''}"><span>${l}</span><span style="white-space:nowrap">${r}</span></div>`;
-  const items=stItems(b,L,sn,billEditMode(b)==='today');
+  const items=stItems(b,L,sn,!!billEditMode(b)); /* 振分は今の営業日と1つ前の営業日（同じ月のうち）の伝票。係の変更と同じ期限（SQL 788） */
   const pays=stPays(b,md); const adjs=(b.bill_adjustments||[]);
   st.innerHTML=`${stHead(b,bd,custs,ks,ds)}
   ${(T.set||0)?L(`セット <small>× ${T.set_guests??b.guest_count}</small>`,yen(T.set)):''}${(T.extension||0)?L(`延長 <small>計${extMin}分</small>`,yen(T.extension)):''}${(T.vip_set||0)?L('VIPルーム料金',yen(T.vip_set)):''}${(T.vip_ext||0)?L('VIPルーム延長',yen(T.vip_ext)):''}${items}<hr>
