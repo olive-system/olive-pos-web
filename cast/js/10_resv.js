@@ -1,9 +1,7 @@
 // 予約／同伴申請と予約一覧（自分が取った予約＋自分が係の予約）。お客様はフルネーム1つの欄・係はキャストから選ぶ・変更と取消は取った本人がその場で（承認なし。 オーナー）
 // 申請・変更・取消をすると、お店（公式 LINE のトーク）と係のキャストに LINE が届く。POS に出す所は後で
-const resvLine = r => `${mdW(r.date)}${r.time}　${r.names || r.name} 様 ${r.guests}名`; /* names＝全員の名前（「 様・」でつないだ物・SQL 717） */
 // LINE の文（SQL 114 の resv_text と同じ形。 オーナーの見本：【同伴】／日時　人数／お客様 様　係／誘客／メモ）。待ち合わせは外した（オーナー「待ち合わせの時刻いらない」）
 // 同伴の子（申請した子だけでない時）と VIPルームの行（オーナー「VIPルームの希望を伝える何か」「同伴が2名3名の時はお客様の数までキャストを選ぶ」）
-const rvDh = (x, by) => { const L = x.dh_names || x.dh || []; return x.douhan && (L.length > 1 || (L.length === 1 && L[0] !== (by ?? x.by))) ? '同伴 ' + L.join('・') : ''; };
 const resvMsg = (head, x, kn, by) => `【${x.douhan?head.replace('予約','同伴'):head}】\n${resvLine(x).split('　')[0]}　${x.guests}名\n${x.names || x.name} 様${RV_NOKK()?'':`　${KL} ${kn}`}\n誘客 ${by}${rvDh(x, by)?`\n${rvDh(x, by)}`:''}${x.vip?`\n${x.vip} 希望`:''}${x.memo?`\nメモ：${x.memo}`:''}`;
 // 予約のしるし（同伴・VIPルーム）は右の決まった列に（オーナー「VIP、VIP同伴の表示の列がバラバラで見にくい」）
 const rvTag = v => v ? `<b style="color:var(--ok);font-size:12px;white-space:nowrap">${esc(v)}</b>` : '';
