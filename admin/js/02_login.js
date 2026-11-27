@@ -35,7 +35,9 @@ async function start(){
   clearInterval(start.t); start.t=setInterval(refreshMe,60000);
 }
 // 1分ごとに読み直す（止められた・パスワードが変わった時はログアウト。警告も最新にする）
-async function refreshMe(){ const m=await loadMe(); if(m===undefined) return; /* 通信の失敗は次の1分でまた確かめる */ if(!m){ await sb.auth.signOut(); adminShowLogin('ログインが切れました。再度ログインしてください'); return; } me=m; renderAlert(); }
+/* 画面が見えていない時（裏のタブ・画面オフ）は読まない。開きっぱなしのタブが1分ごとに読み、データベースのメモリを使っていた。画面に戻った時にすぐ読む */
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&start.t) refreshMe(); });
+async function refreshMe(){ if(document.visibilityState!=='visible') return; const m=await loadMe(); if(m===undefined) return; /* 通信の失敗は次の1分でまた確かめる */ if(!m){ await sb.auth.signOut(); adminShowLogin('ログインが切れました。再度ログインしてください'); return; } me=m; renderAlert(); }
 function renderStoreSel(){
   if(me.is_owner){ $('storeSel').classList.remove('hide'); $('storeName').classList.add('hide');
     $('storeSel').innerHTML=stores().map(s=>`<option value="${s.id}" ${s.id===storeId?'selected':''}>${esc(s.name)}</option>`).join('');

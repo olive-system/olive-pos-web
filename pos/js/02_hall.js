@@ -19,7 +19,9 @@ async function loadHall(o){ const full=o===true, side=full||!(o&&o.side===false)
   renderHall(hallTot);
 }
 /* 1分ごと：画面を開いている時だけ。開いている伝票の一覧は今までどおり1分ごとに読む（知らせが届かない時も、ほかの端末の新しい卓が1分で出る）。金額は変わった伝票だけ。5分ごとに全部読み直す */
-async function hallTick(){ if(!S.store||document.visibilityState!=='visible') return; if(await posTermLost()) return; /* 点検 1分ごとに端末のログインと合鍵を確かめる */ if(Date.now()-hallFullAt>=5*60000){ await loadHall(true); return; }
+/* 閉店中（日本時間 3:00〜17:00 で開いている伝票が0）は読み直さない。店の iPad は閉店後も画面が点いたままで、毎分の読み直しがデータベースのメモリを使っていた。卓が入れば知らせ（rtSub）で読み、画面に戻った時・卓を押した時も読む */
+const hallClosed=()=>{ const h=new Date(Date.now()+JST_MS).getUTCHours(); return h>=3&&h<17&&!(S.openBills||[]).length; };
+async function hallTick(){ if(!S.store||document.visibilityState!=='visible'||hallClosed()) return; if(await posTermLost()) return; /* 点検 1分ごとに端末のログインと合鍵を確かめる */ if(Date.now()-hallFullAt>=5*60000){ await loadHall(true); return; }
   if(!rtBusy()) await loadHall({side:false}); else renderHall(hallTot); }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&S.hallOn) loadHall(true); });
 // 黒服を削除した時の警告（管理サイトでオーナーがパスワードを新しくするまで出し続ける）。パスワードが変わってこの端末のログインが使えなくなったら、ログイン画面に戻す
