@@ -129,6 +129,7 @@ function hallTrialTodo(x){ setBack(hallTodo); const T = x.trial;
       const r = await sb.rpc('hall_todos', { p_token: TOKEN }); const y = !r.error && (r.data.items || []).find(z => z.id === x.id); if(y && y.trial && y.status !== 'done') hallTrialTodo(y); else hallTodo(); })); }); }
 function hallTodoOne(x, keep){
   if(x.trial){ hallTrialTodo(x); return; }
+  if(x.greview){ hallGreviewTodo(x); return; }   /* 802：保証の期限の話し合い（29_greview.js） */
   if(x.spot && x.status !== 'done'){ hallSpotTodo(x); return; }
   setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; tdDiff = null; tdWhy = {}; }
   const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
