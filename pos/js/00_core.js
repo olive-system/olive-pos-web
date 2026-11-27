@@ -175,10 +175,12 @@ function dragSort(list,sel,onDone){
 const CUSEL='*,customer_kakari(store_id,staff_id)';
 function cuK(c){ if(!c||!('customer_kakari' in c)) return c; const k=(c.customer_kakari||[]).find(x=>x.store_id===S.store?.id); delete c.customer_kakari; c.kakari_staff_id=k?k.staff_id:null; return c; }
 async function cuLoadAll(){ let r=await sbAll(()=>sb.from('customers').select(CUSEL).order('name').order('id')); if(r.error&&/customer_kakari/.test(r.error.message)){ toast((''+KL+'を読み込めません：')+r.error.message); r=await sbAll(()=>sb.from('customers').select('*').order('name').order('id')); } return r; }
-/* お客様は最初に全部読み、あとは更新・登録の時刻が前に読んだ一番新しい時刻（5分の余裕）より後の人だけ読む。消えた人に気づくため10分ごとに全部読む */
+/* お客様は最初に全部読み、あとは更新・登録の時刻が前に読んだ一番新しい時刻（5分の余裕）より後の人だけ読む。消えた人に気づくため、10分ごとに件数だけ読み、手元と違う時だけ全部読む（データベースのメモリ不足・2026-11-27。前は10分ごとに全員を読み直していた） */
 let cuMax=0, cuFullAt=0; const cuStamp=c=>Math.max(Date.parse(c?.updated_at)||0,Date.parse(c?.created_at)||0);
 function cuMark(full,list){ if(full) cuFullAt=Date.now(); for(const c of (list||S.customers)) cuMax=Math.max(cuMax,cuStamp(c)); }
-async function cuPull(delta){ if(!cuMax||(!delta&&Date.now()-cuFullAt>=600000)){ const r=await cuLoadAll(); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMax=0; cuMark(true,r.data); return {data:r.data,error:null}; }
+async function cuCountOk(n){ const r=await sb.from('customers').select('id',{count:'exact',head:true}); if(r.error||r.count!==n) return false; cuFullAt=Date.now(); return true; }
+async function cuPull(delta){ if(cuMax&&!delta&&Date.now()-cuFullAt>=600000){ const d=await cuPull(true); if(d.error||!d.data||await cuCountOk(d.data.length)) return d; }
+  if(!cuMax||(!delta&&Date.now()-cuFullAt>=600000)){ const r=await cuLoadAll(); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMax=0; cuMark(true,r.data); return {data:r.data,error:null}; }
   const since=new Date(cuMax-300000).toISOString(); const r=await sbAll(()=>sb.from('customers').select(CUSEL).or(`updated_at.gte."${since}",created_at.gte."${since}"`).order('id')); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMark(false,r.data);
   const up=new Map(r.data.map(c=>[c.id,c])); const out=S.customers.map(c=>up.get(c.id)||c); const have=new Set(S.customers.map(c=>c.id)); r.data.forEach(c=>{ if(!have.has(c.id)) out.push(c); }); return {data:out,error:null}; }
 /* ほかの iPad で登録・変更したお客様を、変わった分だけ読む（お客様を追加・伝票を開く時。前は顧客の画面を開くまで届かず、同業の料金が戻る・同じ人を二重に登録することがあった） */

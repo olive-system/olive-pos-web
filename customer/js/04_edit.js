@@ -49,9 +49,11 @@ const _open=openDetail; openDetail=async id=>{ try{ history.pushState({d:1},'');
 $('backBtn').onclick=()=>{ if(history.state&&history.state.d){ history.back(); return; } curId=null; cur=null; show('vList'); renderList(); loadList(); };
 window.addEventListener('popstate',()=>{ curId=null; cur=null; show('vList'); renderList(); loadList(); });
 /* ほかの端末（POS など）での変更を出す。画面に戻った時と1分ごとに、開いている詳細か一覧を読み直す。入力中・確認の画面が出ている間は読み直さない。失敗しても知らせない */
+let csSig=null; /* 一覧を最後に読んだ時の「変わったか」の印（cs_list_sig） */
 async function csRefresh(listToo){ if(!token||document.visibilityState!=='visible'||$('modal').classList.contains('on')) return; const a=document.activeElement; if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&a.id!=='q') return;
   try{ if(!$('vDetail').classList.contains('hide')&&curId){ const id=curId; const d=await rpc('cs_detail',{p_token:token,p_id:id}); if(curId!==id||$('modal').classList.contains('on')) return; if(JSON.stringify(d)!==JSON.stringify(cur)){ cur=d; renderDetail(); } }
-    else if(listToo&&!$('vList').classList.contains('hide')){ const l=await rpc('cs_list',{p_token:token})||[]; if($('vList').classList.contains('hide')) return; l.sort(csOrder); if(JSON.stringify(l)!==JSON.stringify(custs)){ custs=l; renderList(); } } }catch(e){ if(e&&e.code==='CS_AUTH'){ logoutLocal(); showLogin(CS_OUT); } } }
+    else if(listToo&&!$('vList').classList.contains('hide')){ const sg=await rpc('cs_list_sig',{p_token:token}).catch(e=>{ if(e&&e.code==='CS_AUTH') throw e; return null; }); if(sg!=null&&sg===csSig) return; /* 変わっていない時は一覧を読まない（SQL 792。データベースのメモリ不足・2026-11-27） */
+      const l=await rpc('cs_list',{p_token:token})||[]; csSig=sg; if($('vList').classList.contains('hide')) return; l.sort(csOrder); if(JSON.stringify(l)!==JSON.stringify(custs)){ custs=l; renderList(); } } }catch(e){ if(e&&e.code==='CS_AUTH'){ logoutLocal(); showLogin(CS_OUT); } } }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ paintEdit(); csRefresh(true); } });
 setInterval(()=>csRefresh(true),60000); /* 一覧の画面でも1分ごとに読み直す（パスワードが変わったらログアウト） */
 

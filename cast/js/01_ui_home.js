@@ -1,3 +1,8 @@
+/* お誕生日（cast_birthdays）は、同じ営業日のうちは30分ためおく。トップに戻るたびに読み直していた（データベースのメモリ不足・2026-11-27） */
+let castBdC = null;
+async function castBdays(T){ const day = new Date(Date.now() + JST_MS - 8 * 3600e3).toISOString().slice(0, 10);
+  if(castBdC && castBdC.day === day && Date.now() - castBdC.at < 1800e3) return castBdC.r;
+  const r = await sb.rpc('cast_birthdays', T); if(!r.error) castBdC = { day, at: Date.now(), r }; return r; }
 async function start(){
   if(!LIFF[STORE]){ fail('店舗を特定できません（公式 LINE のメニューから開いてください）'); return; }
   try{ localStorage.setItem('olive_cast_store', STORE); }catch(e){}
@@ -55,7 +60,7 @@ async function castLoadMe(w0){
     if(kd !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w0.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
   const pW = kd ? null : sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = kd ? null : sb.rpc('hall_me', T);
   const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* 書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* 伝票一覧の件数 */,
-    sb.rpc('cast_birthdays', T) /* トップに「お誕生日」。前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* お知らせの未確認の数 */, sb.rpc('cast_sales_today', T) /* アプローチの「本日 未提出」の札 */]);
+    castBdays(T) /* トップに「お誕生日」。前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* お知らせの未確認の数 */, sb.rpc('cast_sales_today', T) /* アプローチの「本日 未提出」の札 */]);
   if(pW){ const w = await pW; /* 黒服が開いた時は黒服マイページ */
     SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* ママは全員のシフト */
     if(!w.error && w.data && w.data.kind === 'hall'){ await hallLoad(pH); return; }
