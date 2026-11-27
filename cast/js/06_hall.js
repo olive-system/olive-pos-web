@@ -104,6 +104,22 @@ function hallTodoSkip(x, fld){
       $('tdRGo').disabled = true; const q = await sb.rpc('hall_todo_skip', { p_token: TOKEN, p_item: x.id, p_reason: rs , ...(x.carry ? { p_day: x.day } : {}) }); if(q.error){ if($('tdRGo')) $('tdRGo').disabled = false; await uiAlert(q.error.message); return; } await uiAlert('送りました'); hallTodo(); };
 }
 /* 体験の「○○ 応募情報登録」：ヒアリングシートと写真（バストアップ）を撮る所だけ。そろうと自動で完了（オーナー「ア この形で作る」） */
+/* スポットの棚卸し（SQL 782・月1回）：担当のスポットの子を1人ずつ スポット継続／退店。最終出勤から半年以上は退店のみ。全員を選ぶと［完了］（見本 スポットの棚卸し_2） */
+const ST_CH = { 'スポット継続': 'keep', '退店': 'leave' };
+function hallSpotTodo(x){ setBack(hallTodo); const L = x.spot || [];
+  const sel = (c, i) => `<select data-st="${i}" style="flex:none;width:136px;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><option value="">選択</option>${Object.keys(ST_CH).filter(w => !c.old || ST_CH[w] === 'leave').map(w => `<option ${c.leave && ST_CH[w] === 'leave' ? 'selected' : ''}>${w}</option>`).join('')}</select>`;
+  show(`<div class="ttl">${esc(x.name)}</div><div class="card"><div style="white-space:pre-wrap;line-height:1.7">${esc(x.steps || '')}</div></div>
+    <div class="card"><div class="muted sm" style="margin-bottom:4px">担当のスポット　${L.length}人</div>${L.map((c, i) => `<div style="padding:9px 2px;${i ? 'border-top:1px solid var(--line)' : ''}"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0;font-weight:700">${esc(c.name)}</div>${sel(c, i)}</div>
+      <div class="muted sm" style="line-height:1.6">スポット ${esc(c.since)}〜・最終出勤 ${esc(c.last || 'なし')}${c.old ? '　<span style="color:var(--warn)">半年以上</span>' : ''}</div></div>`).join('') || '<div class="muted">担当のスポットはいません</div>'}</div>
+    <div class="muted sm" id="stHint" style="margin:0 2px 8px">全員を選ぶと［完了］できます</div><button class="btn" id="tdGo">完了</button><button class="btn g" id="tdNo" style="margin-top:8px">できない（理由を書く）</button>`);
+  const v = i => $('main').querySelector(`[data-st="${i}"]`).value;
+  $('tdNo').onclick = () => hallTodoSkip(x, 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box');
+  $('tdGo').onclick = async () => { if(L.some((c, i) => !v(i))){ await uiAlert('全員を選んでください'); return; }
+    $('tdGo').disabled = true;
+    const q = await sb.rpc('hall_spot_tana_save', { p_token: TOKEN, p_item: x.id, p_rows: L.map((c, i) => ({ id: c.id, choice: ST_CH[v(i)] })), ...(x.carry ? { p_day: x.day } : {}) });
+    if(q.error){ if($('tdGo')) $('tdGo').disabled = false; await uiAlert(q.error.message); return; }
+    hallTodo(); };
+}
 function hallTrialTodo(x){ setBack(hallTodo); const T = x.trial;
   const st = n => n ? `<span class="sm" style="color:var(--ok)">撮影済 ${n}枚</span>` : '<span class="sm" style="color:var(--warn)">未撮影</span>';
   const row = (k, lab, n) => `<div class="row" style="align-items:center;gap:10px"><span style="flex:1">${lab}</span>${st(n)}<button class="btn g" data-tts="${k}" style="width:auto;flex:none;margin:0;padding:0 16px;height:36px">撮影</button></div>`;
@@ -113,6 +129,7 @@ function hallTrialTodo(x){ setBack(hallTodo); const T = x.trial;
       const r = await sb.rpc('hall_todos', { p_token: TOKEN }); const y = !r.error && (r.data.items || []).find(z => z.id === x.id); if(y && y.trial && y.status !== 'done') hallTrialTodo(y); else hallTodo(); })); }); }
 function hallTodoOne(x, keep){
   if(x.trial){ hallTrialTodo(x); return; }
+  if(x.spot && x.status !== 'done'){ hallSpotTodo(x); return; }
   setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; tdDiff = null; tdWhy = {}; }
   const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
   const done = x.status === 'done', ph = (x.photos && x.photos.length) ? x.photos : (x.photo ? [x.photo] : []);
