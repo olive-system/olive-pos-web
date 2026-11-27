@@ -30,13 +30,13 @@ PAGES.notice=async()=>{ const st=storeId, ed=perm('notice')==='edit';
   const SL=rs.error?[]:(rs.data||[]), SE=ntSched&&SL.find(x=>x.id===ntSched)||null; if(!SE) ntSched=null;
   const key=E?'e'+E.id:SE?'s'+SE.id:'n';
   if(ntKey!==key){ ntKey=key; ntFiles=((E||SE)?.attach||[]).map(f=>({...f})); ntPick=new Set(SE?.staff||[]); }
-  const day=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()}`; };
+  const day=a=>{ const d=new Date(new Date(a).getTime()+JST_MS); return `${d.getUTCMonth()+1}/${d.getUTCDate()}`; };
   const S=stores(), sOpt=[...S.map(s=>[s.id,ntStoreName(s)]),...(S.length>1?[['all','両店']]:[])];
   const sv0=SE?(SE.stores.length>1?'all':SE.stores[0]):st;
   // 送信時刻：今日から60日・15分ごと（はじめは15分より先の15分の区切り）
-  const now=Date.now(), first=new Date(Math.ceil((now+15*60e3)/(15*60e3))*15*60e3), j0=new Date(first.getTime()+9*3600e3);
-  const sa=SE?new Date(new Date(SE.send_at).getTime()+9*3600e3):j0, ymd=d=>d.toISOString().slice(0,10), hm=d=>d.toISOString().slice(11,16);
-  const dOpts=Array.from({length:60},(_,i)=>{ const d=new Date(now+9*3600e3+i*864e5); return [ymd(d),`${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）`]; });
+  const now=Date.now(), first=new Date(Math.ceil((now+15*60e3)/(15*60e3))*15*60e3), j0=new Date(first.getTime()+JST_MS);
+  const sa=SE?new Date(new Date(SE.send_at).getTime()+JST_MS):j0, ymd=d=>d.toISOString().slice(0,10), hm=d=>d.toISOString().slice(11,16);
+  const dOpts=Array.from({length:60},(_,i)=>{ const d=new Date(now+JST_MS+i*864e5); return [ymd(d),`${d.getUTCMonth()+1}/${d.getUTCDate()}（${WD[d.getUTCDay()]}）`]; });
   const tOpts=Array.from({length:96},(_,i)=>`${String(Math.floor(i/4)).padStart(2,'0')}:${String(i%4*15).padStart(2,'0')}`);
   const sel=(id,opts,v)=>`<select id="${id}" style="width:auto">${opts.map(([k,l])=>`<option value="${esc(k)}" ${k===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
   const area=v=>`<textarea id="ntB" rows="6" maxlength="2000" style="width:100%;font:inherit;font-size:16px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(v||'')}</textarea>`;
@@ -153,7 +153,7 @@ function ntCardPaint(){ if(!ntCard) ntCard=ntCardNew(); const c=ntCard, el=$('nt
     c.items[ntCardAt].f={file,url:URL.createObjectURL(file)}; ntCardPaint(); }; }
 async function ntCardSave(t,ids,sl,to){ const hin=to==='hall_in'; const c=ntCard||ntCardNew(); const items=c.items.map(x=>({h:x.h.trim(),t:x.t.trim(),f:x.f}));
   if(items.some(x=>!x.h)){ await uiAlert('項目の見出しを入力してください'); return; }
-  const d=new Date(Date.now()+9*3600e3), md=`${d.getUTCMonth()+1}/${d.getUTCDate()}`, day=[t,c.greet,c.close,...items.flatMap(x=>[x.h,x.t])].join('\n').match(NT_DAY);
+  const d=new Date(Date.now()+JST_MS), md=`${d.getUTCMonth()+1}/${d.getUTCDate()}`, day=[t,c.greet,c.close,...items.flatMap(x=>[x.h,x.t])].join('\n').match(NT_DAY);
   const msg=hin?`「${t}」を登録しますか？\n宛先：${NT_TO.hall_in}\n店舗：${sl}\n項目：${items.length}つ・写真：${items.filter(x=>x.f).length}枚\n今は送信しません。黒服が出勤の打刻をした時に、その人の LINE に送信します`
     +(day?`\n\n文に「${day[0]}」があります。休みの人には後の日に届くので、「${md} から」のように日付で書くと伝わります`:'')
     :`「${t}」を掲載しますか？\n宛先：${NT_TO[to]}\n店舗：${sl}\n形式：カード\n項目：${items.length}つ・写真：${items.filter(x=>x.f).length}枚\n${to==='all'?'連携したキャスト・黒服全員に LINE で送信します':'連携したキャスト全員に LINE で送信します'}`;
