@@ -16,10 +16,17 @@ function slipHtml(P){
     <div class="card"><div class="gh">支給対象</div>${pay.join('')}</div><div class="card"><div class="gh">控除対象</div>${dd.join('')}</div>
     <div class="card">${L('総支給額', cm(N(x.taxable)-ded))}${L('課税対象額', cm(x.taxable))}${L('源泉徴収', cm(x.withholding))}${'tatekae' in x ? L('日払', cm(N(x.advance)-N(x.tatekae)))+L('立替', cm(x.tatekae)) : L('日払（立替）', cm(x.advance))}${N(x.prev_adjust)?L('前月精算', (N(x.prev_adjust)<0?'−':'')+Math.abs(N(x.prev_adjust)).toLocaleString('ja-JP')):''}${L('残り支給額', (net<0?'−':'')+'¥'+Math.abs(net).toLocaleString('ja-JP'), 'n')}</div>`;
 }
+/* 783：黒服ボーナスの減額（SQL 761・768）。減額をかける月だけ、ボーナスの下にうすい字で2行：店の総額の減額（不足率・調整率）と、担当の離職率で減った額。
+   不足率・調整率は店全体の数だが、本人のボーナスに直接かかるので出す（オーナー 11/27 見本 OK）。12月が半分なのは、実際にかけた割合で出す */
+function hallCutRows(x){ const c = x.bonus_store; if(!c || !(N(c.rate) > 0)) return '';
+  const pc = v => v == null ? '—' : `${Math.round(N(v)*10)/10}%`, ct = v => !N(v) ? '減額なし' : N(v) % 10 ? `${Math.round(N(v)*10)/10}%減` : `${N(v)/10}割減`, b = x.bonus_cut || {};
+  return `<div class="muted sm" style="display:grid;grid-template-columns:6em 4.5em 1fr;column-gap:8px;margin:-2px 0 6px;padding-left:12px;line-height:1.7">
+    <span>総額</span><span>${ct(c.store_cut)}</span><span>不足率 ${pc(c.short)}・調整率 ${pc(c.adj)}</span>
+    <span>離職率 ${pc(b.turnover)}</span><span>${ct(b.cut)}</span><span>${N(x.bonus_cut_yen) ? '−' + cm(x.bonus_cut_yen) : ''}</span></div>`; }
 function hallSlipHtml(P){
   const x = P.slip, L = (k, v, c='') => `<div class="row ${c}"><span>${esc(k)}</span><b>${v}</b></div>`, PT = { monthly:'月給', hourly:'時給', daily:'日給' };
   const ded = N(x.ctax) + N(x.fines) + N(x.welfare) + N(x.special_deduct);
-  const pay = [L(PT[x.pay_type]?`報酬（${PT[x.pay_type]}）`:'報酬', cm(x.base)), ...(N(x.late_deduct)?[L((x.absent_days||[]).length ? '遅刻・早退・欠勤' : '遅刻・早退', '−'+cm(x.late_deduct))]:[]), L('ボーナス', cm(x.bonus)), L('手当など、その他', cm(N(x.allowance)+N(x.special_pay))), L('合計', cm(x.taxable), 's')];
+  const pay = [L(PT[x.pay_type]?`報酬（${PT[x.pay_type]}）`:'報酬', cm(x.base)), ...(N(x.late_deduct)?[L((x.absent_days||[]).length ? '遅刻・早退・欠勤' : '遅刻・早退', '−'+cm(x.late_deduct))]:[]), L('ボーナス', cm(x.bonus)) + hallCutRows(x), L('手当など、その他', cm(N(x.allowance)+N(x.special_pay))), L('合計', cm(x.taxable), 's')];
   const dd = [L('消費税', cm(x.ctax)), L('罰金', cm(x.fines)), L('厚生費', cm(x.welfare)), L('個別控除', cm(x.special_deduct)), L('合計', cm(ded), 's')];
   const [y, mo] = String(P.month).split('-').map(Number), net = N(x.net);
   return `<div class="card"><div class="ttl">報酬支払明細書</div><div class="muted sm" style="text-align:center;margin-bottom:6px">${y}年${mo}月分　${esc(P.store_name)}　${esc(P.name)}${P.real_name?'/'+esc(P.real_name):''}</div>
