@@ -23,7 +23,7 @@ PAGES.o_contract=async()=>{ const head='<h1>契約書</h1>';
   const V=r.data.version, A=r.data.agreed||[]; const D=ctDraft||(ctDraft={title:V.title,preamble:V.preamble,oath:V.oath,articles:(V.articles||[]).map(a=>({...a,to:['cast','hall'].includes(a.to)?a.to:'all'}))}); /* 条文ごとの区分（キャスト・黒服） */
   const tw=(a,k)=>a.to==='all'||a.to===k;
   const ta=(id,v,rows)=>`<textarea id="${id}" rows="${rows}" style="width:100%;font:inherit;font-size:15px;line-height:1.6;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">${esc(v||'')}</textarea>`;
-  const day=a=>{ const d=new Date(new Date(a).getTime()+9*3600e3); return `${d.getUTCFullYear()}/${d.getUTCMonth()+1}/${d.getUTCDate()}`; };
+  const day=a=>{ const d=new Date(new Date(a).getTime()+JST_MS); return `${d.getUTCFullYear()}/${d.getUTCMonth()+1}/${d.getUTCDate()}`; };
   $('main').innerHTML=head+`<div class="card"><div class="muted" style="font-size:13px;margin-bottom:8px">LINEマイページで同意する契約書です。保存すると新しい版になり、これから同意する人に表示します（同意済の人の版は変更されません）。今の版：${day(V.at)}</div>
       <label>タイトル<input id="ctT" value="${esc(D.title)}"></label><label style="display:block;margin-top:8px">前文${ta('ctP',D.preamble,3)}</label>
       ${D.articles.map((a,i)=>`<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px"><div style="display:flex;gap:8px;align-items:center"><input data-at="${i}" value="${esc(a.title)}" style="flex:1"><span class="seg"><button data-to="${i}" data-k="cast" class="${tw(a,'cast')?'on':''}">キャスト</button><button data-to="${i}" data-k="hall" class="${tw(a,'hall')?'on':''}">黒服</button></span><button class="xb" data-ad="${i}" aria-label="削除">×</button></div><div style="margin-top:6px">${ta('ctB'+i,a.body,4)}</div></div>`).join('')}

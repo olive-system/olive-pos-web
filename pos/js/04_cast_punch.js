@@ -1,7 +1,7 @@
 // ---------- 在籍リストからの打刻の修正（時刻を選ぶ・修正した黒服を残す） ----------
 // 時刻は1つの選択（15分ごと。オーナー「時と分が分かれていて2回タップするのが面倒」）。w があれば罰金の行と「免除申請」（申請者・理由）も出し、{at,w,kind} を返す（w が無い時は時刻だけ）
 function uiTime(kind,w){ return new Promise(res=>{ const Q=900000, now=Date.now(); const st=new Date(bdStart(businessDate())).getTime(); const lim=Math.max(st,Math.min(st+95*Q,Math.ceil(now/Q)*Q)); const def=Math.max(st,Math.min(lim,(kind==='clock_in'?Math.ceil(now/Q):Math.floor(now/Q))*Q)); const m=mkModal(60);
-  let ts=''; for(let t=st;t<=lim;t+=Q){ const d=new Date(t+9*3600000); ts+=`<option value="${t}">${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2,'0')}</option>`; }
+  let ts=''; for(let t=st;t<=lim;t+=Q){ const d=new Date(t+JST_MS); ts+=`<option value="${t}">${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2,'0')}</option>`; }
   m.innerHTML=uiTimeHtml(kind,w,ts);
   document.body.appendChild(m); const T=m.querySelector('[data-ut=t]'); T.value=String(def); if(w&&w.at&&T.querySelector(`option[value="${w.at}"]`)) T.value=String(w.at); const wfb=m.querySelector('[data-ut=wfb]'); if(w&&w.kind&&wfb){ const t0=T.value, sh=()=>{ wfb.style.display=T.value===t0?'none':''; }; sh(); T.addEventListener('change',sh); } /* w.kind がある時だけ：退勤／アフターの切り替えを出し、種類だけを変えて時刻を変えない時は罰金の欄を隠す（罰金なし）。今は w.kind を渡す所が無いので、どの画面でも出ていない（罰金の欄はいつも出る） */ let kd=w&&w.kind; m.querySelectorAll('[data-utk]').forEach(b=>b.onclick=()=>{ kd=b.dataset.utk; m.querySelectorAll('[data-utk]').forEach(x=>{ const on=x.dataset.utk===kd; x.style.background=on?'var(--pri)':'#fff'; x.style.color=on?'#fff':'var(--ink)'; }); });
   const wv=m.querySelector('[data-ut=wv]'); if(wv) wv.onchange=()=>{ m.querySelector('[data-ut=wb]').style.display=wv.checked?'':'none'; };

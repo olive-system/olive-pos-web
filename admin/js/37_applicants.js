@@ -13,7 +13,7 @@ const aplStLabel=r=>r.st==='trial'&&r.future?'体験予定':APL_ST[r.st]||'';
 const aplDay=d=>{ if(!d) return ''; const [y,m,dd]=String(d).slice(0,10).split('-'); return (y===businessDate().slice(0,4)?'':y+'/')+m+'/'+dd; };
 const aplJst=iso=>iso?jstS(iso):'';
 const aplDt=iso=>iso?`${aplDay(aplJst(iso))} ${aplJst(iso).slice(11,16)}`:'';
-const aplDtW=iso=>{ if(!iso) return '未定'; const d=new Date(new Date(iso).getTime()+9*3600e3); return `${aplDay(aplJst(iso))}（${WD[d.getUTCDay()]}）${aplJst(iso).slice(11,16)}`; };
+const aplDtW=iso=>{ if(!iso) return '未定'; const d=new Date(new Date(iso).getTime()+JST_MS); return `${aplDay(aplJst(iso))}（${WD[d.getUTCDay()]}）${aplJst(iso).slice(11,16)}`; };
 
 PAGES.applicants=async()=>{ const st=storeId;
   $('main').innerHTML=`<h1>応募者 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
