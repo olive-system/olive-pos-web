@@ -18,7 +18,7 @@ async function renderCasts(){ if(cPast) return renderPast(); $('cTabPast').class
   C.rdErr=rdErr; C.tcalc=await caTrialPay(C);
   /* 閉店作業「シフト未定の確認」で退店を選んだ子：行に［退店］を最初から出す（［削除］を押して探さなくて済むように。SQL 619） */ { const r=entryPart(D,'leave'); S.snLeave=new Set(r.error?[]:(r.data||[])); }
   /* 15日の閉店作業で「条件再設定」にした子：名前の行に灰色のしるし（済むまで。SQL 635） */ { const r=entryPart(D,'greset'); S.gcReset=new Set(r.error?[]:(r.data||[])); }
-  /* 保証の期限の話し合いの結果がまだの子：名前の行に［保証の期限］（SQL 802・31_greview.js） */ await grLoad();
+  /* 保証の期限の話し合いの結果がまだの子：名前の行に［保証の期限］（SQL 802・31_greview.js） */ grLoad(D);
   if(S.cSel&&!S.cSel._new&&!S.staffAll.some(x=>x.id===S.cSel.id&&(x.is_active||x.leave_pending))) S.cSel=null; /* 在籍リストに出ない人（体験の次の営業日の自動削除など）の編集は閉じる（オーナー「名前が無いのに編集にサツキの画面がある」） */
   Object.assign(C,caRows(C)); Object.assign(C,caKitA(C)); Object.assign(C,caKitB(C));
   $('cTodayN').textContent=[...present].filter(i=>S.staff.some(z=>z.id===i)).length; $('cTabToday').classList.toggle('on',cMode==='today'); $('cTabAll').classList.toggle('on',cMode==='all'); $('cSort').textContent=cSorting?'完了':'並べ替え';
