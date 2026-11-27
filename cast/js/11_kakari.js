@@ -54,14 +54,14 @@ const RV_TIMES = Array.from({ length: 19 } /* 20:00〜0:30 の15分ごと＝19�
 //   dh＝同伴あり・dhIds＝同伴の子の id・blk＝黒ドレスの子・cid＝顧客から選んだ1人目・more＝2人目以降・sr＝出勤希望あり
 //   DAY＝来店日の VIP ルームと予約・自分のシフト（cast_resv_day。date は読み込んだ日）・offs＝お店の休みの日・kkPrev＝顧客の係で上書きする前の係の欄・dft＝途中の入力の控え（draftBind）
 // KL は店の係の言い方（lib/olive/core.js の kSet）。画面の欄は rvD 来店日・rvT 時刻・rvC お客様・rvN 人数・rvK 係・rvV VIP・rvB 黒ドレス・rvST 出勤時刻
-async function castResvForm(ed){
-  setBack(resvList); show('<div class="card c muted">読み込み中…</div>');
+async function castResvForm(ed, hall){ /* hall＝黒服が朝礼から開いた時（SQL 789。予約の持ち主はそのまま・変更だけ） */
+  setBack(hall ? hallChorei : resvList); show('<div class="card c muted">読み込み中…</div>');
   const st = await sb.rpc('cast_resv_staff', { p_token: TOKEN });
   if(st.error){ fail(st.error.message); return; }
   const today = jstDay();
-  const me = (st.data||[]).find(s => s.name === ME.name) /* ME に id が無いので名前で探す（店の中で表示名は重ならない） */, kk = ed ? ed.kakari : me?.id, NK = RV_NOKK();
-  const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id?'自分':esc(s.name)}</option>`).join('');
-  const R = { ed, me, NK, dh: ed ? !!ed.douhan : false, cid: ed ? ed.customer_id || null : null, cTimer: null, sr: false,
+  const me = (st.data||[]).find(s => hall ? s.id === ed.by_id : s.name === ME.name) /* ME に id が無いので名前で探す（店の中で表示名は重ならない）。黒服は予約の持ち主 */, kk = ed ? ed.kakari : me?.id, NK = RV_NOKK();
+  const opts = (st.data||[]).map(s => `<option value="${s.id}"${s.id===kk?' selected':''}>${s.id===me?.id&&!hall?'自分':esc(s.name)}</option>`).join('');
+  const R = { ed, me, NK, hall: !!hall, dh: ed ? !!ed.douhan : false, cid: ed ? ed.customer_id || null : null, cTimer: null, sr: false,
     more: ed && ed.more ? ed.more.map(x => ({ name: x.name, cid: x.customer_id || null })) : [] /* 2人目以降のお客様（SQL 717） */,
     ST: (st.data || []).slice().sort((a, b) => (b.id === me?.id) - (a.id === me?.id)) /* 小窓は「自分」を一番上に */,
     dhIds: ed && ed.douhan && ed.dh && ed.dh.length ? [...ed.dh] : (me ? [me.id] : []), DAY: { rooms: [], busy: [], shifts: {} },
@@ -114,7 +114,7 @@ function resvWire(R){
   $('rvGo').onclick = () => rvSubmit(R);
 }
 const rvGuests = () => parseInt($('rvN').value, 10) || 1;
-const rvNmOf = (R, id) => id === R.me?.id ? '自分' : (R.ST.find(s => s.id === id)?.name || '');
+const rvNmOf = (R, id) => id === R.me?.id && !R.hall ? '自分' : (R.ST.find(s => s.id === id)?.name || '');
 const rvSetDh = (R, v) => { R.dh = v; $('rvDh1').style.background = v ? 'var(--ink)' : ''; $('rvDh1').style.color = v ? '#fff' : ''; $('rvDh0').style.background = v ? '' : 'var(--ink)'; $('rvDh0').style.color = v ? '' : '#fff'; };
 // 同伴ありは来店時刻 20:30、なしは 21:00（オーナー。自分で時刻を変えていたら、そのまま）
 const rvSetDhT = (R, v) => { const t = $('rvT'); if(t.value === (v ? '21:00' : '20:30')) t.value = v ? '20:30' : '21:00'; rvSetDh(R, v); };
@@ -124,7 +124,7 @@ const rvSrOn = R => !$('rvSW').classList.contains('hide') && R.sr;
 const rvSrTimes = () => { const v0 = $('rvT').value || '23:00', v = v0 < '12:00' ? '23:00' : v0 /* 0時台の来店は 23:00 まで全部 */, L = ['19:50']; for(let m = 20*60; m <= 23*60; m += 15) /* 23:00 まで */{ const t = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); if(t <= v) L.push(t); } return L; };
 // 出勤希望を出す条件 no：同伴なし・その日に自分のシフトが無い・お店の休みでない・その日の DAY を読み終えている（DAY.date === d。読み込み前に出して消えるちらつきを防ぐ）
 // rvDayLoad（来店日の change で読み直し）が終わった時と、休みの日を読み終えた時（rvOffPaint）の両方から呼ぶので、どちらが先に終わってもよい
-const rvSrPaint = R => { const d = $('rvD')?.value; if(!d) return; const DAY = R.DAY, sr = R.sr, no = !R.dh && !(DAY.shifts || {})[R.me?.id] && !R.offs.has(d) && DAY.date === d;
+const rvSrPaint = R => { const d = $('rvD')?.value; if(!d) return; const DAY = R.DAY, sr = R.sr, no = !R.hall && !R.dh && !(DAY.shifts || {})[R.me?.id] && !R.offs.has(d) && DAY.date === d;
   $('rvSW').classList.toggle('hide', !no); $('rvNoS').classList.toggle('hide', !no); $('rvNoS').textContent = no ? `${Number(d.slice(5,7))}/${Number(d.slice(8,10))} はシフトがありません。出勤する時は「出勤希望 あり」` : '';
   [['rvSr1', sr], ['rvSr0', !sr]].forEach(([id, on]) => { $(id).style.background = on ? 'var(--ink)' : ''; $(id).style.color = on ? '#fff' : ''; });
   $('rvSTW').classList.toggle('hide', !(no && sr)); $('rvSN').classList.toggle('hide', !(no && sr));
@@ -200,11 +200,12 @@ async function rvSubmit(R){
   const v = await rvCheck(R).catch(async e => { await uiAlert(e.message || String(e)); return null; }) /* 通信が切れて止まっても、ボタンを押せないままにしない */; if(!v){ if($('rvGo')) $('rvGo').disabled = false; return; }
   const { ed, NK, me, dh, dhIds, blk, DAY } = R, { d, t, c, k, n, memo } = v, nmOf = id => rvNmOf(R, id);
   const vip = $('rvV').value || null, vn = vip ? ((DAY.rooms || []).find(r => r.id === vip) || {}).name : null;
-  const kn = NK ? '自分' : $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, names:rvNames(R, c), guests:n, douhan:dh, meet:null, memo:memo || null, vip:vn, dh_names: dh ? dhIds.map(id => id === me?.id ? ME.name : nmOf(id)) : [] };
-  if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, ME.name) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${rvSrOn(R)?`\n出勤希望 ${$('rvST').value}`:''}${lineOutNote()}\nこの内容で${ed?'変更':'申請'}しますか？`)){ if($('rvGo')) $('rvGo').disabled = false; return; }
-  const q = await sb.rpc('cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: R.cid, p_vip: vip, p_dh: R.dh ? R.dhIds : null, p_black: R.dh && R.blk && !R.DAY.black_taken ? R.blk : null, p_more: rvMoreOut(R) });
+  const kn = NK ? '自分' : $('rvK').selectedOptions[0].textContent, x = { date:d, time:t, name:c, names:rvNames(R, c), guests:n, douhan:dh, meet:null, memo:memo || null, vip:vn, dh_names: dh ? dhIds.map(id => id === me?.id && !R.hall ? ME.name : nmOf(id)) : [] }, by = R.hall ? me?.name || '' : ME.name;
+  if(!await uiConfirm(`${resvLine(x)}${NK?'':`\n${KL} ${kn}`}${dh?`\n${rvDh(x, by) || '同伴あり'}`:''}${vn?`\n${vn} 希望`:''}${dh&&blk&&!DAY.black_taken?`\n黒ドレス ${nmOf(blk)}`:''}${rvSrOn(R)?`\n出勤希望 ${$('rvST').value}`:''}${R.hall?'':lineOutNote()}\nこの内容で${ed?'変更':'申請'}しますか？`)){ if($('rvGo')) $('rvGo').disabled = false; return; }
+  const q = await sb.rpc(R.hall ? 'hall_resv_submit' : 'cast_resv_submit', { p_token: TOKEN, p_id: ed ? ed.id : null, p_date: d, p_time: t, p_name: c, p_kakari: k, p_guests: n, p_douhan: dh, p_meet: null, p_memo: memo || null, p_customer: R.cid, p_vip: vip, p_dh: R.dh ? R.dhIds : null, p_black: R.dh && R.blk && !R.DAY.black_taken ? R.blk : null, p_more: rvMoreOut(R) });
   if(q.error){ if($('rvGo')) $('rvGo').disabled = false; await uiAlert(q.error.message); return; }
   R.dft?.clear();
+  if(R.hall){ await uiAlert(`予約を変更しました${q.data.notified?`\n${NK?'':KL+'・'}同伴のキャストにも LINE で送りました`:''}`); hallChorei(true); return; }
   const lineOk = await lineSend(resvMsg(ed ? '予約変更' : '予約', x, kn === '自分' ? ME.name : kn, ME.name), ed ? '予約変更' : '予約申請');
   let srMsg = ''; if(rvSrOn(R)){ const w = await sb.rpc('cast_shift_request', { p_token: TOKEN, p_resv: q.data.id, p_time: $('rvST').value });
     srMsg = w.error ? `\n出勤希望：${w.error.message}` : w.data?.auto ? '\n出勤のシフトが入りました' /* シフトが未確定の月は承認なしで出勤 */ : w.data?.sent ? '\n出勤希望は、承認者に LINE で送りました' : '\n出勤希望の LINE が承認者に届いていません。お店にご連絡ください'; }
