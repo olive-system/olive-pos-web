@@ -24,7 +24,7 @@ PAGES.set_pay=async()=>{
   <div id="cardBox"></div>
   <div id="dressBox"></div>
   <div class="psec">黒服</div>
-  ${slideCard('hall',hb.data||[],ed,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">売上の単位は万円、金額の単位は円です。月の総売上が、その行の売上以上になっている行のうち、一番下の行を使います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">一番上の行より売上が少ない月は0円です。<br>人件費比率（キャストの報酬＋黒服の月給＋体験の報酬 ÷ 総売上）が 目標比率以内／＋2%まで／＋5%まで／5%超 で金額が決まり、売上ボーナスを加算した総額を、黒服の売上シェアで分けます</div></div>`)}
+  ${slideCard('hall',hb.data||[],ed,`<div class="muted hint" style="font-size:13px;margin-bottom:8px;line-height:1.6">売上の単位は万円、金額の単位は円です。月の総売上が、その行の売上以上になっている行のうち、一番下の行を使います<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">一番上の行より売上が少ない月は0円です。<br>人件費比率（キャストの報酬＋黒服の月給＋体験の報酬 ÷ 総売上）が 目標比率以内／＋2%まで／＋5%まで／5%超 で金額が決まり、売上ボーナスを加算した総額を、黒服のシェアで分けます</div></div>`)}
   ${hallStepCard(hst)}`;
   foldWire($('main'));
   cardFold(st,ed);
