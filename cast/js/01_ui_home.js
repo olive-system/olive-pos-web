@@ -79,7 +79,7 @@ async function castLoadMe(w0){
     ME.salesDue = !sl.error && !!sl.data && !sl.data.off && !sl.data.store_off && !sl.data.report; /* 出勤日で連絡済リストをまだ出していない時だけ（オーナー 11/25「札を出す」） */
     ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* ドレス新調日（店が「する」の時だけボタンを出す）。点検 B5：読めなかった分があれば、トップに1行 */
   const th = thxParam(), nt = urlParam('notice'), go = goParam();
-  if(['contact','shift','sales','resv','perf','dress','meeting','yukyaku'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ HOME_FILL = async () => fill(await loadB()); castGo(go); return; } /* リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りは、ホームを出す時に読む */
+  if(['contact','shift','sales','resv','perf','dress','meeting','yukyaku'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ HOME_FILL = async () => fill(await loadB()); castGo(go); return; } /* リッチメニューから（キャストが開ける画面だけ）。ホームの分はホームを出す時 */
   fill(await loadB());
   home();
   { if(th) resvThanksById(th); if(nt) noticeOpen(nt); else castGo(go); } /* 係に届いた LINE の「ありがとう」から開いた時。キャストが開けない go（黒服の画面など）はトップのまま */
