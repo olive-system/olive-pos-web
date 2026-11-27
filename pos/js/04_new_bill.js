@@ -27,8 +27,10 @@ async function addResvDouhan(b, ids){ if(!ids?.length) return; const role=douhan
     const q=await sb.rpc('pos_rows_add',{p_table:'bill_casts',p:{bill_id:b.id,staff_id:sid,role,is_kakari:!!S.settings.douhan_is_kakari}});
     if(q.error){ toast(q.error.message); break; } n++; await logOp('同伴を追加',{kind:ROLE[role],resv:true}); }
   if(n&&S.settings.douhan_is_kakari) await syncHcBack(); }
+/* 予約から作った時は id と名前しか無いので、台帳のお客様（係）を使う。前は係が自動で付かなかった（2026-11-27 銀座 A卓） */
+async function cuLedger(c){ if(!c||'kakari_staff_id' in c) return c; if(!S.customers.some(x=>x.id===c.id)) await cuFresh(); return S.customers.find(x=>x.id===c.id)||c; }
 async function createBill(t, n, c, dids){ const normal=S.modes.find(m=>m.code==='normal');
-  if(c&&!('kakari_staff_id' in c)){ if(!S.customers.some(x=>x.id===c.id)) await cuFresh(); c=S.customers.find(x=>x.id===c.id)||c; } /* 予約から作った時は id と名前しか無いので、台帳のお客様（係）を使う。前は係が自動で付かなかった（2026-11-27 銀座 A卓） */
+  c=await cuLedger(c);
   const ex=await sb.from('bills').select('id').eq('table_id',t.id).eq('status','open').limit(1); if(ex.data?.length){ toast('この卓はすでに伝票があります'); await openBill(ex.data[0].id); return; }
   const { data:b, error } = await sb.rpc('pos_rows_add',{p_table:'bills',p:{ store_id:S.store.id, business_date:businessDate(), table_id:t.id, guest_count:n||1, pricing_mode_id:normal?.id, set_start:ceil5(Date.now()).toISOString(), set_minutes:S.settings.set_minutes, set_unit_price:S.settings.set_unit_price }}).then(oneRow);
   if (error) { if(error.code==='23505'){ /* 1つの卓に営業中の伝票は1枚だけ */ toast('もう1台でこの卓の伝票が作成されました'); const e2=await sb.from('bills').select('id').eq('table_id',t.id).eq('status','open').limit(1); if(e2.data?.length) await openBill(e2.data[0].id); else { loadHall(); show('v-hall'); } return; } toast(error.message); return; }
