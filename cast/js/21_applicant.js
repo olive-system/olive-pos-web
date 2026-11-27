@@ -9,8 +9,8 @@ const apRing = (name, id) => `<span data-ap="${id || ''}" style="white-space:now
 const apOpen = (id, store, back) => id ? apPage(id, store, back) : uiAlert('応募者ページはありません\n入店は POS「スタッフ」の［退店・体験］から');
 const apLegend = () => `<span style="margin-left:12px;font-weight:400;white-space:nowrap"><span style="display:inline-block;width:1.8em;height:1.1em;border:1.5px solid var(--pri);border-radius:999px;vertical-align:-0.2em;box-sizing:border-box"></span> 体験</span>`;
 const apDt = iso => iso ? mdwHm(iso) : '未定';
-const apIsoDay = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : '';
-const apIsoTime = iso => iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 16) : '20:00';
+const apIsoDay = iso => iso ? jstDay(iso) : '';
+const apIsoTime = iso => iso ? jstS(iso).slice(11, 16) : '20:00';
 // シフトの時刻と同じく 19:50 と 20:00〜23:00（PR #343）
 const AP_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
 const AP_IV_T = Array.from({ length: 24 }, (_, i) => `${12 + Math.floor(i / 2)}:${i % 2 ? '30' : '00'}`); // 面接の時刻 12:00〜23:30
