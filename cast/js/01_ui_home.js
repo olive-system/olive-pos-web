@@ -3,6 +3,10 @@ let castBdC = null;
 async function castBdays(T){ const day = new Date(Date.now() + JST_MS - 8 * 3600e3).toISOString().slice(0, 10);
   if(castBdC && castBdC.day === day && Date.now() - castBdC.at < 1800e3) return castBdC.r;
   const r = await sb.rpc('cast_birthdays', T); if(!r.error) castBdC = { day, at: Date.now(), r }; return r; }
+/* ホームに戻るたびに読み直していた札（出勤募集・ミーティング・共有メモ）は3分ためおく（2026-11-28 見回り13：マイページで1日 約1,400秒）。読むだけの関数（05_bills.js の HC_READ）のほかを呼んだら、すぐ忘れる */
+const HK = {};
+async function homeKeep(k, f, ms = 180e3){ const c = HK[k]; if(c && Date.now() - c.at < ms) return c.r; const r = await f(); if(!r.error) HK[k] = { at: Date.now(), r }; return r; }
+let HOME_FILL = null; /* リッチメニューから別の画面を直接開いた時は、ホームの分はホームを出す時に読む */
 async function start(){
   if(!LIFF[STORE]){ fail('店舗を特定できません（公式 LINE のメニューから開いてください）'); return; }
   try{ localStorage.setItem('olive_cast_store', STORE); }catch(e){}
@@ -59,7 +63,7 @@ async function castLoadMe(w0){
     if(kd === 'hall'){ await hallLoad(sb.rpc('hall_me', T)); return; }
     if(kd !== 'cast'){ show(`<div class="card c"><div class="big">${esc(w0.name)} さん</div><p>LINE連携は完了しています。</p><p class="muted sm">黒服マイページは準備中です。連絡先交換のまとめは、この公式 LINE に届きます</p></div>`); return; } }
   const pW = kd ? null : sb.rpc('cast_who', T), pM = sb.rpc('cast_me', T), pH = kd ? null : sb.rpc('hall_me', T);
-  const pB = Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* 書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* 伝票一覧の件数 */,
+  const loadB = () => Promise.all([sb.rpc('cast_dress_info', T), sb.rpc('cast_docs_info', T) /* 書類の未提出の数 */, sb.rpc('cast_bill_months', T) /* 伝票一覧の件数 */,
     castBdays(T) /* トップに「お誕生日」。前後2週間→前後1週間 */, sb.rpc('cast_notice_list', T) /* お知らせの未確認の数 */, sb.rpc('cast_sales_today', T) /* アプローチの「本日 未提出」の札 */]);
   if(pW){ const w = await pW; /* 黒服が開いた時は黒服マイページ */
     SHIFT_ALL = !w.error && !!(w.data && w.data.shift_all); /* ママは全員のシフト */
@@ -75,8 +79,8 @@ async function castLoadMe(w0){
     ME.salesDue = !sl.error && !!sl.data && !sl.data.off && !sl.data.store_off && !sl.data.report; /* 出勤日で連絡済リストをまだ出していない時だけ（オーナー 11/25「札を出す」） */
     ME.loadNg = [d, dc, bm, bd, n].some(x => x.error); }; /* ドレス新調日（店が「する」の時だけボタンを出す）。点検 B5：読めなかった分があれば、トップに1行 */
   const th = thxParam(), nt = urlParam('notice'), go = goParam();
-  if(['contact','shift','sales','resv','perf','dress','meeting','yukyaku'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ pB.then(fill); castGo(go); return; } /* リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りはうしろで読む */
-  fill(await pB);
+  if(['contact','shift','sales','resv','perf','dress','meeting','yukyaku'].concat(SHIFT_ALL ? ['memo'] : []).includes(go) && !th && !nt){ HOME_FILL = async () => fill(await loadB()); castGo(go); return; } /* リッチメニューのボタンから（キャストが開ける画面だけ）。ホームの残りは、ホームを出す時に読む */
+  fill(await loadB());
   home();
   { if(th) resvThanksById(th); if(nt) noticeOpen(nt); else castGo(go); } /* 係に届いた LINE の「ありがとう」から開いた時。キャストが開けない go（黒服の画面など）はトップのまま */
 }
@@ -103,6 +107,7 @@ function dressDue(){ const D = ME.dress; if(!D || !D.enabled || D.exempt) return
 function wageNow(){ const st = ME.stats||{}; if(st.wage) return Number(st.wage); const a = (ME.slides||[]).map(s=>Number(s.cur_amount||0)); return a.length ? Math.max(...a) : 0; }
 
 function home(){
+  if(HOME_FILL){ const f = HOME_FILL; HOME_FILL = null; show('<div class="card c muted">読み込み中…</div>'); f().then(home); return; }
   SHQ = ''; /* シフト（全員）の名前の検索は、ホームに戻ったら解除 */
   if(LEAVING){ leaveHome(); return; }
   if(SAFARI){ salesHome(); return; } /* Safari ではアプローチの画面だけ */

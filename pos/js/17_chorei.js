@@ -1,7 +1,7 @@
 // ---------- 朝礼（オーナー「本日来店予定のお客様のメモは必ず確認。パーソナライズされたサービスが OLIVE の命。お客様に何度も言わせない」）
 // 朝礼は黒服だけ。お客様を押すとメモが開き、読んだら「確認」（説明の文は オーナー「未確認をタップで顧客メモを確認してください。」）。天気は Open-Meteo（20時〜翌1時。降水確率50%以上で傘の準備）
 // 流れ：renderChorei（5つの rpc を同時に読む）→ chPrep（画面に使う値と部品の入れ物 V）→ chHtmlTop・chHtmlSide（文）→ chBind（押した時）→ 最後に天気を #chWx に入れる
-// どこかを押して保存したら renderChorei でまた全部を読み直す（お客様を開く・閉じるも同じ）。開いているお客様の予約 id は chOpen に覚えておく
+// どこかを押して保存したら renderChorei でまた読み直す。お客様を開く・閉じるは renderChorei(true) で読み直さない。開いているお客様の予約 id は chOpen に覚えておく
 let chOpen=new Set();
 /* 天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
 const WX=c=>WXT(c)[0];
@@ -22,15 +22,22 @@ function chFc(F){ const md=mdS, no='<span class="muted">—</span>', g=n=>n==nul
     <tr><td style="${tl}">売上</td><td style="${td}">${y(F.target)}</td><td style="${td}">${yen(F.sales)}</td><td style="${td}${big}">${y(F.fc_sales)}</td></tr>
     <tr><td style="${tl}">組数</td><td style="${td}">${g(F.tgt_groups)}</td><td style="${td}">${F.groups}組</td><td style="${td}${big}">${g(F.fc_groups)}</td></tr></table>
     <div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 10px;margin-top:8px;font-size:14px;align-items:baseline">${kv('1日平均売上',y(F.avg))}${kv('1日必要組数',g(F.need))}${kv('平均客単価',y(F.unit))}</div>`; }
-async function renderChorei(){ const box=$('setList'); box.innerHTML='<div class="muted">読み込み中…</div>';
-  if(!S.staffAll?.length) await loadStaffAll(); const [cr,ar,sr,tr,kr,hr]=await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), sb.rpc('pos_sales_today'), sb.rpc('pos_chorei_trials'), sb.rpc('pos_tsuke_staff'), sb.rpc('pos_shift_health')]);
+/* 開く・閉じる（お客様を押す）は、読み直さずに前に読んだ物で描き直す（2026-11-28 見回り13：押すたびに6本を読み直し、朝礼で1日 約1,500秒）。
+   売上と調整率・不足率は3分、天気は10分、同じ物を使い回す（保存した後も変わらない数） */
+const CH_C={ at:{} }, CH_KEEP={ sr:180e3, hr:180e3, wx:600e3 };
+async function chRead(k,f){ const t=CH_C.at[k], d=businessDate(); if(CH_C[k]&&t&&t.d===d&&Date.now()-t.ms<CH_KEEP[k]) return CH_C[k];
+  const r=await f(); if(!r.error) { CH_C[k]=r; CH_C.at[k]={ ms:Date.now(), d }; } return r; }
+async function renderChorei(reuse){ const box=$('setList'); const L=reuse&&CH_C.last; if(!L) box.innerHTML='<div class="muted">読み込み中…</div>';
+  if(!S.staffAll?.length) await loadStaffAll();
+  const [cr,ar,sr,tr,kr,hr]=L?L.r:await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), chRead('sr',()=>sb.rpc('pos_sales_today')), sb.rpc('pos_chorei_trials'), sb.rpc('pos_tsuke_staff'), chRead('hr',()=>sb.rpc('pos_shift_health'))]);
   if(S.setCur!=='chorei') return;
   if(cr.error||!cr.data){ box.innerHTML=`<div class="err">読み込めません：${esc(cr.error?.message||'')}</div>`; return; }
   const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g);
-  { const ids=(cr.data.guests||[]).map(g=>g.id); const nr=ids.length?await sb.rpc('pos_resv_ng',{p_resv:ids}):null; V.ng=nr&&!nr.error?nr.data||{}:{}; if(S.setCur!=='chorei') return; } /* NG キャスト（SQL 745） */ V.trials=tr.error?null:tr.data; V.health=hr.error?null:hr.data; /* 調整率・不足率（見本 ⑩）。読めない時は箱を出さない */ V.tsuke=kr.error?null:kr.data; if(V.tsuke) S.tkDuty=V.tsuke;
+  { const ids=(cr.data.guests||[]).map(g=>g.id); const nr=L?L.nr:ids.length?await sb.rpc('pos_resv_ng',{p_resv:ids}):null; V.ng=nr&&!nr.error?nr.data||{}:{}; if(S.setCur!=='chorei') return; CH_C.last={ r:[cr,ar,sr,tr,kr,hr], nr }; } /* NG キャスト（SQL 745） */
+  V.trials=tr.error?null:tr.data; V.health=hr.error?null:hr.data; /* 調整率・不足率（見本 ⑩）。読めない時は箱を出さない */ V.tsuke=kr.error?null:kr.data; if(V.tsuke) S.tkDuty=V.tsuke;
   box.innerHTML=chHtmlTop(V)+chHtmlSide(V);
   chBind(V,box);
-  const wx=await chWeather(V.C); if($('chWx')) $('chWx').outerHTML=`<div>${wx}</div>`;
+  const wx=await chRead('wx',async()=>{ const h=await chWeather(V.C); return /読み込めません/.test(h)?{ error:1, data:h }:{ data:h }; }); if($('chWx')) $('chWx').outerHTML=`<div>${wx.data}</div>`;
 }
 /* 朝礼の中身：日付・カードと行の形・お客様・出勤・アプローチ・書類・ドレス */
 function chPrep(cr,ar,sr){
@@ -90,7 +97,7 @@ function chTsukeBind(box){ box.querySelectorAll('[data-tsk]').forEach(x=>x.oncha
   if(q.error){ await uiAlert(q.error.message); renderChorei(); return; } x.style.color=x.value?'var(--ink)':'var(--warn)'; if(S.tkDuty) S.tkDuty.staff_id=x.value||null; toast('保存しました'); }); }
 /* 押した時の動き：お客様を開く・卓・予約の取消・確認 */
 function chBind(V,box){ const {G}=V; chTrialBind(V,box); chTsukeBind(box);
-  box.querySelectorAll('[data-cho]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cho; chOpen.has(k)?chOpen.delete(k):chOpen.add(k); renderChorei(); });
+  box.querySelectorAll('[data-cho]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cho; chOpen.has(k)?chOpen.delete(k):chOpen.add(k); renderChorei(true); });
   box.querySelectorAll('[data-chs]').forEach(x=>{ x.onclick=e=>e.stopPropagation(); x.onchange=async()=>{ const id=x.dataset.chs, g=G.find(g=>String(g.id)===id), was=g?.seat||''; x.disabled=true; /* 選ぶとすぐ保存 */
     const q=await sb.rpc('pos_resv_seat',{p_id:id,p_table:x.value||null}); x.disabled=false; if(q.error){ x.value=was; await uiAlert(q.error.message); return; } if(g) g.seat=x.value||null; toast('保存しました'); }; });
   box.querySelectorAll('[data-che]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); chResvEdit(b.dataset.che); }); /* 予約の変更（SQL 789） */
