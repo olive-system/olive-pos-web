@@ -9,7 +9,7 @@ const mtSlot = (x, on, attr) => `<button ${attr} style="border:1px solid ${on===
 // トップのシフトのボタン（キャスト）：申請していない間は「ミーティング未申請」。ミーティングのボタンはなくし、シフトの画面の一番上に（見本 共有メモ_案3）
 function mtTile(){
   if(SHIFT_ALL) return;
-  sb.rpc('cast_meeting_get', { p_token: TOKEN }).then(r => { const t = $('main').querySelector('[data-go=shift] small'); if(!t) return;
+  homeKeep('mt', () => sb.rpc('cast_meeting_get', { p_token: TOKEN })).then(r => { const t = $('main').querySelector('[data-go=shift] small'); if(!t) return;
     if(r.error){ loadNg(); return; } /*点検 B5 */
     if(r.data.show && r.data.open && !r.data.mine){ t.textContent = 'ミーティング未申請'; t.style.color = 'var(--warn)'; } });
 }

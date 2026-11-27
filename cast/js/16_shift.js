@@ -284,7 +284,7 @@ async function sdAbsCancel(x, iso, store, set){
    黒服は日のシフトの「出勤可」の並びから［追加］→ 補充（急な出勤の手当。SQL 740）。ふつうの［追加］は補充にしない */
 
 /* キャストのホーム：一番上の「出勤募集」の箱 */
-async function homeRecruit(){ const r = await sb.rpc('cast_recruit_info', { p_token: TOKEN }); if(r.error || !r.data) return;
+async function homeRecruit(){ const r = await homeKeep('rc', () => sb.rpc('cast_recruit_info', { p_token: TOKEN })); if(r.error || !r.data) return;
   const R = r.data, h = $('main').querySelector('.hello'); if(!h || $('rcBox')) return;
   const paint = () => `<div class="row" style="padding:0"><b>出勤募集</b><span class="sm muted">${esc(mdW(R.day))}</span></div><div style="height:10px"></div>
     ${R.ok_at ? `<div class="row" style="padding:0"><span>出勤可</span><b>${hmJst(R.ok_at).replace(/^0/, '')} 送信済</b></div><div class="muted sm" style="margin-top:4px">出勤時刻は黒服からご連絡します</div>` : '<button class="btn" id="rcOk">出勤可</button>'}`;

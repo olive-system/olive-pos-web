@@ -8,7 +8,7 @@ let MEMO_ST = null, MEMO_FILES = [];
 
 // トップのボタン：黒服は「店舗情報」の中に（0件でも。黒服も作成できるため）。オーナーはいつも
 function memoTile(){
-  sb.rpc('cast_memo_list', { p_token: TOKEN }).then(r => {
+  homeKeep('memo', () => sb.rpc('cast_memo_list', { p_token: TOKEN })).then(r => {
     if(r.error){ loadNg(); return; } /*点検 B5 */
     const D = r.data, L = D.memos || [], n = L.filter(x => x.needs_change).length;
     const t = $('main').querySelector('.tiles[data-info]') || $('main').querySelector('.tiles'); if(!t || t.querySelector('[data-go=memo]')) return;
