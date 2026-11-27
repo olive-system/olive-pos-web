@@ -203,9 +203,9 @@ function hcTsukeBind(){ $('main').querySelectorAll('[data-tk]').forEach(x => x.o
   if(r.error){ await uiAlert(r.error.message); hallChorei(true); return; } hcK.staff_id = x.value || null; x.style.color = x.value ? 'var(--ink)' : 'var(--warn)'; toast('保存しました'); }); }
 async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
-  const [r, t, k, h, ps] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN }), sb.rpc('hall_tsuke_staff', { p_token: TOKEN }), sb.rpc('cast_shift_health', { p_token: TOKEN, p_store: null, p_month: null }), sb.rpc('cast_pay_slip', { p_token: TOKEN })]); if(r.error){ fail(r.error.message); return; }
+  const [r, t, k, h, ps] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN }), sb.rpc('hall_tsuke_staff', { p_token: TOKEN }), sb.rpc('cast_shift_health', { p_token: TOKEN, p_store: null, p_month: null }), sb.rpc('hall_my_turnover', { p_token: TOKEN })]); if(r.error){ fail(r.error.message); return; }
   hcT = t.error ? null : t.data; hcK = k.error ? null : k.data; hcH = h.error ? null : h.data; /* 調整率・不足率の1行と在籍期間（POS の朝礼と同じ） */
-  { const b = !ps.error && ps.data && ps.data.slip && ps.data.slip.bonus_cut; hcMe = { turnover: b && b.turnover != null ? b.turnover : null, max: hcH && hcH.ret ? hcH.ret.turnover_max : 30 }; } /* 自分の離職率は明細のボーナスの離職率と同じ数（cast_pay_slip の bonus_cut。ボーナスの減額をかける前の月は —） */
+  hcMe = { turnover: !ps.error && ps.data && ps.data.turnover != null ? ps.data.turnover : null, max: hcH && hcH.ret ? hcH.ret.turnover_max : 30 }; /* 自分の離職率は明細のボーナスの離職率と同じ数（SQL 790 の hall_my_turnover。明細の給与計算を全部は回さない軽い形。ボーナスの減額をかける前の月は —） */
   const ids = (r.data.guests || []).map(g => g.id), nr = ids.length ? await sb.rpc('hall_resv_ng', { p_token: TOKEN, p_resv: ids }) : null; hcNg = nr && !nr.error ? nr.data || {} : {}; /* NG キャスト（SQL 745）。黒服だけ */
   hcD = r.data; if(keepWx !== true) hcWx = null; hcPaint(); /* トップのボタンからは event が来るので true の時だけ */
   if(!hcWx) await hcWeather(hcD);
