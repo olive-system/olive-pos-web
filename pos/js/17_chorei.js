@@ -51,7 +51,7 @@ function chPrep(cr,ar,sr){
 function chGuestHead(V,g){ const {tag,TB}=V; const cu=g.customer, op=chOpen.has(String(g.id))&&cu;
     const st=!cu?'<span class="muted" style="font-size:14px">顧客未登録（はじめて）</span>':g.ok_at?`<span class="muted" style="font-size:14px">確認済 ${new Date(g.ok_at).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false})}${g.ok_by&&g.ok_by!=='POS'?'・'+esc(g.ok_by):''}</span>`:'<span style="color:var(--warn);font-weight:700;font-size:14px">未確認</span>';
     const head=`<div ${cu?`data-cho="${g.id}"`:''} style="display:flex;align-items:center;gap:10px;${cu?'cursor:pointer':''}"><b style="font-size:18px;min-width:56px">${esc(g.time)}</b><div style="flex:1;font-size:18px;font-weight:700">${g.douhan?tag:''}${g.vip?tag.replace('同伴',esc(g.vip)):''}${esc(g.names||g.name)} 様 ${g.guests}名 <small class="muted" style="font-weight:400">${resvWho(g,{noKK:S.store?.customer_mode==='yukyaku',mark:FX('dress',15)})}</small>${V.ng?.[g.id]?`<span style="margin-left:12px;font-size:14px;font-weight:400;white-space:nowrap">${ngLine(V.ng[g.id])}</span>`:''}</div><span style="flex:none;white-space:nowrap">${st}</span><select data-chs="${g.id}" style="height:40px;width:auto;border:1px solid var(--line);border-radius:8px;padding:0 4px 0 8px;font:inherit;font-size:16px;background:var(--card);color:var(--ink)"><option value="">卓</option>${TB.map(t=>`<option value="${t.id}"${t.id===g.seat?' selected':''}>${esc(t.name)}</option>`).join('')}</select>`+
-    `<button class="sm ghost" data-chx="${g.id}" style="color:var(--warn)">取消</button><span class="muted" style="font-size:20px;min-width:20px;${cu?'':'visibility:hidden'}">${op?'▲':'▼'}</span></div>`; /* 同伴の取消（操作者を選ぶ・申請した子と同伴の子に LINE）。広島は担当を出さない（オーナー）。卓（POS の卓から選ぶ・VIP 希望は最初から VIP）と、同伴でない予約の取消（オーナー 見本 朝礼_卓_案2）。卓の欄がそろうように ▼ の場所を決めておく。しるしは卓の左（オーナー「しるしを卓の左に寄せて」。名前の欄が伸びるので、卓・取消の位置はそろう） */
+    `<button class="sm ghost" data-che="${g.id}">変更</button><button class="sm ghost" data-chx="${g.id}" style="color:var(--warn)">取消</button><span class="muted" style="font-size:20px;min-width:20px;${cu?'':'visibility:hidden'}">${op?'▲':'▼'}</span></div>`; /* 同伴の取消（操作者を選ぶ・申請した子と同伴の子に LINE）。広島は担当を出さない（オーナー）。卓（POS の卓から選ぶ・VIP 希望は最初から VIP）と、同伴でない予約の取消（オーナー 見本 朝礼_卓_案2）。卓の欄がそろうように ▼ の場所を決めておく。しるしは卓の左（オーナー「しるしを卓の左に寄せて」。名前の欄が伸びるので、卓・取消の位置はそろう） */
   return head; }
 function chGuest(V,g){ const {md}=V; const cu=g.customer, op=chOpen.has(String(g.id))&&cu, head=chGuestHead(V,g);
     if(!op) return `<div style="border-top:1px solid var(--line);padding:12px 0">${head}</div>`;
@@ -93,6 +93,7 @@ function chBind(V,box){ const {G}=V; chTrialBind(V,box); chTsukeBind(box);
   box.querySelectorAll('[data-cho]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cho; chOpen.has(k)?chOpen.delete(k):chOpen.add(k); renderChorei(); });
   box.querySelectorAll('[data-chs]').forEach(x=>{ x.onclick=e=>e.stopPropagation(); x.onchange=async()=>{ const id=x.dataset.chs, g=G.find(g=>String(g.id)===id), was=g?.seat||''; x.disabled=true; /* 選ぶとすぐ保存 */
     const q=await sb.rpc('pos_resv_seat',{p_id:id,p_table:x.value||null}); x.disabled=false; if(q.error){ x.value=was; await uiAlert(q.error.message); return; } if(g) g.seat=x.value||null; toast('保存しました'); }; });
+  box.querySelectorAll('[data-che]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); chResvEdit(b.dataset.che); }); /* 予約の変更（SQL 789） */
   box.querySelectorAll('[data-chx]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const g=G.find(x=>String(x.id)===b.dataset.chx); /* 同伴の取消。同伴でない予約も（pos_resv_cancel） */
     const hs=S.staffAll.filter(x=>x.kind==='hall'&&x.is_active); const by=await uiPick('操作者（黒服）',hs.map(h=>({label:h.display_name,value:h.display_name}))); if(!by) return;
     if(!await uiConfirm(g?.douhan?`${g?.name||''} 様の同伴を取り消しますか？\n申請した子と同伴の子に LINE で知らせます`:`${g?.name||''} 様の予約を取り消しますか？\n${S.store?.customer_mode==='yukyaku'?'申請した子':'申請した子と'+KL}に LINE で知らせます`,'取消')) return; b.disabled=true;
@@ -100,3 +101,14 @@ function chBind(V,box){ const {G}=V; chTrialBind(V,box); chTsukeBind(box);
   box.querySelectorAll('[data-chk],[data-chu]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const ok=!!b.dataset.chk, id=b.dataset.chk||b.dataset.chu; b.disabled=true;
     const q=await sb.rpc('pos_chorei_ok',{p_resv:id,p_ok:ok}); if(q.error){ b.disabled=false; await uiAlert(q.error.message); return; } if(ok) chOpen.delete(id); renderChorei(); });
 }
+
+/* 予約の変更（SQL 789・オーナー「黒服も予約を編集できるようにしよう」）：マイページと同じ「予約の変更」の画面（lib/olive/resv_form.js）を小窓で。保存の時に操作者（黒服）を選ぶ */
+const CH_RV={ staff:()=>sb.rpc('pos_resv_staff'), day:a=>sb.rpc('pos_resv_day',a), search:a=>sb.rpc('pos_customer_search',a), offs:()=>sb.rpc('pos_off_days'),
+  same:async a=>{ const q=await sb.rpc('pos_customer_search',{p_q:a.p_name}), k=v=>String(v||'').replace(/[\s　]+/g,''); return { error:q.error, data:!q.error&&(q.data||[]).some(c=>k(c.name)===k(a.p_name)) }; },
+  submit:async a=>{ const hs=S.staffAll.filter(x=>x.kind==='hall'&&x.is_active); const by=await uiPick('操作者（黒服）',hs.map(h=>({label:h.display_name,value:h.display_name}))); if(!by) return { error:{ message:'操作者を選択してください' } }; return sb.rpc('pos_resv_submit',{ p_by:by, ...a }); } };
+async function chResvEdit(id){ if(!S.staffAll?.length) await loadStaffAll(); const g=await sb.rpc('pos_resv_get',{p_id:id}); if(g.error){ await uiAlert(g.error.message); return; }
+  const m=document.createElement('div'); m.className='modal on'; m.innerHTML='<div class="box rvx" style="width:min(460px,94vw)"><button class="xb dx" aria-label="閉じる">×</button><div id="rvBox"></div></div>'; document.body.appendChild(m);
+  const box=m.querySelector('#rvBox'); m.querySelector('.dx').onclick=()=>m.remove();
+  resvFormOpen(g.data,{ mode:'pos', NK:S.store?.customer_mode==='yukyaku', meName:'', draft:false, rpc:(n,a)=>CH_RV[n](a),
+    show:h=>{ box.innerHTML=h; }, fail:t=>{ box.innerHTML=`<div class="card c muted">${esc(t)}</div>`; }, note:()=>'',
+    done:async(R,q)=>{ m.remove(); await uiAlert(`予約を変更しました${q.data.notified?`\n${R.NK?'':KL+'・'}同伴のキャストにも LINE で送りました`:''}`); renderChorei(); } }); }
