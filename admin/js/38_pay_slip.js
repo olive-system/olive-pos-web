@@ -36,7 +36,10 @@ function slipLeft(S){ const m=S.D.month_row, n=slipN, Y=slipY, own=S.own, FT=sli
     const dd=[['消費税',Y(m.ctax)],...FT.map(f=>[esc(f),Y((m.fine_items||{})[f]||Object.entries(m.fine_items||{}).reduce((a,[k,v])=>slipFB(k)===f?a+n(v):a,0))]),['同伴ノルマ',Y(m.quota_fine)],['厚生費',Y(m.welfare)],...(own?[['個別控除',Y(m.special_deduct)]]:[]),['合計',Y(ded),'sum']];
     return `${head}<table class="slL">${one('稼働日数',n(m.days)+'日')}${one('稼働時間',HMJ(m.hours))}${one(m.pay_type==='daily'?'決定日給':'決定時給',Y(m.wage))}${n(m.points)?one('ポイント',n(m.points).toLocaleString('ja-JP',{maximumFractionDigits:1})):''}
       ${grp('支給対象',pay)}${grp('控除対象',dd)}${one('総支給額',Y(n(m.taxable)-ded))}${one('課税対象額',Y(m.taxable))}${one('源泉徴収',Y(m.withholding))}${one('日払',Y(n(m.advance)-n(m.tatekae)))}${one('立替',Y(m.tatekae))}${one('残り支給額',net,'big')}</table>`; }
-  const pay=[[`基本給（${CS_HPAY[m.pay_type]||'—'}）`,Y(m.base)],[(m.absent_days||[]).length?'遅刻・早退・欠勤':'遅刻・早退',n(m.late_deduct)?'−'+Y(m.late_deduct):'--'],['ボーナス',Y(m.bonus)],['手当など、その他',Y(n(m.allowance)+n(m.special_pay))],['合計',Y(m.taxable),'sum']];
+  /* 783：黒服ボーナスの減額。減額をかける月だけ、ボーナスの下にマイページの明細と同じ2行（総額 ○割減 不足率・調整率／離職率 ○% ○%減 −○） */
+  const bs=m.bonus_store, bc=m.bonus_cut||{}, pc=v=>v==null?'—':`${Math.round(n(v)*10)/10}%`, ct=v=>!n(v)?'減額なし':n(v)%10?`${Math.round(n(v)*10)/10}%減`:`${n(v)/10}割減`;
+  const cut=bs&&n(bs.rate)>0?[[`総額　${ct(bs.store_cut)}`,`不足率 ${pc(bs.short)}・調整率 ${pc(bs.adj)}`,'cutr'],[`離職率 ${pc(bc.turnover)}　${ct(bc.cut)}`,n(m.bonus_cut_yen)?'−'+Y(m.bonus_cut_yen):'','cutr']]:[];
+  const pay=[[`基本給（${CS_HPAY[m.pay_type]||'—'}）`,Y(m.base)],[(m.absent_days||[]).length?'遅刻・早退・欠勤':'遅刻・早退',n(m.late_deduct)?'−'+Y(m.late_deduct):'--'],['ボーナス',Y(m.bonus)],...cut,['手当など、その他',Y(n(m.allowance)+n(m.special_pay))],['合計',Y(m.taxable),'sum']];
   const dd=[['消費税',Y(m.ctax)],['罰金',Y(m.fines)],['厚生費',Y(m.welfare)],...(own?[['個別控除',Y(m.special_deduct)]]:[]),['合計',Y(ded),'sum']];
   return `${head}<table class="slL">${one('稼働日数',n(m.days)+'日')}${one('稼働時間',HMJ(m.hours))}${one('遅刻・早退',`${n(m.late_min)+n(m.early_min)}分`)}
     ${grp('支給対象',pay)}${grp('控除対象',dd)}${one('総支給額',Y(n(m.taxable)-ded))}${one('課税対象額',Y(m.taxable))}${one('源泉徴収',Y(m.withholding))}${one('日払（立替）',Y(m.advance))}${one('残り支給額',net,'big')}</table>`; }
