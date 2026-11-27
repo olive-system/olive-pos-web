@@ -3,6 +3,8 @@
 // 保存すると、本人へ LINE のカード・日報に「保証条件」・担当の黒服と店長の TODO は完了
 /* 結果がまだの子は、在籍リストの入口の関数 pos_staff_day の 'grev' で一緒に読む（聞きに行く回数を増やさない。見張り K13） */
 function grLoad(D){ const r = entryPart(D, 'grev'); S.grev = new Map((r.error ? [] : (r.data || [])).map(x => [x.staff_id, x])); }
+/* 在籍リストの名前の行のしるし（押すと小窓） */
+const grBadge = s => s.is_active && S.grev && S.grev.has(s.id) ? ` <span class="badge warnb" data-grev="${s.id}" style="cursor:pointer">保証の期限</span>` : '';
 const GR_FLD = 'height:44px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font:inherit;font-size:16px;background:var(--card);color:var(--ink)';
 const grNum = (k, w, v) => `<input type="number" inputmode="decimal" data-g="${k}" value="${v == null ? '' : v}" style="${GR_FLD};width:${w}px">`;
 const grLab = t => `<span class="muted" style="font-size:15px">${t}</span>`;
