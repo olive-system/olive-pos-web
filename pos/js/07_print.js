@@ -10,7 +10,7 @@ const hmS=t=>hmJst(t).replace(/^0/,''); /* 〜1:30（時の頭の 0 は付けな
 // c：描く道具（g＝canvas・W＝幅・fs＝字の大きさ・y＝今の高さ）。部品は c.y を進める
 /* 細い字のままだと紙で薄く見える（白黒の2色で送るので、1ドットの細い所がかすれる）。字の形は変えずに、同じ字を線でなぞって太らせる。
    大きい字（40px 以上）は幅 2・細い小さい字は幅 0.5。太い（600）小さい字は、なぞると漢字の中がつぶれるので今のまま。ロゴとサインは絵なので変わらない */
-function darkInk(g){ const f=g.fillText; g.fillText=(...a)=>{ f.apply(g,a); const px=parseFloat(/([\d.]+)px/.exec(g.font)[1]), ink=px>=40?2:/(^|\s)(600|bold)\s/.test(g.font)?0:0.5; if(!ink) return; const lw=g.lineWidth; g.lineWidth=ink; g.lineJoin='round'; g.strokeText(...a); g.lineWidth=lw; }; }
+function darkInk(g){ const f=CanvasRenderingContext2D.prototype.fillText; /* 元の fillText を呼ぶ（領収書の画面の見本は同じ枠に描き直すので、前に包んだ物をまた包むと太さが重なる） */ g.fillText=(...a)=>{ f.apply(g,a); const px=parseFloat(/([\d.]+)px/.exec(g.font)[1]), ink=px>=40?2:/(^|\s)(600|bold)\s/.test(g.font)?0:0.5; if(!ink) return; const lw=g.lineWidth; g.lineWidth=ink; g.lineJoin='round'; g.strokeText(...a); g.lineWidth=lw; }; }
 function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic'; darkInk(g);
   const c={ cv, g, W, fs:22*z, y:0, yen:n=>'¥'+(Number(n)||0).toLocaleString(),
     MI:(px,w)=>`${w||600} ${Math.round(px)}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`, BK:(px,it)=>`${it?'italic ':''}400 ${Math.round(px)}px Baskerville,"Baskerville Old Face",Georgia,serif` };
