@@ -14,6 +14,7 @@ const opWip = x => `作業中（あなた）${x.need_photo ? `　写真${opShots
 const opUrls = new Map(), opUrl = f => { if(!opUrls.has(f)) opUrls.set(f, URL.createObjectURL(f)); return opUrls.get(f); };
 const opGrid = (x, key) => (opShots[x.id] || []).length ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${opShots[x.id].map((f, k) => `<div style="position:relative"><img src="${opUrl(f)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block"><button class="xb img" data-opx="${key}:${k}" aria-label="外す">×</button></div>`).join('')}</div>` : '';
 const opDrop = (x, k) => { const f = (opShots[x.id] || [])[k]; if(!f) return; if(opUrls.has(f)){ URL.revokeObjectURL(opUrls.get(f)); opUrls.delete(f); } opShots[x.id].splice(k, 1); if(!opShots[x.id].length) delete opShots[x.id]; };
+/* 閉店作業だけ hall_todos も同時に読み、TODO の行を「なし」にするか決める */
 async function hallTasks(ph){
   setBack(hallHome); show('<div class="muted" style="padding:20px">読み込み中…</div>'); const tk = hallTasks.tk = (hallTasks.tk || 0) + 1; /* 開店⇄閉店を続けて押した時、前の答えが後から描き直さないように */
   const [r, tq] = await Promise.all([sb.rpc('hall_tasks', { p_token: TOKEN, p_phase: ph }), ph === 'close' ? sb.rpc('hall_todos', { p_token: TOKEN }) : null]); if(tk !== hallTasks.tk) return; if(r.error){ show(`<div class="card">${esc(r.error.message)}</div>`); return; }
@@ -281,6 +282,7 @@ function hcWireGuarantee(H){ const L = (H.D && H.D.rows) || [], D = H.D || {}, s
     const all = L.every((c, i) => q('gc', i).value && (!reset(c, i) || open.has(i)));
     s.style.display = all ? '' : 'none'; if(hint){ hint.style.display = all || !L.length ? 'none' : ''; hint.textContent = L.some((c, i) => reset(c, i) && !open.has(i)) ? '［条件再設定］で期限と担当を選ぶと［保存］が表示されます' : '全員を選ぶと［保存］が表示されます'; } };
   L.forEach((c, i) => q('gc', i).onchange = sync); sync(); }
+/* 画面の種類（k）ごとの中身。種類を足す時は HC_WIRE と hcSave の k の判定も見る */
 const HC_BODY = { shift_none: hcBodyShiftNone, guarantee: hcBodyGuarantee, bottle: hcBodyBottle, memo_req: hcBodyMemoReq, bday_req: hcBodyBdayReq, check: hcBodyCheck, check2: hcBodyCheck, check_prev: hcBodyCheck, kimono: hcBodyKimono, drinks: hcBodyDrinks, allup: hcBodyAllup, contact_check: hcBodyContactCheck, contact_pending: hcBodyContactPending, trial_judge: hcBodyTrialJudge, shiire: H => hcBodyShiire(H), kaidashi: H => hcBodyKaidashi(H),   /* 26_nohin.js の関数は開いた時に探す（古い index.html の端末で 17_open.js 全体が止まらないように） */
   day_memo: hcBodyDayMemo, yukyaku: H => hcBodyYukyaku(H) };   /* 28_yukyaku.js */
 /* 作業の種類ごとの、押した時の動き */
@@ -345,6 +347,7 @@ function hcPhotoBox(x, s){
   if($('clCm')) $('clCm').oninput = () => { opNotes[x.id] = $('clCm').value; };
 }
 /* 保存（写真を縮めて送ってから、作業の中身を保存） */
+/* 保存は、写真を送ってから中身を保存する（中身に写真の番号を渡すため） */
 async function hcSave(x, ph, s, getData, k, D){ s.disabled = true; const nh = k === 'shiire' || k === 'kaidashi';
     try{
       const f = nh ? nhFiles(x) : x.need_photo ? opShots[x.id] || [] : []; let ids = [];   /* 納品物は納品書の写真（26_nohin.js） */

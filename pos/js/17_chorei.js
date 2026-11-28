@@ -1,6 +1,6 @@
 // ---------- 朝礼（オーナー「本日来店予定のお客様のメモは必ず確認。パーソナライズされたサービスが OLIVE の命。お客様に何度も言わせない」）
 // 朝礼は黒服だけ。お客様を押すとメモが開き、読んだら「確認」（説明の文は オーナー「未確認をタップで顧客メモを確認してください。」）。天気は Open-Meteo（20時〜翌1時。降水確率50%以上で傘の準備）
-// 流れ：renderChorei（5つの rpc を同時に読む）→ chPrep（画面に使う値と部品の入れ物 V）→ chHtmlTop・chHtmlSide（文）→ chBind（押した時）→ 最後に天気を #chWx に入れる
+// 流れ：renderChorei（6つの rpc を同時に読む（お客様がいる時は pos_resv_ng も））→ chPrep（画面に使う値と部品の入れ物 V）→ chHtmlTop・chHtmlSide（文）→ chBind（押した時）→ 最後に天気を #chWx に入れる
 // どこかを押して保存したら renderChorei でまた読み直す。お客様を開く・閉じるは renderChorei(true) で読み直さない。開いているお客様の予約 id は chOpen に覚えておく
 let chOpen=new Set();
 /* 天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
@@ -25,15 +25,18 @@ function chFc(F){ const md=mdS, no='<span class="muted">—</span>', g=n=>n==nul
 /* 開く・閉じる（お客様を押す）は、読み直さずに前に読んだ物で描き直す（2026-11-28 見回り13：押すたびに6本を読み直し、朝礼で1日 約1,500秒）。
    売上と調整率・不足率は3分、天気は10分、同じ物を使い回す（保存した後も変わらない数） */
 const CH_C={ at:{} }, CH_KEEP={ sr:180e3, hr:180e3, wx:600e3 };
+/* 同じ営業日で保管時間（CH_KEEP）内なら、前に読んだ物を返す。読み込みのエラーは保管しない */
 async function chRead(k,f){ const t=CH_C.at[k], d=businessDate(); if(CH_C[k]&&t&&t.d===d&&Date.now()-t.ms<CH_KEEP[k]) return CH_C[k];
   const r=await f(); if(!r.error) { CH_C[k]=r; CH_C.at[k]={ ms:Date.now(), d }; } return r; }
 async function renderChorei(reuse){ const box=$('setList'); const L=reuse&&CH_C.last; if(!L) box.innerHTML='<div class="muted">読み込み中…</div>';
   if(!S.staffAll?.length) await loadStaffAll();
   const [cr,ar,sr,tr,kr,hr]=L?L.r:await Promise.all([sb.rpc('pos_chorei'), sb.rpc('pos_absences',{p_date:businessDate()}), chRead('sr',()=>sb.rpc('pos_sales_today')), sb.rpc('pos_chorei_trials'), sb.rpc('pos_tsuke_staff'), chRead('hr',()=>sb.rpc('pos_shift_health'))]);
+  /* 読み込み中に別の設定タブへ移っていたら、古い結果で画面を上書きしない */
   if(S.setCur!=='chorei') return;
   if(cr.error||!cr.data){ box.innerHTML=`<div class="err">読み込めません：${esc(cr.error?.message||'')}</div>`; return; }
   const V=chPrep(cr,ar,sr); V.guest=g=>chGuest(V,g);
   { const ids=(cr.data.guests||[]).map(g=>g.id); const nr=L?L.nr:ids.length?await sb.rpc('pos_resv_ng',{p_resv:ids}):null; V.ng=nr&&!nr.error?nr.data||{}:{}; if(S.setCur!=='chorei') return; CH_C.last={ r:[cr,ar,sr,tr,kr,hr], nr }; } /* NG キャスト（SQL 745） */
+  /* S.tkDuty は付け回し担当の値（ホール画面の未選択の警告も読む） */
   V.trials=tr.error?null:tr.data; V.health=hr.error?null:hr.data; /* 調整率・不足率（見本 ⑩）。読めない時は箱を出さない */ V.tsuke=kr.error?null:kr.data; if(V.tsuke) S.tkDuty=V.tsuke;
   box.innerHTML=chHtmlTop(V)+chHtmlSide(V);
   chBind(V,box);
@@ -105,6 +108,7 @@ function chBind(V,box){ const {G}=V; chTrialBind(V,box); chTsukeBind(box);
     const hs=S.staffAll.filter(x=>x.kind==='hall'&&x.is_active); const by=await uiPick('操作者（黒服）',hs.map(h=>({label:h.display_name,value:h.display_name}))); if(!by) return;
     if(!await uiConfirm(g?.douhan?`${g?.name||''} 様の同伴を取り消しますか？\n申請した子と同伴の子に LINE で知らせます`:`${g?.name||''} 様の予約を取り消しますか？\n${S.store?.customer_mode==='yukyaku'?'申請した子':'申請した子と'+KL}に LINE で知らせます`,'取消')) return; b.disabled=true;
     const q=await sb.rpc('pos_resv_cancel',{p_id:b.dataset.chx,p_by:by}); if(q.error){ b.disabled=false; await uiAlert(q.error.message); return; } toast('取り消しました'); renderChorei(); });
+  /* 確認を押したお客様は chOpen から外して閉じる（取消の時は開いたまま） */
   box.querySelectorAll('[data-chk],[data-chu]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const ok=!!b.dataset.chk, id=b.dataset.chk||b.dataset.chu; b.disabled=true;
     const q=await sb.rpc('pos_chorei_ok',{p_resv:id,p_ok:ok}); if(q.error){ b.disabled=false; await uiAlert(q.error.message); return; } if(ok) chOpen.delete(id); renderChorei(); });
 }

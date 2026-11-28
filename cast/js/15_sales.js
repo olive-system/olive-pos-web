@@ -90,6 +90,7 @@ async function slCand(P, b){
   P.rd.hits.push(c.id ? { id: c.id } : { name: c.name }); if(c.id) P.on.add(c.id); else if(!P.extra.includes(c.name)) P.extra.push(c.name);
   P.rd.cands = P.rd.cands.filter(x => x.key !== c.key && (x.id || 'x:' + x.name) !== (c.id || 'x:' + c.name)); P.repaint();
 }
+/* 共有の答えで SALES を置き換える。以後 report があれば撮影の画面になる */
 async function slShare(P){
   const n = P.on.size + P.extra.length; if(!n){ await uiAlert('連絡したお客様を選んでください'); return; }
   if(!await uiConfirm(`連絡済リスト ${n}名を共有しますか？`)) return;
@@ -100,7 +101,7 @@ async function slShare(P){
 }
 function salesPick(){
   setBack(salesHome);
-  const P = { on: new Set(), extra: [], q: '', rd: null }; // 名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」。読みが無いので、あいうえお順ではなく文字で絞り込む）
+  const P = { on: new Set(), extra: [], q: '', rd: null }; // 名前で検索（キャスト「お客様の名前を探してプッシュするのが不便」。読みが無いので、フリガナ（kanaKey）も使って文字で絞り込む）
   const nz = v => String(v||'').replace(/[\s　]+/g, '');
   const filt = () => { const k = nz(P.q); let n = 0; $('main').querySelectorAll('[data-kn]').forEach(b => { const hit = !k || nz(b.textContent).includes(k) || (!!kanaKey(P.q) && (b.dataset.kn || '').includes(kanaKey(P.q))); b.style.display = hit ? '' : 'none'; if(hit) n++; }); const z = $('slNone'); if(z) z.style.display = n ? 'none' : ''; };
   P.repaint = () => { const y = window.scrollY; paint(); window.scrollTo(0, y); };
@@ -159,6 +160,7 @@ async function salesOpen(){
   const u = new URL('index.html?s=' + encodeURIComponent(STORE) + '&go=sales&t=' + encodeURIComponent(r.data), location.href).href;
   try{ liff.openWindow({ url: u, external: true }); }catch(e){ location.href = u; }
 }
+/* t が無い時は Safari の再読込。保存した入場券でログインし直す */
 async function ticketStart(){
   SAFARI = true;
   const q = new URLSearchParams(location.search), t = q.get('t');
