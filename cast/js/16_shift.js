@@ -144,7 +144,7 @@ function saBind(S){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hal
     /* 過去の日の小窓にも黒ドレスのしるし（オーナー「付ける」）。文字はエスケープして HTML で出す */
     uiViewH(`${mdWD(d)}${A.ev.has(iso) ? '　イベント' : ''}　出勤 ${L.length}人\n${groups(L).map(([t, n, h]) => `${esc(t)}　${h}`).join('\n')}`
       + (off.length ? `\n\n黒服の休み　${off.map(esc).join('・')}` : '')
-      + (R.length ? `\n\n${esc(rvHead(R))}\n${R.map(x => `${esc(x.time)}　${esc(x.name)} 様 ${Number(x.guests)||0}名（${[shWho(x), esc(x.vip || '')].filter(Boolean).join('・')}）`).join('\n')}` : '')
+      + (R.length ? `\n\n${esc(rvHead(R))}\n${R.map(x => `${esc(x.time)}　${esc(x.name)} 様 ${Number(x.guests)||0}名（${[shWho(x), esc(resvVip(x))].filter(Boolean).join('・')}）`).join('\n')}` : '')
       + (ivOf(iso).length ? `\n\n面接 ${ivOf(iso).length}件\n${ivOf(iso).map(x => `${esc(x.time)}　${esc(x.name)}`).join('\n')}` : '')); });
 }
 

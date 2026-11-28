@@ -51,7 +51,7 @@ async function resvCancel(x, b){
 }
 // 予約の申請・変更の画面（lib/olive/resv_form.js の resvFormOpen）を、女性のマイページ・黒服のマイページ（hall）から開く
 /* 画面側の呼び名を、女性・黒服のどちらからでも使う rpc 名に置き換える表 */
-const RV_RPC = { staff: 'cast_resv_staff', day: 'cast_resv_day', search: 'cast_customer_search', offs: 'cast_off_days', same: 'cast_customer_same_name', shift: 'cast_shift_request' };
+const RV_RPC = { staff: 'cast_resv_staff', day: 'cast_resv_day', search: 'cast_customer_search', offs: 'cast_off_days', same: 'cast_customer_same_name', vip: 'cast_resv_vip_check', shift: 'cast_shift_request' };
 const castResvA = hall => ({ mode: hall ? 'hall' : 'cast', NK: RV_NOKK(), meName: ME.name, draft: !hall,
   rpc: (n, a) => sb.rpc(n === 'submit' ? (hall ? 'hall_resv_submit' : 'cast_resv_submit') : RV_RPC[n], { p_token: TOKEN, ...a }),
   open: () => setBack(hall ? hallChorei : resvList), show, fail, note: () => hall ? '' : lineOutNote(),

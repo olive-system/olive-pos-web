@@ -33,7 +33,7 @@ PAGES.resv=async()=>{ const st=storeId, ed=perm('resv')==='edit', now=csNowMonth
 };
 // 予約の1行（時刻・同伴・VIP・お客様・誘客と係・メモ・直す／取消）
 const rvDayRow=(x,i,ed,dhN)=>`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;font-size:14px"><b style="min-width:3em">${esc(x.time||'未定')}</b>${x.douhan?'<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">同伴</b>':''}${x.vip?`<b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">${esc(x.vip)}</b>`:''}
-    <span style="flex:1 1 200px">${esc(x.names||x.name)} 様　${x.guests?esc(x.guests)+'名':''}<span class="muted">　${resvWho({douhan:x.douhan,dh:dhN(x),by:x.by_name,kakari:x.kakari_name,black:x.black},{noKK:rvNoKK(),mark:FX('dress',15)})}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
+    <span style="flex:1 1 200px">${esc(x.names||x.name)} 様　${x.guests?esc(x.guests)+'名':''}${x.vip_until?` <b style="background:var(--pri);color:#fff;border-radius:4px;padding:0 4px">〜${esc(x.vip_until)}</b>`:''}<span class="muted">　${resvWho({douhan:x.douhan,dh:dhN(x),by:x.by_name,kakari:x.kakari_name,black:x.black},{noKK:rvNoKK(),mark:FX('dress',15)})}</span>${x.memo?`<div class="muted" style="font-size:13px">${esc(x.memo)}</div>`:''}</span>
     ${ed?`<button class="ghost sm" data-rve="${i}">修正</button><button class="ghost sm" data-rvx="${i}">取消</button>`:''}</div>`;
 // 1行の［修正］［取消］
 const rvWireRows=(box,L,day,close,ed,st,S)=>{ if(!ed) return;
@@ -76,6 +76,10 @@ function resvFormHtml(S,day,x,opt){ return `<h2 style="margin:0">${x.id?'予約�
     <div id="rvDhW" class="${x.douhan?'':'hide'}"><div class="muted" style="font-size:13px">同伴（人数まで）</div><div style="display:flex;flex-wrap:wrap;gap:4px 14px">${S.filter(s=>s.kind==='cast').map(s=>`<label class="ck"><input type="checkbox" data-dhc="${s.id}" ${(x.dh||[]).includes(s.id)?'checked':''}>${esc(s.name)}</label>`).join('')}</div></div>
     <label>メモ<input id="rvMm" maxlength="200" value="${esc(x.memo||'')}"></label>
     <div class="bar"><button class="ghost" data-k="no">キャンセル</button><button class="primary" data-k="ok">保存</button></div>`; }
+/* VIPルームの重なり（SQL 822）：止める時は文を出す。後の予約がある時は「VIP 〜22:00」を確かめてから保存 */
+async function rvVipOk(st,id,day,time,vip,name){ const w=await rpc('admin_resv_vip_check',{p_store:st,p_id:id,p_day:day,p_time:time,p_vip:vip}); if(!w.ok) return false;
+  if(w.data.error){ await uiAlert(w.data.error); return false; }
+  return !w.data.until||await uiConfirm(`${resvVip({vip:name,vip_until:w.data.until})}\nこの内容で保存しますか？`,'保存'); }
 function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option value="">—</option>':'')+S.map(s=>`<option value="${s.id}" ${s.id===id?'selected':''}>${esc(s.name)}${s.kind==='hall'?'（黒服）':''}</option>`).join('');
   const m=mkModal(null,resvFormHtml(S,day,x,opt));;
   // 同伴にした時、同伴の子が空なら誘客を入れる
@@ -84,7 +88,9 @@ function resvForm(st,S,day,x){ x=x||{}; const opt=(id,inc0)=>(inc0?'<option valu
   m.querySelector('[data-k=no]').onclick=()=>m.remove();
   const sv=m.querySelector('[data-k=ok]'); sv.onclick=guard(sv,async()=>{ const q=id=>m.querySelector(id); const g=Number(toHan(q('#rvG').value));
     const dh=q('#rvDh').checked, t=q('#rvT').value.trim()||(dh?'20:30':'');
+    const vip=q('#rvV')?.value||null;
+    if(vip&&!await rvVipOk(st,x.id||null,q('#rvD').value,t,vip,q('#rvV').selectedOptions[0].textContent)) return;
     const z=await rpc('admin_resv_save',{p_store:st,p_id:x.id||null,p_day:q('#rvD').value,p_time:t,p_name:q('#rvN').value.trim(),p_guests:g,p_douhan:dh,p_by:q('#rvB').value,p_kakari:rvNoKK()?(S.find(s=>s.id===q('#rvB').value)?.kind==='cast'?q('#rvB').value:null):q('#rvK').value||null,p_meet:x.meet||'' /* 待ち合わせの時刻は小窓に無いので、今の値を送る（前は空にして消えていた。点検） */,p_memo:q('#rvMm').value.trim(),
-      p_vip:q('#rvV')?.value||null,p_dh:dh?[...m.querySelectorAll('[data-dhc]:checked')].map(c=>c.dataset.dhc):null});
+      p_vip:vip,p_dh:dh?[...m.querySelectorAll('[data-dhc]:checked')].map(c=>c.dataset.dhc):null});
     if(!z.ok) return; m.remove(); rvMonth=q('#rvD').value.slice(0,8)+'01'; toast('保存しました'); PAGES.resv(); });
 }
