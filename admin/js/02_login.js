@@ -14,11 +14,11 @@ function loginErrText(e){ const st=Number(e?.status||0), c=String(e?.code||''), 
   return 'ログインに失敗しました。再度お試しください'; }
 $('logoutBtn').onclick=async()=>{ if(!await uiConfirm('ログアウトしますか？')) return; await sb.auth.signOut(); location.reload(); };
 $('menuBtn').onclick=()=>$('nav').classList.toggle('open');
-function adminShowLogin(msg){ $('vApp').classList.add('hide'); $('vLogin').classList.remove('hide'); $('loginErr').textContent=msg||''; }
+function adminShowLogin(msg){ clearInterval(start.t); start.t=null; /* ログインの画面の間は1分ごとの確かめを止める（ログインが切れたタブが毎分 admin_me を呼び続けていた） */ $('vApp').classList.add('hide'); $('vLogin').classList.remove('hide'); $('loginErr').textContent=msg||''; }
 
 /* 戻り値：入れる人の情報／null＝止められた・パスワードが変わった（ログアウト）／undefined＝通信の失敗・ログインの期限切れ（ログアウトしない）
    オーナー「同じ端末、同じブラウザなのに毎回ログイン求められるのはなぜ？」→ スリープ明けなどの失敗でログアウトしていた */
-async function loadMe(){ let r=await sb.rpc('admin_me'); if(r.error){ let re=null; try{ re=(await sb.auth.refreshSession()).error; }catch(e){ re=e; } if(re&&/refresh.?token|not found|invalid|expired/i.test(re.message||'')) return null; /* ログインの記録そのものが無効 */ r=await sb.rpc('admin_me'); } if(r.error) return undefined; const m=r.data||null;
+async function loadMe(){ loadMe.out=false; let r=await sb.rpc('admin_me'); if(r.error){ let re=null; try{ re=(await sb.auth.refreshSession()).error; }catch(e){ re=e; } if(re&&/refresh.?token|not found|invalid|expired/i.test(re.message||'')) return null; /* ログインの記録そのものが無効 */ r=await sb.rpc('admin_me'); } if(r.error&&r.status===401){ loadMe.out=true; return null; } /* 読み直した後も 401＝ログインが切れた（通信の失敗とは分ける。前は「通信の失敗」として5秒・1分ごとに読み続けた） */ if(r.error) return undefined; const m=r.data||null;
   /* オーナー以外：連携した黒服（自分の報酬だけ出す）と黒服報酬「全員」か（SQL 662）。1分ごとの読み直しでも消えないように、ここで一緒に読む（関数が無い時は undefined＝今までどおり） */
   if(m&&!m.is_owner){ const [ms,pa]=await Promise.all([sb.rpc('admin_my_staff'),sb.rpc('admin_hall_pay_all')]); m.staff_id=ms.error?undefined:ms.data; m.pay_all=!pa.error&&pa.data===true; }
   return m; }
@@ -26,7 +26,7 @@ async function start(){
   const { data:{ session } }=await sb.auth.getSession(); if(!session){ adminShowLogin(); return; }
   me=await loadMe();
   if(me===undefined){ adminShowLogin('通信を確認しています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); return; }
-  if(!me){ await sb.auth.signOut(); adminShowLogin('このIDでは管理サイトにログインできません（停止中か、パスワードが変更されました）'); return; }
+  if(!me){ await sb.auth.signOut(); adminShowLogin(loadMe.out?'ログインが切れました。再度ログインしてください':'このIDでは管理サイトにログインできません（停止中か、パスワードが変更されました）'); return; }
   const saved=(()=>{ try{ return localStorage.getItem('olive_admin_store'); }catch(e){ return null; } })();
   storeId=me.is_owner ? (stores().some(s=>s.id===saved)?saved:stores()[0]?.id) : me.store_id;
   $('vLogin').classList.add('hide'); $('vApp').classList.remove('hide');

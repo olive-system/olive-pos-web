@@ -65,7 +65,9 @@ $('storeName').onclick=()=>{ const o=storeSwOther(); if(o) location.href=slotUrl
 $('loginBack').onclick=$('posRegBack').onclick=()=>{ const o=storeSwOther(); if(o) location.href=slotUrl(o.slot); }; /* ログインの画面から、控えのある店へ戻る */
 storeSwLoad().then(storeSwShow);
 /* 点検 端末のログインと合鍵を確かめる。パスワードが変わった（古いログイン）→ ログイン画面へ。合鍵が外れた → 登録の画面へ。前は古いログインでも「この端末を登録」になり、登録しても断られた／開いたまま登録が外れると会計の締めなどが黙って0行で終わった */
-async function posTermLost(){ try{ const [tk]=await ptLoad(); const pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error||!pt.data) return false;
+async function posTermLost(){ try{ const [tk]=await ptLoad(); let pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error&&pt.status===401){ try{ await sb.auth.refreshSession(); }catch(e){} pt=await sb.rpc('pos_term_check',{p_token:tk}); }
+  if(pt.error&&pt.status===401){ await sb.auth.signOut(); await uiAlert('ログインが切れました。再度ログインしてください'); location.reload(); return true; } /* 読み直した後も 401＝ログインが切れた。前は通信の失敗と同じに扱い、何もできないまま1分ごとに読み続けた（スリープ明けの一時の 401 は、読み直しで通る） */
+  if(pt.error||!pt.data) return false;
   if(pt.data.stale){ await sb.auth.signOut(); await uiAlert('パスワードが変わりました。新しいパスワードでログインしてください'); location.reload(); return true; }
   if(pt.data.ok===false){ $('posReg').style.display='flex'; $('posRegCode').value=''; return true; } }catch(e){} return false; }
 /* 起動で通信が通らない時は「通信を確認しています…」を出し、5秒ごとに自動でやり直す（管理サイト・タイムカードと同じ）。ログインしたまま待つ間は入力欄を出さない。
