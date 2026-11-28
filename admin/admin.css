@@ -112,6 +112,13 @@
   .slL td{padding:3px 8px;border:1px solid var(--line);height:26px}.slL td.k{background:var(--soft)}.slL td.v{text-align:right;width:42%}.slL td.gl{width:22px;background:var(--soft);text-align:center;font-size:11px;line-height:1.15;padding:2px}.slL tr.sum td{font-weight:700}.slL tr.cutr td{font-size:12px;color:var(--muted);height:22px;white-space:nowrap}.slL tr.cutr td.k{padding-left:16px}.slL tr.big td{font-weight:700;font-size:15px}
   .slR th,.slR td{border:1px solid var(--line);padding:2px 7px;text-align:right;white-space:nowrap;height:26px;min-width:44px}.slR th{background:var(--soft);font-weight:600;text-align:center;font-size:12px}
   .slR td.d{text-align:left;background:var(--soft);font-weight:600}.slR tr.tot td{font-weight:700}.slR th.vt{height:var(--vh);writing-mode:vertical-rl;letter-spacing:.1em;padding:6px 2px;min-width:28px}.slR td.op{text-align:center;padding:1px 4px}.slR td.op button{height:22px!important;min-height:0!important;padding:0 10px!important;font-size:12px;width:auto!important}
+  /* スマホ：明細と1日1行の表を横に並べたまま、指で横にスライドして見る（止まる所は明細の頭・表の頭）。明細は画面より少し狭くし、右に表の端を見せる。横に動かしても日付の列は左に残す */
+  @media (max-width:600px){
+    .modal.slipm .box{width:96vw;padding:12px 0 14px;overflow:hidden}
+    .modal.slipm .slw{gap:12px;overflow:auto;max-height:calc(92vh - 60px);margin-top:30px;padding:0 12px;scroll-padding:0 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+    .modal.slipm .sll{width:calc(96vw - 52px);scroll-snap-align:start}.modal.slipm .slr{flex:none;overflow:visible;scroll-snap-align:start}
+    .modal.slipm .slR td.d,.modal.slipm .slR thead tr:first-child>th:first-child{position:sticky;left:-12px;z-index:1;box-shadow:1px 0 0 var(--line)}
+  }
   .slipd .box{width:min(480px,100%)}.sdr{display:grid;grid-template-columns:1fr auto 64px 64px;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid var(--line)}.sdr .v{text-align:right;font-variant-numeric:tabular-nums}.sdr button{width:100%}
   .sdh{font-size:13px;color:var(--muted)}.sdh>div{display:flex;justify-content:space-between;gap:8px;padding:4px 2px}
   [data-slip]{cursor:pointer;border-bottom:1px dotted var(--muted)}
