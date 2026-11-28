@@ -8,7 +8,6 @@ const beDhCap=(g,sg)=>Math.max(g||1, sg??g??1), beDhOver=(n,g,sg)=>n>beDhCap(g,s
 const beUid=()=>crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
 // 来店の時刻は5分切り上げで出す（POS v11.45 と同じ。09:17→09:20）。退店は実際の時刻
 const beHm5=t=>t?hmJst(ceil5(t)):'';
-function beRole(ts){ const x=new Date(new Date(ts||Date.now()).toLocaleString('en-US',{timeZone:'Asia/Tokyo'})), m=x.getHours()*60+x.getMinutes(); if(m<8*60) return 'douhan'; if(m<=20*60+30) return 'douhan1'; if(m<=21*60) return 'douhan2'; return 'douhan'; } // POS と同じ決め方
 // 伝票の No を押すと、その伝票の中身を全部見る（見るだけ。オーナーは「直す」へ）
 async function billView(id,canEdit){ // 見るだけの人も admin_bill_view で見られる（前は admin_bill_get＝オーナーだけ）
   let r=await sb.rpc('admin_bill_view',{p_bill:id}); if(r.error&&/admin_bill_view/.test(r.error.message)) r=await sb.rpc('admin_bill_get',{p_bill:id});
@@ -151,7 +150,7 @@ function beBindA(E){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bcId,split,kks
       if(k==='a'){ if(!S.after.includes(sid)) S.after.push(sid); }
       else if(k==='g') S.goods.push({id:beUid(),staff_id:sid});
       else if(k==='k'){ if(ex) ex.is_kakari=true; else S.casts.push({id:beUid(),staff_id:sid,role:'none',is_kakari:true}); syncHc(); }
-      else { if(beDhOver(S.casts.filter(c=>beDh(c.role)).length+1,B.guest_count,B.set_guest_count)){ redo(); return; } const role=beRole(B.opened_at), kak=!!st.douhan_is_kakari;
+      else { if(beDhOver(S.casts.filter(c=>beDh(c.role)).length+1,B.guest_count,B.set_guest_count)){ redo(); return; } const role=douhanRoleAt(B.opened_at), kak=!!st.douhan_is_kakari;
         if(ex){ ex.role=role; if(kak) ex.is_kakari=true; } else S.casts.push({id:beUid(),staff_id:sid,role,is_kakari:kak}); if(kak) syncHc(); }
       redo(); });
     qa('[data-bq]').forEach(x=>x.onchange=()=>{ const i=S.items.find(z=>z.id===x.dataset.bq), n=parseInt(x.value,10); if(!(n>=1)){ x.value=i.qty; return; } i.qty=n; resplit(i); redo(); });
