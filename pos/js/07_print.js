@@ -8,10 +8,13 @@ const VIPL='VIP charge'; /* 明細の VIP の部屋の料金の言い方（オ�
 const hmS=t=>hmJst(t).replace(/^0/,''); /* 〜1:30（時の頭の 0 は付けない。オーナー「〜1:30の方がかっこいい」） */
 // d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, note }
 // c：描く道具（g＝canvas・W＝幅・fs＝字の大きさ・y＝今の高さ）。部品は c.y を進める
-function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
+/* 細い字のままだと紙で薄く見える（白黒の2色で送るので、1ドットの細い所がかすれる）。字の形は変えずに、同じ字を線でなぞって太らせる。
+   大きい字（40px 以上）は幅 2・細い小さい字は幅 0.5。太い（600）小さい字は、なぞると漢字の中がつぶれるので今のまま。ロゴとサインは絵なので変わらない */
+function darkInk(g){ const f=CanvasRenderingContext2D.prototype.fillText; /* 元の fillText を呼ぶ（領収書の画面の見本は同じ枠に描き直すので、前に包んだ物をまた包むと太さが重なる） */ g.fillText=(...a)=>{ f.apply(g,a); const px=parseFloat(/([\d.]+)px/.exec(g.font)[1]), ink=px>=40?2:/(^|\s)(600|bold)\s/.test(g.font)?0:0.5; if(!ink) return; const lw=g.lineWidth; g.lineWidth=ink; g.lineJoin='round'; g.strokeText(...a); g.lineWidth=lw; }; }
+function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic'; darkInk(g);
   const c={ cv, g, W, fs:22*z, y:0, yen:n=>'¥'+(Number(n)||0).toLocaleString(),
     MI:(px,w)=>`${w||600} ${Math.round(px)}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`, BK:(px,it)=>`${it?'italic ':''}400 ${Math.round(px)}px Baskerville,"Baskerville Old Face",Georgia,serif` };
-  c.hl=(y,x1,x2)=>{ g.lineWidth=1; g.beginPath(); g.moveTo(x1,Math.round(y)+.5); g.lineTo(x2,Math.round(y)+.5); g.stroke(); };
+  c.hl=(y,x1,x2)=>{ g.lineWidth=2; g.beginPath(); g.moveTo(x1,Math.round(y)); g.lineTo(x2,Math.round(y)); g.stroke(); };
   c.sp=(t,y,ls)=>{ /* 字間をあけて真ん中に */ const cs=[...String(t)], w=cs.reduce((s,ch)=>s+g.measureText(ch).width,0)+ls*(cs.length-1); let x=(W-w)/2; g.textAlign='left'; for(const ch of cs){ g.fillText(ch,x,y); x+=g.measureText(ch).width+ls; } };
   c.wrap=(t,mw)=>{ /* 幅 mw に入るように折り返す */ const out=[]; let cur=''; for(const ch of [...String(t)]){ if(cur&&g.measureText(cur+ch).width>mw){ out.push(cur); cur=ch===' '||ch==='　'?'':ch; } else cur+=ch; } out.push(cur); return out; };
   c.lr=(l,r,y,fl,fr)=>{ g.textAlign='left'; g.font=fl; g.fillText(l,0,y); g.textAlign='right'; g.font=fr; g.fillText(r,W,y); };
@@ -79,7 +82,7 @@ $('prReceipt').onclick=async()=>{ // 領収書：入金のあった金額まで�
 // 領収書の絵（横長 1240×576）。印刷は 90度回して 80mm 幅（576ドット）で出す
 // デザインを「静かな明朝」に（オーナー 案ア。見本 作業場/領収書_デザイン_案.png）。二重の細い枠・明朝と Baskerville・金額は二重線・右にロゴとお店。言葉は前と同じ
 // 印刷は白黒（明るさ 150 未満が黒）。明朝の細い字（W3）は 20px 未満だと線が切れるので、小さい字は W6。1px＝1ドットなので、画数の多い字は 18px 以上にする
-function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
+function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic'; darkInk(g);
   const MI=(px,w)=>`${w||(px<20?600:300)} ${px}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`, BK=(px,it)=>`${it?'italic ':''}400 ${px}px Baskerville,"Baskerville Old Face",Georgia,serif`, yen=n=>`¥${Number(n||0).toLocaleString()}`;
   const sp=(t,x,y,ls,al)=>{ /* 字間をあけて書く（al：left / right / center）。書いた幅を返す */ const cs=[...String(t)], w=cs.reduce((s,c)=>s+g.measureText(c).width,0)+ls*(cs.length-1); let sx=al==='right'?x-w:al==='center'?x-w/2:x; g.textAlign='left'; for(const c of cs){ g.fillText(c,sx,y); sx+=g.measureText(c).width+ls; } return w; };
   const hl=(x1,y1,x2,y2)=>{ g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke(); };
@@ -94,18 +97,19 @@ function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g
   const R=30,cy=480,scx=sx+R; if(d.sig){ g.save(); g.beginPath(); g.arc(scx,cy,R-3,0,Math.PI*2); g.clip(); g.drawImage(d.sig,scx-R+4,cy-R+4,(R-4)*2,(R-4)*2); g.restore(); } g.lineWidth=1; g.beginPath(); g.arc(scx,cy,R,0,Math.PI*2); g.stroke(); }
 // 領収書の右の欄：縦の線と、店名・ロゴ・住所・電話・登録番号
 function rcDrawShop(g,d,W,H,MI,sp,hl){
-  hl(790,70,790,H-70); const cx=(790+W-26)/2; g.font=MI(19); const info=[...rcAddr(g,d.address,390),d.tel?('TEL '+d.tel):'',d.regno?('登録番号 '+d.regno):''].filter(Boolean); /* 印刷は 1px＝1ドット。15px では画数の多い字がつぶれるので 19px。郵便番号は1行目に分け、入らない住所は横に縮めずに折り返す（オーナー） */
+  hl(790,70,790,H-70); const cx=(790+W-26)/2, IS=22, IG=34; /* 住所・電話・登録番号の字の大きさと行の間 */ g.font=MI(IS,600); const info=[...rcAddr(g,d.address,390),d.tel?('TEL '+d.tel):'',d.regno?('登録番号 '+d.regno):''].filter(Boolean); /* 印刷は 1px＝1ドット。15px では画数の多い字がつぶれる。郵便番号は1行目、番地とビル名は別の行にし、住所・電話・登録番号は読みやすい大きさにする（オーナー）。長い行は横に縮めずに折り返す */
   if(d.logo){ /* ロゴがある時は、店名はロゴに見えないふつうの字にし、ロゴから登録番号までを縦の線（70〜H-70）の真ん中に置く（オーナー） */
-    const r=Math.min(250/d.logo.width,90/d.logo.height), lw=d.logo.width*r, lh=d.logo.height*r, gap=70, top=Math.round(H/2-(lh+gap+17+38+30*Math.max(info.length-1,0)+5)/2);
+    const r=Math.min(250/d.logo.width,90/d.logo.height), lw=d.logo.width*r, lh=d.logo.height*r, gap=70, top=Math.round(H/2-(lh+gap+17+38+IG*Math.max(info.length-1,0)+5)/2);
     g.drawImage(d.logo,cx-lw/2,top,lw,lh); const yn=top+lh+gap+17; g.font=MI(19,600); g.textAlign='center'; g.fillText(d.store||'',cx,yn,380);
-    g.font=MI(19); info.forEach((t,i)=>g.fillText(t,cx,yn+38+30*i)); }
+    g.font=MI(IS,600); info.forEach((t,i)=>g.fillText(t,cx,yn+38+IG*i,400)); }
   else { g.font=MI(22,600); sp(d.store||'',cx,222,6,'center'); hl(cx-24,244,cx+24,244);
-    g.font=MI(19); g.textAlign='center'; info.forEach((t,i)=>g.fillText(t,cx,282+30*i)); }
+    g.font=MI(IS,600); g.textAlign='center'; info.forEach((t,i)=>g.fillText(t,cx,282+IG*i,400)); }
 }
-// 住所を領収書の行に分ける：郵便番号だけで1行、残りは幅 mw に入るように（空白の所で、無ければ字の途中で）折り返す
-function rcAddr(g,a,mw){ a=String(a||'').trim(); if(!a) return []; const m=a.match(/^(〒?\s*\d{3}-?\d{4})[\s　]*([\s\S]*)$/), out=m?[m[1].replace(/\s+/g,'')]:[]; let r=(m?m[2]:a).replace(/\s+/g,' ').trim();
-  while(r&&g.measureText(r).width>mw){ let k=r.length; while(k>1&&g.measureText(r.slice(0,k)).width>mw) k--; const sp=r.lastIndexOf(' ',k); if(sp>0) k=sp; out.push(r.slice(0,k).trim()); r=r.slice(k).trim(); }
-  if(r) out.push(r); return out; }
+// 住所を領収書の行に分ける：郵便番号だけで1行、番地とビル名は最初の空白で別の行に（1行が長くならないように）。それでも幅 mw に入らない行は、空白の所で（無ければ字の途中で）折り返す
+function rcAddr(g,a,mw){ a=String(a||'').trim(); if(!a) return []; const m=a.match(/^(〒?\s*\d{3}-?\d{4})[\s　]*([\s\S]*)$/), out=m?[m[1].replace(/\s+/g,'')]:[];
+  for(let r of (m?m[2]:a).replace(/\s+/g,' ').trim().split(/ (.*)/)){ while(r&&g.measureText(r).width>mw){ let k=r.length; while(k>1&&g.measureText(r.slice(0,k)).width>mw) k--; const sp=r.lastIndexOf(' ',k); if(sp>0) k=sp; out.push(r.slice(0,k).trim()); r=r.slice(k).trim(); }
+    if(r) out.push(r); }
+  return out; }
 function receiptPrint(cvs){ imagePrint([].concat(cvs).map(cv=>{ const W=576,H=1240; const r=document.createElement('canvas'); r.width=W; r.height=H; const g=r.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.translate(W,0); g.rotate(Math.PI/2); g.drawImage(cv,0,0); return r; })); }   /* 何枚かの領収書は1回の印刷の頼みにまとめる */
 // 576ドット幅の絵を印刷する（領収書・名札で共通）。白黒は明るさ 150 未満が黒
 // 1枚の絵を印刷機の白黒の画像の文に（1枚ごとに切る）
