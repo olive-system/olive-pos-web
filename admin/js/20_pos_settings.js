@@ -2,6 +2,7 @@
 // HC・BC は伝票を立ち上げた時に人数分つける。金額だけ選ぶ（伝票の名前は HC／BC）。HC は係にバック100%（振分できる）、BC は誰にもバックなし
 const HCBC_OPTS=[[null,'付けない'],...Array.from({length:10},(_,i)=>[(i+1)*1000,((i+1)*1000).toLocaleString('ja-JP')+'円'])];
 const vipRow=(t,ed,dis)=>`<tr data-tb="${t.id}"><td>${esc(t.name)}</td><td><input inputmode="numeric" data-v="set" value="${esc(String(t.vip_set_fee||0))}" ${dis}></td><td><input inputmode="numeric" data-v="ext" value="${esc(String(t.vip_ext_fee||0))}" ${dis}></td>${ed?'<td style="width:1%"><button class="xb" data-vrm aria-label="外す">×</button></td>':''}</tr>`;
+/* 料金・伝票・VIP の3つの箱は、どの保存ボタンでも3つの箱の今の入力をまとめて1回で送る（1つだけ送ると、ほかの箱の値が消えるため）。入金・出金の項目と売上目標は別の保存 */
 PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'':'disabled';
   const keep=$('siBox')?.dataset.st===st?$('siBox'):null; // 料金だけ保存した時は、店の情報の入力中の内容を消さない
   $('main').innerHTML=`<h1>POS設定 <small class="muted" style="font-weight:400">${esc(curStore()?.name||'')}</small></h1><div class="card muted">読み込み中…</div>`;
@@ -53,11 +54,13 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
   $('main').querySelectorAll('[data-ciadd]').forEach(b=>{ const k=b.dataset.ciadd, inp=$('main').querySelector(`[data-ciin="${k}"]`), list=$('main').querySelector(`[data-ci="${k}"]`);
     const add=async()=>{ const v=inp.value.trim(); if(!v) return; if(v==='その他'){ await uiAlert('「その他」は登録不要です'); return; } if(k==='out'&&v.includes('領収書')){ await uiAlert('「領収書精算」は固定の項目です（POS で撮影が出ます）'); return; } if([...list.querySelectorAll('.ci span')].some(x=>x.textContent===v)){ inp.value=''; return; } list.appendChild(ciChip(v)); inp.value=''; inp.focus(); };
     b.onclick=add; inp.onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); add(); } }; });
+  /* g＝その種類（入金・出金）のチップの文字の一覧。「領収書精算」のチップは画面に出すだけで .ci を付けないので、ここでは送らない */
   if($('ciSave')){ const cs=$('ciSave'); cs.onclick=guard(cs,async()=>{ const g=k=>[...$('main').querySelectorAll(`[data-ci="${k}"] .ci span`)].map(x=>x.textContent);
     const r=await rpc('admin_save_cash_items',{p_store:st,p_in:g('in'),p_out:g('out')}); if(!r.ok) return; unsavedBtns.delete(cs); toast('保存しました（POS の次の入金・出金から変わります）'); }); }
   /* 料金・伝票・VIP料金の箱ごとに保存（オーナー「料金のところには保存ボタンないよね」）。どの箱の保存でも、この3つの箱の今の入力をまとめて保存する（入れた物が消えない）。入金・出金の項目と売上目標は、それぞれの保存で別に送る
      VIP料金は全部の卓を送る（表から外した卓は0円＝通常卓に戻すため）。自動延長は別の rpc なので、料金が保存できて自動延長で止まると、そこまでは保存済み */
   $('main').querySelectorAll('[data-pssave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
+    /* g＝入力欄の数を読む（slNum：全角の数字も読む） */
     const g=id=>slNum($(id).value), v={set_minutes:g('psSetM'),set_unit_price:g('psSetP'),ext_minutes:g('psExtM'),ext_unit_price:g('psExtP'),service_rate:g('psSvc'),tax_rate:g('psTax'),total_round_unit:g('psRnd')};
     const lab={set_minutes:'最初のセット時間',set_unit_price:'セット1名単価',ext_minutes:'延長単位',ext_unit_price:'延長1名単価',service_rate:'サービス料率',tax_rate:'消費税率',total_round_unit:'合計の切り上げ単位'};
     for(const [k,x] of Object.entries(v)){ if(x==null||!Number.isFinite(x)||x<0){ await uiAlert(`${lab[k]}を0以上の数で入力してください`); return; } }
@@ -75,7 +78,7 @@ PAGES.set_pos=async()=>{ const st=storeId, ed=perm('set_pos')==='edit', dis=ed?'
     toast('保存しました'); PAGES.set_pos(); })); };
 
 // ---------- ここから下は「報酬・罰金項目」（PAGES.set_pay・11_rewards.js）の箱の部品。ページの本体は 11_rewards.js にあり、ここの部品を呼ぶ ----------
-// 報酬で使う数（日払の上限・体験の源泉・ポイント・同伴の準備時間）。前は POS の料金設定にあった
+// 報酬の2つの箱（日払・立替の上限と同伴の準備時間／ポイントと体験入店の源泉）の部品は、下の pnNum から。その前はドレス新調日と名刺の箱
 // ドレス新調日の設定（店ごとに する／しない・毎月○日が提出の期限・罰金の種類）
 async function dressFold(st,ed){ const box=$('dressBox'); if(!box) return; const r=await sb.rpc('admin_get_dress_settings',{p_store:st}); if(r.error||page!=='set_pay'||storeId!==st) return; const c=r.data||{};
   let on=!!c.enabled; const dis=ed?'':'disabled', names=[...new Set([c.fine_name,...(c.fine_names||[])])].filter(Boolean);
@@ -99,14 +102,17 @@ async function cardFold(st,ed){ const box=$('cardBox'); if(!box) return; const r
   sv.onclick=guard(sv,async()=>{ const q=slNum($('cdQty').value), pr=slNum($('cdPrice').value); if(!(q>0)||!(pr>=0)){ await uiAlert('枚数と金額を確認してください'); return; }
     if(!await uiConfirm('名刺発注の設定を保存しますか？')) return; const x=await rpc('admin_save_card_settings',{p_store:st,p_to:$('cdTo').value,p_subject:$('cdSub').value,p_reply:$('cdRe').value,p_qty:q,p_price:pr}); if(!x.ok) return; toast('保存しました'); PAGES.set_pay(); }); }
 // 報酬・罰金項目の並びに合わせて2つの箱に分けた（保存は同じ admin_save_pay_settings。どちらの保存も7つ全部を送る。片方の箱だけ送ると、もう片方の値が消えるため）
+/* 報酬の箱の部品：pnNum＝数の入力欄・pnSaveBtn＝保存ボタン・pnYen＝円の書き方 */
 const pnNum=(id,label,v,ed)=>`<label>${label}<input id="${id}" inputmode="decimal" value="${esc(v??'')}" ${ed?'':'disabled'}></label>`;
 const pnSaveBtn=ed=>ed?'<div class="fend"><span class="sp"></span><button class="primary sm" data-pnsave>保存</button></div>':'';
 const pnYen=v=>v==null?'—':Number(v).toLocaleString('ja-JP')+'円';
+/* pos＝pos_settings を読んだ答え（{data,error}）。POS の画面のことではない */
 function payAdvCard(pos,ed){ const d=pos.data||{};
   return foldCard('payadv','日払・立替の上限・同伴の準備時間','',`キャスト 日払 ${pnYen(d.advance_cap_cast)}・立替 ${pnYen(d.tatekae_cap_cast)}・黒服 ${pnYen(d.advance_cap_hall)}・${d.douhan_punch_limit_min??'—'}分`,`<div class="grid2">
     ${pnNum('pnCapC','日払の上限・キャスト（円）',d.advance_cap_cast,ed)}${pnNum('pnCapT','立替の上限・キャスト（円）',d.tatekae_cap_cast,ed)}${pnNum('pnCapH','日払（立替）の上限・黒服（円）',d.advance_cap_hall,ed)}
     ${pnNum('pnDh','同伴の準備時間（分・0＝警告なし）',d.douhan_punch_limit_min,ed)}</div>
     <div class="muted hint" style="font-size:13px;margin-top:8px;line-height:1.6">同伴の準備時間：伝票の立ち上げから出勤の打刻まで<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">これを超えると、タイムカードで本人に警告します</div></div>${pnSaveBtn(ed)}`,'data-paynum'); }
+/* RWPS＝ポイントスライドの店か（11_items.js の rwCard が、報酬の種類の箱を描く時に決める。その箱が先に描かれる）。ext_point_tiers の列がある時だけ、延長の段の表も出す */
 function payPtCard(pos,ed){ const d=pos.data||{};
   return foldCard('paypt','ポイント・体験入店','',`セット ${d.set_point??'—'}・延長 ${d.ext_point??'—'}・源泉 ${d.trial_withholding_rate??'—'}%${RWPS&&Array.isArray(d.set_point_tiers)&&d.set_point_tiers.length?`・1組の人数別 ${d.set_point_tiers.length}段`:''}${RWPS&&Array.isArray(d.ext_point_tiers)&&d.ext_point_tiers.length?`・延長 ${d.ext_point_tiers.length}段`:''}`,`<div class="grid2">
     ${pnNum('pnSp','セット1名のポイント',d.set_point,ed)}${pnNum('pnEp','延長1回1名のポイント',d.ext_point,ed)}
@@ -123,6 +129,7 @@ function sptBlock(d,ed,k='spt'){ const T=PT_TIER[k], ts=Array.isArray(d[T.col])?
     ${ed?`<button type="button" class="ghost sm" id="${k}Add" style="margin-top:6px">＋ 段を追加</button>`:''}
     <div class="grid2" style="margin-top:8px"><label>適用開始<input type="date" id="${k}From" value="${esc(d[T.from]||'')}" ${ed?'':'disabled'}></label></div>
     <div class="muted" style="font-size:13px;margin-top:8px;line-height:1.6">段を入れると、適用開始以降は${T.unit}の代わりに使います。${KL}が2人以上の伝票は、同じに分けます</div></div>`; }
+/* 段の一番大きい人数より多い組は 0P。保存した段の決まりを、表の下に1行で見せる */
 function sptRest(k='spt'){ const us=[...document.querySelectorAll(`#${k}Body [data-tu]`)].map(i=>slNum(i.value)).filter(x=>Number.isFinite(x)); const el=$(k+'Rest'); if(el) el.textContent=us.length?`${Math.max(...us)+1}名以降 0P`:''; }
 function sptWire(k='spt'){ const box=$(k+'Box'); if(!box) return; sptRest(k);
   box.addEventListener('input',e=>{ if(e.target.matches('[data-tu]')) sptRest(k); });
@@ -132,6 +139,7 @@ function sptVals(k='spt'){ return [...document.querySelectorAll(`#${k}Body [data
 /* 報酬・罰金項目の2つの箱の保存：どちらの箱からでも7つの数を送る（admin_save_pay_settings）。ポイントの箱の時だけ、続けて段の表（spt・ept）を送る。
    数が保存できて段で止まると、数は保存済み（画面は読み直さない）。2つの箱は必ず同じ画面に描く（もう片方の箱の欄も読むため） */
 function payNumWire(st){ $('main').querySelectorAll('[data-pnsave]').forEach(sv=>sv.onclick=guard(sv,async()=>{
+  /* g＝入力欄の数を読む。どちらの箱の保存でも7つの数を全部送る（片方だけ送ると、もう片方の値が消えるため。2つの箱は同じ画面に描かれている前提） */
   const g=id=>slNum($(id).value), v={advance_cap_cast:g('pnCapC'),tatekae_cap_cast:g('pnCapT'),advance_cap_hall:g('pnCapH'),trial_withholding_rate:g('pnTw'),set_point:g('pnSp'),ext_point:g('pnEp'),douhan_punch_limit_min:g('pnDh')};
   if(Object.values(v).some(x=>x==null||!Number.isFinite(x)||x<0)){ await uiAlert('全部の欄に0以上の数を入力してください'); return; }
   if(v.trial_withholding_rate>100){ await uiAlert('体験入店の源泉は100%までです'); return; }

@@ -1,10 +1,13 @@
+/* 画面の状態は S に置く：setCur＝開いている設定の項目・setSel＝右で開いている行・setEditMode＝編集（× と並べ替え）中・setCatFilter＝商品の分類の絞り込み・setNewId＝足したばかりのメニューの行。下の setAdd・setEdit・setFilter のボタンは index.html に先にある */
 // ---------- 設定の一覧と編集（並び替え・追加・絞り込み）。項目の定義 SET は 13_settings.js ----------
 function setRows(def){ if(def.single) return [S.settings]; let r=({tables:S.tables,categories:S.categories,products:S.products,customers:S.customers})[def.key]; if(def.key==='products'&&S.setCatFilter) r=r.filter(p=>p.category_id===S.setCatFilter); return r; }
+/* cuPull は、手元のお客様に変わった分を足した全員を返すので、そのまま置き換える */
 async function renderSettings(key, keepSel){ if(key!==S.setCur){ S.setSel=null; S.setEditMode=false; S.setCatFilter=null; $('setFilter').value=''; } S.setCur=key; await loadMasters(); { const r=await cuPull(); if(r.data) S.customers=r.data; } /* お客様は変わった分だけ読む */ const def=SET.find(s=>s.key===key);
   $('setMenu').innerHTML=SET.map(s=>`<button class="${s.key===key?'on':''}" data-k="${s.key}">${s.name}</button>`).join('')+(storeSwOther()||!S.termSwitch?'':'<button class="ghost" id="setStoreAdd">店舗追加</button>')+'<button class="ghost" id="setLogout">ログアウト</button>';
   $('setMenu').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>renderSettings(b.dataset.k));
   $('setLogout').onclick=async()=>{ if(!await uiConfirm('ログアウトしますか？')) return; await storeSwDrop(); await sb.auth.signOut(); location.reload(); };
   if($('setStoreAdd')) $('setStoreAdd').onclick=async()=>{ if(!await uiConfirm('店舗を追加しますか？\n初回のみ、その店舗のログインと登録コードが必要です')) return; location.href=slotUrl('s'+Math.random().toString(36).slice(2,7)); };
+  /* 操作ログ・本日の伝票・閉店作業・朝礼は、右のフォームを使わず一覧を広く出す（この下の振り分けに種類を足した時は、ここの条件にも足す） */
   $('setList').parentElement.style.gridColumn=(def.audit||def.bills||def.closing||def.chorei)?'2 / 4':''; $('setForm').parentElement.style.display=(def.audit||def.bills||def.closing||def.chorei)?'none':'';
   $('setAdd').style.display=def.single?'none':''; $('setEdit').style.display=(def.single||def.nosort)?'none':''; $('setEdit').textContent=S.setEditMode?'完了':'編集'; $('setEdit').classList.toggle('on',S.setEditMode);
   $('setFilter').style.display=def.single?'none':'';
@@ -59,6 +62,7 @@ async function setAudit(def){ $('setAdd').style.display='none'; $('setEdit').sty
 /* ふつうの一覧（卓・メニュー・カテゴリーなど）：行・並べ替え・削除・右のフォーム */
 function setListPage(key, keepSel, def){
   const rows=setRows(def);
+  /* 消えた行（ほかの端末で削除）は見つからないので、選択を外して「左の一覧から選ぶ」に戻る */
   if(S.setSel) S.setSel=rows.find(r=>r.id===S.setSel.id)||null; // 保存後は読み直した最新の行を表示する（古い値が残らないように）
   let head='';
   if (key==='products') head=`<select id="setCat" style="margin-bottom:6px"><option value="">--- すべて ---</option>${S.categories.map(c=>`<option value="${c.id}" ${S.setCatFilter===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`;
@@ -75,7 +79,9 @@ function setListPage(key, keepSel, def){
 /* 足したばかりのメニュー：販売価格・カテゴリーを入れると、バック・ポイントのはじめの値が入る（変えられる。lib/olive/core.js の menuBackInit） */
 function menuBackWire(f){ const g=k=>f.querySelector(`[data-k="${k}"]`), fill=()=>{ const c=g('category_id'), v=menuBackInit(S.store?.code,c?.selectedOptions[0]?.text||'',g('price')?.value); if(g('back_amount')) g('back_amount').value=v.back; if(g('back_points')) g('back_points').value=v.points; };
   ['price','category_id'].forEach(k=>{ const e=g(k); if(e) e.addEventListener(k==='price'?'input':'change',fill); }); }
-/* 右のフォーム。保存は guard で終わるまで押せない（2回押すと操作ログの「設定変更」が2つ残っていた）。VIP 料金は卓ごとに保存するので、途中で止まると前の卓までは保存済み */
+/* 右のフォーム。保存は guard で終わるまで押せない（2回押すと操作ログの「設定変更」が2つ残っていた）。下の def.key==='pos' の VIP 料金の欄と保存は、料金設定が見るだけ（13_settings.js の ro:true・上の if(def.ro) で renderFormRo へ行く）なので今は通らない。VIP 料金は管理サイトで直す */
+/* 項目の列 cols は [列の名前, 見出し, 種類]。種類：bool＝チェック・number＝数・prod＝HC の商品を選ぶ・cat＝分類を選ぶ・それ以外＝文字（定義は 13_settings.js の SET） */
+/* 料金設定以外の pos（ro でない時）は、VIP 料金を卓ごとに保存する。設定の1行には入らないので、ここで卓の表から集める */
 function renderForm(def){ const r=S.setSel; const f=$('setForm');
   if(!r){ f.innerHTML='<div class="muted">左の一覧から選ぶか「追加」</div>'; return; }
   if(def.ro){ renderFormRo(def,r); return; }
@@ -96,6 +102,7 @@ function renderForm(def){ const r=S.setSel; const f=$('setForm');
 function renderFormRo(def,r){ const f=$('setForm'); const val=(k,type)=>type==='bool'?(r[k]==null?'—':r[k]?'する':'しない'):type==='amt'?(r[k]>0?yen(r[k]):'付けない'):(r[k]??'');
   f.innerHTML=`<div class="muted hint" style="margin-bottom:10px">ここでは閲覧のみです<button type="button" class="qm" aria-label="詳しく">？</button><div class="more">料金は管理サイト「POS設定」、日払（立替）の上限・体験の源泉・ポイント・同伴の準備時間は「報酬・罰金項目」で設定します</div></div>`+def.cols.map(([k,label,type])=>`<label>${label}<input value="${esc(String(val(k,type)))}" disabled></label>`).join('')+
     `<h3 style="margin:16px 0 4px">VIP料金（卓ごと。0＝通常卓）</h3><table style="width:100%;margin-top:6px"><tr><th style="text-align:left">卓</th><th>VIP代</th><th>VIP${S.settings.ext_minutes}分延長</th></tr>${S.tables.map(t=>`<tr><td>${esc(t.name)}</td><td><input value="${t.vip_set_fee||0}" disabled></td><td><input value="${t.vip_ext_fee||0}" disabled></td></tr>`).join('')}</table>`; }
+/* 足した行の並び順は、いちばん大きい数＋1（いつも最後に来ればよい）。並べ替えると 10・20・30… に付け直す */
 $('setAdd').onclick=guard($('setAdd'),async()=>{ /* 二重に押すと同じ行が2つできるので、終わるまで押せない */ const def=SET.find(s=>s.key===S.setCur); const rows=setRows(def); const row=def.newRow(); if(!def.nosort) row.sort_order=(Math.max(0,...rows.map(r=>r.sort_order||0))+1); if(def.key==='products'&&S.setCatFilter) row.category_id=S.setCatFilter;
   const { data, error } = await sb.rpc('pos_rows_add',{p_table:def.table,p:row}).then(oneRow); if(error){toast(error.message);return;} await logOp('設定の追加',{kind:def.name,name:def.label(data)},null,true); S.setSel=data; S.setNewId=data.id; renderSettings(S.setCur,true); });
 $('setEdit').onclick=()=>{ S.setEditMode=!S.setEditMode; renderSettings(S.setCur,true); };

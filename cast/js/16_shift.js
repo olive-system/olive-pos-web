@@ -2,7 +2,7 @@
 // ホームのシフトは成績の横（オーナー）
 // シフトの変更は申請の仕組みを作らず公式 LINE で黒服に（オーナー）。ホームの「申請（変更）」は外して、シフトの画面に「シフト変更（メッセージにてご相談ください）」。押すとお店のトークに戻る
 // シフトのカレンダーは左揃え（オーナー）
-// 確定のカレンダーは時刻を出さず「予約1」「係予約2」の件数だけ（時刻は日を押すと出る。オーナー）
+// 確定のカレンダーは、自分の出勤時刻は出すが、予約は時刻を出さず「予約1」「係予約2」の件数だけ（予約の時刻は日を押すと出る。オーナー）
 // お店の休みの日は「休」（押せない）
 // スタッフ設定で「出勤できる日のみ：可」の子は、逆に「出勤できる日」を提出（○。5人の上限なし）
 // 確定したシフトはカレンダーで、出勤時刻と同伴・予約・係予約（自分が係のお客様の予約）。日を押すと詳細
@@ -13,6 +13,7 @@ const calGrid = (month, cell) => { const m = new Date(month+'T00:00:00+09:00'), 
   let h = '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">' + WD.map(w => `<div class="muted" style="text-align:left;padding-left:5px;font-size:11px">${w}</div>`).join('');
   for(let i = 0; i < first; i++) h += '<div></div>';
   const td = shToday();
+  /* 今日のマスには class tdy を付ける。cell が返す HTML は、先頭が class の無い <div であること */
   for(let d = 1; d <= n; d++){ const iso = `${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; let c = cell(iso, d); if(iso === td) c = c.replace('<div ', '<div class="tdy" '); h += c; }
   return h + '</div>'; };
 const shEvTag = (EV, iso, off) => EV.has(iso) && !off ? '<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">イベント</small>' : ''; /* シフト設定のイベント日（シフトの上で分かるように） */
@@ -21,10 +22,12 @@ async function shiftHome(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const pG = Promise.resolve(sb.rpc('cast_meeting_get', { p_token: TOKEN })).catch(() => null); /* シフトとミーティングを同時に読む（前は順番に待っていた） */
   const pE = shEvLoad(); const r = await sb.rpc('cast_shift_info', { p_token: TOKEN }); if(r.error){ fail(r.error.message); return; }
+  /* 提出済みの日のうち、今はお店の休みになった日は、選んだ日から外す（休みの日は押せないので） */
   SHIFT = r.data; SHIFT.ev = await pE; await mtShiftMarks(SHIFT, pG); /* 自分のミーティング */ shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
 }
 /* 確定の前の来月は「確定後に表示されます」（来月のシフトは［確定］で公開。オーナー 2026-11-18） */
 const shNoFix = (S, mo) => (S.fixed || []).some(F => String(F.month).slice(0,7) === String(S.month).slice(0,7)) ? '' : `<div class="card"><div class="gh">${mo}月の出勤（未確定）</div><div class="muted sm" style="line-height:1.7">確定後に表示されます</div></div>`;
+/* ng＝押して選んだ日の Set（OK の子は出勤できる日）。full＝満の日、OFF＝お店の休み、dueD＝提出の期限の日 */
 function shiftPaint(ng){
   const S = SHIFT, EV = S.ev || new Set(), OFF = new Set(S.off || []), OK = !!S.ok_only, full = new Set(OK ? [] : S.full || []), mo = Number(String(S.month).slice(5,7)), dueD = mdDay(S.due);
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
@@ -53,6 +56,7 @@ function shiftPaintWire(ng, OK, mo){
     $('shGo').disabled = true;
     const q = await sb.rpc(OK ? 'cast_shift_ok_submit' : 'cast_shift_ng_submit', { p_token: TOKEN, p_days: days });
     if(q.error){ if($('shGo')) $('shGo').disabled = false; await uiAlert(q.error.message); shiftHome(); return; }
+    /* 上と同じく、お店の休みの日は選んだ日から外す */
     SHIFT = q.data; await uiAlert('提出しました'); shiftPaint(new Set(((SHIFT.ok_only ? SHIFT.ok : SHIFT.ng) || []).filter(d => !(SHIFT.off || []).includes(d))));
   };
 }
@@ -84,16 +88,19 @@ async function shiftAll(store){
   const pMt = ME && ME.hall ? Promise.resolve(sb.rpc('hall_meeting_get', { p_token: TOKEN })).catch(() => null) : null; /* 黒服は一番上にミーティング（ボタンはシフトに。見本 共有メモ_案3） */
   const pE = shEvLoad(store); const r = await sb.rpc('cast_shift_all', { p_token: TOKEN, p_store: store || null }); if(r.error){ fail(r.error.message); return; }
   const mt = pMt ? await pMt : null, mtBox = mt && !mt.error ? mtHallBox(mt.data) : '';
+  /* A.ev＝イベントの日の Set（月のカレンダーで使う）。日の画面では D.ev に「その日がイベントか」の真偽を入れる（同じ名前で形がちがう） */
   const A = SHALL = r.data; A.ev = await pE;
   const HL = await Promise.all((A.months || []).map(M => sb.rpc('cast_shift_health', { p_token: TOKEN, p_store: store || null, p_month: M.month }))); (A.months || []).forEach((M, i) => { M.health = HL[i].error ? null : HL[i].data; }); /* 月ごとの調整率・不足率・在籍（管理サイトのシフトと同じ3行。見本 ⑤） */ const td = new Date(A.today+'T00:00:00+09:00'), KLs = A.kakari_label || '係';
   const S = saKitB(saKitA({ store, mtBox, A, td, KLs })); S.cal = M => saCal(S, M);
   show(`${S.sw}${S.shHead}${S.mtBox}<div class="card"><div class="gh">本日 ${mdWD(S.td)} 出勤 ${S.tL.length}人${S.tL.some(x => x.trial) || (!SHQ && S.tHt.length) ? apLegend() : ''}</div>${S.rows(S.tL) || '<div class="muted sm">シフトなし</div>'}${S.todayExtra}</div>${(S.A.months || []).map(S.cal).join('')}`);
   saBind(S); }
 /* 全員のシフトの部品：時刻ごとのまとめ・予約・面接・黒服の休み */
+/* saKitA・saKitB・saCal・saBind の引数 S は、この画面の道具の入れ物（POS の S とは別物）。saKitA が道具を作り、saKitB が今日の分を足し、saCal・saBind が受け取る */
 function saKitA(S){ const { store, mtBox, A, td, KLs } = S;
   const box = 'border:1px solid var(--line);border-radius:6px;text-align:left;padding:5px 4px;font-size:13px;line-height:1.25;min-height:44px';
   // 同伴がある人は「同伴」の行にまとめて件数だけ（オーナー 案ア）。黒服はシフトに出さない（休みの日だけ「黒服の休み」）
-  const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x); }); /*。体験は「（体験）」を付けず、名前を丸で囲む（オーナー） */
+  const groups = L => { const T = {}, DH = []; L.forEach(x => { if(Number(x.douhan) > 0 || x.time === '同伴') DH.push(x); else (T[x.time] = T[x.time] || []).push(x); }); /* 体験は「（体験）」を付けず、名前を丸で囲む（オーナー） */
+    /* g の1つは [時刻, 名前を・でつないだ文字, 名前の HTML]。今は呼ぶ所（rows・日の小窓）が3つ目だけを使い、2つ目は使っていない */
     const g = Object.keys(T).sort().map(t => [t, T[t].map(x => x.name).join('・'), T[t].map(x => x.trial ? apRing(x.name, x.ap) : esc(x.name)).join('・')]); if(DH.length){ const c = x => `（${Math.max(1, Number(x.douhan) || 0)}件）`, n = DH.map(x => x.name + c(x)).join('・'); g.push(['同伴', n, DH.map(x => esc(x.name) + (x.black ? DRESS : '') + c(x)).join('・')]); } return g; }; /* 黒ドレスのしるし */
   const rows = L => groups(L).map(([t, n, h]) => `<div class="row" style="justify-content:flex-start"><b>${esc(t)}</b><span>${h}</span></div>`).join('');
   const all = k => (A.months || []).flatMap(M => M[k] || []);
@@ -120,6 +127,7 @@ const saFx = M => M.fixed ? '確定' : '未確定', SA_NOFIX = '<div class="mute
 function saCal(S, M){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hallOff,resvOf,rvHead,ivOf,htOf,ivRows,cur,tL,tOff,tR,tIv,tHt,sep,todayExtra,sw,shHead } = S; const OFF = new Set(M.off || []), D = {}, RV = {}; (M.shifts || []).forEach(x => (D[x.day] = D[x.day] || []).push(x)); (M.resv || []).forEach(x => RV[x.day] = (RV[x.day] || 0) + 1); const IV = {}; (M.iv || []).forEach(x => IV[x.day] = (IV[x.day] || 0) + 1); const RVD = {}; (M.resv || []).forEach(x => { if(x.douhan) RVD[x.day] = (RVD[x.day] || 0) + 1; }); /* 同伴と、同伴でない予約を分けて出す（足すと合計。オーナー「予約が2件と別に同伴が2件で合計4件あるみたい」→ 見本でウ「予約0 と表示したい」）。同伴・予約の行は場所を固定して、0 も出す（オーナー「予約の場所、同伴の列、固定して」「同伴も0ならゼロで表示する」） */
     return `<div class="card"><div class="gh">${Number(String(M.month).slice(5,7))}月の出勤（${saFx(M)}）</div>${healthHtml(M.health)}${M.fixed ? calGrid(M.month, (iso, d) => { const LA = D[iso] || [], L = LA.filter(hit), dh = L.reduce((a, x) => a + Number(x.douhan || 0), 0), rv = RV[iso] || 0;
       const iv = IV[iso] || 0;
+        /* 今日から先でお店の休みでない日は、出勤が無くても押せる（出勤を足すため）。過去の日と休みの日は、出勤・予約・面接がある時だけ押せて、見るだけの小窓 */
         return `<div ${LA.length||rv||iv||(iso>=A.today&&!OFF.has(iso))?`data-sa="${iso}"`:''} style="${box};${L.length?'cursor:pointer;background:var(--gold-soft);font-weight:700':''}">${d}${SHQ ? (L.length ? `<small style="display:block;font-size:10px;color:var(--pri);white-space:nowrap">${L.length > 1 ? L.length + '人' : esc(shT(L[0]))}</small>` : OFF.has(iso) ? '<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>' : '') : L.length?`<small style="display:block;font-size:10px;color:var(--pri)">${L.length}人</small>`:OFF.has(iso)?'<small style="display:block;font-size:10px;color:var(--muted);font-weight:400">休</small>':''}${shEvTag(A.ev, iso, OFF.has(iso))}${!SHQ && (L.length || rv || iv) ? `<small style="display:block;font-size:10px;color:var(--ok);font-weight:400;white-space:nowrap">同伴${RVD[iso] || 0}</small>`+
     `<small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">予約${rv - (RVD[iso] || 0)}</small><small style="display:block;font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">面接${iv}</small>` : ''}</div>`;
         })
@@ -142,9 +150,11 @@ function saBind(S){ const { store,mtBox,A,td,KLs,box,groups,rows,all,hit,shT,hal
 
 // 全員のシフトで、今日から先の日の出勤を直す（オーナー「追加や削除や出勤時間の変更」「全員のシフトが見れる人のみ」「×マークで」「追加ボタンで小窓でキャスト、選んだら時間を入力」「15分刻み」「PMはいらん」）
 // 直すとキャストに LINE（【シフトの追加】【シフトの変更】【シフトの取消】）・操作ログ「シフトの変更」。同伴のシフトは予約から入るので直さない
-// 時刻は営業時間の中だけ：19:50 と 20:00〜23:45 の15分ごと（オーナー「PMはいらん」「営業時間外に出勤できんだろ」。type=time は iPhone で午前・午後が出るので選ぶ形）
+// 時刻は営業時間の中だけ：19:50 と 20:00〜23:00 の15分ごと（オーナー「PMはいらん」「営業時間外に出勤できんだろ」。type=time は iPhone で午前・午後が出るので選ぶ形）
 // 23:00 まで（オーナー「23時まで可能。変更して全部」）
+/* 19:50 のあとに、20:00 から 23:00 まで15分ごとの13個（i÷4 が時、i を4で割った余り×15 が分） */
 const SH_EDIT_T = ['19:50', ...Array.from({ length: 13 }, (_, i) => `${20 + Math.floor(i / 4)}:${String(i % 4 * 15).padStart(2, '0')}`)];
+/* 時刻を空にされたら元の時刻に戻す（空のシフトは送らない）。今の時刻が選べる一覧に無い時は、一覧の先頭に足して黙って変えない */
 async function shiftDayEdit(iso, store){
   setBack(() => shiftAll(store)); show('<div class="card c muted">読み込み中…</div>');
   const [r, AB, RC] = await sdDayLoad(iso, store); if(r.error){ fail(r.error.message); return; }
@@ -180,6 +190,7 @@ function shiftDayAdd(D, d, iso, store, tin, set, again){ const C = D.casts || []
     const close = () => w.remove(), pick = () => { w.innerHTML = `<div class="box"><div style="max-height:60vh;overflow:auto"><button class="lkb" data-sdtr style="display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:700;border-color:var(--head)">体験</button><button class="lkb" data-sdiv style="display:block;width:100%;text-align:left;margin-bottom:6px;font-weight:700;border-color:var(--head)">面接</button><div style="border-top:1px solid var(--line);margin:8px 0"></div>${C.map((c, i) => `<button class="lkb" data-sdc="${i}" style="display:block;width:100%;text-align:left;margin-bottom:6px">${esc(c.name)}${c.ng ? ' <small style="color:var(--warn)">休み希望</small>' : ''}</button>`).join('') || '<div class="muted">なし</div>'}</div><div class="bt" style="margin-top:8px"><button class="btn g" data-k="no">キャンセル</button></div></div>`;
       w.querySelector('[data-k=no]').onclick = close; w.querySelector('[data-sdtr]').onclick = trial; w.querySelector('[data-sdiv]').onclick = () => apIvAddDlg(w, iso, store, pick, () => { close(); again(); }); w.querySelectorAll('[data-sdc]').forEach(b => b.onclick = () => time(C[+b.dataset.sdc])); };
     /* 体験の人の登録（オーナー「1番上に体験と言う項目を作って体験を押したら体験の子の情報を入力する画面」「報酬額は先方には見えないように」） */
+    /* trial・pick などは先に全部決めてから、最後に pick() を呼ぶ（呼ぶ順に頼っている） */
     const trial = () => shiftDayTrial(w, d, iso, store, tin, pick, close, again);
     const time = c => { w.innerHTML = `<div class="box"><p style="margin-bottom:10px">${esc(c.name)}</p>${tin('20:30', 'id="sdTm"', 'width:100%;font:inherit;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--card)')}<div class="bt"><button class="btn g" data-k="no">戻る</button><button class="btn" data-k="ok">追加</button></div></div>`;
       w.querySelector('[data-k=no]').onclick = pick; w.querySelector('[data-k=ok]').onclick = async e => { const v = w.querySelector('#sdTm').value; if(!v) return; e.target.disabled = true; close(); if(await set(c.id, v)) again(); }; };
@@ -198,6 +209,7 @@ function shiftTrialRow(c){ return `<button type="button" class="lkb" data-tc="${
       <span class="muted" style="overflow:hidden;text-overflow:ellipsis">本名 ${esc(c.real || '')}</span>${shiftTrialResCells(c)}</span></button>`; }
 /* 状態の列：回目・日・結果を、どの行でも同じ位置から */
 function shiftTrialResCells(c){ const T = c.trials || [], t = T[T.length - 1]; if(!t) return `<span>${esc(shiftTrialRes(c))}</span>`;
+  /* 状態の文字「○回目 日 結果」の最後の語（結果）だけを取り出し、回と日は幅をそろえた列に出す */
   const r = shiftTrialRes(c).split(' ').pop(); return `<span style="display:flex;gap:4px"><span style="flex:none;width:3em">${T.length}回目</span><span style="flex:none;width:3.8em">${mdDay(t.day)}</span><span>${esc(r)}</span></span>`; }
 async function shiftDayTrial(w, d, iso, store, tin, pick, close, again){
   const q = await sb.rpc('cast_shift_trial_cands', { p_token: TOKEN, p_store: store || null }); if(q.error){ await uiAlert(q.error.message); pick(); return; }
@@ -239,6 +251,7 @@ function shiftTrialForm(w, c, d, iso, store, tin, pick, close, again){ const fs 
       if(r.error){ e.target.disabled = false; await uiAlert(r.error.message); return; } close(); again(); };
 }
 
+/* ===== 当日欠勤 ===== */
 /* 日のシフトの当日欠勤（見本 当日欠勤の記録（11-26）①②）
    欠勤の行がある子は、出勤の数と一覧から外して、一覧の上の箱に「名前　連絡 13:10・理由」で出す（同じ欠勤を2か所に出さない）
    当日（今の営業日）の出勤を × で取り消す時だけ「本人都合／店都合」を選ぶ。本人都合＝当日欠勤（罰金はマイページの欠勤連絡と同じ判定）。店都合＝今までどおり消すだけ（オーナー 11/26「当日に削除する時のみにしてね」） */
@@ -270,7 +283,7 @@ function sdAbsDlg(x){ return new Promise(res => { const d = document.createEleme
     const r = d.querySelector('#abR').value.trim(); if(!r){ await uiAlert('理由を入力してください'); return; }
     d.remove(); res({ self: true, time: d.querySelector('#abT').value, reason: r }); }; }); }
 
-/* × を押した時：当日なら小窓で本人都合／店都合、前の日までは今までどおりの確かめ。終わったら true */
+/* × を押した時：当日なら小窓で本人都合／店都合、当日以外（先の日も）は今までどおりの確かめだけ。終わったら true */
 async function sdAbsCancel(x, iso, store, set){
   if(iso !== businessDate()){ if(!await uiConfirm(`${x.name}さんの ${x.time} の出勤を取消しますか？`, '取消')) return false; return set(x.staff_id, null); }
   const a = await sdAbsDlg(x); if(!a) return false;
@@ -279,16 +292,19 @@ async function sdAbsCancel(x, iso, store, set){
   if(q.error){ await uiAlert(q.error.message); return false; }
   return true; }
 
+/* ===== 出勤募集 ===== */
 /* 出勤募集（見本 当日欠勤ですぐ呼ぶ（11-26）⑦⑧⑨・当日欠勤の記録（11-26）③）
    当日欠勤で目安人数を下回った日に、シフトの無い子へ公式 LINE（SQL 739）。キャストはホームの一番上の「出勤募集」で［出勤可］。
    黒服は日のシフトの「出勤可」の並びから［追加］→ 補充（急な出勤の手当。SQL 740）。ふつうの［追加］は補充にしない */
 
+/* ホームの関数だが、キャストへの出勤募集の窓口なので、募集の rpc と同じこの節に置く */
 /* キャストのホーム：一番上の「出勤募集」の箱 */
 async function homeRecruit(){ const r = await homeKeep('rc', () => sb.rpc('cast_recruit_info', { p_token: TOKEN })); if(r.error || !r.data) return;
   const R = r.data, h = $('main').querySelector('.hello'); if(!h || $('rcBox')) return;
   const paint = () => `<div class="row" style="padding:0"><b>出勤募集</b><span class="sm muted">${esc(mdW(R.day))}</span></div><div style="height:10px"></div>
     ${R.ok_at ? `<div class="row" style="padding:0"><span>出勤可</span><b>${hmJst(R.ok_at).replace(/^0/, '')} 送信済</b></div><div class="muted sm" style="margin-top:4px">出勤時刻は黒服からご連絡します</div>` : '<button class="btn" id="rcOk">出勤可</button>'}`;
   h.insertAdjacentHTML('afterend', `<div class="card" id="rcBox" style="background:var(--gold-soft)">${paint()}</div>`);
+  /* 押した後は読み直さず、3分の使い回し（homeKeep）の中身 R を直す。ホームに戻っても「送信済み」のまま出る */
   const wire = () => { const b = $('rcOk'); if(!b) return; b.onclick = async () => { b.disabled = true; const q = await sb.rpc('cast_recruit_ok', { p_token: TOKEN, p_recruit: R.id });
     if(q.error){ b.disabled = false; await uiAlert(q.error.message); return; } R.ok_at = q.data.ok_at; $('rcBox').innerHTML = paint(); }; };
   wire(); }
