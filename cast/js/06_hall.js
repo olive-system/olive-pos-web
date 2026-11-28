@@ -132,6 +132,8 @@ function hallTodoOne(x, keep){
   if(x.trial){ hallTrialTodo(x); return; }
   if(x.greview){ hallGreviewTodo(x); return; }   /* 802：保証の期限の話し合い（29_greview.js） */
   if(x.spot && x.status !== 'done'){ hallSpotTodo(x); return; }
+  if(x.kyoka && x.status !== 'done'){ hallKyokaTodo(x); return; }   /* 818：来月の強化リスト（30_kyoka.js） */
+  if(x.clink && x.status !== 'done'){ hallClinkTodo(x); return; }   /* 818：連絡先連携（30_kyoka.js） */
   setBack(hallTodo); if(!keep){ tdShots = []; tdAbVals = {}; tdDiff = null; tdWhy = {}; }
   const fld = 'width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--card);color:var(--ink);box-sizing:border-box';
   const done = x.status === 'done', ph = (x.photos && x.photos.length) ? x.photos : (x.photo ? [x.photo] : []);
