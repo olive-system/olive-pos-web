@@ -1,12 +1,17 @@
 // 店ごとの「係」の名称（stores.kakari_label。空なら「係」）。画面の「係」は KL を差し込む。見出しの一覧は kReg に入れておき、kSet で付け直す。操作ログに残す操作の名前は「係」のまま（表示の時に kl で読み替える）
 function kDom(){ const a=$('castAddBtn'); if(a) a.textContent='＋ '+KL+'／同伴／アフター'; const t=$('castAddTtl'); if(t) t.textContent=KL+'／同伴／アフターを追加'; const c=document.querySelector('#castRole [data-cr=kakari]'); if(c) c.textContent=KL; }
 document.addEventListener('click',e=>{ const q=e.target.closest&&e.target.closest('.hint .qm'); if(q){ e.preventDefault(); e.stopPropagation(); q.closest('.hint').classList.toggle('open'); } },true); /* 15番：「？」で詳しい説明を開く・閉じる */
+/* この下の2つ（posFetch・sb）は通信の土台。ログインの記録の置き場 dualStore は lib/olive/core.js にあり、sb の storage で使う */
 /* （SQL 233 と同じ考え）：ログインの記録も2つの引き出し（localStorage と IndexedDB）にしまう。片方が消えてもログインし直さずに済む。ログアウトは両方から消す（オーナー「セキュリティが守れるなら同じようにしてほしい」） */
 /* すべての通信に端末の合鍵を付ける（データベースが「登録した端末」かを確かめる。点検） */
+/* k＝この端末の合鍵（端末の登録の画面で入れた olive_pos_terminal。SLOT ごとに別）。合鍵が無い時は付けずに送る */
 const posFetch=(u,o={})=>{ let k=null; try{ k=localStorage.getItem('olive_pos_terminal'+SLOT); }catch(e){} if(!k) return fetch(u,o); const h=new Headers(o.headers||{}); h.set('x-olive-term',k); return fetch(u,{...o,headers:h}); };
+/* storageKey の終わりは、下の SLOT と同じ「-値」の形。ここは SLOT より先に読まれるので、同じ式をもう一度書いている（片方を直す時はもう片方も） */
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global:{ fetch:posFetch }, auth:{ lock: async (n,t,fn)=>await fn() /* 裏で開いたままのタブがあってもログインが止まらないように */, storage:dualStore, storageKey:'olive-pos-auth'+((new URLSearchParams(location.search).get('slot')||'').replace(/[^a-z0-9]/gi,'') ? '-'+new URLSearchParams(location.search).get('slot').replace(/[^a-z0-9]/gi,'') : '') } }) /* POS とタイムカードを同じブラウザで同時に使えるように */;
-/* お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
+/* 下のフリガナの説明は、共通の部品（lib/olive/core.js のフリガナの部品）の決まり。このファイルにコードは無い */
+/* （コードは lib/olive/core.js のフリガナの部品）お客様のフリガナ（カタカナで保存。ひらがな・半角で入れてもカタカナに）。検索はひらがな・カタカナどちらでも（顧客サイトと同じ） */
 // 来店の時刻は5分切り上げ（09:17→09:20）。セットの始まり（set_start）も切り上げた時刻で記録し、セットの終わり・延長もそこから数える。来店の記録（opened_at）と退店（closed_at）は実際の時刻（オーナー）
+/* この下の hm5 は、来店の時刻を画面に出す時の5分切り上げだけ。set_start を切り上げて記録するのは伝票を作る所 */
 const hm5=t=>hmJst(ceil5(t));
 const ROLE = { douhan1:'同伴①', douhan2:'同伴②', douhan:'同伴', none:'' };
 const isDouhan=r=>r==='douhan1'||r==='douhan2'||r==='douhan';
@@ -23,12 +28,15 @@ for(const k of Object.keys(S)) Object.defineProperty(globalThis,k,{get:()=>S[k],
 S.openBills=[]; S.payMethod='cash'; S.billFrom='hall';
 /* 伝票の卓は、その時の卓の名前（bills.table_name。卓を削除・名前を変更しても前の伝票は前の名前）。営業中の伝票だけ今の卓の名前 */
 const billTable=b=>!b?'':(b.status==='open'&&S.tables.find(t=>t.id===b.table_id)?.name)||b.table_name||S.tables.find(t=>t.id===b.table_id)?.name||'';
+/* 下の「構造をシンプルに」の小窓の箱の部品は lib/olive/core.js の mkModal。このファイルにコードは無い */
 /* 構造をシンプルに（2回目）：小窓の箱（class modal on・重なりの順番）を作る3つの手順を1つに（前は同じ3つが18か所） */
 /* オーナー「通信切れならしょうがない。その場合は表示させて」：失敗の知らせ（〜できません：・〜エラー：・失敗・通信できませんでした）は、1.8秒で消さず OK を押すまで残す箱で出す。ほかの箱が開いている時は今までどおり下に出す */
 const TOAST_NG=/(できません|エラー|読めません|出せません|取り消せません|外せません)：|読み込めません|失敗|通信できませんでした/;
+/* TOAST.ms＝ふつうの知らせが消えるまでの時間（1.8秒）。TOAST.big＝失敗の知らせを、消えない知らせの箱に出し替える */
 TOAST.ms=1800; TOAST.big=m=>{ if(TOAST_NG.test(String(m))&&typeof uiAlert==='function'&&!$('uiDlg').classList.contains('on')){ uiAlert(String(m)); return true; } return false; }; /* POS は失敗の知らせを見落とさないように、知らせの箱で出す */
 function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.remove('on')); $(v).classList.add('on'); if(v==='v-hall'&&rtMastWait) setTimeout(rtMasters,0); }
-/* 同じ働きの書き方が画面ごとにあり、全角の数字を 0 と読む所があったので1つにする */
+/* （数の入力欄を読む部品 lib/olive/core.js の話。このファイルにコードは無い）同じ働きの書き方が画面ごとにあり、全角の数字を 0 と読む所があったので1つにする */
+/* この下の「営業日の始まり」の説明は、共通の部品 businessDate（lib/olive/core.js）の決まり。その下の時計がそれを使う */
 /* 営業日の始まり（その日の 8:00・日本時間）。端末の時刻の設定に左右されないように +09:00 を付ける */
 setInterval(()=>{ const d=new Date(); $('clock').textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; const bd=businessDate(d); $('hdDate').textContent=`${+bd.slice(5,7)}月${+bd.slice(8,10)}日`; /* 0時〜朝8時は前の日の営業日を出す（ゲネプロ #59） */ },1000);
 
@@ -53,6 +61,7 @@ $('posRegForm').addEventListener('submit', async e => { e.preventDefault(); cons
 $('posRegOut').onclick=async()=>{ await storeSwDrop(); await sb.auth.signOut(); location.reload(); }; /* 登録の画面からログアウト（点検 B6）。端末の合鍵は消さない */
 /* オーナーの端末は、上の店名を押して銀座・広島を切り替える（オーナー「いちいち消してログインし直すのが嫌」）。店ごとのログインは ?slot= で別々に残る。
    この端末で開いた店を olive_pos_stores（2つの引き出し）に控え、2店ある時だけ店名で、もう1店へ。2店目は設定の「店舗追加」から（その店のログイン＋登録コード。登録コードはオーナーだけが発行） */
+/* 店の切り替え：posStores＝この端末で開いた店の控え（店の id → 名前と SLOT）。Other＝もう1店（今の SLOT 以外）・Rec＝今の店を控える・Drop＝今の SLOT の控えを消す・Show＝もう1店がある時だけ押せるようにする */
 const STORES_KEY='olive_pos_stores', SLOT_RAW=SLOT.slice(1); let posStores={}; S.termSwitch=false; /* 「店舗追加」は管理サイトで「店舗切替」をオンにした端末だけ（オーナー「店の iPad では出さない」） */
 const slotUrl=s=>location.pathname+(s?'?slot='+encodeURIComponent(s):'');
 async function storeSwLoad(){ try{ posStores=JSON.parse(await dualStore.getItem(STORES_KEY)||'{}')||{}; }catch(e){ posStores={}; } }
@@ -65,6 +74,7 @@ $('storeName').onclick=()=>{ const o=storeSwOther(); if(o) location.href=slotUrl
 $('loginBack').onclick=$('posRegBack').onclick=()=>{ const o=storeSwOther(); if(o) location.href=slotUrl(o.slot); }; /* ログインの画面から、控えのある店へ戻る */
 storeSwLoad().then(storeSwShow);
 /* 点検 端末のログインと合鍵を確かめる。パスワードが変わった（古いログイン）→ ログイン画面へ。合鍵が外れた → 登録の画面へ。前は古いログインでも「この端末を登録」になり、登録しても断られた／開いたまま登録が外れると会計の締めなどが黙って0行で終わった */
+/* 答え true＝ログイン画面か登録の画面に切り替えた（呼んだ側は何もしない）。false＝問題なし、または確かめられなかった（通信の失敗はここでは止めない） */
 async function posTermLost(){ try{ const [tk]=await ptLoad(); let pt=await sb.rpc('pos_term_check',{p_token:tk}); if(pt.error&&pt.status===401){ try{ await sb.auth.refreshSession(); }catch(e){} pt=await sb.rpc('pos_term_check',{p_token:tk}); }
   if(pt.error&&pt.status===401){ await sb.auth.signOut(); await uiAlert('ログインが切れました。再度ログインしてください'); location.reload(); return true; } /* 読み直した後も 401＝ログインが切れた。前は通信の失敗と同じに扱い、何もできないまま1分ごとに読み続けた（スリープ明けの一時の 401 は、読み直しで通る） */
   if(pt.error||!pt.data) return false;
@@ -74,6 +84,7 @@ async function posTermLost(){ try{ const [tk]=await ptLoad(); let pt=await sb.rp
    20秒たっても返事が無い時も、最初からやり直す。前は赤い文字が出るだけで止まり、通信が戻っても開かず、入力欄が出て「ログインできない」と思わせた（広島） */
 let startRun=0;
 const loginWait=(on,msg)=>{ $('loginForm').classList.toggle('waiting',on); $('loginErr').textContent=msg||''; };
+/* run・startRun＝呼んだ回の番号。新しい回が始まったら古い回は live() が偽になり、途中で抜ける（二重に開かない）。live()＝この回がいちばん新しく、まだホールを開いていない。retry()＝5秒後に最初からやり直す。start.slow＝20秒たっても返事が無い時のやり直し */
 async function start(){ const run=++startRun; clearTimeout(start.r); clearTimeout(start.slow);
   const live=()=>run===startRun&&!S.hallOn; const retry=()=>{ if(!live()) return; loginWait(true,'通信を確認しています…'); clearTimeout(start.r); start.r=setTimeout(start,5000); };
   start.slow=setTimeout(retry,20000);
@@ -84,6 +95,7 @@ async function start(){ const run=++startRun; clearTimeout(start.r); clearTimeou
     S.DBLOG=dl.data===true; }catch(e){}
   if(!live()) return;
   /* 登録した端末だけ開く。確認できない時（通信の失敗など）も開かない */
+/* ptLoad は合鍵を localStorage から探し、無ければ IndexedDB から探して localStorage に戻す。この行はそのあと、localStorage が空なら両方に書き、あれば IndexedDB にも入れておく */
   { const [tk,note]=await ptLoad(); if(tk&&!ptGet()) ptSet(tk); else if(tk) keyDb('readwrite',s=>s.put(tk,PT_KEY)); /* もう片方の引き出しにも入れておく */
     const pt=await sb.rpc('pos_term_check',{p_token:tk,p_note:note}); if(!live()) return;
     if(pt.error||!pt.data){ retry(); return; }
@@ -107,16 +119,19 @@ async function loadMasters(withCust,quiet){ /* お客様は最初だけ全部読
 }
 // 体験キャストは1日限り：登録した営業日の翌営業日になったら自動で「削除済」にする（記録は残る）
 // マイページのシフトから前もって登録した体験の人は、体験の日（trial_day）に在籍に出し、その次の営業日に削除済にする
-let trialSweepDay=null; S.salesM={};
+let trialSweepDay=null; S.salesM={}; /* S.salesM＝キャストごとの売上連絡の状況（04_casts.js が入れ、04_cast_form.js が読む） */
 async function expireTrials(){ const bd=businessDate(); if(trialSweepDay===bd||!S.store) return; try{ /* 在籍と自動削除は1回の関数でまとめて（2台の iPad が同時に開いても1回で済む。SQL 600） */
   const r=await sb.rpc('pos_trial_sweep',{p_bd:bd}); if(r.error) return; const done=[];
+/* x.kind：on＝体験の日なので在籍に出した人。それ以外＝体験の次の営業日なので削除済にした人 */
   for(const x of (r.data||[])){ if(x.kind==='on') await logOp('体験キャストの在籍',{name:x.display_name,day:bd},null,true); else { done.push(x.id); await logOp('体験キャストの自動削除',{name:x.display_name,registered:x.registered},null,true); } }
   if(done.length) S.staff=S.staff.filter(z=>!done.includes(z.id)); trialSweepDay=bd; }catch(e){ console.warn('expireTrials',e); } }
 
 // ---------- リアルタイム 設定・伝票がほかで変わったら、すぐ読み直す（つながらない時は、これまでどおり1分ごと） ----------
 // 設定：ホール・伝票を見ている時に読み直す（メニュー登録・注文・設定・顧客の画面の間は、ホールに戻った時）。伝票：ホールは読み直し、開いている伝票は
 // もう1台で変わった時だけ最新にして「もう1台で変更されました」。この端末で触った直後（3秒）と確認の画面が出ている間は待つ
+/* rtCh＝リアルタイムの購読。rtMastT・rtHallT・rtBillT＝設定・ホール・伝票を読み直すまでの待ちのタイマー。rtTap＝最後に画面に触った時刻。rtMastWait＝設定の読み直しを、ホールに戻るまで待っている印 */
 let rtCh=null, rtMastT=0, rtHallT=0, rtBillT=0, rtTap=0, rtMastWait=false; S.billFp='';
+/* fpOf＝伝票の指紋（中身を文字にした物）。読むたびに計算し直す金額（depPays・totals）は除き、中身が変わった時だけ「ほかの端末で変更されました」にする */
 const fpOf=b=>JSON.stringify(b,(k,v)=>k==='depPays'||k==='totals'?undefined:v);
 let rtDown=false; document.addEventListener('pointerdown',()=>{ rtTap=Date.now(); rtDown=true; },true); ['pointerup','pointercancel'].forEach(k=>document.addEventListener(k,()=>{ rtDown=false; },true));
 const rtPressing=()=>rtDown&&Date.now()-rtTap<1500; /* 指が触れている間（1.5秒まで）。その間にホールの卓を作り直すと、押した卓の要素が入れかわって、その1回の押しが消えた */
@@ -139,18 +154,21 @@ async function rtBillCheck(){ if(!S.cur||!(onView('v-bill')||onView('v-pay'))) r
 
 // 在籍リスト・閉店作業の時刻の前のしるし（同じ幅。アフター・シフトは2行）
 /* 読めなかった項目は黙って消さず・0件として通さず、この1行を出す（点検 B5） */ const RDERR_T='読み込めない項目があります。開き直してください', RDERR=`<div style="color:var(--warn);font-weight:700;font-size:14px;margin:2px 2px 8px;line-height:1.6">${RDERR_T}</div>`;
+/* PL＝在籍リストの小さいしるし（pill）。出・退・アフター・シフト・同伴 */
 const PL_IN='<span class="pl">出</span>', PL_OUT='<span class="pl">退</span>', PL_AF='<span class="pl af">アフ<br>ター</span>', PL_SH='<span class="pl af">シフ<br>ト</span>'; const PL_DH='<span class="pl af">同<br>伴</span>'; // 出退勤罰金確認：同伴で出勤した子は「出」の代わり（オーナー「一マスに同伴」）
-// 伝票の同じ注文を1行にまとめる（データは注文ごとのまま。見た目だけ）。品・単価・係小計の価格・バック額・ポイント・バックの人が同じもの
 // 伝票の品の種類（並び順 itemsInOrder に渡す。セット・延長・VIP の後に ボトル系・ドリンク系・それ以外・BC・HC）
 const posItemKind=i=>billItemKind(i,S.products,S.categories,S.settings);
+// 伝票の同じ注文を1行にまとめる（データは注文ごとのまま。見た目だけ）。品・単価・係小計の価格・バック額・ポイント・バックの人が同じもの
 function groupItems(items){ const out=[], by=new Map();
   items.forEach(i=>{ const who=[...new Set((i.bill_item_splits||[]).filter(s=>(s.back_amount||0)>0||Number(s.back_points||0)>0).map(s=>s.staff_id))].sort().join(',');
+/* k＝まとめる鍵。品・名前・分類・単価・係小計の価格・バック額・ポイント・サービス料の対象・キープ・バックの人・小計の係がすべて同じ注文だけを1行にする（771 は SQL の番号） */
     const k=[i.product_id,i.name,i.category_id,i.unit_price,i.cast_subtotal_price,i.back_amount,Number(i.back_points||0),!!i.is_service_target,!!i.is_keep,who,i.subtotal_staff_id||''].join('|'); /* 771：小計の係がちがう注文はまとめない */
     let g=by.get(k); if(!g){ g={...i,qty:0,rows:[],bill_item_splits:[]}; by.set(k,g); out.push(g); } g.rows.push(i); g.qty+=i.qty;
     (i.bill_item_splits||[]).forEach(s=>{ const e=g.bill_item_splits.find(z=>z.staff_id===s.staff_id); if(e){ e.back_amount=(e.back_amount||0)+(s.back_amount||0); e.back_points=Number(e.back_points||0)+Number(s.back_points||0); } else g.bill_item_splits.push({...s}); }); });
   out.forEach(g=>{ g.ids=g.rows.map(r=>r.id); g.rows.sort((a,b)=>String(a.added_at||'').localeCompare(String(b.added_at||''))); }); return out; }
-// 職員の名簿（在籍・退職を全部）。伝票・在籍リスト・設定・ホールのどの画面も使う
+/* 閉店時刻の初めの値。loadMasters が店の値で上書きし、読めない時は 1:00 のまま */
 S.closeHM='01:00';
+// 職員の名簿（在籍・退職を全部）。伝票・在籍リスト・設定・ホールのどの画面も使う
 async function loadStaffAll(){ staffAllSet(await sb.from('staff').select('*').order('sort_order').order('id')); }
 function staffAllSet({ data, error }){ /* 読めなかった時に空で上書きすると、名前・係の選択・在籍リストが全部消えるので、前のまま残す */ if(error){ toast(RDERR_T); return; } S.staffAll=data||[]; S.staff=S.staffAll.filter(s=>s.is_active).map(s=>({id:s.id,display_name:s.display_name,kind:s.kind,sort_order:s.sort_order})); }
 // 担当の黒服。区分が黒服で在籍中の人だけ有効。退職・区分変更・未登録は「未選択」
@@ -175,12 +193,15 @@ function dragSort(list,sel,onDone){
 /* 1回に1000件までしか返らないので、1000件ずつ全部読む（お客様5000件以上に対応） */
 // 係は店舗ごと（SQL 048 の customer_kakari）。読み込んだお客様の kakari_staff_id を、この店舗の係に置き換える
 const CUSEL='*,customer_kakari(store_id,staff_id)';
+/* cuK＝お客様1人の係を、この店の係（customer_kakari）に置き換える。CUSEL＝お客様を読む時の列（係の表も一緒に読む） */
 function cuK(c){ if(!c||!('customer_kakari' in c)) return c; const k=(c.customer_kakari||[]).find(x=>x.store_id===S.store?.id); delete c.customer_kakari; c.kakari_staff_id=k?k.staff_id:null; return c; }
 async function cuLoadAll(){ let r=await sbAll(()=>sb.from('customers').select(CUSEL).order('name').order('id')); if(r.error&&/customer_kakari/.test(r.error.message)){ toast((''+KL+'を読み込めません：')+r.error.message); r=await sbAll(()=>sb.from('customers').select('*').order('name').order('id')); } return r; }
 /* お客様は最初に全部読み、あとは更新・登録の時刻が前に読んだ一番新しい時刻（5分の余裕）より後の人だけ読む。消えた人に気づくため、10分ごとに件数だけ読み、手元と違う時だけ全部読む（データベースのメモリ不足・2026-11-27。前は10分ごとに全員を読み直していた） */
+/* cuMax＝前に読んだお客様の中で、いちばん新しい更新・登録の時刻（ミリ秒）。cuFullAt＝最後に全部読んだ（または件数を確かめた）時刻 */
 let cuMax=0, cuFullAt=0; const cuStamp=c=>Math.max(Date.parse(c?.updated_at)||0,Date.parse(c?.created_at)||0);
 function cuMark(full,list){ if(full) cuFullAt=Date.now(); for(const c of (list||S.customers)) cuMax=Math.max(cuMax,cuStamp(c)); }
 async function cuCountOk(n){ const r=await sb.from('customers').select('id',{count:'exact',head:true}); if(r.error||r.count!==n) return false; cuFullAt=Date.now(); return true; }
+/* cuPull(delta)：delta が真＝変わった分だけ読む。偽＝10分たっていれば、変わった分を読んで件数を確かめ、合わない時だけ全部読み直す。最初（cuMax が 0）はいつも全部読む。答えは手元の一覧に変わった分を足した全員 */
 async function cuPull(delta){ if(cuMax&&!delta&&Date.now()-cuFullAt>=600000){ const d=await cuPull(true); if(d.error||!d.data||await cuCountOk(d.data.length)) return d; }
   if(!cuMax||(!delta&&Date.now()-cuFullAt>=600000)){ const r=await cuLoadAll(); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMax=0; cuMark(true,r.data); return {data:r.data,error:null}; }
   const since=new Date(cuMax-300000).toISOString(); const r=await sbAll(()=>sb.from('customers').select(CUSEL).or(`updated_at.gte."${since}",created_at.gte."${since}"`).order('id')); if(r.error||!r.data) return r; r.data.forEach(cuK); cuMark(false,r.data);
@@ -189,6 +210,7 @@ async function cuPull(delta){ if(cuMax&&!delta&&Date.now()-cuFullAt>=600000){ co
 async function cuFresh(){ const r=await cuPull(true); if(r&&r.data) S.customers=r.data; }
 /* 伝票の金額を営業日ごとに1回でまとめて読む（calc_bills は calc_bill と同じ式＝SQL 091。前は伝票1枚ごとに1回の通信で、閉店の前は数十回）。
    まとめて読めなかった伝票だけ1枚ずつ読む。読めない伝票は null */
+/* m＝伝票の id → 金額の内訳（x.j は calc_bills が返す1枚分の内訳の JSON）。days＝まとめて読む営業日 */
 async function billDues(bills){ const m={}; const days=bills.length>1?[...new Set(bills.map(b=>b.business_date).filter(Boolean))]:[]; /* 1枚だけなら calc_bill の方が軽い */
   const rs=await Promise.all(days.map(d=>sb.rpc('calc_bills',{p_store:S.store.id,p_from:d,p_to:d})));
   rs.forEach(r=>{ if(!r.error) (r.data||[]).forEach(x=>{ m[x.bill_id]=x.j; }); });
