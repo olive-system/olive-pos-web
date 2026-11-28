@@ -48,7 +48,7 @@ function uiTimeHM(def,bd){ return new Promise(res=>{ const st=new Date(bdStart(b
   }
 $('bTime').onclick=async()=>{ if(!S.cur||S.cur.status!=='open') return; const v=await uiTimeHM(S.cur.set_start,S.cur.business_date); if(!v) return; if(new Date(v).getTime()>Date.now()){ toast('今より後の時刻にはできません'); return; } const before=S.cur.set_start; if(Math.abs(new Date(v).getTime()-new Date(before).getTime())<60000) return;
   const u=await sb.rpc('pos_rows_set',{p_table:'bills',p_where:{id:(S.cur.id)??null},p:{opened_at:v,set_start:ceil5(v).toISOString()}}); if(u.error){ toast(u.error.message); return; } await logOp('来店時刻の変更',{before:hmJst(before),after:hmJst(v)});
-  const nr=douhanRole(v); for(const c of (S.cur.bill_casts||[]).filter(c=>isDouhan(c.role)&&c.role!==nr)) await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(c.id)??null},p:{role:nr}});
+  const nr=douhanRoleAt(v); for(const c of (S.cur.bill_casts||[]).filter(c=>isDouhan(c.role)&&c.role!==nr)) await sb.rpc('pos_rows_set',{p_table:'bill_casts',p_where:{id:(c.id)??null},p:{role:nr}});
   const b2={...S.cur,set_start:ceil5(v).toISOString()}; let ex=[...(S.cur.bill_extensions||[])]; const now=new Date();
   for(;;){ const last=[...ex].reverse().find(e=>e.is_auto); if(!last) break; const rest=ex.filter(e=>e!==last); if(billEnd({...b2,bill_extensions:rest})<now) break; const r=await sb.rpc('pos_rows_del',{p_table:'bill_extensions',p_where:{id:(last.id)??null}}); if(r.error) break; ex=rest; }
   if(billEnd({...b2,bill_extensions:ex})<now){ const r=await sb.rpc('pos_auto_extend',{p_bill:S.cur.id}); if(r.error) toast(r.error.message); } // 自動延長はデータベースで足す
