@@ -15,10 +15,11 @@ const csMLabel=m=>{ const [y,mo]=m.split('-').map(Number); return `${y}年${mo}�
 const csMShort=m=>`${Number(m.split('-')[1])}月`;
 const csList=st=>sb.from('staff').select('*').eq('store_id',st).eq('is_active',true).order('sort_order').order('id');
 // 報酬形態（時給・日給）と日給も月ごと。前の行（pay_type が空）は staff の値を使う
-function csTerms(s,rows,m){ const t=rows.filter(r=>r.staff_id===s.id&&r.month<=m&&(r.month===m||!r.only_month)).sort((a,b)=>a.month<b.month?1:-1)[0];
+/* wd＝その店の厚生費の初めの値（pos_settings.welfare_default）。個別設定の行がまだ無い子の表示と、初めて保存する時の値。店ごとに決まりが違う（広島は厚生費なし）ため */
+function csTerms(s,rows,m,wd){ const t=rows.filter(r=>r.staff_id===s.id&&r.month<=m&&(r.month===m||!r.only_month)).sort((a,b)=>a.month<b.month?1:-1)[0];
   const pay=x=>{ const pt=x.pay_type||(s.is_seppan?'seppan':s.pay_type==='daily'?'daily':'hourly'); /* 報酬に折半 */ return {...x,pay_type:pt,daily_wage:pt==='daily'?(x.pay_type?x.daily_wage:s.daily_wage)??null:null}; };
   if(t) return pay({...t,exempt_fines:t.exempt_fines||[]});
-  return pay({month:null,only_month:false,guaranteed_wage:s.guaranteed_wage??null,guarantee_until:s.guarantee_until??null,douhan_quota:s.douhan_quota??null,back_pct:null,back_mode:'add',withhold:null,ctax_pct:null,welfare_mode:'std',welfare_amount:null,exempt_fines:[],slide_ids:null,pay_type:null,daily_wage:null,seppan_pct:null}); }
+  return pay({month:null,only_month:false,guaranteed_wage:s.guaranteed_wage??null,guarantee_until:s.guarantee_until??null,douhan_quota:s.douhan_quota??null,back_pct:null,back_mode:'add',withhold:null,ctax_pct:null,welfare_mode:wd||'std',welfare_amount:null,exempt_fines:[],slide_ids:null,pay_type:null,daily_wage:null,seppan_pct:null}); }
 const csDate=d=>{ if(!d) return '—'; if(d===CS_FOREVER) return '無期限'; const [y,m,dd]=d.split('-').map(Number); return `${y}/${m}/${dd}`; };
 
 PAGES.set_cast=async()=>{
@@ -37,17 +38,17 @@ function csAskWhen(m){ return new Promise(res=>{ const md=mkModal(null,`<h2 styl
         <button class="ghost" data-v="after">${csMShort(m)}以降</button><button class="ghost" data-v="only">${csMShort(m)}のみ</button><button class="ghost" data-v="" style="border:none;color:var(--muted)">キャンセル</button></div>`);
         md.querySelectorAll('button').forEach(b=>b.onclick=()=>{ md.remove(); res(b.dataset.v); }); }); }
 async function csCastPart(box,st,ed,m){
-  const [sf,tm,ft,nt,stb]=await Promise.all([csList(st), sbAll(()=>sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m).order('id')),
+  const [sf,tm,ft,nt,stb,ps]=await Promise.all([csList(st), sbAll(()=>sb.from('cast_terms').select('*').eq('store_id',st).lte('month',m).order('id')),
     sb.from('fine_types').select('name').eq('store_id',st).order('sort_order'), sbAll(()=>sb.from('cast_notes').select('staff_id').eq('store_id',st).eq('is_void',false).order('id')), /* 1000行で切れないように分けて読む */
-    sb.from('slide_tables').select('*').eq('store_id',st).order('sort_order')]);
+    sb.from('slide_tables').select('*').eq('store_id',st).order('sort_order'), sb.from('pos_settings').select('welfare_default').eq('store_id',st).maybeSingle()]);
   if(page!=='set_cast'||storeId!==st||csMonth!==m||!box.isConnected) return;
   const er=sf.error||tm.error||nt.error||(stb.error&&!/exist|schema cache/.test(stb.error.message)?stb.error:null); /* スライド表が読めないまま保存すると、選んであったスライド表が消える（SQL 058 の前の「表が無い」だけは空で通す） */
   if(er){ box.innerHTML=`<h2 style="margin:0 0 8px">キャスト</h2><div class="card err">読み込めません：${esc(er.message)}</div>`; return; }
-  const K=csCastPrep({box,st,ed,m,sf,tm,ft,nt,stb}); K.cell=r=>csCastCell(K,r);
+  const K=csCastPrep({box,st,ed,m,sf,tm,ft,nt,stb,wd:ps.data?.welfare_default}); K.cell=r=>csCastCell(K,r);
   box.innerHTML=csCastHtml(K);
   csCastBind(K); };
 /* 表に使う値と部品（担当黒服・スライド表・罰金の名前・入力欄の形） */
-function csCastPrep(K){ const {box,st,ed,m,sf,tm,ft,nt,stb}=K;
+function csCastPrep(K){ const {box,st,ed,m,sf,tm,ft,nt,stb,wd}=K;
   const all=sf.data||[], halls=all.filter(x=>x.kind==='hall'), casts=all.filter(x=>x.kind==='cast'&&!x.is_trial&&!x.kakari_only);
   const nc={}; (nt.data||[]).forEach(x=>nc[x.staff_id]=(nc[x.staff_id]||0)+1);
   const tbls=stb.error?[]:(stb.data||[]).filter(x=>x.is_active||x.archived); // SQL 058 の前は空。（点検 C7）：archived＝時給／日給の変更の前に写した表（前の月の条件だけが使う。選ぶ一覧には出さない）
@@ -56,7 +57,7 @@ function csCastPrep(K){ const {box,st,ed,m,sf,tm,ft,nt,stb}=K;
   const slTxt=(s,t)=>{ const u=unitOf(s,t); if(!u) return '—'; const ok=slOk(t.slide_ids,u); return ok.length?esc(ok.map(id=>slShort(tbls.find(x=>x.id===id).name)).join('・')):'<span class="badge warnb">未選択</span>'; };
   const slShort=n=>String(n).replace(/スライド(表)?$/,'')||n; // 表の中は短く
   const fines=[...new Set([...(ft.data||[]).map(x=>x.name),'同伴ノルマ','新調日',CS_PUNCH])];
-  const rows=casts.map(s=>({s,t:csTerms(s,tm.data||[],m)}));
+  const rows=casts.map(s=>({s,t:csTerms(s,tm.data||[],m,wd)}));
   const hallName=id=>halls.find(h=>h.id===id)?.display_name||'—';
   const E=csEdit==='cast', lock=!!csEdit&&!E;
   const sel=csSel;
