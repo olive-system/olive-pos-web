@@ -61,6 +61,7 @@ const HC_READ = new Set(['cast_memo_list', 'hall_guarantee_review', 'hall_my_tur
   'cast_dress_info', 'cast_birthdays', 'cast_notice_list', 'cast_sales_today', 'cast_line_qr', 'cast_my_rate' /* キャストのホームと詳細が読むだけ。前は入っておらず、詳細を開くとためおきが消えていた（2026-11-28） */,
   'cast_key_my' /* 鍵のタイル（20_key.js）が読むだけ。前は入っておらず、トップを開いた直後に60秒のためおきが消えていた */]);
 { const rpc0 = sb.rpc.bind(sb); sb.rpc = (fn, ...a) => { if(!HC_READ.has(fn)){ HC = null; for(const k in HK) delete HK[k]; } return rpc0(fn, ...a); }; } /* マイページのどの画面の呼び出しもここを通る（このファイルは1回だけ読む）。読むだけの関数を新しく作った時は HC_READ にも足す（足さないと60秒の覚えがすぐ消えるだけで、まちがった数は出ない） */
+/* ホームの5つの数を60秒だけ共有。読めなかった分は消して次に読み直す */
 function hcGet(){
   if(HC && Date.now() - HC.at < 60000) return HC;
   /* q＝1つ読む。失敗した時は覚えを消して、次にトップを開いた時に読み直す（まだ h が今の覚えの時だけ） */

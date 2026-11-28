@@ -131,6 +131,7 @@ function apBindBase(P){ const { id, store, again } = P; const M = $('main'); con
   M.querySelectorAll('img[data-ph]').forEach(async im => { const src = await apPhotoUrl(store, im.dataset.ph); if(src) im.src = src; im.onclick = () => im.src && apPhotoBig(store, im.dataset.ph, im.src, again); });
 }
 /* 1つの項目を保存（読めない時は知らせて開き直す） */
+/* false を返したら読み直し済み。呼び側はその先の処理をしない */
 async function apSave(P, p){ const { id, store, again } = P; const q = await sb.rpc('ap_save', { p_token: TOKEN, p_store: store || null, p_id: id, p }); if(q.error){ await uiAlert(q.error.message); again(); return false; } return true; }
 function apSegV(k){ const b = $('main').querySelector(`[data-seg="${k}"] button.on`); return b ? b.dataset.v : ''; }
 /* 面接の結果の保存。体験日・時刻・報酬・本名・源氏名は「体験」の時だけ送り、ほかは null（体験日と報酬は空でも送れる。決まりは ap_interview_result が見る） */
@@ -180,6 +181,7 @@ function apIvAddDlg(w, iso, store, back, done){ const d = new Date(iso + 'T00:00
 }
 
 // 応募の人に届く LINE のボタン（LINE連携していない人も開く）。［面接予約］は押した時刻を残して予約ページへ・［ご感想］は体験の翌日
+/* go が book・judge・scout・sheet 以外なら、体験の翌日のご感想の画面 */
 async function apLiff(go){
   if($('tSub')) $('tSub').textContent = ''; document.title = 'OLIVE'; /* 応募の人に「LINEマイページ」は出さない。店の名前は店の表から（ジャッジの画面は自分の題を出すので上書きしない） */
   if(go !== 'judge' && go !== 'scout') sb.rpc('ap_store_title', { p_store: STORE }).then(r => { if(r.data) document.title = r.data; });

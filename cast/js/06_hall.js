@@ -1,3 +1,4 @@
+/* 黒服の画面3つ（TODO・担当キャスト・朝礼）。ホームは 05_bills.js */
 // 黒服の TODO（オーナー。TimeTree の「todoリスト写メ報告」の代わり）。その日の出勤の黒服がやる。写真が要る項目は撮らないと完了にならない。できない時は理由
 const TODO_SLOT = { open:'開店作業', close:'閉店作業', by17:'17時まで', none:'' };
 async function hallTodo(){
@@ -161,6 +162,7 @@ function hallTodoOne(x, keep){
   };
   $('tdNo').onclick = () => hallTodoSkip(x, fld);
 }
+/* 担当キャスト一覧：成績と未完了を出し、当日欠勤の子は補充の行も出す */
 async function hallCasts(){
   setBack(home); show('<div class="card c muted">読み込み中…</div>');
   const [r, ab] = await Promise.all([sb.rpc('hall_casts', { p_token: TOKEN }), sb.rpc('cast_shift_day_absent', { p_token: TOKEN, p_store: null, p_day: businessDate() })]); if(r.error){ fail(r.error.message); return; }
@@ -174,6 +176,7 @@ async function hallCasts(){
       <div class="sm muted" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>${esc(KL)}小計 ${Math.round(N(st.sales)/10000).toLocaleString('ja-JP')}万・同伴${N(st.douhan)}・反応◎${N(st.reactions)}</span>${todo.length?`<span class="err">未完了：${todo.join('・')}</span>`:''}</div>
       ${c.absent?`<div class="sm muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">連絡 ${hmJst(c.absent.at).replace(/^0/, '')}・${esc(String(c.absent.reason||'').replace(/\s+/g,' '))}</div>${RF[c.name]?sdRefillRow(RF[c.name]):''}`:''}</div>`; }).join('')}</div>` : '<div class="card c muted">担当キャストがいません</div>'}`);
 }
+/* 朝礼で開いているお客様の予約 id。描き直しても開いたままにする */
 let hcOpen = new Set();
 /* 天気はアイコン（Meteocons・MIT）＋小さい言葉（オーナー「“晴”はパッとみでわからん」「絵文字やめて、ちゃんと探して」→ ア）。20時〜翌1時なので夜のアイコン */
 const WXN=c=>WXT(c)[0];
@@ -202,6 +205,7 @@ function hcTsukeHtml(){ if(!hcK || !hcK.required) return ''; const v = hcK.staff
 function hcTsukeBind(){ $('main').querySelectorAll('[data-tk]').forEach(x => x.onchange = async () => { x.disabled = true;
   const r = await sb.rpc('hall_tsuke_staff_set', { p_token: TOKEN, p_staff: x.value || null }); x.disabled = false;
   if(r.error){ await uiAlert(r.error.message); hallChorei(true); return; } hcK.staff_id = x.value || null; x.style.color = x.value ? 'var(--ink)' : 'var(--warn)'; toast('保存しました'); }); }
+/* 朝礼は先に全部読み、お客様の開閉は読み直さず描き直すだけ */
 async function hallChorei(keepWx){
   setBack(home); if(!$('hcBox')) show('<div class="card c muted">読み込み中…</div>');
   const [r, t, k, h, ps] = await Promise.all([sb.rpc('hall_chorei', { p_token: TOKEN }), sb.rpc('hall_chorei_trials', { p_token: TOKEN }), sb.rpc('hall_tsuke_staff', { p_token: TOKEN }), homeKeep('hh', () => sb.rpc('cast_shift_health', { p_token: TOKEN, p_store: null, p_month: null })), homeKeep('ht', () => sb.rpc('hall_my_turnover', { p_token: TOKEN }))]); /* 調整率・不足率と離職率は3分ためおく（01_ui_home.js の homeKeep） */ if(r.error){ fail(r.error.message); return; }

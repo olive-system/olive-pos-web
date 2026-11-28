@@ -4,6 +4,7 @@ function thxParam(){
   if(!t){ const st = q.get('liff.state'); if(st) t = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('thanks'); }
   return /^[0-9a-f-]{36}$/.test(t || '') ? t : null;
 }
+/* 取消・送信済みを最新で判定するため、予約を引き直してから開く */
 async function resvThanksById(id){
   const r = await sb.rpc('cast_resv_list', { p_token: TOKEN });
   if(r.error){ fail(r.error.message); return; }
@@ -38,6 +39,7 @@ function resvThanks(x){
 }
 /* LINE の送信に失敗した時は、欠勤連絡と同じ文を一覧の上に出す（前は何も出さなかった） */
 async function resvListNg(lineOk, what){ await resvList(); if(!lineOk) $('main').insertAdjacentHTML('afterbegin', lineNg(what, '黒服')); }
+/* 取消は先に確定する。LINE が失敗しても取消は戻さず、一覧の上に出す */
 async function resvCancel(x, b){
   if(!await uiConfirm(`${resvLine(x)}\nこの予約を取り消しますか？`, '取消')) return;
   if(b) b.disabled = true; /* 送っている間は押せない（2回押し） */
@@ -48,6 +50,7 @@ async function resvCancel(x, b){
   resvListNg(lineOk, '予約取消');
 }
 // 予約の申請・変更の画面（lib/olive/resv_form.js の resvFormOpen）を、女性のマイページ・黒服のマイページ（hall）から開く
+/* 画面側の呼び名を、女性・黒服のどちらからでも使う rpc 名に置き換える表 */
 const RV_RPC = { staff: 'cast_resv_staff', day: 'cast_resv_day', search: 'cast_customer_search', offs: 'cast_off_days', same: 'cast_customer_same_name', shift: 'cast_shift_request' };
 const castResvA = hall => ({ mode: hall ? 'hall' : 'cast', NK: RV_NOKK(), meName: ME.name, draft: !hall,
   rpc: (n, a) => sb.rpc(n === 'submit' ? (hall ? 'hall_resv_submit' : 'cast_resv_submit') : RV_RPC[n], { p_token: TOKEN, ...a }),

@@ -21,6 +21,7 @@ $('navSettings').onclick=()=>{ renderSettings(S.setCur); show('v-settings'); };
 // 保存忘れのお知らせ（オーナー。管理サイト v1.22 と同じ）。設定の「詳細」と閉店作業「⑧ その日のメモ」で、入力して保存を押さずに、設定のタブ・一覧・下のボタンで移ろうとした時
 // 保存して画面が描き直されるとボタンが消える＝保存済み。精算の数（金種）は画面を移っても残るので数えない
 let unsavedBtn=null, unsavedPass=false; /* unsavedBtn＝まだ押されていない保存のボタン（触った詳細の［保存］）・unsavedPass＝小窓の後に押し直す間だけ見張りを外す印 */
+/* その日のメモは自動保存なので、保存ボタンのある設定の詳細（#setForm）だけを見張る */
 function setUnsavedMark(e){ const t=e.target; if(!t||t.closest('.modal')) return; const id=t.closest('#setForm')?'setSave':null; /* その日のメモは自動で保存 */ if(id&&$(id)) unsavedBtn=$(id); }
 $('v-settings').addEventListener('input',setUnsavedMark,true); $('v-settings').addEventListener('change',setUnsavedMark,true);
 const unsavedNow=()=>!!(unsavedBtn&&unsavedBtn.isConnected&&!unsavedBtn.disabled);
