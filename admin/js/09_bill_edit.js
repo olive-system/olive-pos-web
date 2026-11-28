@@ -42,6 +42,7 @@ function billViewLines(C,L,N,pn,its,voids,exts,extMin,adjs,pays){
 // 伝票のアフター（SQL 526）：開いた時に読み、保存の時に足した人・外した人を admin_after_set で送る（伝票の直しの後）
 async function beAfterLoad(id){ const ar=await sb.from('after_bills').select('staff_id').eq('bill_id',id); return (ar.data||[]).map(x=>x.staff_id); }
 async function beAfterSave(id,afA,afD){ for(const [L,on] of [[afA,true],[afD,false]]) for(const sid of L){ const a=await rpc('admin_after_set',{p_bill:id,p_staff:sid,p_on:on}); if(!a.ok) return false; } return true; }
+/* 手で直した HC の振分（by_hand）は、係を変えても作り直さない（POS の pos_hc_sync と同じ・SQL 826）。客数で数が変わった時（resplit）は作り直す */
 async function billEdit(id){
   const r=await sb.rpc('admin_bill_get',{p_bill:id}); if(r.error){ await uiAlert(r.error.message); return; }
   const O=r.data; O.custs=O.custs||[]; O.after=await beAfterLoad(id); const S=JSON.parse(JSON.stringify(O)), st=O.settings||{}, B=S.bill, att=new Set(O.attended||[]), bd=O.bill.business_date;
@@ -49,10 +50,10 @@ async function billEdit(id){
   const live=it=>!it.is_void, hcId=st.auto_hc_product_id, bcId=st.auto_bc_product_id;
   // バックは等分（端数は最初の人）。POS と同じ
   const split=(it,ids)=>{ const m=ids.length, bk=Number(it.back_amount||0)*it.qty, pt=Number(it.back_points||0)*it.qty; if(!m||(!bk&&!pt)) return [];
-    const eb=Math.floor(bk/m), ep=Math.floor(pt/m*10)/10; return ids.map((sid,j)=>({id:(it.splits||[]).find(z=>z.staff_id===sid)?.id||beUid(),staff_id:sid,sales_amount:0,back_amount:eb+(j===0?bk-eb*m:0),back_points:j===0?Math.round((pt-ep*(m-1))*10)/10:ep})); };
+    const eb=Math.floor(bk/m), ep=Math.floor(pt/m*10)/10; return ids.map((sid,j)=>({id:(it.splits||[]).find(z=>z.staff_id===sid)?.id||beUid(),staff_id:sid,by_hand:false,sales_amount:0,back_amount:eb+(j===0?bk-eb*m:0),back_points:j===0?Math.round((pt-ep*(m-1))*10)/10:ep})); };
   const kks=()=>[...new Set(S.casts.filter(c=>c.is_kakari&&!ST.find(x=>x.id===c.staff_id)?.kakari_only).map(c=>c.staff_id))];
-  const syncHc=()=>S.items.filter(i=>live(i)&&hcId&&i.product_id===hcId).forEach(i=>{ i.splits=split(i,kks()); });
-  const resplit=it=>{ if(hcId&&it.product_id===hcId) syncHc(); else it.splits=split(it,(it.splits||[]).map(z=>z.staff_id)); };
+  const syncHc=()=>S.items.filter(i=>live(i)&&hcId&&i.product_id===hcId&&!(i.splits||[]).some(z=>z.by_hand)).forEach(i=>{ i.splits=split(i,kks()); });
+  const resplit=it=>{ it.splits=split(it,hcId&&it.product_id===hcId?kks():(it.splits||[]).map(z=>z.staff_id)); };
   // 自動延長：POS の自動延長と同じ考え方で、退店の時刻までに足りる回数にそろえる（手で入れた延長はそのまま）
   const reExt=()=>{ if(O.mode&&O.mode.include_set===false) return; const em=Number(st.ext_minutes||0); if(em<=0||!B.set_start||!B.closed_at) return;
     const man=S.exts.filter(e=>!e.is_auto), au=S.exts.filter(e=>e.is_auto), base=Number(B.set_minutes||0)+man.reduce((a,e)=>a+Number(e.minutes||0),0)+Number(B.ext_waived_minutes||0)+Number(B.ext_pay_shift_minutes||0);
@@ -86,7 +87,7 @@ function beDiffRows(E,ops,note){ const {id,O,S,st,B,att,bd,ST,sn,pn,live,hcId,bc
     const cl=(x,y)=>{ const z=x||y, k=c=>[c.is_kakari?''+KL+'':'',BE_ROLE[c.role]||''].filter(Boolean).join('・'); return !y?`${k(x)}を追加 ${sn(x.staff_id)}`:!x?`${k(y)}を外す ${sn(y.staff_id)}`:`${sn(z.staff_id)} ${k(y)||'—'}→${k(x)||'—'}`; };
     const oSp=O.items.flatMap(i=>i.splits.map(z=>({...z,_i:i.id}))), sSp=S.items.flatMap(i=>(i.splits||[]).map(z=>({...z,_i:i.id})));
     // 先にバックの行を消す → 伝票・係・反応◎・注文 → バックの行を足す → 延長・値引・支払い
-    const spOps=[]; { const keep=ops.length; rows('bill_item_splits',oSp,sSp,['staff_id','sales_amount','back_amount','back_points'],()=>'',x=>({item:x._i})); spOps.push(...ops.splice(keep)); }
+    const spOps=[]; { const keep=ops.length; rows('bill_item_splits',oSp,sSp,['staff_id','sales_amount','back_amount','back_points','by_hand'],()=>'',x=>({item:x._i})); spOps.push(...ops.splice(keep)); }
     ops.push(...spOps.filter(o=>o.op==='delete'));
     rows('bill_casts',O.casts,S.casts,['staff_id','role','is_kakari'],cl);
     rows('good_reactions',O.goods,S.goods,['staff_id'],(x,y)=>x?`反応◎ ${sn(x.staff_id)}`:`反応◎を取消 ${sn(y.staff_id)}`);
