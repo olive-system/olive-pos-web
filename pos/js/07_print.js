@@ -8,10 +8,13 @@ const VIPL='VIP charge'; /* 明細の VIP の部屋の料金の言い方（オ�
 const hmS=t=>hmJst(t).replace(/^0/,''); /* 〜1:30（時の頭の 0 は付けない。オーナー「〜1:30の方がかっこいい」） */
 // d：{ kind:'estimate'|'bill'|'detail', title, logo, store, rows:[{l,m,r}]（概算：l＝延長・m＝〜何時・r＝金額）, items:[{l,r,s}]（明細：s＝バックのキャスト）, sums:[{l,r}], due, note }
 // c：描く道具（g＝canvas・W＝幅・fs＝字の大きさ・y＝今の高さ）。部品は c.y を進める
-function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
+/* 細い字のままだと紙で薄く見える（白黒の2色で送るので、1ドットの細い所がかすれる）。字の形は変えずに、同じ字を線でなぞって太らせる。
+   大きい字（40px 以上）は幅 2・細い小さい字は幅 0.5。太い（600）小さい字は、なぞると漢字の中がつぶれるので今のまま。ロゴとサインは絵なので変わらない */
+function darkInk(g){ const f=g.fillText; g.fillText=(...a)=>{ f.apply(g,a); const px=parseFloat(/([\d.]+)px/.exec(g.font)[1]), ink=px>=40?2:/(^|\s)(600|bold)\s/.test(g.font)?0:0.5; if(!ink) return; const lw=g.lineWidth; g.lineWidth=ink; g.lineJoin='round'; g.strokeText(...a); g.lineWidth=lw; }; }
+function slipTools(z){ const W=576, cv=document.createElement('canvas'); cv.width=W; cv.height=8000; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,cv.height); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic'; darkInk(g);
   const c={ cv, g, W, fs:22*z, y:0, yen:n=>'¥'+(Number(n)||0).toLocaleString(),
     MI:(px,w)=>`${w||600} ${Math.round(px)}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`, BK:(px,it)=>`${it?'italic ':''}400 ${Math.round(px)}px Baskerville,"Baskerville Old Face",Georgia,serif` };
-  c.hl=(y,x1,x2)=>{ g.lineWidth=1; g.beginPath(); g.moveTo(x1,Math.round(y)+.5); g.lineTo(x2,Math.round(y)+.5); g.stroke(); };
+  c.hl=(y,x1,x2)=>{ g.lineWidth=2; g.beginPath(); g.moveTo(x1,Math.round(y)); g.lineTo(x2,Math.round(y)); g.stroke(); };
   c.sp=(t,y,ls)=>{ /* 字間をあけて真ん中に */ const cs=[...String(t)], w=cs.reduce((s,ch)=>s+g.measureText(ch).width,0)+ls*(cs.length-1); let x=(W-w)/2; g.textAlign='left'; for(const ch of cs){ g.fillText(ch,x,y); x+=g.measureText(ch).width+ls; } };
   c.wrap=(t,mw)=>{ /* 幅 mw に入るように折り返す */ const out=[]; let cur=''; for(const ch of [...String(t)]){ if(cur&&g.measureText(cur+ch).width>mw){ out.push(cur); cur=ch===' '||ch==='　'?'':ch; } else cur+=ch; } out.push(cur); return out; };
   c.lr=(l,r,y,fl,fr)=>{ g.textAlign='left'; g.font=fl; g.fillText(l,0,y); g.textAlign='right'; g.font=fr; g.fillText(r,W,y); };
@@ -37,14 +40,12 @@ function slipDetail(c,d){ const {g,W,fs}=c;
   c.y+=Math.round(fs*2.3); c.lr('合計',c.yen(d.due),c.y,c.MI(fs*0.95,600),c.BK(fs*1.75)); }
 // 会計票（Bill）：写真の手書きの会計票と同じ形（オーナー 2026-11-21「③」）。左上に小さい Receipt・金額だけ（¥ も , も付けず、3桁ごとに少し空ける）・金額の下に短い線・ロゴは小さく右下
 // 細い線が潰れないよう（203dpi＝1mm 8ドット）、Receipt は Bill の見出しと同じ大きさ・短い線は2ドット・ロゴは幅 170。支払い方法の内訳（現金・カード）は出さず、合計の金額だけにする（会計票は値段を見せる紙。オーナー 2026-11-21「お会計票って値段を見せるもの」）
-/* 会計票は細い字のままだと薄く見える（白黒の2色で送るので、1ドットの細い所がかすれる）。字の形は変えずに、同じ字を線でなぞって太らせる */
-const slipInk=(g,t,x,y)=>{ g.lineWidth=2; g.lineJoin='round'; g.fillText(t,x,y); g.strokeText(t,x,y); };
-function slipMoney(g,n,x,y,gap,al){ const gs=String(Math.max(0,Math.round(Number(n)||0))).replace(/\B(?=(\d{3})+$)/g,',').split(','), ws=gs.map(t=>g.measureText(t).width), tot=ws.reduce((u,v)=>u+v,0)+gap*(gs.length-1); let sx=al==='right'?x-tot:x-tot/2; g.textAlign='left'; const x0=sx; gs.forEach((t,k)=>{ slipInk(g,t,sx,y); sx+=ws[k]+gap; }); return [x0,x0+tot]; }
+function slipMoney(g,n,x,y,gap,al){ const gs=String(Math.max(0,Math.round(Number(n)||0))).replace(/\B(?=(\d{3})+$)/g,',').split(','), ws=gs.map(t=>g.measureText(t).width), tot=ws.reduce((u,v)=>u+v,0)+gap*(gs.length-1); let sx=al==='right'?x-tot:x-tot/2; g.textAlign='left'; const x0=sx; gs.forEach((t,k)=>{ g.fillText(t,sx,y); sx+=ws[k]+gap; }); return [x0,x0+tot]; }
 function drawBill(d,z){ const c=slipTools(z), {g,W,fs}=c, MX=56, LW=170; let y=Math.round(fs*1.9);
-  g.textAlign='left'; g.font=c.BK(fs*1.45,true); slipInk(g,d.title,MX,y);
+  g.textAlign='left'; g.font=c.BK(fs*1.45,true); g.fillText(d.title,MX,y);
   const bh=Math.round(fs*3.6); y+=Math.round(fs*0.8); g.font=c.BK(fs*2.4); const ext=slipMoney(g,d.due,W/2,y+Math.round(bh/2+fs*0.85),8,'center'); y+=bh; /* 桁の間は 8 ドット（これより狭いと印刷で桁がつながって見える。オーナー 2026-11-25） */
   const lx=Math.round((ext[0]+ext[1])/2); /* 線は数字の見える左右の真ん中 */
-  g.lineWidth=3; g.beginPath(); g.moveTo(lx-60,y-Math.round(fs*0.1)+.5); g.lineTo(lx+60,y-Math.round(fs*0.1)+.5); g.stroke();
+  g.lineWidth=2; g.beginPath(); g.moveTo(lx-60,y-Math.round(fs*0.1)+.5); g.lineTo(lx+60,y-Math.round(fs*0.1)+.5); g.stroke();
   if(d.logo){ const lc=slipLogo(d.logo,LW); y+=Math.round(fs*0.55); g.drawImage(lc,W-MX-LW,y); y+=lc.height; }
   y+=Math.round(fs*0.55); const out=document.createElement('canvas'); out.width=W; out.height=y; out.getContext('2d').drawImage(c.cv,0,0); return out; }
 // 領収書と同じ明朝と Baskerville。ロゴ・見出し・金額を、余白と細い線で並べる。576 ドット幅の絵（imagePrint で白黒に）
@@ -81,7 +82,7 @@ $('prReceipt').onclick=async()=>{ // 領収書：入金のあった金額まで�
 // 領収書の絵（横長 1240×576）。印刷は 90度回して 80mm 幅（576ドット）で出す
 // デザインを「静かな明朝」に（オーナー 案ア。見本 作業場/領収書_デザイン_案.png）。二重の細い枠・明朝と Baskerville・金額は二重線・右にロゴとお店。言葉は前と同じ
 // 印刷は白黒（明るさ 150 未満が黒）。明朝の細い字（W3）は 20px 未満だと線が切れるので、小さい字は W6。1px＝1ドットなので、画数の多い字は 18px 以上にする
-function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic';
+function drawReceipt(cv,d){ const W=1240,H=576; cv.width=W; cv.height=H; const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,W,H); g.fillStyle='#000'; g.strokeStyle='#000'; g.textBaseline='alphabetic'; darkInk(g);
   const MI=(px,w)=>`${w||(px<20?600:300)} ${px}px "Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","Noto Serif JP",serif`, BK=(px,it)=>`${it?'italic ':''}400 ${px}px Baskerville,"Baskerville Old Face",Georgia,serif`, yen=n=>`¥${Number(n||0).toLocaleString()}`;
   const sp=(t,x,y,ls,al)=>{ /* 字間をあけて書く（al：left / right / center）。書いた幅を返す */ const cs=[...String(t)], w=cs.reduce((s,c)=>s+g.measureText(c).width,0)+ls*(cs.length-1); let sx=al==='right'?x-w:al==='center'?x-w/2:x; g.textAlign='left'; for(const c of cs){ g.fillText(c,sx,y); sx+=g.measureText(c).width+ls; } return w; };
   const hl=(x1,y1,x2,y2)=>{ g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke(); };
